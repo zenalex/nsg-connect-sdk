@@ -1,0 +1,548 @@
+{
+  "@@locale": "en",
+  "@@context": "TASK22 Chunk 1 — template ARB. Любые keys без RU перевода в `app_ru.arb` fallback на этот файл. Все non-EN locales (de/fr/etc) тоже fallback здесь.",
+
+  "commonRetry": "Retry",
+  "@commonRetry": {
+    "description": "Кнопка/tooltip для повторной попытки в error states (chats list, message bubble после failed send)."
+  },
+
+  "commonNewChat": "New chat",
+  "@commonNewChat": {
+    "description": "Title `CreateChatScreen` + tooltip add-button в `ChatsListScreen` AppBar. Use case: открыть UI создания нового чата (direct по messengerUserId / в будущем поиск по имени)."
+  },
+
+  "commonConnectionLost": "Connection lost — showing cache",
+  "@commonConnectionLost": {
+    "description": "Banner показывается когда `state == Error` но есть `lastKnown` cache; UI рендерит кэш + это сообщение наверху. См. `ConnectionLostBanner`."
+  },
+
+  "chatsListTitle": "Chats",
+  "@chatsListTitle": {
+    "description": "AppBar title для `ChatsListScreen` — главного экрана со списком всех чатов пользователя."
+  },
+
+  "chatsListEmpty": "No chats yet",
+  "@chatsListEmpty": {
+    "description": "Empty-state в `ChatsListScreen` когда listRooms() вернул пустой массив (новый юзер без single чата)."
+  },
+
+  "chatsListLoadFailed": "Failed to load chats",
+  "@chatsListLoadFailed": {
+    "description": "Заголовок error-empty экрана в `ChatsListScreen` когда listRooms() упал И нет lastKnown cache. Сопровождается raw error text + Retry button."
+  },
+
+  "createChatInvalidId": "Enter numeric messengerUserId",
+  "@createChatInvalidId": {
+    "description": "Валидация формы в `CreateChatScreen` когда юзер ввёл не-числовой messengerUserId. Локально показывается под полем ввода."
+  },
+
+  "createChatPeerUnavailable": "User unavailable",
+  "@createChatPeerUnavailable": {
+    "description": "Anti-enumeration error из `RoomService.createDirect` (TASK13): peer не существует / в другом tenant / == caller. Показывается без uid-leak."
+  },
+
+  "createChatHelp": "Direct chat by messengerUserId. Name search — TASK42.",
+  "@createChatHelp": {
+    "description": "Help-text в `CreateChatScreen` объясняющий MVP scope (только direct по числовому id; имя/handle search в TASK42)."
+  },
+
+  "createChatSubmit": "Create direct chat",
+  "@createChatSubmit": {
+    "description": "Submit-button в `CreateChatScreen` форме."
+  },
+
+  "chatScreenEmpty": "No messages yet — write the first one",
+  "@chatScreenEmpty": {
+    "description": "Empty-state в `ChatScreen` когда room новая, history-pagination вернула 0 messages."
+  },
+
+  "chatScreenLoadFailed": "Failed to load messages",
+  "@chatScreenLoadFailed": {
+    "description": "Заголовок error-empty в `ChatScreen` когда listMessages() упал на init без lastKnown."
+  },
+
+  "chatScreenSendHint": "Message…",
+  "@chatScreenSendHint": {
+    "description": "Placeholder в `MessageComposer` TextField — подсказка пользователю что писать."
+  },
+
+  "chatScreenSendTooltip": "Send",
+  "@chatScreenSendTooltip": {
+    "description": "Tooltip send-button (paper-plane icon) в `MessageComposer`. Активен только при non-empty composer + state==Ready."
+  },
+
+  "roomSummaryNoName": "(no name)",
+  "@roomSummaryNoName": {
+    "description": "Fallback name в `RoomSummaryTile` когда `RoomSummary.name == null` (group без явного имени, direct без participants info)."
+  },
+
+  "roomSummaryNoMessages": "No messages",
+  "@roomSummaryNoMessages": {
+    "description": "Fallback subtitle в `RoomSummaryTile` когда `lastMessagePreview == null` (комната создана но никто не написал)."
+  },
+
+  "commonCancel": "Cancel",
+  "@commonCancel": {
+    "description": "Cancel-button в confirm-диалогах. TASK42: leave-confirm + future destructive actions."
+  },
+
+  "roomActionSheetTitle": "Chat actions",
+  "@roomActionSheetTitle": {
+    "description": "TASK42 Chunk 2: header в bottom-sheet который открывается на long-press `RoomSummaryTile`. Показывает available actions (mute/archive/leave)."
+  },
+
+  "roomActionMute": "Mute",
+  "@roomActionMute": {
+    "description": "TASK42: action в room-action-sheet. Открывает submenu с durations (1h/8h/1d/1w/forever)."
+  },
+
+  "roomActionUnmute": "Unmute",
+  "@roomActionUnmute": {
+    "description": "TASK42: action в room-action-sheet, видна когда `room.muted == true`. Сразу делает unmute (без submenu)."
+  },
+
+  "roomActionMuteFor1Hour": "1 hour",
+  "@roomActionMuteFor1Hour": {
+    "description": "TASK42: mute-duration option (1 час)."
+  },
+
+  "roomActionMuteFor8Hours": "8 hours",
+  "@roomActionMuteFor8Hours": {
+    "description": "TASK42: mute-duration option (8 часов, типичная workday/sleep)."
+  },
+
+  "roomActionMuteFor1Day": "1 day",
+  "@roomActionMuteFor1Day": {
+    "description": "TASK42: mute-duration option (24 часа)."
+  },
+
+  "roomActionMuteFor1Week": "1 week",
+  "@roomActionMuteFor1Week": {
+    "description": "TASK42: mute-duration option (7 дней, типичный отпуск short)."
+  },
+
+  "roomActionMuteForever": "Forever",
+  "@roomActionMuteForever": {
+    "description": "TASK42: mute-duration option, использует `kMuteForever` sentinel (`DateTime.utc(9999, 1, 1)`). Без timer-а unmute, юзер должен явно нажать Unmute."
+  },
+
+  "roomActionMuteUntilTitle": "Mute until",
+  "@roomActionMuteUntilTitle": {
+    "description": "TASK42: title secondary bottom-sheet с mute-durations (когда юзер выбрал Mute из главного sheet-а)."
+  },
+
+  "roomActionArchive": "Archive",
+  "@roomActionArchive": {
+    "description": "TASK42: action в room-action-sheet. Скрывает чат с active-tab. Restore через unarchive в archived-tab."
+  },
+
+  "roomActionUnarchive": "Unarchive",
+  "@roomActionUnarchive": {
+    "description": "TASK42: action в room-action-sheet, видна когда `room.archived == true`. Restore back to active list."
+  },
+
+  "roomActionLeave": "Leave chat",
+  "@roomActionLeave": {
+    "description": "TASK42: destructive action в room-action-sheet. Покидает Matrix room + удаляет local membership. Открывает confirm-dialog."
+  },
+
+  "roomActionLeaveConfirmTitle": "Leave chat?",
+  "@roomActionLeaveConfirmTitle": {
+    "description": "TASK42: title confirm-dialog для leaveRoom. Destructive action, требует явного OK."
+  },
+
+  "roomActionLeaveConfirmBody": "You will be removed from the conversation. Other participants will see that you left.",
+  "@roomActionLeaveConfirmBody": {
+    "description": "TASK42: body leave-confirm-dialog. Объясняет что other participants получат membershipLeft event."
+  },
+
+  "roomActionFailedSnack": "Action failed — try again",
+  "@roomActionFailedSnack": {
+    "description": "TASK42: snackbar когда mute/archive/leave RPC упал. Optimistic-update reverted, юзеру предлагается retry."
+  },
+
+  "chatsListFilterMenuTooltip": "Filter",
+  "@chatsListFilterMenuTooltip": {
+    "description": "TASK42: tooltip overflow-menu button в `ChatsListScreen` AppBar (3 dots → Active/Archived/All)."
+  },
+
+  "chatsListFilterActive": "Active",
+  "@chatsListFilterActive": {
+    "description": "TASK42: PopupMenuItem `ChatsListFilter.active` (default — server-side filter `includeArchived=false`)."
+  },
+
+  "chatsListFilterArchived": "Archived",
+  "@chatsListFilterArchived": {
+    "description": "TASK42: PopupMenuItem `ChatsListFilter.archived` (server возвращает все, SDK post-filter `r.archived`)."
+  },
+
+  "chatsListFilterAll": "All",
+  "@chatsListFilterAll": {
+    "description": "TASK42: PopupMenuItem `ChatsListFilter.all` (debug / power-user — без post-filter, видны и active и archived вместе)."
+  },
+
+  "chatsListSearchTooltip": "Search",
+  "@chatsListSearchTooltip": {
+    "description": "TASK42 Chunk 3: tooltip search-icon в `ChatsListScreen` AppBar. На tap activates inline TextField mode."
+  },
+
+  "chatsListSearchHint": "Search chats…",
+  "@chatsListSearchHint": {
+    "description": "TASK42 Chunk 3: placeholder в search TextField. ILIKE на Room.name, server-side; 300ms debounce."
+  },
+
+  "chatsListSearchClearTooltip": "Clear",
+  "@chatsListSearchClearTooltip": {
+    "description": "TASK42 Chunk 3: tooltip clear-button (X icon) в search TextField. На tap reset query → refresh без search-параметра."
+  },
+
+  "chatsListSearchEmpty": "No matches",
+  "@chatsListSearchEmpty": {
+    "description": "TASK42 Chunk 3: empty-state в `ChatsListScreen` когда search вернул 0 results (отдельно от `chatsListEmpty` который для no-search empty)."
+  },
+
+  "chatsListProductFilterTooltip": "Product",
+  "@chatsListProductFilterTooltip": {
+    "description": "TASK42 Chunk 3: tooltip product-filter dropdown в `ChatsListScreen` AppBar. Виден только в standalone-mode когда `availableProducts.length > 1`."
+  },
+
+  "chatsListProductFilterAll": "All products",
+  "@chatsListProductFilterAll": {
+    "description": "TASK42 Chunk 3: PopupMenuItem `productFilter == null` — снимает product filter, показывает rooms из всех products."
+  },
+
+  "attachActionSheetTitle": "Attach",
+  "@attachActionSheetTitle": {
+    "description": "TASK19 Chunk 3: header в bottom-sheet который открывается на tap-on-paperclip-icon в `MessageComposer`. Показывает доступные source-ы attachment (camera/gallery). file_picker — Phase2."
+  },
+
+  "attachActionCamera": "Camera",
+  "@attachActionCamera": {
+    "description": "TASK19 Chunk 3: action в attach bottom-sheet — открывает camera через image_picker."
+  },
+
+  "attachActionGallery": "Gallery",
+  "@attachActionGallery": {
+    "description": "TASK19 Chunk 3: action в attach bottom-sheet — открывает photo gallery через image_picker."
+  },
+
+  "attachUploadFailed": "Upload failed — try again",
+  "@attachUploadFailed": {
+    "description": "TASK19 Chunk 3: snackbar когда upload через `messenger.uploadAttachment` упал (network / server reject mime). UI revert composer state."
+  },
+
+  "attachUnnamedFallback": "Unnamed file",
+  "@attachUnnamedFallback": {
+    "description": "TASK19 Chunk 3: fallback в `_FileRow` когда `AttachmentRef.originalFilename == ''` (defensive — server обычно non-empty)."
+  },
+
+  "attachTooltip": "Attach file",
+  "@attachTooltip": {
+    "description": "TASK19 Chunk 3: tooltip paperclip-icon в `MessageComposer`. Tap открывает `showAttachmentPicker` bottom-sheet."
+  },
+
+  "messageActionSheetTitle": "Message",
+  "@messageActionSheetTitle": {
+    "description": "TASK37 Chunk 2: header bottom-sheet который открывается на long-press `MessageBubble`. Items: Edit / Delete / Copy."
+  },
+
+  "messageActionEdit": "Edit",
+  "@messageActionEdit": {
+    "description": "TASK37: edit action в message bottom-sheet. Visible только для own + non-deleted messages."
+  },
+
+  "messageActionDelete": "Delete",
+  "@messageActionDelete": {
+    "description": "TASK37: delete action. Visible только для own + non-deleted messages. Destructive — confirm dialog."
+  },
+
+  "messageActionCopy": "Copy",
+  "@messageActionCopy": {
+    "description": "TASK37: copy text action. Always-enabled (Q4 sign-off). Использует Clipboard.setData."
+  },
+
+  "messageActionEditDialogTitle": "Edit message",
+  "@messageActionEditDialogTitle": {
+    "description": "TASK37: title input dialog для edit. Open после Edit action в bottom-sheet."
+  },
+
+  "messageActionEditSave": "Save",
+  "@messageActionEditSave": {
+    "description": "TASK37: save-button в edit dialog. Disabled когда `body.trim().isEmpty` (Q5 client-side validation)."
+  },
+
+  "messageActionDeleteConfirmTitle": "Delete message?",
+  "@messageActionDeleteConfirmTitle": {
+    "description": "TASK37: title destructive confirm dialog для delete."
+  },
+
+  "messageActionDeleteConfirmBody": "This action cannot be undone. The message will be removed for everyone in the chat.",
+  "@messageActionDeleteConfirmBody": {
+    "description": "TASK37: body confirm dialog. Объясняет что delete = visible to all participants (Telegram «delete for everyone» semantics)."
+  },
+
+  "messageEditFailed": "Edit failed — try again",
+  "@messageEditFailed": {
+    "description": "TASK37: snackbar когда editMessage RPC упал (network / server reject). Optimistic-update reverted."
+  },
+
+  "messageDeleteFailed": "Delete failed — try again",
+  "@messageDeleteFailed": {
+    "description": "TASK37: snackbar когда deleteMessage RPC упал. Optimistic-tombstone reverted."
+  },
+
+  "messageDeletedPlaceholder": "Message deleted",
+  "@messageDeletedPlaceholder": {
+    "description": "TASK37: italic tombstone placeholder в bubble когда `deletedAt != null`. Telegram-style soft-delete UX."
+  },
+
+  "messageEditedBadge": "edited",
+  "@messageEditedBadge": {
+    "description": "TASK37: small label рядом с timestamp в bubble когда `editedAt != null`. Не показывает diff/history (Phase2)."
+  },
+
+  "messageShowMore": "Show more",
+  "@messageShowMore": {
+    "description": "Кнопка под обрезанным длинным сообщением — раскрывает полный текст inline."
+  },
+
+  "messageCopiedSnack": "Copied",
+  "@messageCopiedSnack": {
+    "description": "TASK37: snackbar после Copy action — feedback что text put в clipboard."
+  },
+
+  "messageActionReply": "Reply",
+  "@messageActionReply": {
+    "description": "TASK16-A: action sheet item для reply на сообщение. Hidden для tombstone."
+  },
+
+  "composerReplyingTo": "Replying to {name}",
+  "@composerReplyingTo": {
+    "description": "TASK16-A: header reply quote chip над composer-ом. {name} — displayName того, кому отвечаем (либо matrixUserId fallback).",
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+
+  "composerCancelReply": "Cancel reply",
+  "@composerCancelReply": {
+    "description": "TASK16-A: tooltip close-X кнопки в reply quote chip composer-а."
+  },
+
+  "composerEditing": "Editing",
+  "@composerEditing": {
+    "description": "B12: header edit-mode indicator chip над composer-ом (вместо reply-chip когда композер в edit-mode)."
+  },
+
+  "composerCancelEdit": "Cancel edit",
+  "@composerCancelEdit": {
+    "description": "B12: tooltip close-X кнопки в edit-indicator chip композер-а."
+  },
+
+  "messageComposerSaveTooltip": "Save",
+  "@messageComposerSaveTooltip": {
+    "description": "B12: tooltip send-button когда композер в edit-mode (иконка Icons.check вместо Icons.send)."
+  },
+
+  "typingSingle": "{name} is typing…",
+  "@typingSingle": {
+    "description": "B9 typing indicator footer над composer-ом: 1 peer печатает. {name} — displayName.",
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+
+  "typingPair": "{name1} and {name2} are typing…",
+  "@typingPair": {
+    "description": "B9: 2 peers печатают.",
+    "placeholders": {
+      "name1": {"type": "String"},
+      "name2": {"type": "String"}
+    }
+  },
+
+  "roomRenameTitle": "Rename chat",
+  "@roomRenameTitle": {"description": "B15: dialog title for room rename."},
+
+  "roomRenameHint": "New chat name",
+  "@roomRenameHint": {"description": "B15: TextField hint inside rename dialog."},
+
+  "roomRenameSave": "Save",
+  "@roomRenameSave": {"description": "B15: confirm button in rename dialog."},
+
+  "roomRenameCancel": "Cancel",
+  "@roomRenameCancel": {"description": "B15: cancel button in rename dialog."},
+
+  "roomRenameFailed": "Couldn't rename the chat — try again or check your role",
+  "@roomRenameFailed": {"description": "B15: snackbar после server reject (InsufficientPowerException / network)."},
+
+  "readReceiptsSheetTitle": "Seen by",
+  "@readReceiptsSheetTitle": {"description": "Group read-receipts bottom-sheet title."},
+  "readReceiptsSectionRead": "Read",
+  "@readReceiptsSectionRead": {"description": "Section header listing peers who have read."},
+  "readReceiptsSectionUnread": "Not read",
+  "@readReceiptsSectionUnread": {"description": "Section header listing peers who haven't read yet."},
+  "readReceiptsLargeGroupHint": "Detailed read list is only available for groups of up to 25 members. {count} of {total} have read.",
+  "@readReceiptsLargeGroupHint": {"description": "Shown in the sheet for groups > 25 participants — only count, no per-user breakdown.", "placeholders": {"count": {"type": "int"}, "total": {"type": "int"}}},
+  "readReceiptsNobodyRead": "No one has read yet",
+  "@readReceiptsNobodyRead": {"description": "Sheet placeholder when peer read count is zero."},
+  "readReceiptsCountLabel": "{count}",
+  "@readReceiptsCountLabel": {"description": "Compact label on bubble for group read count next to eye icon.", "placeholders": {"count": {"type": "int"}}},
+
+  "groupDissolveAction": "Delete group",
+  "@groupDissolveAction": {"description": "Destructive button label in GroupSettingsScreen — owner kicks everyone and leaves."},
+  "groupDissolveConfirmTitle": "Delete group «{name}»?",
+  "@groupDissolveConfirmTitle": {"description": "Confirm dialog title for group dissolve.", "placeholders": {"name": {"type": "String"}}},
+  "groupDissolveConfirmBody": "All members will be removed and the chat will close. This cannot be undone.",
+  "@groupDissolveConfirmBody": {"description": "Confirm dialog body for group dissolve."},
+  "groupDissolveProgress": "Deleting group…",
+  "@groupDissolveProgress": {"description": "Progress snackbar while loop of kickUser+leaveRoom is running."},
+  "groupDissolveFailed": "Couldn't fully delete — try again. Members removed: {kicked} of {total}.",
+  "@groupDissolveFailed": {"description": "Snackbar when one or more kick calls failed; some members may remain.", "placeholders": {"kicked": {"type": "int"}, "total": {"type": "int"}}},
+  "groupDissolveSuccess": "Group deleted",
+  "@groupDissolveSuccess": {"description": "Snackbar after successful dissolve."},
+
+  "typingManyCount": "{count} people are typing…",
+  "@typingManyCount": {
+    "description": "B9: 3+ peers печатают — заменяем именами на счётчик чтобы не растягивать footer.",
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+
+  "replyChipUnavailable": "Original message unavailable",
+  "@replyChipUnavailable": {
+    "description": "TASK16-A: placeholder в bubble reply chip когда target lookup в state.messages дал cache miss (pre-paginated либо not-yet-loaded)."
+  },
+
+  "mentionTypeaheadEmpty": "No matches",
+  "@mentionTypeaheadEmpty": {
+    "description": "TASK16-A: empty-state в @-typeahead overlay когда query фильтрует все participants."
+  },
+
+  "mentionTypeaheadShowingHeader": "Showing {shown} of {total}",
+  "@mentionTypeaheadShowingHeader": {
+    "description": "TASK16-A: header в @-typeahead когда total participants > 30 (TASK13 cap). Сейчас участников много, видно top 30; Phase2 RPC search.",
+    "placeholders": {
+      "shown": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
+
+  "roleBadgeOwner": "Owner",
+  "@roleBadgeOwner": {
+    "description": "TASK29 Chunk 2: tooltip для crown-badge у owner-роли в participant tile."
+  },
+  "roleBadgeAdmin": "Admin",
+  "@roleBadgeAdmin": {
+    "description": "TASK29 Chunk 2: tooltip для shield-badge у admin-роли."
+  },
+
+  "roomAdminKickAction": "Kick from room",
+  "@roomAdminKickAction": {
+    "description": "TASK29 Chunk 2: action sheet item для kick — admin/owner caller, target = member of room."
+  },
+  "roomAdminBanAction": "Ban from room",
+  "@roomAdminBanAction": {
+    "description": "TASK29 Chunk 2: action sheet item для ban — destructive (red), blocks rejoin."
+  },
+  "roomAdminPromoteAction": "Promote to admin",
+  "@roomAdminPromoteAction": {
+    "description": "TASK29 Chunk 2: action sheet item для promote member → admin (owner-only caller)."
+  },
+  "roomAdminPromoteOwnerAction": "Promote to owner",
+  "@roomAdminPromoteOwnerAction": {
+    "description": "TASK29 Chunk 2: action sheet item для promote admin → owner."
+  },
+  "roomAdminDemoteAction": "Demote to member",
+  "@roomAdminDemoteAction": {
+    "description": "TASK29 Chunk 2: action sheet item для demote admin/owner → member."
+  },
+
+  "roomAdminKickConfirmTitle": "Kick {name}?",
+  "@roomAdminKickConfirmTitle": {
+    "description": "TASK29 Chunk 2: confirm-dialog title для kick.",
+    "placeholders": {"name": {"type": "String"}}
+  },
+  "roomAdminKickConfirmBody": "{name} can be re-invited later.",
+  "@roomAdminKickConfirmBody": {
+    "description": "TASK29 Chunk 2: confirm-dialog body для kick — explains revocability.",
+    "placeholders": {"name": {"type": "String"}}
+  },
+  "roomAdminBanConfirmTitle": "Ban {name}?",
+  "@roomAdminBanConfirmTitle": {
+    "description": "TASK29 Chunk 2: confirm-dialog title для ban.",
+    "placeholders": {"name": {"type": "String"}}
+  },
+  "roomAdminBanConfirmBody": "{name} cannot rejoin until unbanned.",
+  "@roomAdminBanConfirmBody": {
+    "description": "TASK29 Chunk 2: confirm-dialog body для ban.",
+    "placeholders": {"name": {"type": "String"}}
+  },
+
+  "roomAdminLastOwnerError": "Cannot demote the last owner. Promote another member first.",
+  "@roomAdminLastOwnerError": {
+    "description": "TASK29 Chunk 2: snackbar mapping для LastOwnerCannotDemoteException."
+  },
+  "roomAdminInsufficientPowerError": "You don't have permission to perform this action.",
+  "@roomAdminInsufficientPowerError": {
+    "description": "TASK29 Chunk 2: snackbar mapping для InsufficientPowerException."
+  },
+  "roomAdminGenericError": "Action failed — try again.",
+  "@roomAdminGenericError": {
+    "description": "TASK29 Chunk 2: snackbar fallback для network / generic errors."
+  },
+
+  "bannedUsersTitle": "Banned users",
+  "@bannedUsersTitle": {
+    "description": "TASK29 Chunk 2: AppBar title для BannedUsersScreen."
+  },
+  "bannedUsersEmpty": "No banned users",
+  "@bannedUsersEmpty": {
+    "description": "TASK29 Chunk 2: empty-state widget при нулевом списке banned."
+  },
+  "bannedUsersUnbanAction": "Unban",
+  "@bannedUsersUnbanAction": {
+    "description": "TASK29 Chunk 2: button text per banned-user tile."
+  },
+
+  "participantsTitle": "Participants",
+  "@participantsTitle": {
+    "description": "TASK29 Chunk 2: AppBar title для ParticipantsScreen."
+  },
+  "participantsBannedMenuItem": "Banned users",
+  "@participantsBannedMenuItem": {
+    "description": "TASK29 Chunk 2: AppBar overflow menu item navigating to BannedUsersScreen (admin-only)."
+  },
+
+  "notificationSettingsTitle": "Notifications",
+  "@notificationSettingsTitle": {
+    "description": "TASK20-Phase2 Chunk 4: AppBar title для NotificationSettingsScreen."
+  },
+  "notificationSettingsPreviewTitle": "Show message preview",
+  "@notificationSettingsPreviewTitle": {
+    "description": "TASK20-Phase2 Chunk 4: SwitchListTile title — toggle для message preview в push-notifications."
+  },
+  "notificationSettingsPreviewSubtitle": "Display sender and message text on the lock screen. Turn off to hide content.",
+  "@notificationSettingsPreviewSubtitle": {
+    "description": "TASK20-Phase2 Chunk 4: SwitchListTile subtitle — описывает privacy trade-off."
+  },
+  "notificationSettingsSaveFailed": "Couldn't save settings — try again",
+  "@notificationSettingsSaveFailed": {
+    "description": "TASK20-Phase2 Chunk 4: snackbar при RPC fail в setNotificationSettings."
+  },
+
+  "connectionStateHealthy": "Connected",
+  "@connectionStateHealthy": {
+    "description": "TASK20 followup (a): tooltip над ConnectionStateIndicator widget-ом когда transport WS живой."
+  },
+  "connectionStateReconnecting": "Reconnecting…",
+  "@connectionStateReconnecting": {
+    "description": "TASK20 followup (a): tooltip когда bus в reconnecting state (1-2 failed attempts, retrying)."
+  },
+  "connectionStateDisconnected": "Connection lost",
+  "@connectionStateDisconnected": {
+    "description": "TASK20 followup (a): tooltip когда bus в disconnected state (3+ failed reconnects, still retrying)."
+  }
+}

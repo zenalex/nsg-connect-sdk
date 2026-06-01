@@ -1,0 +1,67 @@
+name: nsg_messenger
+description: NSG Connect — Flutter SDK для встраивания мессенджера Chatista в продуктовые приложения.
+version: 0.0.1
+homepage: https://github.com/zenalex/nsg-connect
+# На время разработки SDK depends-ит на nsg_connect_client/_flutter
+# через path. Перед публикацией на pub.dev снимаем publish_to и
+# меняем path-зависимости на git/version.
+publish_to: 'none'
+
+environment:
+  sdk: ^3.11.4
+  flutter: ">=3.41.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # Сгенерированный Serverpod-клиент NSG Connect (TASK03/04).
+  # В SDK-репо клиент и flutter-glue лежат рядом (siblings).
+  nsg_connect_client:
+    path: ../nsg_connect_client
+  nsg_connect_flutter:
+    path: ../nsg_connect_flutter
+  serverpod_flutter: 3.4.8
+  # TASK12 Chunk 3: persistent token storage (DPAPI/Keychain/Keystore).
+  # Версия зафиксирована до 9.x — API stable, fallback в memory на
+  # ошибках встроен в AuthTokenStore (см. _SecureAuthTokenStore).
+  flutter_secure_storage: ^9.2.2
+  # Для fingerprint-а MessengerAuthContext (sha256 без accessToken).
+  crypto: ^3.0.3
+  # @visibleForTesting и прочие аннотации.
+  meta: ^1.16.0
+  # TASK14: аватарки в чат-листе с graceful fallback на initials.
+  cached_network_image: ^3.4.1
+  # TASK14: relative-time formatting («5 мин назад» / «вчера» / etc.)
+  # с RU/EN локализацией. См. ревью b89bfd9 — стандарт мессенджеров,
+  # покрывает edge-case-ы (смена дня, локаль-aware short forms).
+  timeago: ^3.7.0
+  # B19: tap по markdown-link в message bubble. На desktop / mobile —
+  # передаём в OS default browser; на iOS Universal Links обрабатываются
+  # OS-роутером (host-app сам решает чем открыть).
+  url_launcher: ^6.3.0
+  # TASK22 Chunk 1: i18n. ARB-generated `NsgL10n` (gen-l10n) импортирует
+  # `flutter_localizations` + `intl.Intl` напрямую — оба переходят
+  # в main deps. Изначально предполагался dev-only `flutter_localizations`
+  # (см. plan Q5), но generated code требует runtime. Free-of-charge —
+  # `flutter_localizations` входит в Flutter SDK, не растит bundle.
+  intl: ^0.20.2
+  flutter_localizations:
+    sdk: flutter
+  # TASK19 Chunk 3: media attachments — picker для image/video из
+  # gallery/camera. file_picker (для arbitrary файлов) — Phase2.
+  image_picker: ^1.1.2
+  # TASK19 Chunk 3: fullscreen image viewer с pinch-zoom для tap-on-
+  # bubble в chat. Используется только в `AttachmentImageViewer`,
+  # никаких других usage-ов в SDK.
+  photo_view: ^0.15.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  # TASK22 Chunk 1: enable l10n code-gen из ARB-файлов через config
+  # `l10n.yaml` (template-arb-file: app_en.arb; output-class: NsgL10n;
+  # synthetic-package: false — generates lib/src/i18n/generated/).
+  generate: true

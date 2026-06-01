@@ -1,0 +1,20 @@
+# Конфиг для `flutter gen-l10n` — TASK22 Chunk 1.
+#
+# Генерирует `NsgL10n` класс из ARB-файлов в `lib/src/i18n/l10n/`.
+# `synthetic-package: false` помещает generated code в SDK исходники
+# (`lib/src/i18n/generated/`), чтобы пакет был распространяемым через
+# pub без depend-cy на synthetic packages в host-app pubspec.
+
+arb-dir: lib/src/i18n/l10n
+template-arb-file: app_en.arb
+output-localization-file: nsg_l10n.dart
+output-class: NsgL10n
+output-dir: lib/src/i18n/generated
+nullable-getter: false
+# CI блокирует merge при отсутствующих переводах: `gen-l10n` warning
+# на missing keys → trigger lefthook hook (см. lefthook.yml).
+required-resource-attributes: false
+# Untranslated keys logged в console — мы их не fail-им hard в gen-l10n
+# (некоторые keys в RU могут совпадать с EN — например `Chatista` —
+# не translation issue). CI lint в lefthook отдельно проверяет coverage.
+untranslated-messages-file: lib/src/i18n/l10n/_untranslated.txt

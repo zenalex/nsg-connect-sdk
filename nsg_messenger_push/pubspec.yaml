@@ -1,0 +1,38 @@
+name: nsg_messenger_push
+description: >
+  Production-ready push token provider для NSG Connect SDK
+  (`nsg_messenger`). Тонкая обёртка над `firebase_messaging` —
+  реализует `PushTokenProvider` interface из core SDK.
+  Отдельный package, чтобы pure-Dart `nsg_messenger` core не тащил
+  native plugin (web/embed-only customer без push не нуждается).
+publish_to: 'none' # Internal monorepo package; не публикуется в pub.dev.
+version: 0.1.0
+
+environment:
+  sdk: ^3.11.4
+  flutter: '>=3.41.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # Core SDK — provides PushTokenProvider abstract class и DeviceInfo.
+  nsg_messenger:
+    path: ../nsg_messenger
+
+  # TASK20-Phase2 Chunk 5: Firebase Cloud Messaging (variant a — FCM
+  # wraps APNs on iOS path). firebase_core — required peer для
+  # firebase_messaging (host-app должен вызвать `Firebase.
+  # initializeApp()` в `main()` ДО `FirebasePushTokenProvider.create()`).
+  firebase_core: ^3.6.0
+  firebase_messaging: ^15.1.3
+  # package_info_plus / device_info_plus — для DeviceInfo population.
+  package_info_plus: ^8.1.0
+  device_info_plus: ^11.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: false
