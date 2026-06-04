@@ -1,4 +1,7 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:nsg_connect_client/nsg_connect_client.dart';
 
 import '../i18n/generated/nsg_l10n.dart';
@@ -49,6 +52,10 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
   late final NsgMessengerRooms _rooms;
   late Future<RoomDetails> _detailsFuture;
 
+  /// **B16-ext (group avatar)**: pending-флаг для прогресса в Stack-FAB
+  /// поверх аватара. Сбрасывается после success / error.
+  bool _avatarUploading = false;
+
   @override
   void initState() {
     super.initState();
@@ -72,6 +79,65 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
     if (saved == true) {
       await _refresh();
     }
+  }
+
+  /// **B16-ext (group avatar)**: pick image → upload → refresh details.
+  /// Best-effort: ошибки показываются snackbar-ом, текущий avatar
+  /// остаётся прежним.
+  Future<void> _pickAndUploadAvatar(RoomDetails details) async {
+    if (_avatarUploading) return;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final picker = ImagePicker();
+    final XFile? picked;
+    try {
+      picked = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+    } catch (e) {
+      messenger?.showSnackBar(
+        SnackBar(content: Text('Не удалось открыть галерею: $e')),
+      );
+      return;
+    }
+    if (picked == null || !mounted) return;
+    setState(() => _avatarUploading = true);
+    try {
+      final bytes = await picked.readAsBytes();
+      final mime = picked.mimeType ?? _guessMime(picked.name);
+      await _rooms.setRoomAvatar(
+        roomId: widget.roomId,
+        bytes: ByteData.sublistView(bytes),
+        mimeType: mime,
+      );
+      if (!mounted) return;
+      // Server invalidate cache + UPDATE Room.avatarUrl сразу — refresh
+      // подтянет свежий URL.
+      await _refresh();
+      if (!mounted) return;
+      messenger?.showSnackBar(
+        const SnackBar(content: Text('Аватар группы обновлён')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      messenger?.showSnackBar(
+        SnackBar(content: Text('Не удалось загрузить аватар: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _avatarUploading = false);
+    }
+  }
+
+  String _guessMime(String filename) {
+    final lower = filename.toLowerCase();
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    if (lower.endsWith('.gif')) return 'image/gif';
+    if (lower.endsWith('.heic')) return 'image/heic';
+    if (lower.endsWith('.heif')) return 'image/heif';
+    return 'image/jpeg';
   }
 
   Future<void> _openAddMembers() async {
@@ -136,6 +202,19 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
 
     try {
       await _rooms.dissolveRoom(widget.roomId);
+    } on RoomDissolvePartialException catch (ex) {
+      if (!mounted) return;
+      messenger?.hideCurrentSnackBar();
+      // Typed partial: server успел kick-нуть `kicked` из `total` peer-ов,
+      // owner остался в room. UI показывает локализованную статистику и
+      // оставляет юзера на экране — повторный «Удалить группу» idempotent.
+      messenger?.showSnackBar(
+        SnackBar(
+          content: Text(l.groupDissolveFailed(ex.kicked, ex.total)),
+          duration: const Duration(seconds: 5),
+        ),
+      );
+      return;
     } catch (e) {
       if (!mounted) return;
       messenger?.hideCurrentSnackBar();
@@ -195,10 +274,47 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
               children: [
                 const SizedBox(height: 20),
                 Center(
-                  child: NsgAvatarImage(
-                    mxcUrl: details.avatarUrl,
-                    fallbackName: details.name ?? '?',
-                    size: 88,
+                  child: Stack(
+                    alignment: Alignment.bottomRight,
+                    children: [
+                      NsgAvatarImage(
+                        mxcUrl: details.avatarUrl,
+                        fallbackName: details.name ?? '?',
+                        size: 88,
+                      ),
+                      // B16-ext (group avatar): tap по камера-FAB →
+                      // image picker → upload. Только для admin/owner
+                      // group/team-чата (direct reject-ит сервер).
+                      if (isAdmin && isGroup && !_avatarUploading)
+                        Material(
+                          color: theme.colorScheme.primary,
+                          shape: const CircleBorder(),
+                          child: InkWell(
+                            onTap: () => _pickAndUploadAvatar(details),
+                            customBorder: const CircleBorder(),
+                            child: const Padding(
+                              padding: EdgeInsets.all(6),
+                              child: Icon(
+                                Icons.camera_alt,
+                                size: 14,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                      if (_avatarUploading)
+                        const Positioned.fill(
+                          child: Center(
+                            child: SizedBox(
+                              width: 28,
+                              height: 28,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 3,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 14),

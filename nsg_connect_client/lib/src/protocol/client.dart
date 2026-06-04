@@ -827,6 +827,32 @@ class EndpointMessenger extends _i2.EndpointRef {
     },
   );
 
+  /// **B16-ext (group avatar)**: загрузка/смена аватара group/team/
+  /// productRoom-комнаты. Принимает image bytes + MIME. Под капотом:
+  ///   1. Validate MIME (image/*).
+  ///   2. Upload через `attachmentService.upload(...)` (тот же flow что
+  ///      для user-avatar и attachment-ов).
+  ///   3. Делегирует в `roomAdminService.setRoomAvatar` — admin PL-guard,
+  ///      `PUT /state/m.room.avatar`, UPDATE `Room.avatarUrl`.
+  ///
+  /// Direct chats reject-аются: для direct аватар = peer's
+  /// `MessengerUser.avatarUrl` (нет per-room override).
+  ///
+  /// Возвращает mxcUrl.
+  _i3.Future<String> setRoomAvatar({
+    required int roomId,
+    required _i11.ByteData bytes,
+    required String mimeType,
+  }) => caller.callServerEndpoint<String>(
+    'messenger',
+    'setRoomAvatar',
+    {
+      'roomId': roomId,
+      'bytes': bytes,
+      'mimeType': mimeType,
+    },
+  );
+
   /// **TASK19 Chunk 1**: скачать media через caller's matrix token
   /// (Matrix Authenticated Media — Synapse 1.100+ обязателен).
   /// Caller должен быть member хотя бы одной комнаты, где media

@@ -49,6 +49,7 @@ abstract class MessengerMessage implements _i1.SerializableModel {
     this.deletedAt,
     this.mentionedMessengerUserIds,
     bool? mentionedRoom,
+    this.senderDisplayName,
   }) : mentionedRoom = mentionedRoom ?? false;
 
   factory MessengerMessage({
@@ -70,6 +71,7 @@ abstract class MessengerMessage implements _i1.SerializableModel {
     DateTime? deletedAt,
     List<int>? mentionedMessengerUserIds,
     bool? mentionedRoom,
+    String? senderDisplayName,
   }) = _MessengerMessageImpl;
 
   factory MessengerMessage.fromJson(Map<String, dynamic> jsonSerialization) {
@@ -111,6 +113,7 @@ abstract class MessengerMessage implements _i1.SerializableModel {
       mentionedRoom: jsonSerialization['mentionedRoom'] == null
           ? null
           : _i1.BoolJsonExtension.fromJson(jsonSerialization['mentionedRoom']),
+      senderDisplayName: jsonSerialization['senderDisplayName'] as String?,
     );
   }
 
@@ -214,6 +217,17 @@ abstract class MessengerMessage implements _i1.SerializableModel {
   /// всем room members с notification override).
   bool mentionedRoom;
 
+  /// B17 phase 2: server-resolved displayName отправителя.
+  /// Заполняется в `MatrixMessageService._convertEvent` через
+  /// batch lookup MessengerUser.db. Null для system messages
+  /// (senderMessengerUserId == null) и для unresolved senders
+  /// (cross-tenant / deleted users — редкий случай).
+  /// SDK использует как первичный source для search results,
+  /// bubble peer-header, read-receipts list (вместо
+  /// participantsByMatrixId.displayName который не имеет
+  /// ex-members).
+  String? senderDisplayName;
+
   /// Returns a shallow copy of this [MessengerMessage]
   /// with some or all fields replaced by the given arguments.
   @_i1.useResult
@@ -236,6 +250,7 @@ abstract class MessengerMessage implements _i1.SerializableModel {
     DateTime? deletedAt,
     List<int>? mentionedMessengerUserIds,
     bool? mentionedRoom,
+    String? senderDisplayName,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -261,6 +276,7 @@ abstract class MessengerMessage implements _i1.SerializableModel {
       if (mentionedMessengerUserIds != null)
         'mentionedMessengerUserIds': mentionedMessengerUserIds?.toJson(),
       'mentionedRoom': mentionedRoom,
+      if (senderDisplayName != null) 'senderDisplayName': senderDisplayName,
     };
   }
 
@@ -292,6 +308,7 @@ class _MessengerMessageImpl extends MessengerMessage {
     DateTime? deletedAt,
     List<int>? mentionedMessengerUserIds,
     bool? mentionedRoom,
+    String? senderDisplayName,
   }) : super._(
          matrixEventId: matrixEventId,
          roomId: roomId,
@@ -311,6 +328,7 @@ class _MessengerMessageImpl extends MessengerMessage {
          deletedAt: deletedAt,
          mentionedMessengerUserIds: mentionedMessengerUserIds,
          mentionedRoom: mentionedRoom,
+         senderDisplayName: senderDisplayName,
        );
 
   /// Returns a shallow copy of this [MessengerMessage]
@@ -336,6 +354,7 @@ class _MessengerMessageImpl extends MessengerMessage {
     Object? deletedAt = _Undefined,
     Object? mentionedMessengerUserIds = _Undefined,
     bool? mentionedRoom,
+    Object? senderDisplayName = _Undefined,
   }) {
     return MessengerMessage(
       matrixEventId: matrixEventId ?? this.matrixEventId,
@@ -366,6 +385,9 @@ class _MessengerMessageImpl extends MessengerMessage {
           ? mentionedMessengerUserIds
           : this.mentionedMessengerUserIds?.map((e0) => e0).toList(),
       mentionedRoom: mentionedRoom ?? this.mentionedRoom,
+      senderDisplayName: senderDisplayName is String?
+          ? senderDisplayName
+          : this.senderDisplayName,
     );
   }
 }

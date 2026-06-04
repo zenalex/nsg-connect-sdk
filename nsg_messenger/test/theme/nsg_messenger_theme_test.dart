@@ -31,6 +31,52 @@ void main() {
       expect(result.colorScheme, parent.colorScheme);
     });
 
+    // ── B20: brightness-coherent инъекция ────────────────────────────
+    test(
+        'applyTo: dark colorScheme над light parent → brightness + textTheme '
+        'становятся dark-coherent (B20)', () {
+      final parent = ThemeData.light(); // brightness light, чёрный textTheme
+      const darkScheme = ColorScheme.dark();
+      const theme = NsgMessengerTheme(colorScheme: darkScheme);
+      final result = theme.applyTo(parent);
+
+      // brightness делегирует к colorScheme → dark.
+      expect(result.brightness, Brightness.dark);
+      // textTheme перекрашен в onSurface (светлый), а не остался
+      // чёрным от light-parent → bare Text виден на тёмном фоне.
+      expect(result.textTheme.bodyLarge?.color, darkScheme.onSurface);
+      expect(result.textTheme.titleMedium?.color, darkScheme.onSurface);
+    });
+
+    test(
+        'applyTo: light colorScheme над dark parent → light-coherent (обратный '
+        'кейс B20 — фабрика инъектит init-light поверх dark ambient)', () {
+      final parent = ThemeData.dark(); // brightness dark, белый textTheme
+      const lightScheme = ColorScheme.light();
+      const theme = NsgMessengerTheme(colorScheme: lightScheme);
+      final result = theme.applyTo(parent);
+
+      expect(result.brightness, Brightness.light);
+      // Без фикса title остался бы белым (от dark-parent) → невидим на
+      // светлом surface. После фикса — onSurface (тёмный).
+      expect(result.textTheme.titleMedium?.color, lightScheme.onSurface);
+    });
+
+    test('applyTo: host textTheme override побеждает recolor', () {
+      final parent = ThemeData.light();
+      const darkScheme = ColorScheme.dark();
+      const override = TextTheme(
+        titleMedium: TextStyle(color: Color(0xFF00FF00)),
+      );
+      const theme = NsgMessengerTheme(
+        colorScheme: darkScheme,
+        textTheme: override,
+      );
+      final result = theme.applyTo(parent);
+      // Explicit host-цвет выигрывает у recolor-а в onSurface.
+      expect(result.textTheme.titleMedium?.color, const Color(0xFF00FF00));
+    });
+
     test('applyTo: bubble tokens добавляется в extensions', () {
       final parent = ThemeData.light();
       const customBubble = NsgMessageBubbleTokens(

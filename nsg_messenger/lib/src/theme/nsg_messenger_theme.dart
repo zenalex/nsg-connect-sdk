@@ -101,11 +101,44 @@ class NsgMessengerTheme {
       ?bubbleTokens,
       ?roomTileTokens,
     ].cast<ThemeExtension<dynamic>>();
+
+    final cs = colorScheme;
+    if (cs == null) {
+      // Только tokens / textTheme override — brightness parent-а не
+      // трогаем.
+      return parent.copyWith(
+        textTheme: textTheme == null
+            ? parent.textTheme
+            : parent.textTheme.merge(textTheme),
+        extensions: extensions,
+      );
+    }
+
+    // **B20 fix — brightness-coherent инъекция colorScheme.**
+    //
+    // `ThemeData.brightness` getter делегирует к `colorScheme.brightness`,
+    // поэтому copyWith(colorScheme: cs) уже корректно переключает
+    // brightness. НО `parent.textTheme` несёт Typography-цвета,
+    // запечённые под СТАРУЮ яркость (Material 2021 black/white). Bare
+    // `Text(...)` и `textTheme.titleMedium`-styled виджеты берут цвет
+    // оттуда, а не из colorScheme → при инъекции light-схемы над dark
+    // ambient (или наоборот) получаем «тёмное на тёмном» (intern QA
+    // B20: невидимые названия чатов + белый хедер при переключении
+    // темы; SDK-экран приклеен к init-time `runtime.theme`).
+    //
+    // Перекрашиваем base textTheme в `onSurface` (тот же цвет, что
+    // ThemeData выставляет M3-виджетам по умолчанию), сохраняя
+    // font-geometry parent-а. `.apply` не трогает explicit-цвета,
+    // которые виджеты задают сами (ListTile subtitle → onSurfaceVariant
+    // и т.п.), поэтому иерархия приглушений сохраняется. Host textTheme
+    // override merge-ится сверху и побеждает.
+    final recolored = parent.textTheme.apply(
+      bodyColor: cs.onSurface,
+      displayColor: cs.onSurface,
+    );
     return parent.copyWith(
-      colorScheme: colorScheme ?? parent.colorScheme,
-      textTheme: textTheme == null
-          ? parent.textTheme
-          : parent.textTheme.merge(textTheme),
+      colorScheme: cs,
+      textTheme: textTheme == null ? recolored : recolored.merge(textTheme),
       extensions: extensions,
     );
   }

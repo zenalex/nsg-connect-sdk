@@ -151,6 +151,15 @@ typedef DissolveRoomRpc = Future<void> Function({required int roomId});
 /// add member) ДО любого ввода в поиск.
 typedef ListKnownContactsRpc = Future<List<RoomParticipant>> Function();
 
+/// **B16-ext (group avatar)**: загрузка/смена аватара group/team/
+/// productRoom. Принимает image bytes + MIME, возвращает mxcUrl.
+/// Direct chats отклоняются.
+typedef SetRoomAvatarRpc = Future<String> Function({
+  required int roomId,
+  required ByteData bytes,
+  required String mimeType,
+});
+
 /// Public API для работы с комнатами из host-app. Доступен через
 /// `NsgMessenger.rooms`. Под капотом:
 ///   * proxy-вызовы Serverpod RPC через `client.messenger.X`;
@@ -199,6 +208,7 @@ class NsgMessengerRooms {
   final RenameRoomRpc _renameRoomRpc;
   final DissolveRoomRpc _dissolveRoomRpc;
   final ListKnownContactsRpc _listKnownContactsRpc;
+  final SetRoomAvatarRpc _setRoomAvatarRpc;
   final MessengerEventBus _eventBus;
 
   StreamSubscription<MessengerEvent>? _eventsSub;
@@ -275,6 +285,7 @@ class NsgMessengerRooms {
     required RenameRoomRpc renameRoomRpc,
     required DissolveRoomRpc dissolveRoomRpc,
     required ListKnownContactsRpc listKnownContactsRpc,
+    required SetRoomAvatarRpc setRoomAvatarRpc,
     required MessengerEventBus eventBus,
   }) : _listRpc = listRpc,
        _getRpc = getRpc,
@@ -299,6 +310,7 @@ class NsgMessengerRooms {
        _renameRoomRpc = renameRoomRpc,
        _dissolveRoomRpc = dissolveRoomRpc,
        _listKnownContactsRpc = listKnownContactsRpc,
+       _setRoomAvatarRpc = setRoomAvatarRpc,
        _eventBus = eventBus;
 
   /// Production-фабрика. Привязывается к `client.messenger.*` методам.
@@ -519,6 +531,19 @@ class NsgMessengerRooms {
         () => client.messenger.listKnownContacts(),
         session(),
       ),
+      setRoomAvatarRpc:
+          ({
+            required int roomId,
+            required ByteData bytes,
+            required String mimeType,
+          }) => withAuthRetry(
+            () => client.messenger.setRoomAvatar(
+              roomId: roomId,
+              bytes: bytes,
+              mimeType: mimeType,
+            ),
+            session(),
+          ),
       eventBus: eventBus,
     );
   }
@@ -549,6 +574,7 @@ class NsgMessengerRooms {
     RenameRoomRpc? renameRoomRpc,
     DissolveRoomRpc? dissolveRoomRpc,
     ListKnownContactsRpc? listKnownContactsRpc,
+    SetRoomAvatarRpc? setRoomAvatarRpc,
     required MessengerEventBus eventBus,
   }) {
     // Test factories may omit the chat-create RPCs — default to stubs
@@ -581,6 +607,12 @@ class NsgMessengerRooms {
         UnimplementedError('dissolveRoomRpc not set in attachWithRpcs');
     listKnownContactsRpc ??=
         () async => const <RoomParticipant>[];
+    setRoomAvatarRpc ??= ({
+      required int roomId,
+      required ByteData bytes,
+      required String mimeType,
+    }) async =>
+        throw UnimplementedError('setRoomAvatarRpc not set in attachWithRpcs');
     final r = NsgMessengerRooms._(
       listRpc: listRpc,
       getRpc: getRpc,
@@ -605,6 +637,7 @@ class NsgMessengerRooms {
       renameRoomRpc: renameRoomRpc,
       dissolveRoomRpc: dissolveRoomRpc,
       listKnownContactsRpc: listKnownContactsRpc,
+      setRoomAvatarRpc: setRoomAvatarRpc,
       eventBus: eventBus,
     );
     r._subscribeToEvents();
@@ -850,6 +883,25 @@ class NsgMessengerRooms {
     await _dissolveRoomRpc(roomId: roomId);
     _listEntry = null;
     _detailsCache.remove(roomId);
+  }
+
+  /// **B16-ext (group avatar)**: загрузить новый аватар группы.
+  /// Принимает image bytes + MIME, возвращает mxcUrl. Direct chats
+  /// reject. После успеха invalidate-им cache list+details чтобы
+  /// следующие listRooms/get подтянули свежий avatarUrl.
+  Future<String> setRoomAvatar({
+    required int roomId,
+    required ByteData bytes,
+    required String mimeType,
+  }) async {
+    final mxc = await _setRoomAvatarRpc(
+      roomId: roomId,
+      bytes: bytes,
+      mimeType: mimeType,
+    );
+    _listEntry = null;
+    _detailsCache.remove(roomId);
+    return mxc;
   }
 
   /// **TASK29**: ban — caller-admin удаляет target И блокирует rejoin.

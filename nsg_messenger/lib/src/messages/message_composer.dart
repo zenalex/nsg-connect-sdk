@@ -1,11 +1,13 @@
 import 'dart:async';
-import 'dart:io' show Platform;
+import 'dart:io' show File, Platform;
 
 import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:nsg_connect_client/nsg_connect_client.dart'
     show RoomParticipant;
+import 'package:path_provider/path_provider.dart';
+import 'package:record/record.dart';
 
 import '../i18n/generated/nsg_l10n.dart';
 import '../theme/nsg_messenger_theme.dart';
@@ -178,6 +180,25 @@ class _MessageComposerState extends State<MessageComposer> {
   /// если в body нет matching token). Phase2 — sync через body parse.
   final Set<int> _pendingMentions = <int>{};
 
+  // **B-voice**: voice-recording state.
+  //
+  // Press-and-hold mic button → `_startRecording` (запрашивает permission +
+  // создаёт tmp file + record.start). Release → `_stopRecording` (полная
+  // запись + send как m.audio attachment если duration >= 1s, иначе
+  // cancel со snackbar).
+  //
+  // `_recording` true → composer показывает overlay вместо text-field
+  // (animation + mm:ss timer). На повторных rebuild-ах состояние
+  // персистент через State.
+  AudioRecorder? _recorder;
+  bool _recording = false;
+  DateTime? _recordStartedAt;
+  Timer? _recordTickTimer;
+  String? _recordPath;
+  // Минимальная длина записи. Press мгновенный (UX «жмётся-сразу-
+  // отпустил») считается accidental tap — cancel со snackbar.
+  static const Duration _kMinRecordDuration = Duration(seconds: 1);
+
   @override
   void initState() {
     super.initState();
@@ -221,6 +242,22 @@ class _MessageComposerState extends State<MessageComposer> {
   @override
   void dispose() {
     HardwareKeyboard.instance.removeHandler(_globalKeyHandler);
+    // B-voice: abort любую активную запись (без upload) + cleanup.
+    _recordTickTimer?.cancel();
+    _recordTickTimer = null;
+    final rec = _recorder;
+    if (rec != null) {
+      // Best-effort: stop + dispose. Ignore errors на shutdown path.
+      unawaited(
+        rec.stop().catchError((_) => null).whenComplete(() => rec.dispose()),
+      );
+      _recorder = null;
+    }
+    final path = _recordPath;
+    if (path != null) {
+      File(path).delete().catchError((_) => File(path));
+      _recordPath = null;
+    }
     _typingIdleTimer?.cancel();
     _typingIdleTimer = null;
     // Best-effort fire typing=false на закрытии composer-а — peer
@@ -557,6 +594,154 @@ class _MessageComposerState extends State<MessageComposer> {
     }
   }
 
+  // ============== B-voice: voice recording ==============
+
+  /// Long-press start на mic-button. Запрашиваем permission, открываем
+  /// recorder и сохраняем в tmp file. UI переключается в recording-mode
+  /// через `setState(_recording = true)`.
+  Future<void> _startRecording() async {
+    if (_recording || _uploading || !widget.enabled) return;
+    if (widget.onSendAttachment == null) return;
+    final l = NsgL10n.of(context);
+    final recorder = AudioRecorder();
+    _recorder = recorder;
+    try {
+      final granted = await recorder.hasPermission();
+      if (!granted) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(l.voiceRecordPermissionDenied)),
+          );
+        }
+        await recorder.dispose();
+        _recorder = null;
+        return;
+      }
+      final dir = await getTemporaryDirectory();
+      final path =
+          '${dir.path}/nsg_voice_${DateTime.now().microsecondsSinceEpoch}.m4a';
+      await recorder.start(const RecordConfig(), path: path);
+      _recordPath = path;
+      _recordStartedAt = DateTime.now();
+      if (!mounted) {
+        // Composer unmounted между start permission и start recording —
+        // best-effort cleanup.
+        await recorder.stop().catchError((_) => null);
+        await recorder.dispose();
+        _recorder = null;
+        File(path).delete().catchError((_) => File(path));
+        _recordPath = null;
+        return;
+      }
+      setState(() => _recording = true);
+      // Tick timer для UI mm:ss обновления (раз в 200ms — достаточно
+      // плавно, не дёргает CPU).
+      _recordTickTimer?.cancel();
+      _recordTickTimer = Timer.periodic(const Duration(milliseconds: 200), (
+        _,
+      ) {
+        if (!mounted) return;
+        setState(() {}); // trigger rebuild для timer display
+      });
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[MessageComposer] _startRecording failed: $e');
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l.voiceRecordError)),
+        );
+      }
+      await recorder.dispose();
+      _recorder = null;
+      _recordPath = null;
+      _recordStartedAt = null;
+    }
+  }
+
+  /// Long-press end / pointer up. Stop recorder, проверяем длительность,
+  /// если ≥ 1s — отправляем как m.audio attachment через onSendAttachment;
+  /// иначе drop + snackbar «too short».
+  Future<void> _stopRecording({bool cancel = false}) async {
+    final recorder = _recorder;
+    if (recorder == null) return;
+    final l = NsgL10n.of(context);
+    _recordTickTimer?.cancel();
+    _recordTickTimer = null;
+    String? path;
+    try {
+      path = await recorder.stop();
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[MessageComposer] _stopRecording: $e');
+      }
+    } finally {
+      await recorder.dispose();
+      _recorder = null;
+    }
+    final startedAt = _recordStartedAt;
+    _recordStartedAt = null;
+    final recordedPath = path ?? _recordPath;
+    _recordPath = null;
+    if (mounted) setState(() => _recording = false);
+
+    if (cancel || recordedPath == null) {
+      if (recordedPath != null) {
+        File(recordedPath).delete().catchError((_) => File(recordedPath));
+      }
+      return;
+    }
+
+    final duration = startedAt != null
+        ? DateTime.now().difference(startedAt)
+        : Duration.zero;
+    if (duration < _kMinRecordDuration) {
+      File(recordedPath).delete().catchError((_) => File(recordedPath));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l.voiceRecordTooShort)),
+        );
+      }
+      return;
+    }
+
+    // Reads bytes → send как attachment. Cleanup tmp file после.
+    final onSendAttachment = widget.onSendAttachment;
+    if (onSendAttachment == null) {
+      File(recordedPath).delete().catchError((_) => File(recordedPath));
+      return;
+    }
+    try {
+      final f = File(recordedPath);
+      final bytes = await f.readAsBytes();
+      final ts = DateTime.now().millisecondsSinceEpoch;
+      final picked = PickedAttachment(
+        bytes: bytes,
+        mimeType: 'audio/mp4',
+        originalFilename: 'voice-$ts.m4a',
+      );
+      if (!mounted) return;
+      setState(() => _uploading = true);
+      try {
+        await onSendAttachment(picked);
+      } catch (_) {
+        // Host-app сам показывает snackbar.
+      } finally {
+        if (mounted) setState(() => _uploading = false);
+        await f.delete().catchError((_) => f);
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[MessageComposer] voice send failed: $e');
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l.voiceRecordError)),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -569,6 +754,14 @@ class _MessageComposerState extends State<MessageComposer> {
     final canSend = widget.enabled && _hasText && !_uploading;
     final canAttach =
         widget.enabled && !_uploading && widget.onSendAttachment != null;
+    // **B-voice**: mic-button показывается когда composer empty (нет
+    // текста) + есть attachment-flow + не редактируем. Иначе — обычная
+    // send-кнопка.
+    final showMic = !_hasText &&
+        widget.editTarget == null &&
+        widget.onSendAttachment != null &&
+        widget.enabled &&
+        !_uploading;
     return Material(
       color: theme.colorScheme.surface,
       elevation: 8,
@@ -612,64 +805,95 @@ class _MessageComposerState extends State<MessageComposer> {
                       onPressed: canAttach ? _attach : null,
                     ),
                   Expanded(
-                    child: CompositedTransformTarget(
-                      link: _typeaheadAnchor,
-                      // Desktop shortcuts (Enter/Shift+Enter/Esc)
-                      // обрабатываются в `_globalKeyHandler` через
-                      // `HardwareKeyboard.addHandler` — это первый
-                      // уровень dispatch, до того как event попадёт
-                      // в EditableText.
-                      child: TextField(
-                        controller: _ctl,
-                        focusNode: _focus,
-                        enabled: widget.enabled && !_uploading,
-                        minLines: 1,
-                        maxLines: 5,
-                        // Telegram-style лимит. `maxLengthEnforcement`
-                        // truncated → typing/paste выше лимита просто
-                        // обрезается (без error-dialog-а; counter под
-                        // полем визуально подсказывает оставшийся
-                        // объём). Сервер тоже валидирует
-                        // (MessageBodyTooLargeException) — anti-abuse.
-                        maxLength: kMessageBodyMaxChars,
-                        maxLengthEnforcement:
-                            MaxLengthEnforcement.truncateAfterCompositionEnds,
-                        // textInputAction.send только на mobile —
-                        // на desktop macOS этот input action заставляет
-                        // платформу вызывать performAction(send) на
-                        // Enter ЛЮБОГО типа (включая Shift+Enter),
-                        // минуя HardwareKeyboard handler и Shortcuts;
-                        // ломает desktop UX «Shift+Enter = newline».
-                        textInputAction: _kIsMobile
-                            ? TextInputAction.send
-                            : TextInputAction.newline,
-                        // onSubmitted — только на mobile (кнопка Send
-                        // на soft-keyboard). На desktop callback
-                        // триггерится и на Shift+Enter (см. выше),
-                        // что вызывает преждевременный submit.
-                        onSubmitted: _kIsMobile ? (_) => _submit() : null,
-                        decoration: InputDecoration(
-                          hintText: l.chatScreenSendHint,
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 12,
+                    child: _recording
+                        ? _RecordingIndicator(
+                            startedAt: _recordStartedAt,
+                            textColor: theme.colorScheme.error,
+                          )
+                        : CompositedTransformTarget(
+                            link: _typeaheadAnchor,
+                            // Desktop shortcuts (Enter/Shift+Enter/Esc)
+                            // обрабатываются в `_globalKeyHandler` через
+                            // `HardwareKeyboard.addHandler` — это первый
+                            // уровень dispatch, до того как event попадёт
+                            // в EditableText.
+                            child: TextField(
+                              controller: _ctl,
+                              focusNode: _focus,
+                              enabled: widget.enabled && !_uploading,
+                              minLines: 1,
+                              maxLines: 5,
+                              // Telegram-style лимит. `maxLengthEnforcement`
+                              // truncated → typing/paste выше лимита просто
+                              // обрезается (без error-dialog-а; counter под
+                              // полем визуально подсказывает оставшийся
+                              // объём). Сервер тоже валидирует
+                              // (MessageBodyTooLargeException) — anti-abuse.
+                              maxLength: kMessageBodyMaxChars,
+                              maxLengthEnforcement: MaxLengthEnforcement
+                                  .truncateAfterCompositionEnds,
+                              // textInputAction.send только на mobile —
+                              // на desktop macOS этот input action заставляет
+                              // платформу вызывать performAction(send) на
+                              // Enter ЛЮБОГО типа (включая Shift+Enter),
+                              // минуя HardwareKeyboard handler и Shortcuts;
+                              // ломает desktop UX «Shift+Enter = newline».
+                              textInputAction: _kIsMobile
+                                  ? TextInputAction.send
+                                  : TextInputAction.newline,
+                              // onSubmitted — только на mobile (кнопка Send
+                              // на soft-keyboard). На desktop callback
+                              // триггерится и на Shift+Enter (см. выше),
+                              // что вызывает преждевременный submit.
+                              onSubmitted: _kIsMobile
+                                  ? (_) => _submit()
+                                  : null,
+                              decoration: InputDecoration(
+                                hintText: l.chatScreenSendHint,
+                                border: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 12,
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
+                  ),
+                  // **B-voice**: показываем mic IconButton с GestureDetector
+                  // для long-press вместо обычного send когда composer
+                  // empty. Long-press start → запись; release → stop+send;
+                  // короткий tap (< 1s) → snackbar "too short".
+                  if (showMic && !_recording)
+                    GestureDetector(
+                      onLongPressStart: (_) => _startRecording(),
+                      onLongPressEnd: (_) => _stopRecording(),
+                      child: IconButton(
+                        icon: const Icon(Icons.mic_none),
+                        tooltip: l.voiceRecordTooltip,
+                        // Tap (short) ничего не делает — snackbar/feedback
+                        // на отмена показывается через _stopRecording если
+                        // запись была короткой.
+                        onPressed: () {},
                       ),
+                    )
+                  else if (_recording)
+                    IconButton(
+                      icon: Icon(Icons.stop_circle, color: theme.colorScheme.error),
+                      tooltip: l.voiceRecordingHint,
+                      onPressed: () => _stopRecording(),
+                    )
+                  else
+                    IconButton(
+                      icon: Icon(
+                        widget.editTarget != null
+                            ? Icons.check
+                            : Icons.send,
+                      ),
+                      tooltip: widget.editTarget != null
+                          ? l.messageComposerSaveTooltip
+                          : l.chatScreenSendTooltip,
+                      onPressed: canSend ? _submit : null,
                     ),
-                  ),
-                  IconButton(
-                    icon: Icon(
-                      widget.editTarget != null
-                          ? Icons.check
-                          : Icons.send,
-                    ),
-                    tooltip: widget.editTarget != null
-                        ? l.messageComposerSaveTooltip
-                        : l.chatScreenSendTooltip,
-                    onPressed: canSend ? _submit : null,
-                  ),
                 ],
               ),
             ),
@@ -892,5 +1116,73 @@ String? _matrixLocalpart(String matrixUserId) {
   final colonIdx = matrixUserId.indexOf(':');
   if (colonIdx <= 1) return null;
   return matrixUserId.substring(1, colonIdx);
+}
+
+/// **B-voice**: in-composer recording overlay (заменяет text-field).
+/// Содержит pulse-индикатор + текст «Запись…» + mm:ss таймер.
+/// Real waveform analysis — Phase2 (backlog).
+class _RecordingIndicator extends StatefulWidget {
+  const _RecordingIndicator({
+    required this.startedAt,
+    required this.textColor,
+  });
+
+  final DateTime? startedAt;
+  final Color textColor;
+
+  @override
+  State<_RecordingIndicator> createState() => _RecordingIndicatorState();
+}
+
+class _RecordingIndicatorState extends State<_RecordingIndicator>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = NsgL10n.of(context);
+    final started = widget.startedAt;
+    final elapsed = started != null
+        ? DateTime.now().difference(started)
+        : Duration.zero;
+    final mm = elapsed.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final ss = elapsed.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      child: Row(
+        children: [
+          FadeTransition(
+            opacity: _pulse,
+            child: Icon(Icons.fiber_manual_record, color: widget.textColor, size: 14),
+          ),
+          const SizedBox(width: 8),
+          Text(l.voiceRecordingHint, style: TextStyle(color: widget.textColor)),
+          const SizedBox(width: 12),
+          Text(
+            '$mm:$ss',
+            style: TextStyle(
+              color: widget.textColor.withValues(alpha: 0.8),
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 

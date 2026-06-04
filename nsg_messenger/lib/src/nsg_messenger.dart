@@ -200,6 +200,15 @@ class NsgMessenger {
   /// Включает in-memory cache 30s + invalidation на realtime events.
   static NsgMessengerRooms get rooms => MessengerRuntime.instance.rooms;
 
+  /// **B20**: сменить SDK-тему в рантайме (light↔dark toggle, смена
+  /// brand-акцента). SDK widget-фабрики (`chatsListView`, `openRoom`,
+  /// `demoChatScreen`) читают тему на каждый build — после вызова
+  /// host-app должен перестроить subtree (`setState`), и фабрики
+  /// переинъектят новую тему. Решает «SDK-экран не следует за
+  /// переключением темы» (intern QA B20).
+  static void updateTheme(NsgMessengerTheme theme) =>
+      MessengerRuntime.instance.updateTheme(theme);
+
   /// Текущая активная сессия — `messengerUserId`, `matrixUserId`,
   /// `displayName`, `avatarUrl`, и `sessionToken`. Host-app использует
   /// для отображения профиля и для self-vs-peer вычислений.

@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:meta/meta.dart';
 import 'package:nsg_connect_client/nsg_connect_client.dart';
 
 import '../auth_token_provider.dart';

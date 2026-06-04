@@ -3,6 +3,7 @@ import 'package:nsg_connect_client/nsg_connect_client.dart';
 import 'package:photo_view/photo_view.dart';
 
 import '../../i18n/generated/nsg_l10n.dart';
+import 'audio_player_row.dart';
 import 'mxc_image_provider.dart';
 
 /// Render `MessengerMessage.attachment` внутри `MessageBubble` (TASK19
@@ -39,6 +40,7 @@ class AttachmentBubble extends StatelessWidget {
 
   bool get _isImage => attachment.mimeType.startsWith('image/');
   bool get _isVideo => attachment.mimeType.startsWith('video/');
+  bool get _isAudio => attachment.mimeType.startsWith('audio/');
 
   @override
   Widget build(BuildContext context) {
@@ -46,6 +48,16 @@ class AttachmentBubble extends StatelessWidget {
       return _ImagePreview(
         attachment: attachment,
         thumbnailRpc: thumbnailRpc,
+        fullSizeRpc: fullSizeRpc,
+        textColor: textColor,
+      );
+    }
+    if (_isAudio) {
+      // **B-voice**: render m.audio как inline-player (play/pause +
+      // progress + duration). Bytes lazy-loaded на первый play через
+      // fullSizeRpc.
+      return AudioPlayerRow(
+        attachment: attachment,
         fullSizeRpc: fullSizeRpc,
         textColor: textColor,
       );

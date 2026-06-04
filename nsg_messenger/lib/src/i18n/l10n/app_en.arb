@@ -242,6 +242,31 @@
     "description": "TASK19 Chunk 3: tooltip paperclip-icon в `MessageComposer`. Tap открывает `showAttachmentPicker` bottom-sheet."
   },
 
+  "voiceRecordTooltip": "Hold to record",
+  "@voiceRecordTooltip": {
+    "description": "B-voice: tooltip microphone-кнопки в `MessageComposer`. Showed когда text field empty + onSendAttachment != null."
+  },
+
+  "voiceRecordingHint": "Recording…",
+  "@voiceRecordingHint": {
+    "description": "B-voice: indicator в composer-е во время записи (заменяет text field). Сопровождается mm:ss таймером."
+  },
+
+  "voiceRecordTooShort": "Recording too short",
+  "@voiceRecordTooShort": {
+    "description": "B-voice: snackbar text когда юзер отпустил mic-button раньше 1 секунды. Запись отменяется."
+  },
+
+  "voiceRecordPermissionDenied": "Microphone permission denied",
+  "@voiceRecordPermissionDenied": {
+    "description": "B-voice: snackbar text когда AudioRecorder.hasPermission() вернул false. Юзер должен дать доступ через OS settings."
+  },
+
+  "voiceRecordError": "Recording failed",
+  "@voiceRecordError": {
+    "description": "B-voice: generic snackbar text при ошибке start/stop record (нет mic, codec не поддержан, etc.)."
+  },
+
   "messageActionSheetTitle": "Message",
   "@messageActionSheetTitle": {
     "description": "TASK37 Chunk 2: header bottom-sheet который открывается на long-press `MessageBubble`. Items: Edit / Delete / Copy."

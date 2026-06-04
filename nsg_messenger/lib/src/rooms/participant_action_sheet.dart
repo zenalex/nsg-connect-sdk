@@ -29,6 +29,7 @@ Future<void> showParticipantActionSheet({
   required RoomMemberRole callerRole,
   required int callerMessengerUserId,
   required NsgMessengerRooms rooms,
+  VoidCallback? onChanged,
 }) {
   // Защита: member caller не должен видеть никаких actions — caller-
   // side проверка дублирует ParticipantsScreen guard.
@@ -44,6 +45,7 @@ Future<void> showParticipantActionSheet({
       callerRole: callerRole,
       callerMessengerUserId: callerMessengerUserId,
       rooms: rooms,
+      onChanged: onChanged,
     ),
   );
 }
@@ -55,6 +57,7 @@ class _ParticipantActionSheetBody extends StatelessWidget {
     required this.callerRole,
     required this.callerMessengerUserId,
     required this.rooms,
+    this.onChanged,
   });
 
   final RoomDetails room;
@@ -62,6 +65,14 @@ class _ParticipantActionSheetBody extends StatelessWidget {
   final RoomMemberRole callerRole;
   final int callerMessengerUserId;
   final NsgMessengerRooms rooms;
+
+  /// **B21 fix**: вызывается ПОСЛЕ успешного mutating-RPC (kick / ban /
+  /// promote / demote). Sheet к этому моменту уже `pop()`-нут (snappy
+  /// UX сохранён), поэтому callback завязан на State экрана-родителя
+  /// (`ParticipantsScreen._refresh`), а не на context sheet-а. Без
+  /// него экран держал stale `_detailsFuture` из initState и
+  /// kick/ban «не отображались» (intern QA #6/#7).
+  final VoidCallback? onChanged;
 
   bool get _isSelf => target.messengerUserId == callerMessengerUserId;
 
@@ -116,7 +127,7 @@ class _ParticipantActionSheetBody extends StatelessWidget {
                 final newRole = target.role == RoomMemberRole.member
                     ? RoomMemberRole.admin
                     : RoomMemberRole.owner;
-                await _runWithErrorReport(
+                final ok = await _runWithErrorReport(
                   context,
                   () => rooms.setRoomMemberRole(
                     roomId: room.id,
@@ -124,6 +135,7 @@ class _ParticipantActionSheetBody extends StatelessWidget {
                     newRole: newRole,
                   ),
                 );
+                if (ok) onChanged?.call();
               },
             ),
           if (canDemote)
@@ -133,7 +145,7 @@ class _ParticipantActionSheetBody extends StatelessWidget {
               onTap: () async {
                 final navigator = Navigator.of(context);
                 navigator.pop();
-                await _runWithErrorReport(
+                final ok = await _runWithErrorReport(
                   context,
                   () => rooms.setRoomMemberRole(
                     roomId: room.id,
@@ -141,6 +153,7 @@ class _ParticipantActionSheetBody extends StatelessWidget {
                     newRole: RoomMemberRole.member,
                   ),
                 );
+                if (ok) onChanged?.call();
               },
             ),
           if (canKickBan)
@@ -165,13 +178,14 @@ class _ParticipantActionSheetBody extends StatelessWidget {
                 );
                 if (confirmed != true) return;
                 if (!context.mounted) return;
-                await _runWithErrorReport(
+                final ok = await _runWithErrorReport(
                   context,
                   () => rooms.kickUser(
                     roomId: room.id,
                     targetMessengerUserId: target.messengerUserId,
                   ),
                 );
+                if (ok) onChanged?.call();
               },
             ),
           if (canKickBan)
@@ -193,13 +207,14 @@ class _ParticipantActionSheetBody extends StatelessWidget {
                 );
                 if (confirmed != true) return;
                 if (!context.mounted) return;
-                await _runWithErrorReport(
+                final ok = await _runWithErrorReport(
                   context,
                   () => rooms.banUser(
                     roomId: room.id,
                     targetMessengerUserId: target.messengerUserId,
                   ),
                 );
+                if (ok) onChanged?.call();
               },
             ),
         ],
@@ -211,7 +226,14 @@ class _ParticipantActionSheetBody extends StatelessWidget {
 /// **TASK29 Chunk 2**: typed-exception mapping для admin RPC failures.
 /// Caller передаёт closure → если throw, делаем snackbar с specific i18n.
 /// Used от ParticipantActionSheet AND BannedUsersScreen unban path.
-Future<void> _runWithErrorReport(
+/// Возвращает `true` если action отработал без ошибки (caller тогда
+/// триггерит refresh). На typed-exception — snackbar + `false`.
+///
+/// **Контракт context**: к моменту вызова sheet обычно уже `pop()`-нут,
+/// поэтому `context` может быть defunct. `ScaffoldMessenger.maybeOf` /
+/// `NsgL10n.of` резолвятся синхронно ДО `await action()` — захватываем
+/// messenger заранее, до того как RPC завершится и context устареет.
+Future<bool> _runWithErrorReport(
   BuildContext context,
   Future<void> Function() action,
 ) async {
@@ -219,11 +241,13 @@ Future<void> _runWithErrorReport(
   final l = NsgL10n.of(context);
   try {
     await action();
+    return true;
   } catch (e) {
     final msg = mapAdminError(e, l);
     messenger?.showSnackBar(
       SnackBar(content: Text(msg), duration: const Duration(seconds: 3)),
     );
+    return false;
   }
 }
 

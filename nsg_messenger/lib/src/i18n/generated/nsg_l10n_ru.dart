@@ -155,6 +155,21 @@ class NsgL10nRu extends NsgL10n {
   String get attachTooltip => 'Прикрепить файл';
 
   @override
+  String get voiceRecordTooltip => 'Удерживайте для записи';
+
+  @override
+  String get voiceRecordingHint => 'Запись…';
+
+  @override
+  String get voiceRecordTooShort => 'Запись слишком короткая';
+
+  @override
+  String get voiceRecordPermissionDenied => 'Нет доступа к микрофону';
+
+  @override
+  String get voiceRecordError => 'Не удалось записать';
+
+  @override
   String get messageActionSheetTitle => 'Сообщение';
 
   @override

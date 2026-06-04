@@ -15,10 +15,12 @@ import 'banned_users_screen.dart';
 /// Lifecycle:
 ///   * `initState` — подгружает [RoomDetails] через `NsgMessenger.rooms.
 ///     get(roomId)`, чтобы получить participants + viewerRole.
-///   * `getRoom` invalidate-ится через `roomMembershipUpdated` reactor
-///     (TASK42 + TASK29 PL changes); auto-refresh не делаем — у user-а
-///     может быть открытый sheet, нельзя rebuild-ить mid-action. На
-///     pull-to-refresh / повторное open экран refetch свежие данные.
+///   * **B21 fix**: после kick/ban/promote/demote action sheet вызывает
+///     `onChanged` → `_refresh` (invalidate cache + fresh `get`). Sheet
+///     к этому моменту уже `pop()`-нут, поэтому rebuild mid-action не
+///     грозит. Раньше экран держал `_detailsFuture` из initState и
+///     изменения не отображались (intern QA #6/#7).
+///   * Pull-to-refresh + повторный open тоже refetch-ат свежие данные.
 ///
 /// Admin overflow menu (AppBar) — «Banned users» visible только для
 /// admin/owner caller. Server-side `listBannedUsers` тоже enforce-ит.
@@ -76,6 +78,15 @@ class _ParticipantsScreenState extends State<ParticipantsScreen> {
       callerRole: callerRole,
       callerMessengerUserId: _selfMessengerUserId,
       rooms: _rooms,
+      // **B21 fix**: после успешного kick/ban/promote/demote экран
+      // должен показать актуальный список. Sheet уже pop()-нут и RPC
+      // отработал к этому моменту — `_refresh` делает invalidate +
+      // fresh `get` (kickUser/banUser уже почистили cache, но invalidate
+      // здесь страхует от любого stale-cache кейса, в т.ч. F5-репорта
+      // Артёма #7).
+      onChanged: () {
+        if (mounted) _refresh();
+      },
     );
   }
 

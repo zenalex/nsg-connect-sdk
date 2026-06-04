@@ -31,6 +31,7 @@ abstract class Room implements _i1.SerializableModel {
     this.productEntityType,
     this.productEntityId,
     this.name,
+    this.avatarUrl,
     required this.createdAt,
     required this.updatedAt,
     this.lastMessageAt,
@@ -48,6 +49,7 @@ abstract class Room implements _i1.SerializableModel {
     String? productEntityType,
     String? productEntityId,
     String? name,
+    String? avatarUrl,
     required DateTime createdAt,
     required DateTime updatedAt,
     DateTime? lastMessageAt,
@@ -70,6 +72,7 @@ abstract class Room implements _i1.SerializableModel {
       productEntityType: jsonSerialization['productEntityType'] as String?,
       productEntityId: jsonSerialization['productEntityId'] as String?,
       name: jsonSerialization['name'] as String?,
+      avatarUrl: jsonSerialization['avatarUrl'] as String?,
       createdAt: _i1.DateTimeJsonExtension.fromJson(
         jsonSerialization['createdAt'],
       ),
@@ -111,6 +114,14 @@ abstract class Room implements _i1.SerializableModel {
 
   String? name;
 
+  /// **B16-ext (group avatar)**: mxc-URL аватара группы. Заполняется
+  /// `setRoomAvatar` endpoint-ом (owner/admin only) + при `/sync`
+  /// парсинге `m.room.avatar` state event. Для direct-чатов поле
+  /// остаётся null — `RoomSummary.avatarUrl` для direct берётся из
+  /// peer's MessengerUser.avatarUrl (computed). Для group/team —
+  /// берётся отсюда.
+  String? avatarUrl;
+
   DateTime createdAt;
 
   DateTime updatedAt;
@@ -135,6 +146,7 @@ abstract class Room implements _i1.SerializableModel {
     String? productEntityType,
     String? productEntityId,
     String? name,
+    String? avatarUrl,
     DateTime? createdAt,
     DateTime? updatedAt,
     DateTime? lastMessageAt,
@@ -154,6 +166,7 @@ abstract class Room implements _i1.SerializableModel {
       if (productEntityType != null) 'productEntityType': productEntityType,
       if (productEntityId != null) 'productEntityId': productEntityId,
       if (name != null) 'name': name,
+      if (avatarUrl != null) 'avatarUrl': avatarUrl,
       'createdAt': createdAt.toJson(),
       'updatedAt': updatedAt.toJson(),
       if (lastMessageAt != null) 'lastMessageAt': lastMessageAt?.toJson(),
@@ -181,6 +194,7 @@ class _RoomImpl extends Room {
     String? productEntityType,
     String? productEntityId,
     String? name,
+    String? avatarUrl,
     required DateTime createdAt,
     required DateTime updatedAt,
     DateTime? lastMessageAt,
@@ -196,6 +210,7 @@ class _RoomImpl extends Room {
          productEntityType: productEntityType,
          productEntityId: productEntityId,
          name: name,
+         avatarUrl: avatarUrl,
          createdAt: createdAt,
          updatedAt: updatedAt,
          lastMessageAt: lastMessageAt,
@@ -217,6 +232,7 @@ class _RoomImpl extends Room {
     Object? productEntityType = _Undefined,
     Object? productEntityId = _Undefined,
     Object? name = _Undefined,
+    Object? avatarUrl = _Undefined,
     DateTime? createdAt,
     DateTime? updatedAt,
     Object? lastMessageAt = _Undefined,
@@ -237,6 +253,7 @@ class _RoomImpl extends Room {
           ? productEntityId
           : this.productEntityId,
       name: name is String? ? name : this.name,
+      avatarUrl: avatarUrl is String? ? avatarUrl : this.avatarUrl,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       lastMessageAt: lastMessageAt is DateTime?

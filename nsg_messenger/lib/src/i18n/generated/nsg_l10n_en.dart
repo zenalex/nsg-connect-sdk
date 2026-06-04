@@ -155,6 +155,21 @@ class NsgL10nEn extends NsgL10n {
   String get attachTooltip => 'Attach file';
 
   @override
+  String get voiceRecordTooltip => 'Hold to record';
+
+  @override
+  String get voiceRecordingHint => 'Recording…';
+
+  @override
+  String get voiceRecordTooShort => 'Recording too short';
+
+  @override
+  String get voiceRecordPermissionDenied => 'Microphone permission denied';
+
+  @override
+  String get voiceRecordError => 'Recording failed';
+
+  @override
   String get messageActionSheetTitle => 'Message';
 
   @override

@@ -288,4 +288,90 @@ void main() {
     expect(calls, 1);
     expect(capturedRole, RoomMemberRole.admin);
   });
+
+  // ── B21 fix: onChanged callback ──────────────────────────────────
+  testWidgets('onChanged вызывается ПОСЛЕ успешного promote RPC', (
+    tester,
+  ) async {
+    final room = buildRoom(viewerRole: RoomMemberRole.owner);
+    final target = buildTarget();
+    var onChangedCalls = 0;
+    var rpcCalls = 0;
+    final rooms = makeRooms(
+      onSetRole: (rid, tid, newRole) async {
+        rpcCalls++;
+        // onChanged НЕ должен сработать до завершения RPC.
+        expect(onChangedCalls, 0);
+      },
+    );
+
+    await tester.pumpWidget(
+      wrapL10n(
+        Builder(
+          builder: (context) => Center(
+            child: ElevatedButton(
+              onPressed: () => showParticipantActionSheet(
+                context: context,
+                room: room,
+                target: target,
+                callerRole: RoomMemberRole.owner,
+                callerMessengerUserId: 1,
+                rooms: rooms,
+                onChanged: () => onChangedCalls++,
+              ),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Promote to admin'));
+    await tester.pumpAndSettle();
+    expect(rpcCalls, 1);
+    expect(onChangedCalls, 1, reason: 'onChanged должен сработать раз');
+  });
+
+  testWidgets('onChanged НЕ вызывается если RPC бросил exception', (
+    tester,
+  ) async {
+    final room = buildRoom(viewerRole: RoomMemberRole.owner);
+    final target = buildTarget();
+    var onChangedCalls = 0;
+    final rooms = makeRooms(
+      onSetRole: (rid, tid, newRole) async {
+        throw StateError('rpc boom');
+      },
+    );
+
+    await tester.pumpWidget(
+      wrapL10n(
+        Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: ElevatedButton(
+                onPressed: () => showParticipantActionSheet(
+                  context: context,
+                  room: room,
+                  target: target,
+                  callerRole: RoomMemberRole.owner,
+                  callerMessengerUserId: 1,
+                  rooms: rooms,
+                  onChanged: () => onChangedCalls++,
+                ),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Promote to admin'));
+    await tester.pumpAndSettle();
+    expect(onChangedCalls, 0,
+        reason: 'на ошибке RPC refresh не триггерим');
+  });
 }

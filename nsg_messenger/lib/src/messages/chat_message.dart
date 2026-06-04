@@ -40,6 +40,7 @@ class ChatMessage {
     this.editedAt,
     this.deletedAt,
     this.mentionedMessengerUserIds,
+    this.senderDisplayName,
   });
 
   /// Идентификатор для optimistic dedup. Обязателен для собственных
@@ -96,6 +97,21 @@ class ChatMessage {
   ///     mentionedMessengerUserIds`).
   final List<int>? mentionedMessengerUserIds;
 
+  /// **B17 phase 2**: server-resolved displayName отправителя
+  /// (`MessengerUser.displayName` на момент возврата сообщения сервером).
+  /// Null для system events (`senderMessengerUserId == null`) и для
+  /// unresolved senders (cross-tenant / deleted users — редкий случай).
+  ///
+  /// UI приоритет (`chat_screen` search results, peer-headers,
+  /// read-receipts list):
+  ///   1. `senderDisplayName` — server-side fresh, корректно даже для
+  ///      ex-members (вышедших из комнаты);
+  ///   2. `RoomDetails.participants[mxid].displayName` — для current
+  ///      members резерв (на случай когда server поле = null);
+  ///   3. matrix-localpart `@user:server` → `user`;
+  ///   4. raw mxid.
+  final String? senderDisplayName;
+
   bool get isEdited => editedAt != null;
   bool get isDeleted => deletedAt != null;
   bool get hasReply => replyToMessageId != null;
@@ -128,6 +144,7 @@ class ChatMessage {
     editedAt: m.editedAt,
     deletedAt: m.deletedAt,
     mentionedMessengerUserIds: m.mentionedMessengerUserIds,
+    senderDisplayName: m.senderDisplayName,
   );
 
   /// Создать pending-сообщение для optimistic-render. UI показывает его
@@ -177,6 +194,7 @@ class ChatMessage {
     editedAt: editedAt,
     deletedAt: deletedAt,
     mentionedMessengerUserIds: mentionedMessengerUserIds,
+    senderDisplayName: senderDisplayName,
   );
 
   /// Перевести failed → pending (на retry). Сохраняет тот же
@@ -196,6 +214,7 @@ class ChatMessage {
     editedAt: editedAt,
     deletedAt: deletedAt,
     mentionedMessengerUserIds: mentionedMessengerUserIds,
+    senderDisplayName: senderDisplayName,
   );
 
   /// **TASK37**: применить edit — body заменяется, `editedAt`
@@ -220,6 +239,7 @@ class ChatMessage {
     editedAt: editedAt,
     deletedAt: deletedAt,
     mentionedMessengerUserIds: newMentionedMessengerUserIds,
+    senderDisplayName: senderDisplayName,
   );
 
   /// **TASK37**: применить delete — body cleared, `deletedAt`
@@ -239,6 +259,7 @@ class ChatMessage {
     editedAt: editedAt,
     deletedAt: deletedAt,
     mentionedMessengerUserIds: null,
+    senderDisplayName: senderDisplayName,
   );
 
   bool get isPending => status == ChatMessageStatus.pending;

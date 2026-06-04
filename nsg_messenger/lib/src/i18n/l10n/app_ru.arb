@@ -58,6 +58,11 @@
   "attachUploadFailed": "Не удалось загрузить — попробуйте ещё раз",
   "attachUnnamedFallback": "Без имени",
   "attachTooltip": "Прикрепить файл",
+  "voiceRecordTooltip": "Удерживайте для записи",
+  "voiceRecordingHint": "Запись…",
+  "voiceRecordTooShort": "Запись слишком короткая",
+  "voiceRecordPermissionDenied": "Нет доступа к микрофону",
+  "voiceRecordError": "Не удалось записать",
 
   "messageActionSheetTitle": "Сообщение",
   "messageActionEdit": "Редактировать",

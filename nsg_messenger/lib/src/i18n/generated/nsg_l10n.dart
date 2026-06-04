@@ -385,6 +385,36 @@ abstract class NsgL10n {
   /// **'Attach file'**
   String get attachTooltip;
 
+  /// B-voice: tooltip microphone-кнопки в `MessageComposer`. Showed когда text field empty + onSendAttachment != null.
+  ///
+  /// In en, this message translates to:
+  /// **'Hold to record'**
+  String get voiceRecordTooltip;
+
+  /// B-voice: indicator в composer-е во время записи (заменяет text field). Сопровождается mm:ss таймером.
+  ///
+  /// In en, this message translates to:
+  /// **'Recording…'**
+  String get voiceRecordingHint;
+
+  /// B-voice: snackbar text когда юзер отпустил mic-button раньше 1 секунды. Запись отменяется.
+  ///
+  /// In en, this message translates to:
+  /// **'Recording too short'**
+  String get voiceRecordTooShort;
+
+  /// B-voice: snackbar text когда AudioRecorder.hasPermission() вернул false. Юзер должен дать доступ через OS settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Microphone permission denied'**
+  String get voiceRecordPermissionDenied;
+
+  /// B-voice: generic snackbar text при ошибке start/stop record (нет mic, codec не поддержан, etc.).
+  ///
+  /// In en, this message translates to:
+  /// **'Recording failed'**
+  String get voiceRecordError;
+
   /// TASK37 Chunk 2: header bottom-sheet который открывается на long-press `MessageBubble`. Items: Edit / Delete / Copy.
   ///
   /// In en, this message translates to:

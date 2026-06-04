@@ -1651,12 +1651,15 @@ class _SearchInRoomScreenState extends State<_SearchInRoomScreen> {
       itemBuilder: (_, i) {
         final m = _results[i];
         final p = widget.participantsByMatrixId?[m.senderMatrixUserId];
-        // Пути резолва имени отправителя (приоритет ↓):
-        //   1. RoomDetails.participants — current member;
-        //   2. matrix-localpart `@user:server` → `user` (peer мог ливнуть
-        //      из комнаты — в participants его нет, но id видно);
-        //   3. raw mxid как последний fallback.
-        final senderName = p?.displayName ??
+        // Пути резолва имени отправителя (приоритет ↓), B17 phase 2:
+        //   1. ChatMessage.senderDisplayName — server-resolved fresh
+        //      MessengerUser.displayName, корректен даже для ex-members
+        //      (вышедших из комнаты — participants map их не содержит);
+        //   2. RoomDetails.participants — current member fallback;
+        //   3. matrix-localpart `@user:server` → `user`;
+        //   4. raw mxid как последний fallback.
+        final senderName = m.senderDisplayName ??
+            p?.displayName ??
             _matrixLocalpart(m.senderMatrixUserId) ??
             m.senderMatrixUserId;
         return _SearchResultTile(

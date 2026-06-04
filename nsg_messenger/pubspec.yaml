@@ -15,7 +15,6 @@ dependencies:
   flutter:
     sdk: flutter
   # Сгенерированный Serverpod-клиент NSG Connect (TASK03/04).
-  # В SDK-репо клиент и flutter-glue лежат рядом (siblings).
   nsg_connect_client:
     path: ../nsg_connect_client
   nsg_connect_flutter:
@@ -54,6 +53,18 @@ dependencies:
   # bubble в chat. Используется только в `AttachmentImageViewer`,
   # никаких других usage-ов в SDK.
   photo_view: ^0.15.0
+  # B-voice: запись микрофона на mobile + desktop (Win/Mac/Linux).
+  # Composer показывает microphone button в empty state; long-press →
+  # record → release → send как `m.audio` attachment.
+  record: ^5.1.2
+  # B-voice: воспроизведение `m.audio` bubble. just_audio покрывает
+  # все платформы (iOS/Android/desktop/web), bytes-source режим.
+  just_audio: ^0.9.40
+  # B-voice: getTemporaryDirectory() для записи аудио в tmp file.
+  # Уже подтягивается transitively через image_picker, но явно
+  # объявляем direct dependency — иначе pub каждый раз assumes
+  # transitive можно пропасть.
+  path_provider: ^2.1.4
 
 dev_dependencies:
   flutter_test:

@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart'
     show AppLifecycleState, WidgetsBinding, WidgetsBindingObserver;
 import 'package:nsg_connect_client/nsg_connect_client.dart';
-import 'package:serverpod_flutter/serverpod_flutter.dart';
 
 import 'auth_token_provider.dart';
 import 'messenger_mode.dart';
@@ -130,6 +129,21 @@ class MessengerRuntime with WidgetsBindingObserver {
   NsgMessengerTheme get theme => _theme;
   NsgMessengerLocale get locale => _locale;
   MessengerMode get mode => _mode;
+
+  /// **B20**: сменить активную SDK-тему в рантайме. Нужно когда host-app
+  /// переключает light/dark (или brand-акцент) после `init` — SDK
+  /// widget-фабрики (`chatsListView` / `openRoom` / `demoChatScreen`)
+  /// читают `runtime.theme` на каждый build, поэтому host достаточно:
+  ///   1. вызвать `NsgMessenger.updateTheme(newTheme)`;
+  ///   2. сделать `setState` (или иначе перестроить subtree), чтобы
+  ///      фабрики переинъектили свежую тему.
+  ///
+  /// Без этого `runtime.theme` оставался зафиксированным на init-time
+  /// значении, и SDK-экраны не следовали за brightness-переключением
+  /// (intern QA B20).
+  void updateTheme(NsgMessengerTheme theme) {
+    _theme = theme;
+  }
 
   /// **TASK22-Phase2 Chunk 1-B**: behavior config (scroll thresholds и
   /// пр.). Если host-app не передал config в `init(config: ...)` —
