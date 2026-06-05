@@ -43,6 +43,11 @@ abstract class MessengerEvent implements _i1.SerializableModel {
     this.typingDisplayNames,
     this.unreadCount,
     this.membershipChangedField,
+    this.reactionTargetEventId,
+    this.reactionKey,
+    this.reactionReactorMatrixUserId,
+    this.reactionEventId,
+    this.reactionRedacted,
   });
 
   factory MessengerEvent({
@@ -64,6 +69,11 @@ abstract class MessengerEvent implements _i1.SerializableModel {
     List<String>? typingDisplayNames,
     int? unreadCount,
     String? membershipChangedField,
+    String? reactionTargetEventId,
+    String? reactionKey,
+    String? reactionReactorMatrixUserId,
+    String? reactionEventId,
+    bool? reactionRedacted,
   }) = _MessengerEventImpl;
 
   factory MessengerEvent.fromJson(Map<String, dynamic> jsonSerialization) {
@@ -106,6 +116,17 @@ abstract class MessengerEvent implements _i1.SerializableModel {
       unreadCount: jsonSerialization['unreadCount'] as int?,
       membershipChangedField:
           jsonSerialization['membershipChangedField'] as String?,
+      reactionTargetEventId:
+          jsonSerialization['reactionTargetEventId'] as String?,
+      reactionKey: jsonSerialization['reactionKey'] as String?,
+      reactionReactorMatrixUserId:
+          jsonSerialization['reactionReactorMatrixUserId'] as String?,
+      reactionEventId: jsonSerialization['reactionEventId'] as String?,
+      reactionRedacted: jsonSerialization['reactionRedacted'] == null
+          ? null
+          : _i1.BoolJsonExtension.fromJson(
+              jsonSerialization['reactionRedacted'],
+            ),
     );
   }
 
@@ -214,6 +235,34 @@ abstract class MessengerEvent implements _i1.SerializableModel {
   /// **нет**. См. TASK42 plan Q1.
   String? membershipChangedField;
 
+  /// **Emoji reactions** — для `reactionChanged` событий. Реакция в
+  /// Matrix = `m.reaction` event с `m.relates_to {rel_type:
+  /// m.annotation, event_id: <target>, key: <emoji>}`. Снятие реакции
+  /// = `m.room.redaction` того reaction-event-а.
+  ///   * `reactionTargetEventId` — matrixEventId сообщения, на которое
+  ///     поставлена/снята реакция;
+  ///   * `reactionKey` — сам emoji (`👍`, `❤️`, ...). Для redaction —
+  ///     может быть null если reaction-event не сохранён локально
+  ///     (SDK пересчитает по following sync или relogin);
+  ///   * `reactionReactorMatrixUserId` — кто поставил/снял (Matrix id).
+  ///     SDK сравнивает с self для own-highlight + toggle;
+  ///   * `reactionEventId` — matrixEventId самого `m.reaction` event-а.
+  ///     Нужен для redaction (toggle off — SDK помнит свой reaction
+  ///     event id чтобы redact-нуть его);
+  ///   * `reactionRedacted` — `true` если это снятие реакции
+  ///     (redaction reaction-event-а), `false`/null — добавление.
+  ///
+  /// Все nullable (backward compat — старые клиенты игнорируют).
+  String? reactionTargetEventId;
+
+  String? reactionKey;
+
+  String? reactionReactorMatrixUserId;
+
+  String? reactionEventId;
+
+  bool? reactionRedacted;
+
   /// Returns a shallow copy of this [MessengerEvent]
   /// with some or all fields replaced by the given arguments.
   @_i1.useResult
@@ -236,6 +285,11 @@ abstract class MessengerEvent implements _i1.SerializableModel {
     List<String>? typingDisplayNames,
     int? unreadCount,
     String? membershipChangedField,
+    String? reactionTargetEventId,
+    String? reactionKey,
+    String? reactionReactorMatrixUserId,
+    String? reactionEventId,
+    bool? reactionRedacted,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -265,6 +319,13 @@ abstract class MessengerEvent implements _i1.SerializableModel {
       if (unreadCount != null) 'unreadCount': unreadCount,
       if (membershipChangedField != null)
         'membershipChangedField': membershipChangedField,
+      if (reactionTargetEventId != null)
+        'reactionTargetEventId': reactionTargetEventId,
+      if (reactionKey != null) 'reactionKey': reactionKey,
+      if (reactionReactorMatrixUserId != null)
+        'reactionReactorMatrixUserId': reactionReactorMatrixUserId,
+      if (reactionEventId != null) 'reactionEventId': reactionEventId,
+      if (reactionRedacted != null) 'reactionRedacted': reactionRedacted,
     };
   }
 
@@ -296,6 +357,11 @@ class _MessengerEventImpl extends MessengerEvent {
     List<String>? typingDisplayNames,
     int? unreadCount,
     String? membershipChangedField,
+    String? reactionTargetEventId,
+    String? reactionKey,
+    String? reactionReactorMatrixUserId,
+    String? reactionEventId,
+    bool? reactionRedacted,
   }) : super._(
          eventType: eventType,
          serverTimestamp: serverTimestamp,
@@ -315,6 +381,11 @@ class _MessengerEventImpl extends MessengerEvent {
          typingDisplayNames: typingDisplayNames,
          unreadCount: unreadCount,
          membershipChangedField: membershipChangedField,
+         reactionTargetEventId: reactionTargetEventId,
+         reactionKey: reactionKey,
+         reactionReactorMatrixUserId: reactionReactorMatrixUserId,
+         reactionEventId: reactionEventId,
+         reactionRedacted: reactionRedacted,
        );
 
   /// Returns a shallow copy of this [MessengerEvent]
@@ -340,6 +411,11 @@ class _MessengerEventImpl extends MessengerEvent {
     Object? typingDisplayNames = _Undefined,
     Object? unreadCount = _Undefined,
     Object? membershipChangedField = _Undefined,
+    Object? reactionTargetEventId = _Undefined,
+    Object? reactionKey = _Undefined,
+    Object? reactionReactorMatrixUserId = _Undefined,
+    Object? reactionEventId = _Undefined,
+    Object? reactionRedacted = _Undefined,
   }) {
     return MessengerEvent(
       eventType: eventType ?? this.eventType,
@@ -382,6 +458,19 @@ class _MessengerEventImpl extends MessengerEvent {
       membershipChangedField: membershipChangedField is String?
           ? membershipChangedField
           : this.membershipChangedField,
+      reactionTargetEventId: reactionTargetEventId is String?
+          ? reactionTargetEventId
+          : this.reactionTargetEventId,
+      reactionKey: reactionKey is String? ? reactionKey : this.reactionKey,
+      reactionReactorMatrixUserId: reactionReactorMatrixUserId is String?
+          ? reactionReactorMatrixUserId
+          : this.reactionReactorMatrixUserId,
+      reactionEventId: reactionEventId is String?
+          ? reactionEventId
+          : this.reactionEventId,
+      reactionRedacted: reactionRedacted is bool?
+          ? reactionRedacted
+          : this.reactionRedacted,
     );
   }
 }

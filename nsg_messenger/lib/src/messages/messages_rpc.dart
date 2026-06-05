@@ -97,6 +97,31 @@ abstract class MessagesRpc {
   /// в Matrix через 30s timeout.
   Future<void> sendTyping({required int roomId, required bool typing});
 
+  /// **Emoji reactions**: поставить реакцию `key` (emoji) на сообщение
+  /// `targetEventId`. Возвращает matrixEventId самого `m.reaction`
+  /// event-а — controller хранит его для toggle-off.
+  Future<String> sendReaction({
+    required int roomId,
+    required String targetEventId,
+    required String key,
+  });
+
+  /// **Emoji reactions**: снять свою реакцию через redaction
+  /// reaction-event-а `reactionEventId`. Idempotent.
+  Future<void> removeReaction({
+    required int roomId,
+    required String reactionEventId,
+  });
+
+  /// **Reactions history (phase 2)**: существующие реакции для списка
+  /// message `eventIds` как `reactionChanged`-add events. Controller
+  /// скармливает их в тот же aggregation-путь после `listMessages` —
+  /// реакции видны сразу при открытии чата. Пустой `eventIds` → [].
+  Future<List<MessengerEvent>> listReactions({
+    required int roomId,
+    required List<String> eventIds,
+  });
+
   /// **B17 search in messages**: keyword-поиск через Matrix `/search`.
   /// Empty/short query (< 2 chars) → пустой list. Server-side limit
   /// clamp 1..200. Result отсортирован `recent` (newest first).
@@ -241,6 +266,32 @@ class ClientMessagesRpc implements MessagesRpc {
   );
 
   @override
+  Future<String> sendReaction({
+    required int roomId,
+    required String targetEventId,
+    required String key,
+  }) => withAuthRetry(
+    () => _client.messenger.sendReaction(
+      roomId: roomId,
+      targetEventId: targetEventId,
+      key: key,
+    ),
+    _session,
+  );
+
+  @override
+  Future<void> removeReaction({
+    required int roomId,
+    required String reactionEventId,
+  }) => withAuthRetry(
+    () => _client.messenger.removeReaction(
+      roomId: roomId,
+      reactionEventId: reactionEventId,
+    ),
+    _session,
+  );
+
+  @override
   Future<List<MessengerMessage>> searchMessages({
     required int roomId,
     required String query,
@@ -250,6 +301,18 @@ class ClientMessagesRpc implements MessagesRpc {
       roomId: roomId,
       query: query,
       limit: limit,
+    ),
+    _session,
+  );
+
+  @override
+  Future<List<MessengerEvent>> listReactions({
+    required int roomId,
+    required List<String> eventIds,
+  }) => withAuthRetry(
+    () => _client.messenger.listReactions(
+      roomId: roomId,
+      eventIds: eventIds,
     ),
     _session,
   );

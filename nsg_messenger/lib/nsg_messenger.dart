@@ -90,7 +90,8 @@ export 'src/push/push_token_provider.dart'
 export 'src/messages/messages_controller.dart' show MessagesController;
 export 'src/messages/messages_state.dart'
     show MessagesState, MessagesLoading, MessagesReady, MessagesError;
-export 'src/messages/chat_message.dart' show ChatMessage, ChatMessageStatus;
+export 'src/messages/chat_message.dart'
+    show ChatMessage, ChatMessageStatus, ReactionGroup;
 // MessagesRpc — visible-for-testing для host-app integration tests
 // (подмена RPC слоя на in-memory fake без поднятия Serverpod).
 export 'src/messages/messages_rpc.dart' show MessagesRpc, ClientMessagesRpc;

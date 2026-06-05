@@ -691,32 +691,46 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               // перерисовывать.
               builder: (context, state, _) => ValueListenableBuilder<int>(
                 valueListenable: _controller.readReceiptsVersionListenable,
-                builder: (context, _, _) => _Body(
-                  state: state,
-                  selfMessengerUserId: _controller.selfMessengerUserId,
-                  onScroll: _onScroll,
-                  onRetry: _retry,
-                  onLongPressMessage: _onLongPressMessage,
-                  scrollController: _scrollController,
-                  itemKeys: _itemKeys,
-                  findReplyTarget: _findReplyTarget,
-                  onReplyChipTap: _scrollToOriginal,
-                  participantsByMessengerId: _participantsByMessengerId,
-                  participantsByMatrixId: _participantsByMatrixId,
-                  readByPeerCountFor: (m) =>
-                      _controller.readByPeerMatrixIds(m).length,
-                  isGroupChat:
-                      _roomDetails?.roomType == RoomType.group,
-                  onTapReadStatus: _openReadReceiptsSheet,
-                  thumbnailRpc:
-                      ({required String mxcUrl, int? width, int? height}) =>
-                          _controller.downloadThumbnail(
-                            mxcUrl: mxcUrl,
-                            width: width,
-                            height: height,
-                          ),
-                  fullSizeRpc: ({required String mxcUrl}) =>
-                      _controller.downloadFullSize(mxcUrl: mxcUrl),
+                // **Emoji reactions**: nested version listenable — rebuild
+                // когда агрегат реакций изменился (add/remove). Дёшево,
+                // ListView.builder сам решает что перерисовать.
+                builder: (context, _, _) => ValueListenableBuilder<int>(
+                  valueListenable: _controller.reactionsVersionListenable,
+                  builder: (context, _, _) => _Body(
+                    state: state,
+                    selfMessengerUserId: _controller.selfMessengerUserId,
+                    onScroll: _onScroll,
+                    onRetry: _retry,
+                    onLongPressMessage: _onLongPressMessage,
+                    scrollController: _scrollController,
+                    itemKeys: _itemKeys,
+                    findReplyTarget: _findReplyTarget,
+                    onReplyChipTap: _scrollToOriginal,
+                    participantsByMessengerId: _participantsByMessengerId,
+                    participantsByMatrixId: _participantsByMatrixId,
+                    readByPeerCountFor: (m) =>
+                        _controller.readByPeerMatrixIds(m).length,
+                    isGroupChat:
+                        _roomDetails?.roomType == RoomType.group,
+                    onTapReadStatus: _openReadReceiptsSheet,
+                    reactionsFor: (m) => m.matrixEventId == null
+                        ? const <ReactionGroup>[]
+                        : _controller.reactionsFor(m.matrixEventId!),
+                    onToggleReaction: (m, key) {
+                      final id = m.matrixEventId;
+                      if (id == null) return;
+                      _controller.toggleReaction(id, key);
+                    },
+                    thumbnailRpc:
+                        ({required String mxcUrl, int? width, int? height}) =>
+                            _controller.downloadThumbnail(
+                              mxcUrl: mxcUrl,
+                              width: width,
+                              height: height,
+                            ),
+                    fullSizeRpc: ({required String mxcUrl}) =>
+                        _controller.downloadFullSize(mxcUrl: mxcUrl),
+                  ),
                 ),
               ),
             ),
@@ -806,6 +820,8 @@ class _Body extends StatelessWidget {
     this.readByPeerCountFor,
     this.isGroupChat = false,
     this.onTapReadStatus,
+    this.reactionsFor,
+    this.onToggleReaction,
   });
 
   final MessagesState state;
@@ -841,6 +857,12 @@ class _Body extends StatelessWidget {
   /// открывает bottom-sheet «прочитали / не прочитали».
   final void Function(ChatMessage)? onTapReadStatus;
 
+  /// **Emoji reactions**: resolver агрегата реакций для сообщения.
+  final List<ReactionGroup> Function(ChatMessage)? reactionsFor;
+
+  /// **Emoji reactions**: toggle callback (message + emoji key).
+  final void Function(ChatMessage, String key)? onToggleReaction;
+
   @override
   Widget build(BuildContext context) {
     final s = state;
@@ -866,6 +888,8 @@ class _Body extends StatelessWidget {
                 readByPeerCountFor: readByPeerCountFor,
                 isGroupChat: isGroupChat,
                 onTapReadStatus: onTapReadStatus,
+                reactionsFor: reactionsFor,
+                onToggleReaction: onToggleReaction,
                 errorBanner: e,
               ),
       MessagesReady() => _Loaded(
@@ -885,6 +909,8 @@ class _Body extends StatelessWidget {
         readByPeerCountFor: readByPeerCountFor,
         isGroupChat: isGroupChat,
         onTapReadStatus: onTapReadStatus,
+        reactionsFor: reactionsFor,
+        onToggleReaction: onToggleReaction,
       ),
     };
   }
@@ -908,6 +934,8 @@ class _Loaded extends StatelessWidget {
     this.readByPeerCountFor,
     this.isGroupChat = false,
     this.onTapReadStatus,
+    this.reactionsFor,
+    this.onToggleReaction,
     this.errorBanner,
   });
 
@@ -927,6 +955,8 @@ class _Loaded extends StatelessWidget {
   final int Function(ChatMessage)? readByPeerCountFor;
   final bool isGroupChat;
   final void Function(ChatMessage)? onTapReadStatus;
+  final List<ReactionGroup> Function(ChatMessage)? reactionsFor;
+  final void Function(ChatMessage, String key)? onToggleReaction;
   final Object? errorBanner;
 
   @override
@@ -994,6 +1024,13 @@ class _Loaded extends StatelessWidget {
                           onTapReadStatus:
                               isOwn && isGroupChat && onTapReadStatus != null
                               ? () => onTapReadStatus!(m)
+                              : null,
+                          reactions:
+                              reactionsFor != null
+                              ? reactionsFor!(m)
+                              : const <ReactionGroup>[],
+                          onToggleReaction: onToggleReaction != null
+                              ? (key) => onToggleReaction!(m, key)
                               : null,
                         ),
                       );

@@ -526,6 +526,46 @@ void main() {
       },
     );
 
+    test(
+      'init() seed-ит историю реакций через listReactions → reactionsFor '
+      'показывает агрегированные count (phase 2)',
+      () async {
+        final rpc = _FakeRpc();
+        rpc.listMessagesHandler = (r, ft, l) => Future.value(
+          _page(messages: [_msg(eventId: 'h-1', body: 'hi')]),
+        );
+        rpc.listReactionsResult = [
+          _reactionEvent(
+            targetEventId: 'h-1', key: '👍',
+            reactorMatrixId: '@a:t', reactionEventId: 'r-1',
+          ),
+          _reactionEvent(
+            targetEventId: 'h-1', key: '👍',
+            reactorMatrixId: '@b:t', reactionEventId: 'r-2',
+          ),
+          _reactionEvent(
+            targetEventId: 'h-1', key: '❤️',
+            reactorMatrixId: '@a:t', reactionEventId: 'r-3',
+          ),
+        ];
+        final eventCtrl = StreamController<MessengerEvent>.broadcast();
+        final controller = _make(rpc: rpc, events: eventCtrl.stream);
+        await controller.init();
+        // _seedReactions — unawaited; даём microtask-ам отработать.
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+
+        expect(rpc.lastListReactionsEventIds, ['h-1'],
+            reason: 'seed дёрнут с eventId-ами страницы');
+        final byKey = {
+          for (final g in controller.reactionsFor('h-1')) g.key: g.count,
+        };
+        expect(byKey['👍'], 2);
+        expect(byKey['❤️'], 1);
+        await controller.dispose();
+        await eventCtrl.close();
+      },
+    );
+
     test('init() listMessages throws → Error state', () async {
       final rpc = _FakeRpc();
       rpc.listMessagesHandler = (r, ft, l) =>
@@ -1305,6 +1345,208 @@ void main() {
       await eventCtrl.close();
     });
   });
+
+  group('MessagesController — emoji reactions aggregation', () {
+    Future<(MessagesController, _FakeRpc, StreamController<MessengerEvent>)>
+    setupReady() async {
+      final rpc = _FakeRpc();
+      rpc.listMessagesHandler = (roomId, fromToken, limit) async =>
+          _page(messages: [_msg(eventId: 'target-1')]);
+      final eventCtrl = StreamController<MessengerEvent>.broadcast();
+      final controller = _make(rpc: rpc, events: eventCtrl.stream);
+      await controller.init();
+      return (controller, rpc, eventCtrl);
+    }
+
+    test('add reaction → reactionsFor показывает count=1, mine зависит от '
+        'reactor', () async {
+      final (controller, _, eventCtrl) = await setupReady();
+      addTearDown(() async {
+        await controller.dispose();
+        await eventCtrl.close();
+      });
+
+      eventCtrl.add(
+        _reactionEvent(
+          reactionEventId: 'rxn-1',
+          targetEventId: 'target-1',
+          key: '👍',
+          reactorMatrixId: '@peer:test',
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final groups = controller.reactionsFor('target-1');
+      expect(groups.length, 1);
+      expect(groups.single.key, '👍');
+      expect(groups.single.count, 1);
+      expect(groups.single.mine, isFalse, reason: 'reactor != self');
+    });
+
+    test('self reaction → mine=true', () async {
+      final (controller, _, eventCtrl) = await setupReady();
+      addTearDown(() async {
+        await controller.dispose();
+        await eventCtrl.close();
+      });
+
+      eventCtrl.add(
+        _reactionEvent(
+          reactionEventId: 'rxn-self',
+          targetEventId: 'target-1',
+          key: '❤️',
+          reactorMatrixId: _kSelfMatrixUserId,
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final g = controller.reactionsFor('target-1').single;
+      expect(g.mine, isTrue);
+      expect(g.count, 1);
+    });
+
+    test('несколько реакторов на один key → count агрегируется + дедуп '
+        'дублей', () async {
+      final (controller, _, eventCtrl) = await setupReady();
+      addTearDown(() async {
+        await controller.dispose();
+        await eventCtrl.close();
+      });
+
+      eventCtrl
+        ..add(_reactionEvent(
+          reactionEventId: 'r1',
+          targetEventId: 'target-1',
+          key: '😂',
+          reactorMatrixId: '@a:test',
+        ))
+        ..add(_reactionEvent(
+          reactionEventId: 'r2',
+          targetEventId: 'target-1',
+          key: '😂',
+          reactorMatrixId: '@b:test',
+        ))
+        // Дубль того же reaction-event-id — idempotent skip.
+        ..add(_reactionEvent(
+          reactionEventId: 'r2',
+          targetEventId: 'target-1',
+          key: '😂',
+          reactorMatrixId: '@b:test',
+        ));
+      await Future<void>.delayed(Duration.zero);
+
+      final g = controller.reactionsFor('target-1').single;
+      expect(g.count, 2, reason: 'два уникальных реактора');
+    });
+
+    test('несколько разных ключей → отдельные группы', () async {
+      final (controller, _, eventCtrl) = await setupReady();
+      addTearDown(() async {
+        await controller.dispose();
+        await eventCtrl.close();
+      });
+
+      eventCtrl
+        ..add(_reactionEvent(
+          reactionEventId: 'r1',
+          targetEventId: 'target-1',
+          key: '👍',
+          reactorMatrixId: '@a:test',
+        ))
+        ..add(_reactionEvent(
+          reactionEventId: 'r2',
+          targetEventId: 'target-1',
+          key: '🙏',
+          reactorMatrixId: '@a:test',
+        ));
+      await Future<void>.delayed(Duration.zero);
+
+      final groups = controller.reactionsFor('target-1');
+      expect(groups.length, 2);
+      expect(groups.map((g) => g.key).toSet(), {'👍', '🙏'});
+    });
+
+    test('redaction реакции → count декрементится, группа исчезает при 0',
+        () async {
+      final (controller, _, eventCtrl) = await setupReady();
+      addTearDown(() async {
+        await controller.dispose();
+        await eventCtrl.close();
+      });
+
+      eventCtrl.add(_reactionEvent(
+        reactionEventId: 'rxn-x',
+        targetEventId: 'target-1',
+        key: '😮',
+        reactorMatrixId: '@a:test',
+      ));
+      await Future<void>.delayed(Duration.zero);
+      expect(controller.reactionsFor('target-1').single.count, 1);
+
+      // Redaction — знает только reactionEventId.
+      eventCtrl.add(_reactionEvent(
+        reactionEventId: 'rxn-x',
+        reactorMatrixId: '@a:test',
+        redacted: true,
+      ));
+      await Future<void>.delayed(Duration.zero);
+      expect(controller.reactionsFor('target-1'), isEmpty);
+    });
+
+    test('toggleReaction: нет своей реакции → sendReaction вызван', () async {
+      final (controller, rpc, eventCtrl) = await setupReady();
+      addTearDown(() async {
+        await controller.dispose();
+        await eventCtrl.close();
+      });
+
+      await controller.toggleReaction('target-1', '👍');
+      expect(rpc.sentReactions.length, 1);
+      expect(rpc.sentReactions.single.targetEventId, 'target-1');
+      expect(rpc.sentReactions.single.key, '👍');
+      expect(rpc.removedReactionEventIds, isEmpty);
+    });
+
+    test('toggleReaction: есть своя реакция → removeReaction по сохранённому '
+        'reactionEventId', () async {
+      final (controller, rpc, eventCtrl) = await setupReady();
+      addTearDown(() async {
+        await controller.dispose();
+        await eventCtrl.close();
+      });
+
+      // Сначала self-реакция прилетает через stream (сохраняет ref).
+      eventCtrl.add(_reactionEvent(
+        reactionEventId: 'my-rxn',
+        targetEventId: 'target-1',
+        key: '👍',
+        reactorMatrixId: _kSelfMatrixUserId,
+      ));
+      await Future<void>.delayed(Duration.zero);
+
+      await controller.toggleReaction('target-1', '👍');
+      expect(rpc.removedReactionEventIds, ['my-rxn']);
+      expect(rpc.sentReactions, isEmpty);
+    });
+
+    test('reactionsVersionListenable bump-ится на изменение', () async {
+      final (controller, _, eventCtrl) = await setupReady();
+      addTearDown(() async {
+        await controller.dispose();
+        await eventCtrl.close();
+      });
+
+      final before = controller.reactionsVersionListenable.value;
+      eventCtrl.add(_reactionEvent(
+        reactionEventId: 'r1',
+        targetEventId: 'target-1',
+        key: '👍',
+        reactorMatrixId: '@a:test',
+      ));
+      await Future<void>.delayed(Duration.zero);
+      expect(controller.reactionsVersionListenable.value, greaterThan(before));
+    });
+  });
 }
 
 /// Wrapper-капчер для verifying что `sendMessage` получает новые
@@ -1402,12 +1644,38 @@ class _CapturingSendRpc implements MessagesRpc {
       _inner.sendTyping(roomId: roomId, typing: typing);
 
   @override
+  Future<String> sendReaction({
+    required int roomId,
+    required String targetEventId,
+    required String key,
+  }) =>
+      _inner.sendReaction(
+        roomId: roomId,
+        targetEventId: targetEventId,
+        key: key,
+      );
+
+  @override
+  Future<void> removeReaction({
+    required int roomId,
+    required String reactionEventId,
+  }) =>
+      _inner.removeReaction(roomId: roomId, reactionEventId: reactionEventId);
+
+  @override
   Future<List<MessengerMessage>> searchMessages({
     required int roomId,
     required String query,
     int limit = 50,
   }) =>
       _inner.searchMessages(roomId: roomId, query: query, limit: limit);
+
+  @override
+  Future<List<MessengerEvent>> listReactions({
+    required int roomId,
+    required List<String> eventIds,
+  }) =>
+      _inner.listReactions(roomId: roomId, eventIds: eventIds);
 }
 
 // ───────────────────────────────────────────────────────────────────
@@ -1475,6 +1743,26 @@ MessengerEvent _eventForRoom(int roomId, MessengerMessage message) =>
       matrixRoomId: message.matrixRoomId,
       message: message,
     );
+
+/// Emoji reactions: realtime reactionChanged event builder.
+MessengerEvent _reactionEvent({
+  required String reactionEventId,
+  String? targetEventId,
+  String? key,
+  required String reactorMatrixId,
+  bool redacted = false,
+  int roomId = _kRoomId,
+}) => MessengerEvent(
+  eventType: MessengerEventType.reactionChanged,
+  serverTimestamp: DateTime.utc(2026, 1, 2),
+  roomId: roomId,
+  matrixRoomId: '!room:test',
+  reactionTargetEventId: targetEventId,
+  reactionKey: key,
+  reactionReactorMatrixUserId: reactorMatrixId,
+  reactionEventId: reactionEventId,
+  reactionRedacted: redacted,
+);
 
 class _FakeRpc implements MessagesRpc {
   Future<MessengerMessageListPage> Function(
@@ -1608,12 +1896,52 @@ class _FakeRpc implements MessagesRpc {
     // Test stub: no-op (typing tests handled elsewhere).
   }
 
+  // Emoji reactions: capturing handlers. Default — return synthetic
+  // reaction event id, и records что было вызвано.
+  final List<({String targetEventId, String key})> sentReactions =
+      <({String targetEventId, String key})>[];
+  final List<String> removedReactionEventIds = <String>[];
+  String Function(String targetEventId, String key)? sendReactionHandler;
+
+  @override
+  Future<String> sendReaction({
+    required int roomId,
+    required String targetEventId,
+    required String key,
+  }) async {
+    sentReactions.add((targetEventId: targetEventId, key: key));
+    return sendReactionHandler?.call(targetEventId, key) ??
+        'rxn-$targetEventId-$key';
+  }
+
+  @override
+  Future<void> removeReaction({
+    required int roomId,
+    required String reactionEventId,
+  }) async {
+    removedReactionEventIds.add(reactionEventId);
+  }
+
   @override
   Future<List<MessengerMessage>> searchMessages({
     required int roomId,
     required String query,
     int limit = 50,
   }) async => const <MessengerMessage>[];
+
+  /// **Reactions history (phase 2)**: тест задаёт `listReactionsResult`,
+  /// контроллер сидит их через `_seedReactions` после init/loadMore.
+  List<MessengerEvent> listReactionsResult = const <MessengerEvent>[];
+  List<String>? lastListReactionsEventIds;
+
+  @override
+  Future<List<MessengerEvent>> listReactions({
+    required int roomId,
+    required List<String> eventIds,
+  }) async {
+    lastListReactionsEventIds = eventIds;
+    return listReactionsResult;
+  }
 }
 
 // Использую _eventForRoom как "rejected ChatMessage helper" нет — этот

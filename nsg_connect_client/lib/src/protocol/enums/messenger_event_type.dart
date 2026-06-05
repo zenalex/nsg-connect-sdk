@@ -63,7 +63,12 @@ enum MessengerEventType implements _i1.SerializableModel {
   membershipRemoved,
   membershipRoleChanged,
   readReceiptUpdated,
-  typingChanged;
+  typingChanged,
+
+  /// Реакция на сообщение добавлена/снята (emoji reactions). Payload —
+  /// reaction* поля в [MessengerEvent]. SDK клиентски агрегирует
+  /// (target, key) → count + own-flag; см. MessagesController.
+  reactionChanged;
 
   static MessengerEventType fromJson(String name) {
     switch (name) {
@@ -99,6 +104,8 @@ enum MessengerEventType implements _i1.SerializableModel {
         return MessengerEventType.readReceiptUpdated;
       case 'typingChanged':
         return MessengerEventType.typingChanged;
+      case 'reactionChanged':
+        return MessengerEventType.reactionChanged;
       default:
         throw ArgumentError(
           'Value "$name" cannot be converted to "MessengerEventType"',

@@ -145,6 +145,46 @@ class MessagesController {
   ValueListenable<int> get readReceiptsVersionListenable =>
       _readReceiptsVersion;
 
+  /// **Emoji reactions**: агрегат реакций по сообщениям.
+  /// `targetEventId → key → (set реакторов matrix-id)`. Count = размер
+  /// set-а; `mine` = self среди реакторов. Set дедуплицирует двойную
+  /// доставку (stream + RPC echo) и double-react того же юзера.
+  final Map<String, Map<String, Set<String>>> _reactionsByTarget =
+      <String, Map<String, Set<String>>>{};
+
+  /// **Emoji reactions**: reverse-индекс `reactionEventId →
+  /// (targetEventId, key, reactorMatrixId)`. Нужен для redaction
+  /// (toggle-off): redaction event знает только reactionEventId, по
+  /// нему находим что декрементить. Также хранит my reaction-event-id
+  /// для каждого (target,key) — через поиск по reactor==self.
+  final Map<String, _ReactionRef> _reactionRefById = <String, _ReactionRef>{};
+
+  /// **Emoji reactions**: версия агрегата — bump на каждое изменение,
+  /// триггерит UI rebuild (паттерн `_readReceiptsVersion`).
+  final ValueNotifier<int> _reactionsVersion = ValueNotifier(0);
+  ValueListenable<int> get reactionsVersionListenable => _reactionsVersion;
+
+  /// **Emoji reactions**: агрегированные группы реакций для сообщения
+  /// `matrixEventId` (для рендеринга чипов под bubble). Пустой list —
+  /// нет реакций. Стабильный порядок: по первому появлению ключа
+  /// (insertion order Map-а).
+  List<ReactionGroup> reactionsFor(String matrixEventId) {
+    final byKey = _reactionsByTarget[matrixEventId];
+    if (byKey == null || byKey.isEmpty) return const <ReactionGroup>[];
+    final result = <ReactionGroup>[];
+    for (final entry in byKey.entries) {
+      if (entry.value.isEmpty) continue;
+      result.add(
+        ReactionGroup(
+          key: entry.key,
+          count: entry.value.length,
+          mine: entry.value.contains(_selfMatrixUserId),
+        ),
+      );
+    }
+    return result;
+  }
+
   /// **TASK16-A**: target message текущего reply-draft-а в composer.
   /// `null` = composer без reply chip-а; non-null = composer показывает
   /// quote chip над TextField, send отправляет с
@@ -260,6 +300,54 @@ class MessagesController {
         );
       }
     }
+  }
+
+  /// **Emoji reactions**: toggle своей реакции `key` на сообщение
+  /// `targetEventId`. Если у меня уже есть эта реакция — снимаем
+  /// (`removeReaction` по сохранённому reactionEventId), иначе ставим
+  /// (`sendReaction`). Optimistic-free: realtime sync быстрый, и
+  /// агрегат обновится при приходе `reactionChanged` event-а. Errors
+  /// глотаются (best-effort, как typing) — если send упал, реакция
+  /// просто не появится.
+  Future<void> toggleReaction(String targetEventId, String key) async {
+    if (_disposed) return;
+    // Ищем свой reaction-event-id для этого (target,key).
+    final myEventId = _myReactionEventId(targetEventId, key);
+    try {
+      if (myEventId != null) {
+        await _rpc.removeReaction(
+          roomId: _roomId,
+          reactionEventId: myEventId,
+        );
+      } else {
+        await _rpc.sendReaction(
+          roomId: _roomId,
+          targetEventId: targetEventId,
+          key: key,
+        );
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint(
+          '[MessagesController.room=$_roomId] toggleReaction($targetEventId, '
+          '$key) failed: $e (best-effort, ignored)',
+        );
+      }
+    }
+  }
+
+  /// Возвращает matrixEventId моего `m.reaction` event-а для
+  /// (target,key), если я реагировал — иначе null.
+  String? _myReactionEventId(String targetEventId, String key) {
+    for (final entry in _reactionRefById.entries) {
+      final ref = entry.value;
+      if (ref.targetEventId == targetEventId &&
+          ref.key == key &&
+          ref.reactorMatrixId == _selfMatrixUserId) {
+        return entry.key;
+      }
+    }
+    return null;
   }
 
   /// **B11 read receipts**: список matrix id-ов peer-ов, которые
@@ -383,6 +471,12 @@ class MessagesController {
       hasMore: page.nextToken != null,
       paginating: false,
     );
+
+    // **Reactions history (phase 2)**: подтянуть существующие реакции
+    // для загруженной страницы, чтобы чипы были видны сразу при
+    // открытии чата (а не только по realtime). Best-effort, unawaited —
+    // не блокирует первый рендер.
+    unawaited(_seedReactions(messages));
   }
 
   /// Подгрузить страницу OLDER messages. No-op если:
@@ -436,9 +530,12 @@ class MessagesController {
       for (final m in merged)
         if (m.matrixEventId != null) m.matrixEventId!,
     };
+    final newlyAdded = <ChatMessage>[];
     for (final raw in page.messages) {
       if (existingEventIds.contains(raw.matrixEventId)) continue;
-      merged.add(ChatMessage.fromServer(raw));
+      final cm = ChatMessage.fromServer(raw);
+      merged.add(cm);
+      newlyAdded.add(cm);
       existingEventIds.add(raw.matrixEventId);
     }
     _nextToken = page.nextToken;
@@ -447,6 +544,39 @@ class MessagesController {
       hasMore: page.nextToken != null,
       paginating: false,
     );
+
+    // Reactions history (phase 2): seed реакции для свежеподгруженной
+    // OLDER-страницы (best-effort, unawaited).
+    unawaited(_seedReactions(newlyAdded));
+  }
+
+  /// **Reactions history (phase 2)**: тянет существующие реакции для
+  /// `messages` (по их matrixEventId) и применяет их через тот же
+  /// `_handleReactionChanged`, что и realtime. Best-effort — ошибки
+  /// silent (реакции не критичны для chat-UX). Pending/failed bubble-ы
+  /// (без matrixEventId) пропускаются.
+  Future<void> _seedReactions(List<ChatMessage> messages) async {
+    final ids = <String>[
+      for (final m in messages)
+        if (m.matrixEventId != null) m.matrixEventId!,
+    ];
+    if (ids.isEmpty) return;
+    final List<MessengerEvent> events;
+    try {
+      events = await _rpc.listReactions(roomId: _roomId, eventIds: ids);
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint(
+          '[MessagesController.room=$_roomId] seedReactions failed: $e '
+          '(best-effort, ignored)',
+        );
+      }
+      return;
+    }
+    if (_disposed || events.isEmpty) return;
+    for (final e in events) {
+      _handleReactionChanged(e);
+    }
   }
 
   /// Optimistic send. UX:
@@ -747,6 +877,56 @@ class MessagesController {
     _state.value = current.copyWith(messages: updated);
   }
 
+  /// **Emoji reactions**: применить realtime `reactionChanged` event к
+  /// агрегату. Два случая:
+  ///   * add (`reactionRedacted != true`): по
+  ///     (target, key, reactor, reactionEventId) добавляем reactor в
+  ///     set + индексируем reactionEventId.
+  ///   * redact (`reactionRedacted == true`): redaction знает только
+  ///     `reactionEventId` (= target redaction-а). Находим по нему ref
+  ///     в reverse-индексе, убираем reactor из set, чистим индекс. Если
+  ///     ref не найден (redaction был не реакцией, либо мы не видели
+  ///     add-event) — no-op.
+  void _handleReactionChanged(MessengerEvent e) {
+    final reactionEventId = e.reactionEventId;
+    if (reactionEventId == null) return;
+    final reactor = e.reactionReactorMatrixUserId;
+
+    if (e.reactionRedacted == true) {
+      final ref = _reactionRefById.remove(reactionEventId);
+      if (ref == null) return; // не реакция, или add не виден — no-op.
+      final byKey = _reactionsByTarget[ref.targetEventId];
+      final set = byKey?[ref.key];
+      if (set == null) return;
+      set.remove(ref.reactorMatrixId);
+      if (set.isEmpty) {
+        byKey!.remove(ref.key);
+        if (byKey.isEmpty) _reactionsByTarget.remove(ref.targetEventId);
+      }
+      _reactionsVersion.value = _reactionsVersion.value + 1;
+      return;
+    }
+
+    // Add path.
+    final target = e.reactionTargetEventId;
+    final key = e.reactionKey;
+    if (target == null || key == null || reactor == null) return;
+    // Idempotent: повторная доставка того же reaction-event — skip.
+    if (_reactionRefById.containsKey(reactionEventId)) return;
+    _reactionRefById[reactionEventId] = _ReactionRef(
+      targetEventId: target,
+      key: key,
+      reactorMatrixId: reactor,
+    );
+    final byKey = _reactionsByTarget.putIfAbsent(
+      target,
+      () => <String, Set<String>>{},
+    );
+    final set = byKey.putIfAbsent(key, () => <String>{});
+    set.add(reactor);
+    _reactionsVersion.value = _reactionsVersion.value + 1;
+  }
+
   /// Отписаться от стрима + не emit state из in-flight async-операций.
   Future<void> dispose() async {
     if (_disposed) return;
@@ -758,7 +938,10 @@ class MessagesController {
     _replyTarget.dispose();
     _typingPeers.dispose();
     _readReceiptsVersion.dispose();
+    _reactionsVersion.dispose();
     _peerLastReadAt.clear();
+    _reactionsByTarget.clear();
+    _reactionRefById.clear();
   }
 
   // ───────────────────────────────────────────────────────────────────
@@ -820,6 +1003,14 @@ class MessagesController {
       if (prev != null && prev.isAfter(readUpTo)) return;
       _peerLastReadAt[readerMxid] = readUpTo;
       _readReceiptsVersion.value = _readReceiptsVersion.value + 1;
+      return;
+    }
+
+    // **Emoji reactions**: reactionChanged ephemeral-like event,
+    // message=null. Аккумулируем агрегат, bump version → UI rebuild.
+    if (event.eventType == MessengerEventType.reactionChanged) {
+      if (event.roomId != _roomId) return;
+      _handleReactionChanged(event);
       return;
     }
 
@@ -1039,6 +1230,21 @@ class MessagesController {
     newMessages[idx] = current.messages[idx].failed(error);
     _state.value = current.copyWith(messages: newMessages);
   }
+}
+
+/// **Emoji reactions**: reverse-индексная запись `reactionEventId →
+/// (target, key, reactor)`. Нужна чтобы redaction (знающий только
+/// reactionEventId) мог декрементить правильный (target,key) и чтобы
+/// `toggleReaction` нашёл свой reaction-event-id для toggle-off.
+class _ReactionRef {
+  const _ReactionRef({
+    required this.targetEventId,
+    required this.key,
+    required this.reactorMatrixId,
+  });
+  final String targetEventId;
+  final String key;
+  final String reactorMatrixId;
 }
 
 /// Default — non-cryptographic UUIDv4-like 16 bytes hex. Crypto-strong

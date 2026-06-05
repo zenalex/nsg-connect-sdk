@@ -550,8 +550,17 @@ class _MessageComposerState extends State<MessageComposer> {
 
   void _submit() {
     if (!widget.enabled) return;
-    final body = _ctl.text.trim();
-    if (body.isEmpty) return;
+    final trimmed = _ctl.text.trim();
+    if (trimmed.isEmpty) return;
+    // Defensive clamp: TextField.maxLength=enforced уже не даёт превысить
+    // лимит, но платформенные edge-case-ы (web IME, программная вставка
+    // мимо formatter-а) теоретически могут просочиться. Гарантируем, что
+    // server никогда не увидит > kMessageBodyMaxChars и не вернёт
+    // MessageBodyTooLargeException (→ silent failed-send). Counter под
+    // полем уже визуально предупреждал пользователя о пределе.
+    final body = trimmed.length > kMessageBodyMaxChars
+        ? trimmed.substring(0, kMessageBodyMaxChars)
+        : trimmed;
     // Snapshot mentions ПЕРЕД clear-ом (clear сбрасывает state).
     final mentions = _pendingMentions.isEmpty
         ? null
@@ -829,9 +838,21 @@ class _MessageComposerState extends State<MessageComposer> {
                               // полем визуально подсказывает оставшийся
                               // объём). Сервер тоже валидирует
                               // (MessageBodyTooLargeException) — anti-abuse.
+                              //
+                              // `enforced` (не `truncateAfterCompositionEnds`):
+                              // последний обрезал только ПОСЛЕ завершения IME-
+                              // композиции, поэтому paste-then-immediate-send
+                              // (особенно desktop, где paste не даёт
+                              // composition-end) проскакивал > лимита и ловил
+                              // server-side MessageBodyTooLargeException →
+                              // silent failed-send (наблюдали в проде: 5760
+                              // chars). `enforced` режет немедленно на любом
+                              // вводе/paste. Mid-IME-обрезка для лимита 4096
+                              // практически невозможна (никто не композит
+                              // 4096 символов за один IME-сеанс).
                               maxLength: kMessageBodyMaxChars,
                               maxLengthEnforcement: MaxLengthEnforcement
-                                  .truncateAfterCompositionEnds,
+                                  .enforced,
                               // textInputAction.send только на mobile —
                               // на desktop macOS этот input action заставляет
                               // платформу вызывать performAction(send) на

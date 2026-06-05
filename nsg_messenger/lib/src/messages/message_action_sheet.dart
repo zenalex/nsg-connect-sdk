@@ -35,6 +35,17 @@ Future<void> showMessageActionSheet({
   );
 }
 
+/// **Emoji reactions**: фиксированный набор быстрых реакций (MVP — без
+/// полного picker-а). Telegram/Slack-style quick row.
+const List<String> kQuickReactionEmojis = [
+  '👍',
+  '❤️',
+  '😂',
+  '😮',
+  '😢',
+  '🙏',
+];
+
 class _MessageActionSheetBody extends StatelessWidget {
   const _MessageActionSheetBody({
     required this.message,
@@ -49,10 +60,42 @@ class _MessageActionSheetBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = NsgL10n.of(context);
+    // **Emoji reactions**: quick-react row доступен только для сообщений
+    // с stable matrixEventId (sent, non-tombstone). Pending/failed/
+    // deleted — нет id для реакции.
+    final canReact = !message.isDeleted && message.matrixEventId != null;
     return SafeArea(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (canReact)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  for (final emoji in kQuickReactionEmojis)
+                    InkResponse(
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        controller.toggleReaction(
+                          message.matrixEventId!,
+                          emoji,
+                        );
+                      },
+                      radius: 24,
+                      child: Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Text(
+                          emoji,
+                          style: const TextStyle(fontSize: 26),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          if (canReact) const Divider(height: 1),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
             child: Text(

@@ -417,6 +417,24 @@ class _DemoMessagesRpc implements MessagesRpc {
   }
 
   @override
+  Future<String> sendReaction({
+    required int roomId,
+    required String targetEventId,
+    required String key,
+  }) async {
+    // Demo: реакции отключены — no-op, фиктивный event id.
+    return 'demo-reaction';
+  }
+
+  @override
+  Future<void> removeReaction({
+    required int roomId,
+    required String reactionEventId,
+  }) async {
+    // Demo: no-op.
+  }
+
+  @override
   Future<List<MessengerMessage>> searchMessages({
     required int roomId,
     required String query,
@@ -424,6 +442,15 @@ class _DemoMessagesRpc implements MessagesRpc {
   }) async {
     // Demo: empty results (search не имеет смысла в demo fixtures).
     return const <MessengerMessage>[];
+  }
+
+  @override
+  Future<List<MessengerEvent>> listReactions({
+    required int roomId,
+    required List<String> eventIds,
+  }) async {
+    // Demo: нет истории реакций в fixtures.
+    return const <MessengerEvent>[];
   }
 }
 

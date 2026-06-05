@@ -40,6 +40,8 @@ class MessageBubble extends StatelessWidget {
     this.readByPeerCount = 0,
     this.isGroupChat = false,
     this.onTapReadStatus,
+    this.reactions = const <ReactionGroup>[],
+    this.onToggleReaction,
   });
 
   final ChatMessage message;
@@ -106,6 +108,15 @@ class MessageBubble extends StatelessWidget {
   /// остаётся декоративным).
   final VoidCallback? onTapReadStatus;
 
+  /// **Emoji reactions**: агрегированные группы реакций (emoji × count)
+  /// под bubble. Пустой list → чипы не рендерятся. Свои реакции
+  /// (`group.mine`) подсвечены accent-цветом.
+  final List<ReactionGroup> reactions;
+
+  /// **Emoji reactions**: tap по чипу → toggle своей реакции с этим
+  /// emoji-ключом. Если `null` — чипы display-only (не tappable).
+  final void Function(String key)? onToggleReaction;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -157,7 +168,11 @@ class MessageBubble extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Flexible(
-            child: GestureDetector(
+            child: Column(
+              crossAxisAlignment: align,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GestureDetector(
               onLongPress: canLongPress ? () => onLongPress!(message) : null,
               child: Container(
                 constraints: BoxConstraints(
@@ -268,9 +283,115 @@ class MessageBubble extends StatelessWidget {
                 ),
               ),
             ),
+                // **Emoji reactions**: чипы под bubble (emoji × count).
+                // Hidden когда нет реакций или это tombstone.
+                if (!isTombstone && reactions.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: _ReactionChips(
+                      reactions: reactions,
+                      onToggle: onToggleReaction,
+                      align: align,
+                    ),
+                  ),
+              ],
+            ),
           ),
         ],
       ),
+    );
+  }
+}
+
+/// **Emoji reactions**: горизонтальный Wrap чипов «emoji × count» под
+/// bubble. Свои реакции (`group.mine`) подсвечены accent-цветом + рамкой.
+/// Tap → toggle через [onToggle].
+class _ReactionChips extends StatelessWidget {
+  const _ReactionChips({
+    required this.reactions,
+    required this.onToggle,
+    required this.align,
+  });
+
+  final List<ReactionGroup> reactions;
+  final void Function(String key)? onToggle;
+  final CrossAxisAlignment align;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Wrap(
+      spacing: 4,
+      runSpacing: 4,
+      alignment: align == CrossAxisAlignment.end
+          ? WrapAlignment.end
+          : WrapAlignment.start,
+      children: [
+        for (final r in reactions)
+          _ReactionChip(
+            group: r,
+            mineColor: colors.primaryContainer,
+            mineBorder: colors.primary,
+            plainColor: colors.surfaceContainerHighest,
+            textColor: colors.onSurface,
+            onTap: onToggle == null ? null : () => onToggle!(r.key),
+          ),
+      ],
+    );
+  }
+}
+
+class _ReactionChip extends StatelessWidget {
+  const _ReactionChip({
+    required this.group,
+    required this.mineColor,
+    required this.mineBorder,
+    required this.plainColor,
+    required this.textColor,
+    required this.onTap,
+  });
+
+  final ReactionGroup group;
+  final Color mineColor;
+  final Color mineBorder;
+  final Color plainColor;
+  final Color textColor;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final chip = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: group.mine ? mineColor : plainColor,
+        borderRadius: BorderRadius.circular(12),
+        border: group.mine
+            ? Border.all(color: mineBorder, width: 1)
+            : null,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(group.key, style: const TextStyle(fontSize: 13)),
+          const SizedBox(width: 4),
+          Text(
+            '${group.count}',
+            style: TextStyle(
+              color: textColor.withValues(alpha: 0.85),
+              fontSize: 12,
+              fontWeight: group.mine ? FontWeight.w700 : FontWeight.w500,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      ),
+    );
+    if (onTap == null) return chip;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: chip,
     );
   }
 }

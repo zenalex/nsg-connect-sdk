@@ -289,3 +289,39 @@ class ChatMessage {
 }
 
 enum ChatMessageStatus { pending, sent, failed }
+
+/// **Emoji reactions**: агрегированная группа реакций одного emoji-ключа
+/// на конкретное сообщение. Используется UI (`MessageBubble`) для
+/// рендеринга чипа «emoji × count». `mine == true` → чип подсвечен
+/// accent-цветом, tap toggle-ит свою реакцию.
+@immutable
+class ReactionGroup {
+  const ReactionGroup({
+    required this.key,
+    required this.count,
+    required this.mine,
+  });
+
+  /// Emoji-ключ (`👍`, `❤️`, ...).
+  final String key;
+
+  /// Сколько разных пользователей поставили эту реакцию.
+  final int count;
+
+  /// `true` если текущий пользователь среди реакторов (для подсветки +
+  /// toggle).
+  final bool mine;
+
+  @override
+  bool operator ==(Object other) =>
+      other is ReactionGroup &&
+      other.key == key &&
+      other.count == count &&
+      other.mine == mine;
+
+  @override
+  int get hashCode => Object.hash(key, count, mine);
+
+  @override
+  String toString() => 'ReactionGroup($key ×$count${mine ? " mine" : ""})';
+}

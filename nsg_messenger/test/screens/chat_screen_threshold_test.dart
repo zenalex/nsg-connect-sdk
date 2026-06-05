@@ -257,9 +257,28 @@ class _CountingRpc implements MessagesRpc {
   }
 
   @override
+  Future<String> sendReaction({
+    required int roomId,
+    required String targetEventId,
+    required String key,
+  }) async => 'reaction-event';
+
+  @override
+  Future<void> removeReaction({
+    required int roomId,
+    required String reactionEventId,
+  }) async {}
+
+  @override
   Future<List<MessengerMessage>> searchMessages({
     required int roomId,
     required String query,
     int limit = 50,
   }) async => const <MessengerMessage>[];
+
+  @override
+  Future<List<MessengerEvent>> listReactions({
+    required int roomId,
+    required List<String> eventIds,
+  }) async => const <MessengerEvent>[];
 }

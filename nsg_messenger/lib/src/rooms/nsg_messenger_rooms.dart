@@ -1220,8 +1220,10 @@ class NsgMessengerRooms {
       case MessengerEventType.roomClosed:
       case MessengerEventType.membershipRoleChanged:
       case MessengerEventType.readReceiptUpdated:
+      case MessengerEventType.reactionChanged:
         // Эти events НЕ влияют на rooms-list (room metadata не
-        // меняется); SDK обработают на уровне MessagesController.
+        // меняется); SDK обработают на уровне MessagesController
+        // (reactionChanged → reaction aggregation в открытом чате).
         return;
     }
   }

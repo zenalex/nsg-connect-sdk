@@ -46,6 +46,29 @@ void main() {
     expect(find.text('привет'), findsNothing, reason: 'field cleared');
   });
 
+  testWidgets(
+      'body > 4096 chars → отправляется обрезанным до лимита (никогда не '
+      'улетает server-side MessageBodyTooLargeException)', (tester) async {
+    final sent = <String>[];
+    await tester.pumpWidget(
+      wrap(
+        MessageComposer(
+          onSend: (b, {mentionedMessengerUserIds}) async => sent.add(b),
+        ),
+      ),
+    );
+    // 5000 символов — выше лимита 4096. maxLength=enforced обрезает на
+    // вводе; defensive clamp в _submit — второй пояс.
+    await tester.enterText(find.byType(TextField), 'a' * 5000);
+    await tester.pump();
+    await tester.tap(find.byIcon(Icons.send));
+    await tester.pump();
+
+    expect(sent.length, 1);
+    expect(sent.single.length, 4096,
+        reason: 'body обрезан до kMessageBodyMaxChars перед отправкой');
+  });
+
   testWidgets('hardware Enter submits (desktop) without Shift', (
     tester,
   ) async {

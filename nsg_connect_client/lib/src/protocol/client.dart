@@ -21,20 +21,20 @@ import 'package:nsg_connect_client/src/protocol/messenger_auth_context.dart'
 import 'package:nsg_connect_client/src/protocol/messenger_session.dart' as _i6;
 import 'package:nsg_connect_client/src/protocol/messenger_message.dart' as _i7;
 import 'package:nsg_connect_client/src/protocol/attachment_ref.dart' as _i8;
+import 'package:nsg_connect_client/src/protocol/messenger_event.dart' as _i9;
 import 'package:nsg_connect_client/src/protocol/enums/room_member_role.dart'
-    as _i9;
-import 'package:nsg_connect_client/src/protocol/room_participant.dart' as _i10;
-import 'dart:typed_data' as _i11;
-import 'package:nsg_connect_client/src/protocol/attachment_bytes.dart' as _i12;
+    as _i10;
+import 'package:nsg_connect_client/src/protocol/room_participant.dart' as _i11;
+import 'dart:typed_data' as _i12;
+import 'package:nsg_connect_client/src/protocol/attachment_bytes.dart' as _i13;
 import 'package:nsg_connect_client/src/protocol/messenger_message_list_page.dart'
-    as _i13;
-import 'package:nsg_connect_client/src/protocol/device_registration.dart'
     as _i14;
-import 'package:nsg_connect_client/src/protocol/enums/device_platform.dart'
+import 'package:nsg_connect_client/src/protocol/device_registration.dart'
     as _i15;
-import 'package:nsg_connect_client/src/protocol/enums/push_service.dart'
+import 'package:nsg_connect_client/src/protocol/enums/device_platform.dart'
     as _i16;
-import 'package:nsg_connect_client/src/protocol/messenger_event.dart' as _i17;
+import 'package:nsg_connect_client/src/protocol/enums/push_service.dart'
+    as _i17;
 import 'package:nsg_connect_client/src/protocol/room_summary.dart' as _i18;
 import 'package:nsg_connect_client/src/protocol/enums/room_state.dart' as _i19;
 import 'package:nsg_connect_client/src/protocol/room_details.dart' as _i20;
@@ -650,6 +650,54 @@ class EndpointMessenger extends _i2.EndpointRef {
     },
   );
 
+  /// **Emoji reactions**: поставить реакцию `key` (emoji) на сообщение
+  /// `targetEventId`. Возвращает matrixEventId самого `m.reaction`
+  /// event-а — SDK хранит его для toggle-off (`removeReaction`).
+  _i3.Future<String> sendReaction({
+    required int roomId,
+    required String targetEventId,
+    required String key,
+  }) => caller.callServerEndpoint<String>(
+    'messenger',
+    'sendReaction',
+    {
+      'roomId': roomId,
+      'targetEventId': targetEventId,
+      'key': key,
+    },
+  );
+
+  /// **Emoji reactions**: снять свою реакцию через redaction
+  /// reaction-event-а `reactionEventId`. Idempotent.
+  _i3.Future<void> removeReaction({
+    required int roomId,
+    required String reactionEventId,
+  }) => caller.callServerEndpoint<void>(
+    'messenger',
+    'removeReaction',
+    {
+      'roomId': roomId,
+      'reactionEventId': reactionEventId,
+    },
+  );
+
+  /// **Reactions history (phase 2)**: для списка message `eventIds`
+  /// возвращает существующие реакции как `reactionChanged`-add
+  /// `MessengerEvent`-ы (тот же shape что realtime). SDK скармливает их
+  /// в aggregation-путь после `listMessages`, чтобы реакции были видны
+  /// сразу при открытии чата. Пустой `eventIds` → пустой list.
+  _i3.Future<List<_i9.MessengerEvent>> listReactions({
+    required int roomId,
+    required List<String> eventIds,
+  }) => caller.callServerEndpoint<List<_i9.MessengerEvent>>(
+    'messenger',
+    'listReactions',
+    {
+      'roomId': roomId,
+      'eventIds': eventIds,
+    },
+  );
+
   /// **TASK29**: kick — caller-admin удаляет target из комнаты. Target
   /// **может re-join** (через invite). Authorization: caller `role >=
   /// admin` (PL >= 50).
@@ -756,7 +804,7 @@ class EndpointMessenger extends _i2.EndpointRef {
   _i3.Future<void> setRoomMemberRole({
     required int roomId,
     required int targetMessengerUserId,
-    required _i9.RoomMemberRole newRole,
+    required _i10.RoomMemberRole newRole,
   }) => caller.callServerEndpoint<void>(
     'messenger',
     'setRoomMemberRole',
@@ -770,9 +818,9 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// **TASK29 Chunk 2**: список banned users в комнате — для admin
   /// `BannedUsersScreen` UI. Caller `role >= admin`. Federation banned
   /// users отфильтрованы (DTO requires non-null messengerUserId).
-  _i3.Future<List<_i10.RoomParticipant>> listBannedUsers({
+  _i3.Future<List<_i11.RoomParticipant>> listBannedUsers({
     required int roomId,
-  }) => caller.callServerEndpoint<List<_i10.RoomParticipant>>(
+  }) => caller.callServerEndpoint<List<_i11.RoomParticipant>>(
     'messenger',
     'listBannedUsers',
     {'roomId': roomId},
@@ -786,7 +834,7 @@ class EndpointMessenger extends _i2.EndpointRef {
   ///
   /// Возвращает [AttachmentRef] для последующего `sendMessage(attachment:)`.
   _i3.Future<_i8.AttachmentRef> uploadAttachment({
-    required _i11.ByteData bytes,
+    required _i12.ByteData bytes,
     required String mimeType,
     required String originalFilename,
   }) => caller.callServerEndpoint<_i8.AttachmentRef>(
@@ -816,7 +864,7 @@ class EndpointMessenger extends _i2.EndpointRef {
   ///
   /// Возвращает обновлённый `MessengerUser.avatarUrl` (= mxcUrl).
   _i3.Future<String> uploadUserAvatar({
-    required _i11.ByteData bytes,
+    required _i12.ByteData bytes,
     required String mimeType,
   }) => caller.callServerEndpoint<String>(
     'messenger',
@@ -841,7 +889,7 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// Возвращает mxcUrl.
   _i3.Future<String> setRoomAvatar({
     required int roomId,
-    required _i11.ByteData bytes,
+    required _i12.ByteData bytes,
     required String mimeType,
   }) => caller.callServerEndpoint<String>(
     'messenger',
@@ -857,9 +905,9 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// (Matrix Authenticated Media — Synapse 1.100+ обязателен).
   /// Caller должен быть member хотя бы одной комнаты, где media
   /// post-нута; Matrix verify-ит автоматически.
-  _i3.Future<_i12.AttachmentBytes> downloadAttachment({
+  _i3.Future<_i13.AttachmentBytes> downloadAttachment({
     required String mxcUrl,
-  }) => caller.callServerEndpoint<_i12.AttachmentBytes>(
+  }) => caller.callServerEndpoint<_i13.AttachmentBytes>(
     'messenger',
     'downloadAttachment',
     {'mxcUrl': mxcUrl},
@@ -871,11 +919,11 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// `method = scale` (preserves aspect). Authenticated Media через
   /// caller's matrix token. Используется SDK для chat bubble preview —
   /// fast load, low bandwidth по сравнению с full download.
-  _i3.Future<_i12.AttachmentBytes> downloadAttachmentThumbnail({
+  _i3.Future<_i13.AttachmentBytes> downloadAttachmentThumbnail({
     required String mxcUrl,
     int? width,
     int? height,
-  }) => caller.callServerEndpoint<_i12.AttachmentBytes>(
+  }) => caller.callServerEndpoint<_i13.AttachmentBytes>(
     'messenger',
     'downloadAttachmentThumbnail',
     {
@@ -896,11 +944,11 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// TASK15: возвращаем [MessengerMessageListPage] с tokens (на TASK09
   /// был просто `List` без pagination — закрыто с приходом SDK
   /// `MessagesController.loadMore`).
-  _i3.Future<_i13.MessengerMessageListPage> listMessages({
+  _i3.Future<_i14.MessengerMessageListPage> listMessages({
     required int roomId,
     String? fromToken,
     required int limit,
-  }) => caller.callServerEndpoint<_i13.MessengerMessageListPage>(
+  }) => caller.callServerEndpoint<_i14.MessengerMessageListPage>(
     'messenger',
     'listMessages',
     {
@@ -964,15 +1012,15 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// `productExternalKey` опциональный — для standalone Chatista
   /// можно null; для embedded SDK customer-app передаёт свой product.
   /// Resolves в `productId` через `Product.externalKey`.
-  _i3.Future<_i14.DeviceRegistration> registerDevice({
-    required _i15.DevicePlatform platform,
+  _i3.Future<_i15.DeviceRegistration> registerDevice({
+    required _i16.DevicePlatform platform,
     required String pushToken,
-    required _i16.PushService pushService,
+    required _i17.PushService pushService,
     required String locale,
     required String appVersion,
     String? deviceModel,
     String? productExternalKey,
-  }) => caller.callServerEndpoint<_i14.DeviceRegistration>(
+  }) => caller.callServerEndpoint<_i15.DeviceRegistration>(
     'messenger',
     'registerDevice',
     {
@@ -1012,10 +1060,10 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// `MessengerNotAuthenticatedException` ДО первого `yield`. Serverpod
   /// доставит exception клиенту через stream-error канала, и SDK
   /// обработает 401-retry.
-  _i3.Stream<_i17.MessengerEvent> userEventStream() =>
+  _i3.Stream<_i9.MessengerEvent> userEventStream() =>
       caller.callStreamingServerEndpoint<
-        _i3.Stream<_i17.MessengerEvent>,
-        _i17.MessengerEvent
+        _i3.Stream<_i9.MessengerEvent>,
+        _i9.MessengerEvent
       >(
         'messenger',
         'userEventStream',
@@ -1085,10 +1133,10 @@ class EndpointMessenger extends _i2.EndpointRef {
   ///   * EmailAccount существует но MessengerUser ещё не создан
   ///     (signedUp но не вызывал messenger.session()) → тоже
   ///     PeerUnavailableException.
-  _i3.Future<_i10.RoomParticipant> findUserByEmail({
+  _i3.Future<_i11.RoomParticipant> findUserByEmail({
     required String email,
     required String tenantExternalKey,
-  }) => caller.callServerEndpoint<_i10.RoomParticipant>(
+  }) => caller.callServerEndpoint<_i11.RoomParticipant>(
     'messenger',
     'findUserByEmail',
     {
@@ -1112,8 +1160,8 @@ class EndpointMessenger extends _i2.EndpointRef {
   ///
   /// Возвращает пустой list если у caller нет ни одной комнаты или нет
   /// peer-ов в комнатах.
-  _i3.Future<List<_i10.RoomParticipant>> listKnownContacts() =>
-      caller.callServerEndpoint<List<_i10.RoomParticipant>>(
+  _i3.Future<List<_i11.RoomParticipant>> listKnownContacts() =>
+      caller.callServerEndpoint<List<_i11.RoomParticipant>>(
         'messenger',
         'listKnownContacts',
         {},
@@ -1135,11 +1183,11 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// **Edge cases**:
   ///   * Empty query → пустой list (no DoS surface).
   ///   * Query короче 2 символов → пустой list (anti-fishing).
-  _i3.Future<List<_i10.RoomParticipant>> searchUsers({
+  _i3.Future<List<_i11.RoomParticipant>> searchUsers({
     required String query,
     required int limit,
     required String tenantExternalKey,
-  }) => caller.callServerEndpoint<List<_i10.RoomParticipant>>(
+  }) => caller.callServerEndpoint<List<_i11.RoomParticipant>>(
     'messenger',
     'searchUsers',
     {
