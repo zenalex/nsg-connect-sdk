@@ -168,7 +168,11 @@ class _ParticipantActionSheetBody extends StatelessWidget {
               ),
               onTap: () async {
                 final navigator = Navigator.of(context);
-                navigator.pop();
+                // #6: confirm показываем на ЖИВОМ контексте sheet (ДО pop).
+                // Раньше pop() шёл первым → showDialog на pop-нутом контексте
+                // не подтверждался → confirmed=null → kickUser НЕ вызывался,
+                // участник оставался даже после F5. (promote работал, т.к. у
+                // него нет confirm-диалога.) pop — только после подтверждения.
                 final confirmed = await _showConfirm(
                   context,
                   title: l.roomAdminKickConfirmTitle(displayName),
@@ -177,7 +181,8 @@ class _ParticipantActionSheetBody extends StatelessWidget {
                   confirmLabel: l.roomAdminKickAction,
                 );
                 if (confirmed != true) return;
-                if (!context.mounted) return;
+                if (!context.mounted) return; // sheet ещё открыт → проходит
+                navigator.pop();
                 final ok = await _runWithErrorReport(
                   context,
                   () => rooms.kickUser(
@@ -197,7 +202,8 @@ class _ParticipantActionSheetBody extends StatelessWidget {
               ),
               onTap: () async {
                 final navigator = Navigator.of(context);
-                navigator.pop();
+                // #7: см. kick выше — confirm на ЖИВОМ контексте до pop,
+                // иначе banUser не вызывался (RPC за гейтом confirmed=null).
                 final confirmed = await _showConfirm(
                   context,
                   title: l.roomAdminBanConfirmTitle(displayName),
@@ -206,7 +212,8 @@ class _ParticipantActionSheetBody extends StatelessWidget {
                   confirmLabel: l.roomAdminBanAction,
                 );
                 if (confirmed != true) return;
-                if (!context.mounted) return;
+                if (!context.mounted) return; // sheet ещё открыт → проходит
+                navigator.pop();
                 final ok = await _runWithErrorReport(
                   context,
                   () => rooms.banUser(

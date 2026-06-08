@@ -289,6 +289,85 @@ void main() {
     expect(capturedRole, RoomMemberRole.admin);
   });
 
+  // ── #6/#7 fix: confirm → RPC. Раньше pop() шёл ДО confirm → диалог на
+  // мёртвом контексте → confirmed=null → kick/ban RPC не вызывался вовсе.
+  testWidgets('kick: confirm → kickUser RPC вызывается (на success)', (
+    tester,
+  ) async {
+    final room = buildRoom(viewerRole: RoomMemberRole.owner);
+    final target = buildTarget();
+    var kickCalls = 0;
+    var onChangedCalls = 0;
+    final rooms = makeRooms(onKick: (rid, tid) async => kickCalls++);
+
+    await tester.pumpWidget(
+      wrapL10n(
+        Builder(
+          builder: (context) => Center(
+            child: ElevatedButton(
+              onPressed: () => showParticipantActionSheet(
+                context: context,
+                room: room,
+                target: target,
+                callerRole: RoomMemberRole.owner,
+                callerMessengerUserId: 1,
+                rooms: rooms,
+                onChanged: () => onChangedCalls++,
+              ),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Kick from room')); // пункт меню
+    await tester.pumpAndSettle(); // confirm-диалог
+    // Кнопка подтверждения (FilledButton) имеет тот же текст, что и пункт
+    // меню — таргетим по типу, чтобы не попасть в ListTile.
+    await tester.tap(find.widgetWithText(FilledButton, 'Kick from room'));
+    await tester.pumpAndSettle();
+    expect(kickCalls, 1, reason: 'после confirm kickUser обязан вызваться');
+    expect(onChangedCalls, 1);
+  });
+
+  testWidgets('ban: confirm → banUser RPC вызывается (на success)', (
+    tester,
+  ) async {
+    final room = buildRoom(viewerRole: RoomMemberRole.owner);
+    final target = buildTarget();
+    var banCalls = 0;
+    final rooms = makeRooms(onBan: (rid, tid) async => banCalls++);
+
+    await tester.pumpWidget(
+      wrapL10n(
+        Builder(
+          builder: (context) => Center(
+            child: ElevatedButton(
+              onPressed: () => showParticipantActionSheet(
+                context: context,
+                room: room,
+                target: target,
+                callerRole: RoomMemberRole.owner,
+                callerMessengerUserId: 1,
+                rooms: rooms,
+              ),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ban from room'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Ban from room'));
+    await tester.pumpAndSettle();
+    expect(banCalls, 1, reason: 'после confirm banUser обязан вызваться');
+  });
+
   // ── B21 fix: onChanged callback ──────────────────────────────────
   testWidgets('onChanged вызывается ПОСЛЕ успешного promote RPC', (
     tester,
