@@ -460,6 +460,9 @@ class _MessageComposerState extends State<MessageComposer> {
     );
     _pendingMentions.add(p.messengerUserId);
     _hideTypeahead();
+    // Вернуть фокус в поле — пользователь продолжает ввод сразу после выбора
+    // упоминания (на web тап по оверлею мог его кратко увести).
+    if (!_focus.hasFocus) _focus.requestFocus();
   }
 
   /// **Desktop hardware-keyboard shortcuts**.
@@ -869,6 +872,17 @@ class _MessageComposerState extends State<MessageComposer> {
                               onSubmitted: _kIsMobile
                                   ? (_) => _submit()
                                   : null,
+                              // #12: пока открыт typeahead упоминаний, тап (в
+                              // т.ч. по самому оверлею) не должен уводить фокус
+                              // из поля — иначе focus-listener убирает оверлей
+                              // раньше, чем срабатывает onTap выбора, и клик по
+                              // подсказке «теряется» (баг на web). По смене
+                              // каретки/запроса оверлей всё равно скрывается
+                              // через _ctl-listener (_syncTypeahead).
+                              onTapOutside: (event) {
+                                if (_typeaheadOverlay != null) return;
+                                _focus.unfocus();
+                              },
                               decoration: InputDecoration(
                                 hintText: l.chatScreenSendHint,
                                 border: InputBorder.none,
