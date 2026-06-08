@@ -198,6 +198,14 @@ class _MessageComposerState extends State<MessageComposer> {
   // Минимальная длина записи. Press мгновенный (UX «жмётся-сразу-
   // отпустил») считается accidental tap — cancel со snackbar.
   static const Duration _kMinRecordDuration = Duration(seconds: 1);
+  // #11: mention-query regex — статические, чтобы не пересоздавать (компилить)
+  // на КАЖДЫЙ keystroke в _currentMentionQuery (давало лаг на длинном тексте
+  // при быстром вводе).
+  static final RegExp _kWhitespaceRe = RegExp(r'\s');
+  static final RegExp _kMentionQueryRe = RegExp(
+    r'^[\p{L}\p{N}_.\-]+$',
+    unicode: true,
+  );
 
   @override
   void initState() {
@@ -362,27 +370,29 @@ class _MessageComposerState extends State<MessageComposer> {
     final selection = _ctl.selection;
     if (!selection.isValid || !selection.isCollapsed) return null;
     final caret = selection.start;
-    if (caret < 0) return null;
-    final upToCaret = _ctl.text.substring(0, caret);
-    // Find last `@` в upToCaret. Между `@` и caret — query (только
+    if (caret <= 0) return null;
+    final text = _ctl.text;
+    // #11: ищем последний `@` ДО каретки без копии всего префикса —
+    // substring(0, caret) был O(n) на каждый символ и тормозил длинный текст.
+    // lastIndexOf с offset ищет от каретки назад (эквивалент поиска в
+    // upToCaret, но без аллокации). Между `@` и caret — query (только
     // letters/digits/_-., без whitespace).
-    final atIdx = upToCaret.lastIndexOf('@');
+    final atIdx = text.lastIndexOf('@', caret - 1);
     if (atIdx < 0) return null;
-    final query = upToCaret.substring(atIdx + 1);
-    if (query.contains(RegExp(r'[\s]'))) return null;
+    final query = text.substring(atIdx + 1, caret);
+    if (_kWhitespaceRe.hasMatch(query)) return null;
     if (query.contains('@')) return null;
     // Permitted chars only — иначе exit (пользователь typed `@` в email
     // и пошло по тексту дальше, e.g. `foo@bar.com`). Unicode property
     // classes для non-ASCII displaynames (cyrillic + other scripts).
-    if (query.isNotEmpty &&
-        !RegExp(r'^[\p{L}\p{N}_.\-]+$', unicode: true).hasMatch(query)) {
+    if (query.isNotEmpty && !_kMentionQueryRe.hasMatch(query)) {
       return null;
     }
     // Boundary: `@` должен быть либо в начале, либо после whitespace —
     // защита от false-trigger в email.
     if (atIdx > 0) {
-      final before = upToCaret[atIdx - 1];
-      if (!RegExp(r'\s').hasMatch(before)) return null;
+      final before = text[atIdx - 1];
+      if (!_kWhitespaceRe.hasMatch(before)) return null;
     }
     return query;
   }

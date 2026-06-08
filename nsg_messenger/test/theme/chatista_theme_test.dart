@@ -3,6 +3,28 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nsg_messenger/nsg_messenger.dart';
 
 void main() {
+  group('ChatistaTheme — glass presets: SnackBar/inverse slots (#4)', () {
+    // Регрессия на «белую плашку с невидимым текстом»: ColorScheme.dark() не
+    // вычисляет inverseSurface/onInverseSurface, и M3 SnackBar падал в
+    // fallback — фон = (почти белый) onSurface, текст = (прозрачный) surface.
+    final presets = <String, NsgMessengerTheme Function()>{
+      'glassSunset': () => ChatistaTheme.glassSunset(),
+      'glassOceanic': () => ChatistaTheme.glassOceanic(),
+      'glassAurora': () => ChatistaTheme.glassAurora(),
+      'glassEmber': () => ChatistaTheme.glassEmber(),
+    };
+    for (final entry in presets.entries) {
+      test('${entry.key}: SnackBar-слоты контрастны (текст не невидим)', () {
+        final cs = entry.value().colorScheme!;
+        // Фон плашки не совпадает с (почти белым) onSurface.
+        expect(cs.inverseSurface, isNot(cs.onSurface));
+        // Текст плашки не прозрачный и не равен (transparent) surface.
+        expect(cs.onInverseSurface.a, greaterThan(0));
+        expect(cs.onInverseSurface, isNot(cs.surface));
+      });
+    }
+  });
+
   group('ChatistaTheme — Crema preset (design source-of-truth)', () {
     test('light Crema primary = #B8704A (accent.light from design-system.jsx)',
         () {

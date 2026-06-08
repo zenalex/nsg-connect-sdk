@@ -163,6 +163,13 @@ class ChatistaTheme {
       // Online indicator — mint green per design `#8DE89E`.
       tertiary: const Color(0xFF8DE89E),
       onTertiary: const Color(0xFF1A0F1A),
+      // #4: SnackBar / inverse surfaces. ColorScheme.dark() не вычисляет эти
+      // слоты, а M3 SnackBar берёт inverseSurface (→ fallback onSurface =
+      // почти белый) как фон и onInverseSurface (→ fallback surface =
+      // transparent) как цвет текста → «белая плашка с невидимым текстом».
+      // Задаём явно: тёмная плашка + светлый читаемый текст.
+      inverseSurface: const Color(0xFF2A2330),
+      onInverseSurface: fg,
     );
 
     // Bubble shape — same soft 22 / 6 as Crema; design source-of-truth
