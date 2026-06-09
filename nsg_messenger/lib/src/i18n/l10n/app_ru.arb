@@ -125,6 +125,7 @@
   "bannedUsersTitle": "Заблокированные",
   "bannedUsersEmpty": "Нет заблокированных",
   "bannedUsersUnbanAction": "Разблокировать",
+  "bannedUsersUnbanSuccess": "Разблокирован — при необходимости пригласите заново",
   "participantsTitle": "Участники",
   "participantsBannedMenuItem": "Заблокированные",
   "notificationSettingsTitle": "Уведомления",

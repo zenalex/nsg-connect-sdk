@@ -75,6 +75,16 @@ class _BannedUsersScreenState extends State<BannedUsersScreen> {
         roomId: widget.roomId,
         targetMessengerUserId: target.messengerUserId,
       );
+      if (!mounted) return;
+      // #23: явная обратная связь после unban. Иначе плитка молча исчезает и
+      // выглядит как «потеря». Matrix unban = ban->leave: блок снят, но в
+      // группу не возвращает автоматически (нужен повторный invite).
+      messenger?.showSnackBar(
+        SnackBar(
+          content: Text(l.bannedUsersUnbanSuccess),
+          duration: const Duration(seconds: 3),
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
       // Revert.

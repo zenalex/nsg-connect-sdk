@@ -775,6 +775,12 @@ abstract class NsgL10n {
   /// **'Unban'**
   String get bannedUsersUnbanAction;
 
+  /// #23: success toast after unban — clarifies unban != re-invite (Matrix ban->leave).
+  ///
+  /// In en, this message translates to:
+  /// **'Unbanned — invite them again if needed'**
+  String get bannedUsersUnbanSuccess;
+
   /// TASK29 Chunk 2: AppBar title для ParticipantsScreen.
   ///
   /// In en, this message translates to:

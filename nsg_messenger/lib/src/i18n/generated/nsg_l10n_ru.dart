@@ -383,6 +383,10 @@ class NsgL10nRu extends NsgL10n {
   String get bannedUsersUnbanAction => 'Разблокировать';
 
   @override
+  String get bannedUsersUnbanSuccess =>
+      'Разблокирован — при необходимости пригласите заново';
+
+  @override
   String get participantsTitle => 'Участники';
 
   @override

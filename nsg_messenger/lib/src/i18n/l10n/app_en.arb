@@ -531,6 +531,10 @@
   "@bannedUsersUnbanAction": {
     "description": "TASK29 Chunk 2: button text per banned-user tile."
   },
+  "bannedUsersUnbanSuccess": "Unbanned — invite them again if needed",
+  "@bannedUsersUnbanSuccess": {
+    "description": "#23: success toast after unban — clarifies unban != re-invite (Matrix ban->leave)."
+  },
 
   "participantsTitle": "Participants",
   "@participantsTitle": {

@@ -381,6 +381,10 @@ class NsgL10nEn extends NsgL10n {
   String get bannedUsersUnbanAction => 'Unban';
 
   @override
+  String get bannedUsersUnbanSuccess =>
+      'Unbanned — invite them again if needed';
+
+  @override
   String get participantsTitle => 'Participants';
 
   @override
