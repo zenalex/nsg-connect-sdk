@@ -11,6 +11,9 @@ library;
 // Главный entry-point.
 export 'src/nsg_messenger.dart';
 
+// Build-метка SDK (для показа версии в host-app и в баг-репортах).
+export 'src/version.dart' show kNsgSdkBuild;
+
 // Контракты интегратора и переиспользуемые типы.
 export 'src/auth_token_provider.dart' show AuthTokenProvider, ErrorReporter;
 export 'src/messenger_mode.dart';
