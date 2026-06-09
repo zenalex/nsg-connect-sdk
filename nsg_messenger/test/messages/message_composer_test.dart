@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nsg_connect_client/nsg_connect_client.dart'
+    show RoomParticipant, RoomMemberRole;
 import 'package:nsg_messenger/src/messages/chat_message.dart';
 import 'package:nsg_messenger/src/messages/message_composer.dart';
 
@@ -294,5 +296,126 @@ void main() {
     // TextField должно иметь фокус.
     final tf = tester.widget<TextField>(find.byType(TextField));
     expect(tf.focusNode?.hasFocus, isTrue);
+  });
+
+  // ===================== B12: Tab-autocomplete + markdown =====================
+
+  RoomParticipant participant({
+    required int id,
+    required String matrix,
+    String? name,
+  }) => RoomParticipant(
+    messengerUserId: id,
+    matrixUserId: matrix,
+    displayName: name,
+    role: RoomMemberRole.member,
+  );
+
+  TextEditingController ctlOf(WidgetTester tester) =>
+      tester.widget<TextField>(find.byType(TextField)).controller!;
+
+  testWidgets('B12: Tab при открытом @-typeahead вставляет первый вариант', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      wrap(
+        MessageComposer(
+          onSend: (_, {mentionedMessengerUserIds}) async {},
+          participants: [
+            participant(id: 1, matrix: '@bob:localhost', name: 'Bob'),
+            participant(id: 2, matrix: '@bill:localhost', name: 'Bill'),
+          ],
+        ),
+      ),
+    );
+    await tester.tap(find.byType(TextField));
+    await tester.pump();
+    await tester.enterText(find.byType(TextField), '@Bo');
+    await tester.pumpAndSettle();
+    // Typeahead открыт; Tab выбирает первый отфильтрованный (Bob).
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    expect(ctlOf(tester).text, '@Bob ');
+  });
+
+  testWidgets('B12: Tab без открытого typeahead — НЕ вставляет (no-op)', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      wrap(
+        MessageComposer(
+          onSend: (_, {mentionedMessengerUserIds}) async {},
+          participants: [
+            participant(id: 1, matrix: '@bob:localhost', name: 'Bob'),
+          ],
+        ),
+      ),
+    );
+    await tester.enterText(find.byType(TextField), 'hello');
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    // Текст не изменился — typeahead закрыт, Tab не перехвачен composer-ом.
+    expect(ctlOf(tester).text, 'hello');
+  });
+
+  testWidgets('B12: Ctrl+B оборачивает выделение в **bold**', (tester) async {
+    await tester.pumpWidget(
+      wrap(
+        MessageComposer(
+          onSend: (_, {mentionedMessengerUserIds}) async {},
+        ),
+      ),
+    );
+    await tester.enterText(find.byType(TextField), 'hello world');
+    await tester.pump();
+    ctlOf(tester).selection =
+        const TextSelection(baseOffset: 0, extentOffset: 5); // "hello"
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyB);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+    expect(ctlOf(tester).text, '**hello** world');
+  });
+
+  testWidgets('B12: Ctrl+I оборачивает выделение в _italic_', (tester) async {
+    await tester.pumpWidget(
+      wrap(
+        MessageComposer(
+          onSend: (_, {mentionedMessengerUserIds}) async {},
+        ),
+      ),
+    );
+    await tester.enterText(find.byType(TextField), 'hello world');
+    await tester.pump();
+    ctlOf(tester).selection =
+        const TextSelection(baseOffset: 6, extentOffset: 11); // "world"
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyI);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+    expect(ctlOf(tester).text, 'hello _world_');
+  });
+
+  testWidgets('B12: Ctrl+B при пустом выделении вставляет пару маркеров', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      wrap(
+        MessageComposer(
+          onSend: (_, {mentionedMessengerUserIds}) async {},
+        ),
+      ),
+    );
+    await tester.enterText(find.byType(TextField), 'hi');
+    await tester.pump();
+    ctlOf(tester).selection = const TextSelection.collapsed(offset: 2);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyB);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+    expect(ctlOf(tester).text, 'hi****');
+    // Каретка между маркерами (offset = 2 + len('**') = 4).
+    expect(ctlOf(tester).selection.baseOffset, 4);
   });
 }

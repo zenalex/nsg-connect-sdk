@@ -13,7 +13,7 @@ void main() {
           rpcCalls++;
           return NotificationSettings(showMessagePreview: true);
         },
-        setRpc: ({required bool showMessagePreview}) async {},
+        setRpc: ({required bool showMessagePreview, bool? sendReadReceipts}) async {},
       );
       final first = await settings.get();
       expect(first.showMessagePreview, isTrue);
@@ -28,7 +28,7 @@ void main() {
       bool? setValue;
       final settings = NsgMessengerSettings.attachWithRpcs(
         getRpc: () async => NotificationSettings(showMessagePreview: true),
-        setRpc: ({required bool showMessagePreview}) async {
+        setRpc: ({required bool showMessagePreview, bool? sendReadReceipts}) async {
           setRpcCalls++;
           setValue = showMessagePreview;
         },
@@ -41,6 +41,26 @@ void main() {
       expect(after.showMessagePreview, isFalse);
     });
 
+    test('B11: set(sendReadReceipts) прокидывается в RPC + кэш', () async {
+      bool? setShow;
+      bool? setReceipts;
+      final settings = NsgMessengerSettings.attachWithRpcs(
+        getRpc: () async => NotificationSettings(
+          showMessagePreview: true,
+          sendReadReceipts: true,
+        ),
+        setRpc: ({required bool showMessagePreview, bool? sendReadReceipts}) async {
+          setShow = showMessagePreview;
+          setReceipts = sendReadReceipts;
+        },
+      );
+      await settings.set(showMessagePreview: true, sendReadReceipts: false);
+      expect(setShow, isTrue);
+      expect(setReceipts, isFalse);
+      final after = await settings.get();
+      expect(after.sendReadReceipts, isFalse, reason: 'кэш обновлён');
+    });
+
     test('invalidate(): следующий get() дёрнет RPC', () async {
       var rpcCalls = 0;
       final settings = NsgMessengerSettings.attachWithRpcs(
@@ -48,7 +68,7 @@ void main() {
           rpcCalls++;
           return NotificationSettings(showMessagePreview: true);
         },
-        setRpc: ({required bool showMessagePreview}) async {},
+        setRpc: ({required bool showMessagePreview, bool? sendReadReceipts}) async {},
       );
       await settings.get();
       await settings.get();
@@ -61,7 +81,7 @@ void main() {
     test('set() throw → cache не модифицируется', () async {
       final settings = NsgMessengerSettings.attachWithRpcs(
         getRpc: () async => NotificationSettings(showMessagePreview: true),
-        setRpc: ({required bool showMessagePreview}) async =>
+        setRpc: ({required bool showMessagePreview, bool? sendReadReceipts}) async =>
             throw StateError('network down'),
       );
       await settings.get(); // populate cache

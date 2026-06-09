@@ -523,6 +523,18 @@ abstract class NsgL10n {
   /// **'Editing'**
   String get composerEditing;
 
+  /// B19: text-selection context-menu action — wrap selection in **bold** markdown.
+  ///
+  /// In en, this message translates to:
+  /// **'Bold'**
+  String get composerFormatBold;
+
+  /// B19: text-selection context-menu action — wrap selection in _italic_ markdown.
+  ///
+  /// In en, this message translates to:
+  /// **'Italic'**
+  String get composerFormatItalic;
+
   /// B12: tooltip close-X кнопки в edit-indicator chip композер-а.
   ///
   /// In en, this message translates to:
@@ -781,6 +793,18 @@ abstract class NsgL10n {
   /// **'Unbanned — invite them again if needed'**
   String get bannedUsersUnbanSuccess;
 
+  /// B25: snackbar action after unban — re-invite the user back to the room via inviteToRoom.
+  ///
+  /// In en, this message translates to:
+  /// **'Re-invite'**
+  String get bannedUsersReinviteAction;
+
+  /// B25: toast after a successful re-invite from the banned-users screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Invitation sent'**
+  String get bannedUsersReinviteSuccess;
+
   /// TASK29 Chunk 2: AppBar title для ParticipantsScreen.
   ///
   /// In en, this message translates to:
@@ -810,6 +834,18 @@ abstract class NsgL10n {
   /// In en, this message translates to:
   /// **'Display sender and message text on the lock screen. Turn off to hide content.'**
   String get notificationSettingsPreviewSubtitle;
+
+  /// B11: SwitchListTile title — toggle whether others see your read receipts.
+  ///
+  /// In en, this message translates to:
+  /// **'Send read receipts'**
+  String get notificationSettingsReadReceiptsTitle;
+
+  /// B11: SwitchListTile subtitle — explains the incognito-read trade-off.
+  ///
+  /// In en, this message translates to:
+  /// **'Others see when you\'ve read their messages. Turn off to read privately.'**
+  String get notificationSettingsReadReceiptsSubtitle;
 
   /// TASK20-Phase2 Chunk 4: snackbar при RPC fail в setNotificationSettings.
   ///

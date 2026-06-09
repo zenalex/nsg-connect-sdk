@@ -359,6 +359,14 @@
   "@composerEditing": {
     "description": "B12: header edit-mode indicator chip над composer-ом (вместо reply-chip когда композер в edit-mode)."
   },
+  "composerFormatBold": "Bold",
+  "@composerFormatBold": {
+    "description": "B19: text-selection context-menu action — wrap selection in **bold** markdown."
+  },
+  "composerFormatItalic": "Italic",
+  "@composerFormatItalic": {
+    "description": "B19: text-selection context-menu action — wrap selection in _italic_ markdown."
+  },
 
   "composerCancelEdit": "Cancel edit",
   "@composerCancelEdit": {
@@ -535,6 +543,14 @@
   "@bannedUsersUnbanSuccess": {
     "description": "#23: success toast after unban — clarifies unban != re-invite (Matrix ban->leave)."
   },
+  "bannedUsersReinviteAction": "Re-invite",
+  "@bannedUsersReinviteAction": {
+    "description": "B25: snackbar action after unban — re-invite the user back to the room via inviteToRoom."
+  },
+  "bannedUsersReinviteSuccess": "Invitation sent",
+  "@bannedUsersReinviteSuccess": {
+    "description": "B25: toast after a successful re-invite from the banned-users screen."
+  },
 
   "participantsTitle": "Participants",
   "@participantsTitle": {
@@ -556,6 +572,14 @@
   "notificationSettingsPreviewSubtitle": "Display sender and message text on the lock screen. Turn off to hide content.",
   "@notificationSettingsPreviewSubtitle": {
     "description": "TASK20-Phase2 Chunk 4: SwitchListTile subtitle — описывает privacy trade-off."
+  },
+  "notificationSettingsReadReceiptsTitle": "Send read receipts",
+  "@notificationSettingsReadReceiptsTitle": {
+    "description": "B11: SwitchListTile title — toggle whether others see your read receipts."
+  },
+  "notificationSettingsReadReceiptsSubtitle": "Others see when you've read their messages. Turn off to read privately.",
+  "@notificationSettingsReadReceiptsSubtitle": {
+    "description": "B11: SwitchListTile subtitle — explains the incognito-read trade-off."
   },
   "notificationSettingsSaveFailed": "Couldn't save settings — try again",
   "@notificationSettingsSaveFailed": {

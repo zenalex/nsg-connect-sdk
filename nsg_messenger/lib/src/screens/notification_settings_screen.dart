@@ -32,6 +32,7 @@ class _NotificationSettingsScreenState
   late final NsgMessengerSettings _settings;
   Future<NotificationSettings>? _future;
   bool? _localShowPreview;
+  bool? _localSendReceipts; // **B11**
   bool _saving = false;
 
   @override
@@ -46,7 +47,10 @@ class _NotificationSettingsScreenState
   Future<NotificationSettings> _load() async {
     final s = await _settings.get();
     if (mounted) {
-      setState(() => _localShowPreview = s.showMessagePreview);
+      setState(() {
+        _localShowPreview = s.showMessagePreview;
+        _localSendReceipts = s.sendReadReceipts ?? true;
+      });
     }
     return s;
   }
@@ -66,6 +70,37 @@ class _NotificationSettingsScreenState
       // Revert + snackbar.
       setState(() {
         _localShowPreview = prev;
+        _saving = false;
+      });
+      final messenger = ScaffoldMessenger.maybeOf(context);
+      messenger?.showSnackBar(
+        SnackBar(
+          content: Text(NsgL10n.of(context).notificationSettingsSaveFailed),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  /// **B11**: toggle «отправлять read-receipts». Optimistic + revert,
+  /// как [_toggle]. showMessagePreview передаём текущим (set требует его).
+  Future<void> _toggleReadReceipts(bool newValue) async {
+    if (_saving) return;
+    final prev = _localSendReceipts ?? true;
+    setState(() {
+      _localSendReceipts = newValue;
+      _saving = true;
+    });
+    try {
+      await _settings.set(
+        showMessagePreview: _localShowPreview ?? true,
+        sendReadReceipts: newValue,
+      );
+      if (mounted) setState(() => _saving = false);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _localSendReceipts = prev;
         _saving = false;
       });
       final messenger = ScaffoldMessenger.maybeOf(context);
@@ -99,6 +134,7 @@ class _NotificationSettingsScreenState
             );
           }
           final showPreview = _localShowPreview ?? true;
+          final sendReceipts = _localSendReceipts ?? true;
           return ListView(
             children: [
               SwitchListTile(
@@ -106,6 +142,12 @@ class _NotificationSettingsScreenState
                 subtitle: Text(l.notificationSettingsPreviewSubtitle),
                 value: showPreview,
                 onChanged: _saving ? null : _toggle,
+              ),
+              SwitchListTile(
+                title: Text(l.notificationSettingsReadReceiptsTitle),
+                subtitle: Text(l.notificationSettingsReadReceiptsSubtitle),
+                value: sendReceipts,
+                onChanged: _saving ? null : _toggleReadReceipts,
               ),
             ],
           );

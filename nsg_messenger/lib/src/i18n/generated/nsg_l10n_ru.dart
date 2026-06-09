@@ -228,6 +228,12 @@ class NsgL10nRu extends NsgL10n {
   String get composerEditing => 'Редактирование';
 
   @override
+  String get composerFormatBold => 'Жирный';
+
+  @override
+  String get composerFormatItalic => 'Курсив';
+
+  @override
   String get composerCancelEdit => 'Отменить редактирование';
 
   @override
@@ -387,6 +393,12 @@ class NsgL10nRu extends NsgL10n {
       'Разблокирован — при необходимости пригласите заново';
 
   @override
+  String get bannedUsersReinviteAction => 'Пригласить заново';
+
+  @override
+  String get bannedUsersReinviteSuccess => 'Приглашение отправлено';
+
+  @override
   String get participantsTitle => 'Участники';
 
   @override
@@ -401,6 +413,14 @@ class NsgL10nRu extends NsgL10n {
   @override
   String get notificationSettingsPreviewSubtitle =>
       'Имя отправителя и текст видны на экране блокировки. Выключите, чтобы скрыть содержимое.';
+
+  @override
+  String get notificationSettingsReadReceiptsTitle =>
+      'Отправлять отметки о прочтении';
+
+  @override
+  String get notificationSettingsReadReceiptsSubtitle =>
+      'Другие видят, что вы прочитали их сообщения. Выключите, чтобы читать незаметно.';
 
   @override
   String get notificationSettingsSaveFailed =>

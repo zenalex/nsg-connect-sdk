@@ -25,8 +25,10 @@ abstract class MessengerUser implements _i1.SerializableModel {
     this.displayName,
     this.avatarUrl,
     bool? showMessagePreview,
+    bool? sendReadReceipts,
     required this.createdAt,
-  }) : showMessagePreview = showMessagePreview ?? true;
+  }) : showMessagePreview = showMessagePreview ?? true,
+       sendReadReceipts = sendReadReceipts ?? true;
 
   factory MessengerUser({
     int? id,
@@ -36,6 +38,7 @@ abstract class MessengerUser implements _i1.SerializableModel {
     String? displayName,
     String? avatarUrl,
     bool? showMessagePreview,
+    bool? sendReadReceipts,
     required DateTime createdAt,
   }) = _MessengerUserImpl;
 
@@ -52,6 +55,11 @@ abstract class MessengerUser implements _i1.SerializableModel {
           ? null
           : _i1.BoolJsonExtension.fromJson(
               jsonSerialization['showMessagePreview'],
+            ),
+      sendReadReceipts: jsonSerialization['sendReadReceipts'] == null
+          ? null
+          : _i1.BoolJsonExtension.fromJson(
+              jsonSerialization['sendReadReceipts'],
             ),
       createdAt: _i1.DateTimeJsonExtension.fromJson(
         jsonSerialization['createdAt'],
@@ -91,6 +99,11 @@ abstract class MessengerUser implements _i1.SerializableModel {
   /// overhead, отдельная таблица — overengineering.
   bool showMessagePreview;
 
+  /// **B11**: отправлять ли read-receipts (m.read) другим участникам.
+  /// false = «инкогнито-чтение»: markRead шлёт m.read.private (свой unread
+  /// чистится, но peer НЕ видит ✓✓). default=true (как было).
+  bool sendReadReceipts;
+
   DateTime createdAt;
 
   /// Returns a shallow copy of this [MessengerUser]
@@ -104,6 +117,7 @@ abstract class MessengerUser implements _i1.SerializableModel {
     String? displayName,
     String? avatarUrl,
     bool? showMessagePreview,
+    bool? sendReadReceipts,
     DateTime? createdAt,
   });
   @override
@@ -118,6 +132,7 @@ abstract class MessengerUser implements _i1.SerializableModel {
       if (displayName != null) 'displayName': displayName,
       if (avatarUrl != null) 'avatarUrl': avatarUrl,
       'showMessagePreview': showMessagePreview,
+      'sendReadReceipts': sendReadReceipts,
       'createdAt': createdAt.toJson(),
     };
   }
@@ -139,6 +154,7 @@ class _MessengerUserImpl extends MessengerUser {
     String? displayName,
     String? avatarUrl,
     bool? showMessagePreview,
+    bool? sendReadReceipts,
     required DateTime createdAt,
   }) : super._(
          id: id,
@@ -148,6 +164,7 @@ class _MessengerUserImpl extends MessengerUser {
          displayName: displayName,
          avatarUrl: avatarUrl,
          showMessagePreview: showMessagePreview,
+         sendReadReceipts: sendReadReceipts,
          createdAt: createdAt,
        );
 
@@ -163,6 +180,7 @@ class _MessengerUserImpl extends MessengerUser {
     Object? displayName = _Undefined,
     Object? avatarUrl = _Undefined,
     bool? showMessagePreview,
+    bool? sendReadReceipts,
     DateTime? createdAt,
   }) {
     return MessengerUser(
@@ -175,6 +193,7 @@ class _MessengerUserImpl extends MessengerUser {
       displayName: displayName is String? ? displayName : this.displayName,
       avatarUrl: avatarUrl is String? ? avatarUrl : this.avatarUrl,
       showMessagePreview: showMessagePreview ?? this.showMessagePreview,
+      sendReadReceipts: sendReadReceipts ?? this.sendReadReceipts,
       createdAt: createdAt ?? this.createdAt,
     );
   }

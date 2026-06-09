@@ -31,12 +31,14 @@ class NsgMessengerSettings {
       () => client.messenger.getNotificationSettings(),
       MessengerRuntime.instance.sessionManager,
     ),
-    setRpc: ({required bool showMessagePreview}) => withAuthRetry(
-      () => client.messenger.setNotificationSettings(
-        showMessagePreview: showMessagePreview,
-      ),
-      MessengerRuntime.instance.sessionManager,
-    ),
+    setRpc: ({required bool showMessagePreview, bool? sendReadReceipts}) =>
+        withAuthRetry(
+          () => client.messenger.setNotificationSettings(
+            showMessagePreview: showMessagePreview,
+            sendReadReceipts: sendReadReceipts,
+          ),
+          MessengerRuntime.instance.sessionManager,
+        ),
   );
 
   /// Test-фабрика — позволяет подменить RPC на in-memory fake.
@@ -74,11 +76,21 @@ class NsgMessengerSettings {
   /// Update settings и обновить cache. Если RPC fails — cache не
   /// trogается, throw пробрасывается caller-у (UI должен показать
   /// snackbar / revert toggle).
-  Future<void> set({required bool showMessagePreview}) async {
-    await _setRpc(showMessagePreview: showMessagePreview);
+  Future<void> set({
+    required bool showMessagePreview,
+    bool? sendReadReceipts,
+  }) async {
+    await _setRpc(
+      showMessagePreview: showMessagePreview,
+      sendReadReceipts: sendReadReceipts,
+    );
     // Update cache immediately — UX: следующий `get()` reflect
-    // обновлённое значение без extra RPC.
-    _cached = NotificationSettings(showMessagePreview: showMessagePreview);
+    // обновлённое значение без extra RPC. `sendReadReceipts == null`
+    // (не меняли) → сохраняем прежнее закэшированное значение.
+    _cached = NotificationSettings(
+      showMessagePreview: showMessagePreview,
+      sendReadReceipts: sendReadReceipts ?? _cached?.sendReadReceipts,
+    );
     _cachedAt = DateTime.now();
   }
 
@@ -93,4 +105,7 @@ class NsgMessengerSettings {
 
 typedef GetNotificationSettingsRpc = Future<NotificationSettings> Function();
 typedef SetNotificationSettingsRpc =
-    Future<void> Function({required bool showMessagePreview});
+    Future<void> Function({
+      required bool showMessagePreview,
+      bool? sendReadReceipts,
+    });

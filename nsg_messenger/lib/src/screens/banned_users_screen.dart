@@ -79,16 +79,52 @@ class _BannedUsersScreenState extends State<BannedUsersScreen> {
       // #23: явная обратная связь после unban. Иначе плитка молча исчезает и
       // выглядит как «потеря». Matrix unban = ban->leave: блок снят, но в
       // группу не возвращает автоматически (нужен повторный invite).
+      // B25: re-invite одним тапом прямо из success-тоста (unban снимает
+      // блок, но в группу не возвращает — Matrix ban->leave). 5s, чтобы
+      // успеть нажать action.
       messenger?.showSnackBar(
         SnackBar(
           content: Text(l.bannedUsersUnbanSuccess),
-          duration: const Duration(seconds: 3),
+          duration: const Duration(seconds: 5),
+          action: SnackBarAction(
+            label: l.bannedUsersReinviteAction,
+            onPressed: () => _reinvite(target),
+          ),
         ),
       );
     } catch (e) {
       if (!mounted) return;
       // Revert.
       setState(() => _visible = snapshot);
+      messenger?.showSnackBar(
+        SnackBar(
+          content: Text(mapAdminError(e, l)),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  /// **B25**: пригласить разблокированного пользователя обратно в комнату
+  /// (через существующий `inviteToRoom`). Зовётся из action-кнопки
+  /// success-тоста после unban.
+  Future<void> _reinvite(RoomParticipant target) async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final l = NsgL10n.of(context);
+    try {
+      await _rooms.inviteToRoom(
+        roomId: widget.roomId,
+        targetMessengerUserId: target.messengerUserId,
+      );
+      if (!mounted) return;
+      messenger?.showSnackBar(
+        SnackBar(
+          content: Text(l.bannedUsersReinviteSuccess),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
       messenger?.showSnackBar(
         SnackBar(
           content: Text(mapAdminError(e, l)),

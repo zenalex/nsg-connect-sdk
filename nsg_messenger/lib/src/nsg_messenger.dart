@@ -18,6 +18,7 @@ import 'runtime/nsg_messenger_config.dart';
 import 'screens/chat_screen.dart';
 import 'screens/chats_list_screen.dart';
 import 'screens/support_chat_screen.dart';
+import 'session/auth_retry.dart';
 import 'session/auth_token_store.dart';
 import 'theme/messenger_theme_scope.dart';
 import 'theme/nsg_messenger_theme.dart';
@@ -242,6 +243,26 @@ class NsgMessenger {
     return MessengerRuntime.instance.client.messenger.uploadUserAvatar(
       bytes: ByteData.sublistView(bytes),
       mimeType: mimeType,
+    );
+  }
+
+  /// **B17 phase 2**: кросс-room keyword-поиск по сообщениям ВСЕХ комнат
+  /// пользователя (Matrix `/search` без room-фильтра). Каждый
+  /// [MessengerMessage] несёт свой `roomId`/`matrixRoomId` — host-app
+  /// группирует результаты по комнате (имя резолвит из своего списка).
+  /// Query < 2 символов → пустой list. Только Matrix FTS на сервере
+  /// (без pagination-fallback — дорого по всем комнатам).
+  ///
+  /// Обёрнуто в [withAuthRetry] (self-heal на token-rotation), как
+  /// in-room search.
+  static Future<List<MessengerMessage>> searchAllMessages(
+    String query, {
+    int limit = 50,
+  }) {
+    final rt = MessengerRuntime.instance;
+    return withAuthRetry(
+      () => rt.client.messenger.searchAllMessages(query: query, limit: limit),
+      rt.sessionManager,
     );
   }
 

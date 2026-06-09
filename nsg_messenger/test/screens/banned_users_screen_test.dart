@@ -35,6 +35,7 @@ void main() {
   NsgMessengerRooms makeRooms({
     required Future<List<RoomParticipant>> Function() onList,
     Future<void> Function(int, int)? onUnban,
+    Future<void> Function(int, int)? onInvite,
   }) {
     final stateCtl = StreamController<MessengerSessionState>.broadcast();
     final upstream = StreamController<MessengerEvent>.broadcast();
@@ -105,6 +106,9 @@ void main() {
             required RoomMemberRole newRole,
           }) async {},
       listBannedUsersRpc: ({required int roomId}) => onList(),
+      inviteToRoomRpc:
+          ({required int roomId, required int targetMessengerUserId}) =>
+              onInvite?.call(roomId, targetMessengerUserId) ?? Future.value(),
       eventBus: bus,
     );
   }
@@ -169,5 +173,32 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('bob'), findsOneWidget);
     expect(find.textContaining("don't have permission"), findsOneWidget);
+  });
+
+  testWidgets('B25: re-invite action в success-тосте → inviteToRoom + тост', (
+    tester,
+  ) async {
+    final invited = <int>[];
+    final rooms = makeRooms(
+      onList: () async => [banned(2, 'bob')],
+      onUnban: (rid, tid) async {},
+      onInvite: (rid, tid) async => invited.add(tid),
+    );
+    await tester.pumpWidget(
+      wrapL10n(BannedUsersScreen(roomId: 1, roomsOverride: rooms)),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Unban'));
+    await tester.pump(); // optimistic remove + unban RPC
+    await tester.pump(const Duration(milliseconds: 400)); // snackbar entrance
+    // Success-тост c action «Re-invite».
+    expect(find.text('Re-invite'), findsOneWidget);
+
+    await tester.tap(find.text('Re-invite'));
+    await tester.pump(); // inviteToRoom RPC
+    await tester.pump(const Duration(milliseconds: 400)); // success snackbar
+    expect(invited, [2]);
+    expect(find.text('Invitation sent'), findsOneWidget);
   });
 }

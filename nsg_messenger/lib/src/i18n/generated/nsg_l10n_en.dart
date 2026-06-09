@@ -227,6 +227,12 @@ class NsgL10nEn extends NsgL10n {
   String get composerEditing => 'Editing';
 
   @override
+  String get composerFormatBold => 'Bold';
+
+  @override
+  String get composerFormatItalic => 'Italic';
+
+  @override
   String get composerCancelEdit => 'Cancel edit';
 
   @override
@@ -385,6 +391,12 @@ class NsgL10nEn extends NsgL10n {
       'Unbanned — invite them again if needed';
 
   @override
+  String get bannedUsersReinviteAction => 'Re-invite';
+
+  @override
+  String get bannedUsersReinviteSuccess => 'Invitation sent';
+
+  @override
   String get participantsTitle => 'Participants';
 
   @override
@@ -399,6 +411,13 @@ class NsgL10nEn extends NsgL10n {
   @override
   String get notificationSettingsPreviewSubtitle =>
       'Display sender and message text on the lock screen. Turn off to hide content.';
+
+  @override
+  String get notificationSettingsReadReceiptsTitle => 'Send read receipts';
+
+  @override
+  String get notificationSettingsReadReceiptsSubtitle =>
+      'Others see when you\'ve read their messages. Turn off to read privately.';
 
   @override
   String get notificationSettingsSaveFailed =>

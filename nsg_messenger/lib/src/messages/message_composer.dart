@@ -172,6 +172,12 @@ class _MessageComposerState extends State<MessageComposer> {
   bool _uploading = false;
   OverlayEntry? _typeaheadOverlay;
 
+  /// **B12**: текущий отфильтрованный список mention-typeahead. Хранится на
+  /// уровне state, чтобы `_globalKeyHandler` (Tab-autocomplete) мог выбрать
+  /// первый вариант — у него нет доступа к локальному `filtered` из
+  /// `_showTypeahead`. Сбрасывается в `_hideTypeahead`.
+  List<RoomParticipant> _typeaheadFiltered = const [];
+
   /// **TASK16-A**: накопленные mentions в текущем drafte. Каждый раз когда
   /// user выбирает item из typeahead — добавляем messengerUserId сюда.
   /// На submit — отправляем серверу. На clear/submit — обнуляем.
@@ -417,6 +423,7 @@ class _MessageComposerState extends State<MessageComposer> {
       final lp = _matrixLocalpart(p.matrixUserId)?.toLowerCase() ?? '';
       return ql.isEmpty || dn.contains(ql) || lp.contains(ql);
     }).toList();
+    _typeaheadFiltered = filtered;
 
     _typeaheadOverlay?.remove();
     _typeaheadOverlay = OverlayEntry(
@@ -449,6 +456,7 @@ class _MessageComposerState extends State<MessageComposer> {
   void _hideTypeahead() {
     _typeaheadOverlay?.remove();
     _typeaheadOverlay = null;
+    _typeaheadFiltered = const [];
   }
 
   void _onPickMention(RoomParticipant p) {
@@ -514,6 +522,35 @@ class _MessageComposerState extends State<MessageComposer> {
     final isAlt = keyboard.isAltPressed;
     final key = event.logicalKey;
 
+    // **B12 Tab-autocomplete**: при открытом mention-typeahead Tab выбирает
+    // первый отфильтрованный вариант (без перемещения фокуса). Закрытый
+    // typeahead — Tab работает как обычная focus-навигация (пропускаем).
+    if (key == LogicalKeyboardKey.tab &&
+        !isShift &&
+        !isCtrl &&
+        !isMeta &&
+        !isAlt &&
+        _typeaheadOverlay != null &&
+        _typeaheadFiltered.isNotEmpty) {
+      _onPickMention(_typeaheadFiltered.first);
+      return true; // intercept — НЕ дать Tab увести фокус
+    }
+
+    // **B12 markdown-wrapping**: Ctrl/Cmd+B → `**bold**`, Ctrl/Cmd+I →
+    // `_italic_` вокруг выделения (пустое выделение → вставка пары маркеров
+    // с кареткой между). Совместимо с server markdown→HTML (B19 phase2) и
+    // SDK inline-render (`parseMarkdownToSpans`).
+    if ((isCtrl || isMeta) && !isAlt) {
+      if (key == LogicalKeyboardKey.keyB) {
+        _wrapSelection('**');
+        return true;
+      }
+      if (key == LogicalKeyboardKey.keyI) {
+        _wrapSelection('_');
+        return true;
+      }
+    }
+
     final isEnter =
         key == LogicalKeyboardKey.enter ||
         key == LogicalKeyboardKey.numpadEnter;
@@ -559,6 +596,29 @@ class _MessageComposerState extends State<MessageComposer> {
     }
 
     return false; // пропускаем дальше всё остальное
+  }
+
+  /// **B12**: обернуть текущее выделение в composer-е markdown-маркером
+  /// (`**` bold / `_` italic). Пустое (collapsed) выделение → вставка пары
+  /// маркеров с кареткой между ними. Каретка/выделение сохраняются на
+  /// обёрнутом тексте, чтобы повторное нажатие/ввод продолжались логично.
+  void _wrapSelection(String marker) {
+    final value = _ctl.value;
+    final sel = value.selection;
+    if (!sel.isValid) return;
+    final text = value.text;
+    final start = sel.start;
+    final end = sel.end;
+    final selected = text.substring(start, end);
+    final newText = text.replaceRange(start, end, '$marker$selected$marker');
+    _ctl.value = value.copyWith(
+      text: newText,
+      selection: TextSelection(
+        baseOffset: start + marker.length,
+        extentOffset: end + marker.length,
+      ),
+      composing: TextRange.empty,
+    );
   }
 
   void _submit() {
@@ -892,6 +952,39 @@ class _MessageComposerState extends State<MessageComposer> {
                               onTapOutside: (event) {
                                 if (_typeaheadOverlay != null) return;
                                 _focus.unfocus();
+                              },
+                              // **B19 (phase2)**: format-кнопки в context-menu
+                              // выделения (Bold/Italic) — мобильный/тач-аналог
+                              // Ctrl/Cmd+B/I (B12). Добавляются только когда
+                              // есть выделение (collapsed → нечего оборачивать).
+                              contextMenuBuilder: (ctx, editableState) {
+                                final items = List<ContextMenuButtonItem>.of(
+                                  editableState.contextMenuButtonItems,
+                                );
+                                final sel =
+                                    editableState.textEditingValue.selection;
+                                if (sel.isValid && !sel.isCollapsed) {
+                                  items.addAll([
+                                    ContextMenuButtonItem(
+                                      label: l.composerFormatBold,
+                                      onPressed: () {
+                                        editableState.hideToolbar();
+                                        _wrapSelection('**');
+                                      },
+                                    ),
+                                    ContextMenuButtonItem(
+                                      label: l.composerFormatItalic,
+                                      onPressed: () {
+                                        editableState.hideToolbar();
+                                        _wrapSelection('_');
+                                      },
+                                    ),
+                                  ]);
+                                }
+                                return AdaptiveTextSelectionToolbar.buttonItems(
+                                  anchors: editableState.contextMenuAnchors,
+                                  buttonItems: items,
+                                );
                               },
                               decoration: InputDecoration(
                                 hintText: l.chatScreenSendHint,

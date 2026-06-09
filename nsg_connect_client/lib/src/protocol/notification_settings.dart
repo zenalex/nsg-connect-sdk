@@ -24,10 +24,15 @@ import 'package:serverpod_client/serverpod_client.dart' as _i1;
 ///     toggles) — добавляются в этот DTO без breaking changes к
 ///     существующим settings call.
 abstract class NotificationSettings implements _i1.SerializableModel {
-  NotificationSettings._({required this.showMessagePreview});
+  NotificationSettings._({
+    required this.showMessagePreview,
+    this.sendReadReceipts,
+  });
 
-  factory NotificationSettings({required bool showMessagePreview}) =
-      _NotificationSettingsImpl;
+  factory NotificationSettings({
+    required bool showMessagePreview,
+    bool? sendReadReceipts,
+  }) = _NotificationSettingsImpl;
 
   factory NotificationSettings.fromJson(
     Map<String, dynamic> jsonSerialization,
@@ -36,21 +41,35 @@ abstract class NotificationSettings implements _i1.SerializableModel {
       showMessagePreview: _i1.BoolJsonExtension.fromJson(
         jsonSerialization['showMessagePreview'],
       ),
+      sendReadReceipts: jsonSerialization['sendReadReceipts'] == null
+          ? null
+          : _i1.BoolJsonExtension.fromJson(
+              jsonSerialization['sendReadReceipts'],
+            ),
     );
   }
 
   /// См. doc у `MessengerUser.showMessagePreview`.
   bool showMessagePreview;
 
+  /// **B11**: см. doc у `MessengerUser.sendReadReceipts`. Nullable —
+  /// backward-compat: старый клиент не присылает поле на set → сервер
+  /// трактует null как «не менять» (оставляет текущее значение).
+  bool? sendReadReceipts;
+
   /// Returns a shallow copy of this [NotificationSettings]
   /// with some or all fields replaced by the given arguments.
   @_i1.useResult
-  NotificationSettings copyWith({bool? showMessagePreview});
+  NotificationSettings copyWith({
+    bool? showMessagePreview,
+    bool? sendReadReceipts,
+  });
   @override
   Map<String, dynamic> toJson() {
     return {
       '__className__': 'NotificationSettings',
       'showMessagePreview': showMessagePreview,
+      if (sendReadReceipts != null) 'sendReadReceipts': sendReadReceipts,
     };
   }
 
@@ -60,17 +79,30 @@ abstract class NotificationSettings implements _i1.SerializableModel {
   }
 }
 
+class _Undefined {}
+
 class _NotificationSettingsImpl extends NotificationSettings {
-  _NotificationSettingsImpl({required bool showMessagePreview})
-    : super._(showMessagePreview: showMessagePreview);
+  _NotificationSettingsImpl({
+    required bool showMessagePreview,
+    bool? sendReadReceipts,
+  }) : super._(
+         showMessagePreview: showMessagePreview,
+         sendReadReceipts: sendReadReceipts,
+       );
 
   /// Returns a shallow copy of this [NotificationSettings]
   /// with some or all fields replaced by the given arguments.
   @_i1.useResult
   @override
-  NotificationSettings copyWith({bool? showMessagePreview}) {
+  NotificationSettings copyWith({
+    bool? showMessagePreview,
+    Object? sendReadReceipts = _Undefined,
+  }) {
     return NotificationSettings(
       showMessagePreview: showMessagePreview ?? this.showMessagePreview,
+      sendReadReceipts: sendReadReceipts is bool?
+          ? sendReadReceipts
+          : this.sendReadReceipts,
     );
   }
 }

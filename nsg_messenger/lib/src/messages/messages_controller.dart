@@ -818,6 +818,28 @@ class MessagesController {
     );
   }
 
+  /// **B10 (BACKLOG)**: повторить ВСЕ сообщения в `failed`-статусе. Зовётся
+  /// ChatScreen-ом при возврате сети (transport `connectionState` →
+  /// `healthy` после reconnecting/disconnected) — сообщения, которые
+  /// исчерпали in-send retry-расписание (~60с) пока сеть лежала, авто-
+  /// переотправляются. Idempotent: каждый [retry] переиспользует тот же
+  /// `clientTxnId`, server-side dedup защищает от дубля. Permanent-failure
+  /// (4xx) переотправится и снова быстро упадёт в failed — без вреда.
+  Future<void> retryAllFailed() async {
+    if (_disposed) return;
+    final current = _state.value;
+    if (current is! MessagesReady) return;
+    // Snapshot txnId-ов ДО retry (он мутирует state на каждой итерации).
+    final failedTxnIds = <String>[
+      for (final m in current.messages)
+        if (m.isFailed && m.clientTxnId != null) m.clientTxnId!,
+    ];
+    for (final txnId in failedTxnIds) {
+      if (_disposed) return;
+      await retry(txnId);
+    }
+  }
+
   // ─── TASK37 Chunk 2: edit / delete ─────────────────────────────────
 
   /// **TASK37**: edit own message. Optimistic — bubble показывает

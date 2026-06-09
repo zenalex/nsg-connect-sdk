@@ -993,6 +993,22 @@ class EndpointMessenger extends _i2.EndpointRef {
     },
   );
 
+  /// **B17 phase 2**: кросс-room keyword-поиск по сообщениям ВСЕХ комнат
+  /// viewer-а (Matrix `/search` без room-фильтра). Каждый результат несёт
+  /// свой `roomId`/`matrixRoomId` — клиент группирует/навигирует по комнате.
+  /// Empty/short query → пусто. Только Matrix FTS (без pagination-fallback).
+  _i3.Future<List<_i7.MessengerMessage>> searchAllMessages({
+    required String query,
+    required int limit,
+  }) => caller.callServerEndpoint<List<_i7.MessengerMessage>>(
+    'messenger',
+    'searchAllMessages',
+    {
+      'query': query,
+      'limit': limit,
+    },
+  );
+
   /// Пометить сообщения комнаты прочитанными до `matrixEventId`
   /// включительно (TASK18).
   ///
@@ -1402,16 +1418,20 @@ class EndpointMessenger extends _i2.EndpointRef {
         {},
       );
 
-  /// **TASK20-Phase2 Chunk 4**: обновить notification preferences. Все
-  /// поля required (snapshot semantics — caller передаёт полный desired
-  /// state). На MVP — single bool, на Phase3 expansion DTO get-ит
-  /// дополнительные поля.
+  /// **TASK20-Phase2 Chunk 4**: обновить notification preferences.
+  /// `showMessagePreview` — required (snapshot semantics).
+  /// **B11**: `sendReadReceipts` nullable — `null` от старого клиента =
+  /// «не менять» (оставляем текущее значение колонки).
   _i3.Future<void> setNotificationSettings({
     required bool showMessagePreview,
+    bool? sendReadReceipts,
   }) => caller.callServerEndpoint<void>(
     'messenger',
     'setNotificationSettings',
-    {'showMessagePreview': showMessagePreview},
+    {
+      'showMessagePreview': showMessagePreview,
+      'sendReadReceipts': sendReadReceipts,
+    },
   );
 }
 

@@ -477,6 +477,49 @@ void main() {
         await eventCtrl.close();
       },
     );
+
+    test(
+      'B10: retryAllFailed переотправляет все failed-сообщения (возврат сети)',
+      () async {
+        final rpc = _FakeRpc();
+        var failing = true;
+        rpc.sendMessageHandler =
+            (roomId, body, msgType, clientTxnId, attachment) {
+              if (failing) return Future.error(StateError('network down'));
+              return Future.value(
+                _msg(eventId: 'e-$clientTxnId', body: body, clientTxnId: clientTxnId),
+              );
+            };
+
+        final eventCtrl = StreamController<MessengerEvent>.broadcast();
+        var n = 0;
+        final controller = _make(
+          rpc: rpc,
+          events: eventCtrl.stream,
+          clientTxnIdGen: () => 'TXN-${n++}',
+        );
+        await controller.init();
+
+        await controller.sendMessage(body: 'one');
+        await controller.sendMessage(body: 'two');
+        var state = controller.state as MessagesReady;
+        expect(
+          state.messages.where((m) => m.isFailed).length,
+          2,
+          reason: 'оба send упали пока «сеть лежала»',
+        );
+
+        // Сеть вернулась — ChatScreen дёргает retryAllFailed.
+        failing = false;
+        await controller.retryAllFailed();
+        state = controller.state as MessagesReady;
+        expect(state.messages.where((m) => m.isSent).length, 2);
+        expect(state.messages.any((m) => m.isFailed), isFalse);
+
+        await controller.dispose();
+        await eventCtrl.close();
+      },
+    );
   });
 
   group('MessagesController — basic lifecycle', () {

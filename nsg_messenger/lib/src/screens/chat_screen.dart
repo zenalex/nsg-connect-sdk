@@ -16,6 +16,7 @@ import '../messages/messages_controller.dart';
 import '../messages/messages_rpc.dart';
 import '../messages/messages_state.dart';
 import '../messenger_runtime.dart';
+import '../runtime/messenger_connection_state.dart';
 import '../widgets/nsg_avatar_image.dart';
 import 'group_settings_screen.dart';
 
@@ -89,6 +90,14 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   late final MessagesController _controller;
   late final bool _ownsController;
+
+  /// **B10**: подписка на transport `connectionState` — при возврате сети
+  /// (reconnecting/disconnected → healthy) авто-переотправляем сообщения,
+  /// застрявшие в `failed` пока сеть лежала. Только production-путь
+  /// (`_ownsController`); в инжектированном (тестовом) controller-е runtime
+  /// может быть не инициализирован.
+  StreamSubscription<MessengerConnectionState>? _connSub;
+  MessengerConnectionState? _lastConn;
 
   /// Пиксельный порог от верха reversed-listview, при достижении
   /// которого зовём loadMore. Default 200px = чуть меньше одной
@@ -180,6 +189,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _controller.stateListenable.addListener(_onStateChange);
     _controller.init();
     _fetchRoomDetails();
+    // **B10**: авто-retry failed-сообщений при возврате сети. Только
+    // production-путь — в инжектированном controller-е (тесты) runtime
+    // connectionStateStream пуст/healthy, но runtime трогать не нужно.
+    if (_ownsController) {
+      final runtime = MessengerRuntime.instance;
+      _lastConn = runtime.connectionState;
+      _connSub = runtime.connectionStateStream.listen(_onConnectionChange);
+    }
     // **TASK20 Chunk 4-prep**: presence lifecycle observer — fix race
     // из ревью TASK20 Chunk 2 28e343f #1. Bus's `onAppLifecycleChanged`
     // на `resumed` шлёт `setPresence(currentRoomId: null, foreground:
@@ -255,6 +272,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _markReadTimer?.cancel();
     _editTarget.dispose();
     _scrollController.dispose();
+    _connSub?.cancel();
+    _connSub = null;
     _controller.stateListenable.removeListener(_onStateChange);
     WidgetsBinding.instance.removeObserver(this);
     // **TASK20 Chunk 4-prep**: clear currentRoomId на close — иначе
@@ -269,6 +288,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _controller.dispose();
     }
     super.dispose();
+  }
+
+  /// **B10**: transport reconnect-хук. На переходе в `healthy` из
+  /// reconnecting/disconnected — авто-переотправляем застрявшие failed.
+  void _onConnectionChange(MessengerConnectionState s) {
+    final prev = _lastConn;
+    _lastConn = s;
+    if (s == MessengerConnectionState.healthy &&
+        prev != null &&
+        prev != MessengerConnectionState.healthy) {
+      unawaited(_controller.retryAllFailed());
+    }
   }
 
   /// Обрабатывает каждое изменение `MessagesState` для auto-markRead
@@ -1006,6 +1037,16 @@ class _Loaded extends StatelessWidget {
                       final readBy = (isOwn && readByPeerCountFor != null)
                           ? readByPeerCountFor!(m)
                           : 0;
+                      // **B16-ext (phase2)**: аватар отправителя слева —
+                      // только на НИЖНЕМ сообщении серии одного peer-а
+                      // (Telegram-style). reverse:true + DESC messages →
+                      // визуально-нижнее = messages[i-1]; показываем аватар,
+                      // если оно от другого отправителя (или это самый низ).
+                      final showSenderAvatar = !isOwn &&
+                          isGroupChat &&
+                          (i == 0 ||
+                              messages[i - 1].senderMatrixUserId !=
+                                  m.senderMatrixUserId);
                       return KeyedSubtree(
                         key: key,
                         child: MessageBubble(
@@ -1032,6 +1073,7 @@ class _Loaded extends StatelessWidget {
                           onToggleReaction: onToggleReaction != null
                               ? (key) => onToggleReaction!(m, key)
                               : null,
+                          showSenderAvatar: showSenderAvatar,
                         ),
                       );
                     },

@@ -7,6 +7,7 @@ import '../theme/nsg_messenger_theme.dart';
 import '../utils/relative_time.dart';
 import 'attachments/attachment_bubble.dart';
 import 'attachments/mxc_image_provider.dart';
+import '../widgets/nsg_avatar_image.dart';
 import 'chat_message.dart';
 import 'markdown_spans.dart';
 
@@ -42,6 +43,7 @@ class MessageBubble extends StatelessWidget {
     this.onTapReadStatus,
     this.reactions = const <ReactionGroup>[],
     this.onToggleReaction,
+    this.showSenderAvatar = false,
   });
 
   final ChatMessage message;
@@ -117,6 +119,38 @@ class MessageBubble extends StatelessWidget {
   /// emoji-ключом. Если `null` — чипы display-only (не tappable).
   final void Function(String key)? onToggleReaction;
 
+  /// **B16-ext (phase 2)**: показать аватар отправителя слева от bubble.
+  /// Только для peer-сообщений в group-чатах (`!isOwn && isGroupChat`).
+  /// ChatScreen ставит `true` на нижнем сообщении серии одного отправителя
+  /// (Telegram-style); на остальных group-peer bubble-ах рендерится
+  /// spacer той же ширины — для выравнивания. Для own/direct — игнор.
+  final bool showSenderAvatar;
+
+  /// Ширина левого gutter-а под аватар (avatar + gap). Держим в одном
+  /// месте, чтобы avatar и spacer совпадали.
+  static const double _kAvatarSize = 28;
+  static const double _kAvatarGap = 8;
+
+  /// Левый gutter peer-bubble в group-чате: аватар отправителя на нижнем
+  /// сообщении серии (`showSenderAvatar`), иначе spacer той же ширины.
+  Widget _buildLeadingAvatar() {
+    if (!showSenderAvatar) {
+      return const SizedBox(width: _kAvatarSize + _kAvatarGap);
+    }
+    final p = participantsByMatrixId?[message.senderMatrixUserId];
+    final name = p?.displayName ??
+        _matrixLocalpart(message.senderMatrixUserId) ??
+        message.senderMatrixUserId;
+    return Padding(
+      padding: const EdgeInsets.only(right: _kAvatarGap),
+      child: NsgAvatarImage(
+        mxcUrl: p?.avatarUrl,
+        fallbackName: name,
+        size: _kAvatarSize,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -167,6 +201,9 @@ class MessageBubble extends StatelessWidget {
         mainAxisAlignment: mainAlign,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
+          // B16-ext (phase 2): аватар отправителя слева — только peer-bubble
+          // в group-чате. На не-последних сообщениях серии — spacer (выравнивание).
+          if (!isOwn && isGroupChat) _buildLeadingAvatar(),
           Flexible(
             child: Column(
               crossAxisAlignment: align,

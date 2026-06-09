@@ -5,6 +5,7 @@ import 'package:nsg_messenger/src/messages/chat_message.dart';
 import 'package:nsg_messenger/src/messages/message_bubble.dart';
 import 'package:nsg_messenger/src/rooms/room_summary_tile.dart'
     show registerTimeagoLocales;
+import 'package:nsg_messenger/src/widgets/nsg_avatar_image.dart';
 
 import '../test_helpers.dart';
 
@@ -197,5 +198,82 @@ void main() {
     );
     // Body просто Text, не RichText (по path-у когда `ids == null`).
     expect(find.text('hey @Bob'), findsOneWidget);
+  });
+
+  group('B16-ext (phase2): аватар отправителя слева от bubble', () {
+    final bob = participant(
+      messengerId: 2,
+      matrix: '@bob:localhost',
+      displayName: 'Bob',
+    );
+
+    testWidgets('group peer + showSenderAvatar → NsgAvatarImage отрисован', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrap(
+          MessageBubble(
+            message: make(senderMatrix: '@bob:localhost', sender: 2),
+            isOwn: false,
+            onRetry: (_) {},
+            isGroupChat: true,
+            participantsByMatrixId: {'@bob:localhost': bob},
+            showSenderAvatar: true,
+          ),
+        ),
+      );
+      expect(find.byType(NsgAvatarImage), findsOneWidget);
+    });
+
+    testWidgets('group peer без showSenderAvatar → spacer (нет аватара)', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrap(
+          MessageBubble(
+            message: make(senderMatrix: '@bob:localhost', sender: 2),
+            isOwn: false,
+            onRetry: (_) {},
+            isGroupChat: true,
+            participantsByMatrixId: {'@bob:localhost': bob},
+            showSenderAvatar: false,
+          ),
+        ),
+      );
+      expect(find.byType(NsgAvatarImage), findsNothing);
+    });
+
+    testWidgets('own message в group → аватара нет (даже при showSenderAvatar)', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrap(
+          MessageBubble(
+            message: make(senderMatrix: '@me:localhost', sender: 1),
+            isOwn: true,
+            onRetry: (_) {},
+            isGroupChat: true,
+            showSenderAvatar: true,
+          ),
+        ),
+      );
+      expect(find.byType(NsgAvatarImage), findsNothing);
+    });
+
+    testWidgets('direct (не group) peer → аватара нет', (tester) async {
+      await tester.pumpWidget(
+        wrap(
+          MessageBubble(
+            message: make(senderMatrix: '@bob:localhost', sender: 2),
+            isOwn: false,
+            onRetry: (_) {},
+            isGroupChat: false,
+            participantsByMatrixId: {'@bob:localhost': bob},
+            showSenderAvatar: true,
+          ),
+        ),
+      );
+      expect(find.byType(NsgAvatarImage), findsNothing);
+    });
   });
 }
