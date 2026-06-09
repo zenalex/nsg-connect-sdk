@@ -422,6 +422,64 @@ void main() {
     await ctx.stateCtl.close();
   });
 
+  test('messageDeleted event → list + details invalidate (B23)', () async {
+    // **B23**: redaction может изменить превью списка чатов (если удалено
+    // последнее сообщение комнаты). Сервер пересчитывает
+    // Room.lastMessageBody и эмитит messageDeleted; SDK инвалидирует
+    // list/details cache, чтобы следующий list() подтянул свежее превью.
+    final ctx = buildRooms(
+      initialList: [summary(id: 7, name: 'with-redaction')],
+      detailsFor: (id) => details(id: id),
+    );
+    await ctx.rooms.list();
+    await ctx.rooms.get(7);
+    expect(ctx.listCalls(), 1);
+    expect(ctx.getCalls(), 1);
+
+    ctx.upstream.add(
+      MessengerEvent(
+        eventType: MessengerEventType.messageDeleted,
+        serverTimestamp: DateTime.now().toUtc(),
+        roomId: 7,
+        matrixRoomId: '!fake:localhost',
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    await ctx.rooms.list();
+    expect(ctx.listCalls(), 2, reason: 'list invalidated (превью могло измениться)');
+    await ctx.rooms.get(7);
+    expect(ctx.getCalls(), 2, reason: 'details(7) invalidated');
+
+    await ctx.rooms.dispose();
+    await ctx.upstream.close();
+    await ctx.stateCtl.close();
+  });
+
+  test('messageDeleted без roomId → skip, no invalidate (B23)', () async {
+    final ctx = buildRooms(
+      initialList: [summary(id: 1)],
+      detailsFor: (id) => details(id: id),
+    );
+    await ctx.rooms.list();
+    expect(ctx.listCalls(), 1);
+
+    ctx.upstream.add(
+      MessengerEvent(
+        eventType: MessengerEventType.messageDeleted,
+        serverTimestamp: DateTime.now().toUtc(),
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    await ctx.rooms.list();
+    expect(ctx.listCalls(), 1, reason: 'no invalidate без roomId');
+
+    await ctx.rooms.dispose();
+    await ctx.upstream.close();
+    await ctx.stateCtl.close();
+  });
+
   test(
     'roomUnreadChanged без roomId → debugPrint warning, no invalidate',
     () async {

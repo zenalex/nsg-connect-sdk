@@ -4,6 +4,26 @@ import 'package:nsg_connect_client/nsg_connect_client.dart';
 import '../i18n/generated/nsg_l10n.dart';
 import 'chats_list_controller.dart';
 
+/// Описание дополнительного host-app action-а для [showRoomActionSheet].
+///
+/// Host-app (например chatista) может добавить свои пункты в общий
+/// action-sheet (mute/archive/leave) без связывания SDK с app-specific
+/// навигацией. Пример: «Добавить пользователя» → открыть экран поиска.
+class RoomActionEntry {
+  const RoomActionEntry({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+
+  /// Вызывается ПОСЛЕ закрытия sheet-а (sheet pop-нется до `onTap`,
+  /// чтобы host мог открыть свой dialog/route на viewport-level).
+  final VoidCallback onTap;
+}
+
 /// Bottom-sheet с per-room actions (mute / archive / leave).
 /// Открывается на long-press `RoomSummaryTile` из `ChatsListScreen`.
 ///
@@ -16,16 +36,23 @@ import 'chats_list_controller.dart';
 /// `controller.muteRoom/archiveRoom/leaveRoom` — они мгновенно
 /// меняют local state, RPC летит асинхронно. Если RPC падает —
 /// snackbar через [showRoomActionFailedSnack].
+///
+/// [extraActions] — опциональные host-app пункты (e.g. «Добавить
+/// пользователя» в chatista), рендерятся над leave-action-ом.
 Future<void> showRoomActionSheet({
   required BuildContext context,
   required RoomSummary room,
   required ChatsListController controller,
+  List<RoomActionEntry> extraActions = const <RoomActionEntry>[],
 }) {
   return showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
-    builder: (sheetCtx) =>
-        _RoomActionSheetBody(room: room, controller: controller),
+    builder: (sheetCtx) => _RoomActionSheetBody(
+      room: room,
+      controller: controller,
+      extraActions: extraActions,
+    ),
   );
 }
 
@@ -45,10 +72,15 @@ void showRoomActionFailedSnack(BuildContext context) {
 }
 
 class _RoomActionSheetBody extends StatelessWidget {
-  const _RoomActionSheetBody({required this.room, required this.controller});
+  const _RoomActionSheetBody({
+    required this.room,
+    required this.controller,
+    this.extraActions = const <RoomActionEntry>[],
+  });
 
   final RoomSummary room;
   final ChatsListController controller;
+  final List<RoomActionEntry> extraActions;
 
   @override
   Widget build(BuildContext context) {
@@ -98,6 +130,16 @@ class _RoomActionSheetBody extends StatelessWidget {
                 context,
                 () => controller.archiveRoom(room.id),
               ),
+            ),
+          for (final entry in extraActions)
+            ListTile(
+              leading: Icon(entry.icon),
+              title: Text(entry.label),
+              onTap: () {
+                Navigator.of(context).pop(); // закрываем sheet перед
+                // host-app навигацией (route/dialog на viewport-level).
+                entry.onTap();
+              },
             ),
           ListTile(
             leading: Icon(

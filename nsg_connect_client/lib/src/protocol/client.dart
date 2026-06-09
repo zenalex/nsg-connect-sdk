@@ -698,6 +698,21 @@ class EndpointMessenger extends _i2.EndpointRef {
     },
   );
 
+  /// **Persistent read-receipts seed (B22)**: при открытии чата
+  /// возвращает persisted read-pointer-ы всех участников комнаты (КРОМЕ
+  /// self) как `readReceiptUpdated`-`MessengerEvent`-ы — тот же shape что
+  /// realtime `m.receipt`. SDK скармливает их в `_applyReadReceipt`-путь,
+  /// чтобы ✓✓ были видны сразу (раньше терялись до первого realtime
+  /// receipt-а, т.к. `_peerLastReadAt` volatile). Локальный SELECT, БЕЗ
+  /// обращения к Matrix.
+  _i3.Future<List<_i9.MessengerEvent>> listReadReceipts({
+    required int roomId,
+  }) => caller.callServerEndpoint<List<_i9.MessengerEvent>>(
+    'messenger',
+    'listReadReceipts',
+    {'roomId': roomId},
+  );
+
   /// **TASK29**: kick — caller-admin удаляет target из комнаты. Target
   /// **может re-join** (через invite). Authorization: caller `role >=
   /// admin` (PL >= 50).

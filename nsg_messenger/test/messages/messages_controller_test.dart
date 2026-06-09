@@ -566,6 +566,89 @@ void main() {
       },
     );
 
+    test(
+      'init() seed-ит persisted read-receipts через listReadReceipts → '
+      'readByPeerMatrixIds непустой (B22)',
+      () async {
+        final ts = DateTime.utc(2026, 1, 1, 10);
+        final rpc = _FakeRpc();
+        rpc.listMessagesHandler = (r, ft, l) => Future.value(
+          _page(messages: [_msg(eventId: 'h-1', body: 'hi', timestamp: ts)]),
+        );
+        rpc.listReadReceiptsResult = [
+          _readReceiptEvent(
+            readerMatrixId: '@peer:test',
+            readEventId: 'h-1',
+            serverTimestamp: ts,
+          ),
+        ];
+        final eventCtrl = StreamController<MessengerEvent>.broadcast();
+        final controller = _make(rpc: rpc, events: eventCtrl.stream);
+        await controller.init();
+        // _seedReadReceipts — unawaited; даём microtask-ам отработать.
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+
+        expect(rpc.listReadReceiptsCalls, 1, reason: 'seed дёрнут в init');
+        final state = controller.state as MessagesReady;
+        final readers = controller.readByPeerMatrixIds(state.messages[0]);
+        expect(readers, contains('@peer:test'),
+            reason: 'persisted receipt → ✓✓ сразу при открытии чата');
+        await controller.dispose();
+        await eventCtrl.close();
+      },
+    );
+
+    test(
+      'monotonic guard: seed старее realtime НЕ перетирает свежий marker '
+      '(B22)',
+      () async {
+        final tsOld = DateTime.utc(2026, 1, 1, 10);
+        final tsNew = DateTime.utc(2026, 1, 1, 12);
+        final rpc = _FakeRpc();
+        rpc.listMessagesHandler = (r, ft, l) => Future.value(
+          _page(
+            messages: [
+              // h-2 newer (top), h-1 older.
+              _msg(eventId: 'h-2', body: 'new', timestamp: tsNew),
+              _msg(eventId: 'h-1', body: 'old', timestamp: tsOld),
+            ],
+          ),
+        );
+        // Seed возвращает СТАРЫЙ pointer (h-1).
+        rpc.listReadReceiptsResult = [
+          _readReceiptEvent(
+            readerMatrixId: '@peer:test',
+            readEventId: 'h-1',
+            serverTimestamp: tsOld,
+          ),
+        ];
+        final eventCtrl = StreamController<MessengerEvent>.broadcast();
+        final controller = _make(rpc: rpc, events: eventCtrl.stream);
+        await controller.init();
+        // Realtime СВЕЖИЙ receipt (h-2) — двигает marker вперёд.
+        eventCtrl.add(
+          _readReceiptEvent(
+            readerMatrixId: '@peer:test',
+            readEventId: 'h-2',
+            serverTimestamp: tsNew,
+          ),
+        );
+        // Дать отработать и seed (unawaited) и realtime — порядок их
+        // применения не важен: monotonic-guard держит max.
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+
+        final state = controller.state as MessagesReady;
+        // Marker должен стоять на h-2 (newer): оба message прочитаны peer-ом.
+        final readersNew = controller.readByPeerMatrixIds(state.messages[0]);
+        final readersOld = controller.readByPeerMatrixIds(state.messages[1]);
+        expect(readersNew, contains('@peer:test'),
+            reason: 'свежий realtime marker не откатан seed-ом');
+        expect(readersOld, contains('@peer:test'));
+        await controller.dispose();
+        await eventCtrl.close();
+      },
+    );
+
     test('init() listMessages throws → Error state', () async {
       final rpc = _FakeRpc();
       rpc.listMessagesHandler = (r, ft, l) =>
@@ -1676,6 +1759,12 @@ class _CapturingSendRpc implements MessagesRpc {
     required List<String> eventIds,
   }) =>
       _inner.listReactions(roomId: roomId, eventIds: eventIds);
+
+  @override
+  Future<List<MessengerEvent>> listReadReceipts({
+    required int roomId,
+  }) =>
+      _inner.listReadReceipts(roomId: roomId);
 }
 
 // ───────────────────────────────────────────────────────────────────
@@ -1743,6 +1832,26 @@ MessengerEvent _eventForRoom(int roomId, MessengerMessage message) =>
       matrixRoomId: message.matrixRoomId,
       message: message,
     );
+
+/// **B22 read-receipts**: readReceiptUpdated event builder (seed/realtime
+/// одинаковый shape). `serverTimestamp` — момент чтения (для seed =
+/// lastReadAt). `readEventId` — событие, до которого reader прочитал;
+/// resolve в controller-е к ts этого message в loaded history.
+MessengerEvent _readReceiptEvent({
+  required String readerMatrixId,
+  required String readEventId,
+  required DateTime serverTimestamp,
+  int? readerUserId,
+  int roomId = _kRoomId,
+}) => MessengerEvent(
+  eventType: MessengerEventType.readReceiptUpdated,
+  serverTimestamp: serverTimestamp,
+  roomId: roomId,
+  matrixRoomId: '!room:test',
+  readReceiptEventId: readEventId,
+  readReceiptUserId: readerUserId,
+  readReceiptMatrixUserId: readerMatrixId,
+);
 
 /// Emoji reactions: realtime reactionChanged event builder.
 MessengerEvent _reactionEvent({
@@ -1941,6 +2050,20 @@ class _FakeRpc implements MessagesRpc {
   }) async {
     lastListReactionsEventIds = eventIds;
     return listReactionsResult;
+  }
+
+  /// **Persistent read-receipts seed (B22)**: тест задаёт
+  /// `listReadReceiptsResult`, контроллер сидит их через
+  /// `_seedReadReceipts` после init.
+  List<MessengerEvent> listReadReceiptsResult = const <MessengerEvent>[];
+  int listReadReceiptsCalls = 0;
+
+  @override
+  Future<List<MessengerEvent>> listReadReceipts({
+    required int roomId,
+  }) async {
+    listReadReceiptsCalls += 1;
+    return listReadReceiptsResult;
   }
 }
 

@@ -477,6 +477,12 @@ class MessagesController {
     // открытии чата (а не только по realtime). Best-effort, unawaited —
     // не блокирует первый рендер.
     unawaited(_seedReactions(messages));
+
+    // **Persistent read-receipts seed (B22)**: подтянуть persisted
+    // read-pointer-ы peer-ов, чтобы ✓✓ были видны сразу при re-open чата
+    // (раньше `_peerLastReadAt` volatile терялся при пересоздании
+    // контроллера). Best-effort, unawaited — не блокирует первый рендер.
+    unawaited(_seedReadReceipts());
   }
 
   /// Подгрузить страницу OLDER messages. No-op если:
@@ -577,6 +583,76 @@ class MessagesController {
     for (final e in events) {
       _handleReactionChanged(e);
     }
+  }
+
+  /// **Persistent read-receipts seed (B22)**: тянет persisted
+  /// read-pointer-ы участников комнаты (`listReadReceipts`) и применяет
+  /// каждый через тот же [_applyReadReceipt], что и realtime. Best-effort
+  /// — ошибки silent (✓✓ не критичны). Monotonic-guard в
+  /// [_applyReadReceipt] гарантирует, что seed (потенциально старее) НЕ
+  /// перетрёт более свежий realtime receipt, пришедший до завершения
+  /// этого RPC.
+  Future<void> _seedReadReceipts() async {
+    final List<MessengerEvent> events;
+    try {
+      events = await _rpc.listReadReceipts(roomId: _roomId);
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint(
+          '[MessagesController.room=$_roomId] seedReadReceipts failed: $e '
+          '(best-effort, ignored)',
+        );
+      }
+      return;
+    }
+    if (_disposed || events.isEmpty) return;
+    for (final e in events) {
+      _applyReadReceipt(e);
+    }
+  }
+
+  /// **B11/B22 read receipts**: применить один `readReceiptUpdated`-event
+  /// к per-peer last-read marker. Общий путь для realtime ([_onEvent]) и
+  /// seed ([_seedReadReceipts]).
+  ///
+  /// Monotonic-guard: receipt не «откатывает» marker назад (out-of-order
+  /// delivery ИЛИ seed старее уже-применённого realtime). Резолвит ts
+  /// прочитанного event-а через loaded history, иначе fallback на
+  /// `event.serverTimestamp`.
+  void _applyReadReceipt(MessengerEvent event) {
+    if (_disposed) return;
+    if (kDebugMode) {
+      debugPrint(
+        '[MessagesController.room=$_roomId] readReceiptUpdated '
+        'event.roomId=${event.roomId} reader=${event.readReceiptMatrixUserId} '
+        'eventId=${event.readReceiptEventId}',
+      );
+    }
+    if (event.roomId != _roomId) return;
+    final readerMxid = event.readReceiptMatrixUserId;
+    final readEventId = event.readReceiptEventId;
+    if (readerMxid == null || readEventId == null) return;
+    // Резолвим timestamp прочитанного event-а через state.messages
+    // (если у нас есть этот message в loaded history). Иначе fallback на
+    // event.serverTimestamp (для seed = lastReadAt, для realtime = когда
+    // receipt пришёл).
+    DateTime readUpTo = event.serverTimestamp;
+    final state = _state.value;
+    if (state is MessagesReady) {
+      for (final m in state.messages) {
+        if (m.matrixEventId == readEventId) {
+          readUpTo = m.serverTimestamp;
+          break;
+        }
+      }
+    }
+    final prev = _peerLastReadAt[readerMxid];
+    // Monotonic: новый receipt не должен «откатывать» backward
+    // (out-of-order delivery / seed старее realtime).
+    if (prev != null && prev.isAtSameMomentAs(readUpTo)) return;
+    if (prev != null && prev.isAfter(readUpTo)) return;
+    _peerLastReadAt[readerMxid] = readUpTo;
+    _readReceiptsVersion.value = _readReceiptsVersion.value + 1;
   }
 
   /// Optimistic send. UX:
@@ -968,41 +1044,10 @@ class MessagesController {
 
     // **B11 read receipts**: ephemeral event, message=null. Обновляем
     // per-peer last-read marker. UI bubble через `readByPeerMatrixIds`
-    // считает количество прочитавших.
+    // считает количество прочитавших. Общая обработка вынесена в
+    // [_applyReadReceipt] — её же использует B22 seed (listReadReceipts).
     if (event.eventType == MessengerEventType.readReceiptUpdated) {
-      if (kDebugMode) {
-        debugPrint(
-          '[MessagesController.room=$_roomId] readReceiptUpdated '
-          'event.roomId=${event.roomId} reader=${event.readReceiptMatrixUserId} '
-          'eventId=${event.readReceiptEventId}',
-        );
-      }
-      if (event.roomId != _roomId) return;
-      final readerMxid = event.readReceiptMatrixUserId;
-      final readEventId = event.readReceiptEventId;
-      if (readerMxid == null || readEventId == null) return;
-      // Резолвим timestamp прочитанного event-а через state.messages
-      // (если у нас есть этот message в loaded history). Иначе
-      // fallback на event.serverTimestamp (= когда receipt пришёл —
-      // не идеально, но конкретного ts прочитанного event-а в payload
-      // нет).
-      DateTime readUpTo = event.serverTimestamp;
-      final state = _state.value;
-      if (state is MessagesReady) {
-        for (final m in state.messages) {
-          if (m.matrixEventId == readEventId) {
-            readUpTo = m.serverTimestamp;
-            break;
-          }
-        }
-      }
-      final prev = _peerLastReadAt[readerMxid];
-      // Monotonic: новый receipt не должен «откатывать» backward
-      // (out-of-order delivery).
-      if (prev != null && prev.isAtSameMomentAs(readUpTo)) return;
-      if (prev != null && prev.isAfter(readUpTo)) return;
-      _peerLastReadAt[readerMxid] = readUpTo;
-      _readReceiptsVersion.value = _readReceiptsVersion.value + 1;
+      _applyReadReceipt(event);
       return;
     }
 

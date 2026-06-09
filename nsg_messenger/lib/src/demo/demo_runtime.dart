@@ -452,6 +452,14 @@ class _DemoMessagesRpc implements MessagesRpc {
     // Demo: нет истории реакций в fixtures.
     return const <MessengerEvent>[];
   }
+
+  @override
+  Future<List<MessengerEvent>> listReadReceipts({
+    required int roomId,
+  }) async {
+    // Demo: нет persisted read-receipts в fixtures.
+    return const <MessengerEvent>[];
+  }
 }
 
 // ───────── shared read-only fallbacks for `NsgMessengerRooms` ──────

@@ -1213,8 +1213,22 @@ class NsgMessengerRooms {
         }
         return;
 
-      case MessengerEventType.messageUpdated:
       case MessengerEventType.messageDeleted:
+        // **B23**: redaction может изменить превью списка чатов — если
+        // удалено было последнее сообщение комнаты, сервер
+        // (`_processRedaction`) пересчитывает `Room.lastMessageBody/At`
+        // по последнему НЕ-удалённому сообщению (или placeholder).
+        // Инвалидируем list/details cache, чтобы следующий `list()`
+        // подтянул свежее превью. Превью-fetch дёшев, поэтому
+        // инвалидируем на любой tombstone (даже если превью не
+        // изменилось — корректнее, чем пропустить настоящее изменение).
+        if (roomId != null) {
+          _listEntry = null;
+          _detailsCache.remove(roomId);
+        }
+        return;
+
+      case MessengerEventType.messageUpdated:
       case MessengerEventType.roomUpdated:
       case MessengerEventType.roomArchived:
       case MessengerEventType.roomClosed:

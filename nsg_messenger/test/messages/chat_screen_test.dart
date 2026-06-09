@@ -573,4 +573,9 @@ class _FakeRpc implements MessagesRpc {
     required int roomId,
     required List<String> eventIds,
   }) async => const <MessengerEvent>[];
+
+  @override
+  Future<List<MessengerEvent>> listReadReceipts({
+    required int roomId,
+  }) async => const <MessengerEvent>[];
 }

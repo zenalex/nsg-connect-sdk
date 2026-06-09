@@ -122,6 +122,15 @@ abstract class MessagesRpc {
     required List<String> eventIds,
   });
 
+  /// **Persistent read-receipts seed (B22)**: persisted read-pointer-ы
+  /// всех участников комнаты (КРОМЕ self) как `readReceiptUpdated`-events
+  /// — тот же shape что realtime `m.receipt`. Controller скармливает их в
+  /// `_applyReadReceipt`-путь при открытии чата, чтобы ✓✓ были видны
+  /// сразу (раньше терялись до первого realtime receipt-а).
+  Future<List<MessengerEvent>> listReadReceipts({
+    required int roomId,
+  });
+
   /// **B17 search in messages**: keyword-поиск через Matrix `/search`.
   /// Empty/short query (< 2 chars) → пустой list. Server-side limit
   /// clamp 1..200. Result отсортирован `recent` (newest first).
@@ -314,6 +323,14 @@ class ClientMessagesRpc implements MessagesRpc {
       roomId: roomId,
       eventIds: eventIds,
     ),
+    _session,
+  );
+
+  @override
+  Future<List<MessengerEvent>> listReadReceipts({
+    required int roomId,
+  }) => withAuthRetry(
+    () => _client.messenger.listReadReceipts(roomId: roomId),
     _session,
   );
 }
