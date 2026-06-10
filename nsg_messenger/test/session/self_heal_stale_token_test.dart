@@ -52,10 +52,7 @@ void main() {
     });
 
     test('TimeoutException → false (transport, NOT auth)', () {
-      expect(
-        isAuthInvalidation(TimeoutException('network slow')),
-        isFalse,
-      );
+      expect(isAuthInvalidation(TimeoutException('network slow')), isFalse);
     });
 
     test('SocketException → false (transport, NOT auth)', () {
@@ -101,32 +98,28 @@ void main() {
   // ─────────────────────────────────────────────────────────────
 
   group('withAuthRetry — happy path', () {
-    test(
-      'RPC succeeds first time → no refresh, no retry',
-      () async {
-        final manager = MessengerSessionManager.attachWithRpcs(
-          sessionRpc: (c) async =>
-              sessionFor(token: 'live', validFor: const Duration(hours: 24)),
-          refreshRpc: (c) async =>
-              throw StateError('refresh must NOT be called'),
-          authTokenProvider: _FakeProvider([ctx()]),
-          store: InMemoryAuthTokenStore(),
-          errorReporter: null,
-          emitState: (_) {},
-        );
-        await manager.init();
+    test('RPC succeeds first time → no refresh, no retry', () async {
+      final manager = MessengerSessionManager.attachWithRpcs(
+        sessionRpc: (c) async =>
+            sessionFor(token: 'live', validFor: const Duration(hours: 24)),
+        refreshRpc: (c) async => throw StateError('refresh must NOT be called'),
+        authTokenProvider: _FakeProvider([ctx()]),
+        store: InMemoryAuthTokenStore(),
+        errorReporter: null,
+        emitState: (_) {},
+      );
+      await manager.init();
 
-        var rpcCalls = 0;
-        final result = await withAuthRetry(() async {
-          rpcCalls++;
-          return 'ok';
-        }, manager);
+      var rpcCalls = 0;
+      final result = await withAuthRetry(() async {
+        rpcCalls++;
+        return 'ok';
+      }, manager);
 
-        expect(result, 'ok');
-        expect(rpcCalls, 1);
-        await manager.dispose();
-      },
-    );
+      expect(result, 'ok');
+      expect(rpcCalls, 1);
+      await manager.dispose();
+    });
 
     test(
       'RPC fails with MessengerNotAuth → selfHeal → retry succeeds',
@@ -224,16 +217,17 @@ void main() {
       final storeBefore = await store.read();
 
       await expectLater(
-        () => withAuthRetry(
-          () async => throw TimeoutException('slow'),
-          manager,
-        ),
+        () =>
+            withAuthRetry(() async => throw TimeoutException('slow'), manager),
         throwsA(isA<TimeoutException>()),
       );
       expect(refreshCalls, 0, reason: 'network error MUST NOT trigger refresh');
       // Token unchanged, store unchanged.
       expect(manager.session?.sessionToken, tokenBefore);
-      expect((await store.read())?.session.sessionToken, storeBefore?.session.sessionToken);
+      expect(
+        (await store.read())?.session.sessionToken,
+        storeBefore?.session.sessionToken,
+      );
       await manager.dispose();
     });
 
@@ -348,11 +342,7 @@ void main() {
         // 5 concurrent RPCs each failing once with auth, then succeeding.
         final rpcCallsPerCaller = <int, int>{};
         Future<String> caller(int id) => withAuthRetry(() async {
-          rpcCallsPerCaller.update(
-            id,
-            (v) => v + 1,
-            ifAbsent: () => 1,
-          );
+          rpcCallsPerCaller.update(id, (v) => v + 1, ifAbsent: () => 1);
           if (rpcCallsPerCaller[id] == 1) {
             throw MessengerNotAuthenticatedException();
           }
@@ -363,7 +353,11 @@ void main() {
         // Let all 5 race to selfHeal; refreshRpc is awaiting completer.
         await Future<void>.delayed(const Duration(milliseconds: 50));
         // Single refresh in-flight at this point.
-        expect(refreshCalls, 1, reason: 'single-flight: 1 refresh for 5 callers');
+        expect(
+          refreshCalls,
+          1,
+          reason: 'single-flight: 1 refresh for 5 callers',
+        );
         // Unblock refresh.
         refreshCompleter.complete(
           sessionFor(
@@ -391,75 +385,72 @@ void main() {
   // ─────────────────────────────────────────────────────────────
 
   group('selfHealStaleToken — failure paths', () {
-    test(
-      'refresh fails with InvalidTokenException → state.expired, '
-      'store cleared, throws',
-      () async {
-        final store = InMemoryAuthTokenStore();
-        final states = <MessengerSessionState>[];
-        final manager = MessengerSessionManager.attachWithRpcs(
-          sessionRpc: (c) async =>
-              sessionFor(token: 'live', validFor: const Duration(hours: 24)),
-          refreshRpc: (c) async =>
-              throw InvalidTokenException(reason: 'simulated expiry'),
-          authTokenProvider: _FakeProvider([ctx(), ctx()]),
-          store: store,
-          errorReporter: null,
-          emitState: states.add,
-        );
-        await manager.init();
-        // Stored after init.
-        expect(await store.read(), isNotNull);
-        states.clear();
+    test('refresh fails with InvalidTokenException → state.expired, '
+        'store cleared, throws', () async {
+      final store = InMemoryAuthTokenStore();
+      final states = <MessengerSessionState>[];
+      final manager = MessengerSessionManager.attachWithRpcs(
+        sessionRpc: (c) async =>
+            sessionFor(token: 'live', validFor: const Duration(hours: 24)),
+        refreshRpc: (c) async =>
+            throw InvalidTokenException(reason: 'simulated expiry'),
+        authTokenProvider: _FakeProvider([ctx(), ctx()]),
+        store: store,
+        errorReporter: null,
+        emitState: states.add,
+      );
+      await manager.init();
+      // Stored after init.
+      expect(await store.read(), isNotNull);
+      states.clear();
 
-        await expectLater(
-          () => manager.selfHealStaleToken(),
-          throwsA(isA<StateError>()),
-        );
-        // **CRITICAL**: store cleared on typed auth-invalidation.
-        expect(await store.read(), isNull);
-        expect(states.last, MessengerSessionState.expired);
-        expect(manager.session, isNull);
-        // Auth header empty → next RPC goes без Authorization.
-        expect(await manager.currentAuthHeaderValueForTest, isNull);
-        await manager.dispose();
-      },
-    );
+      await expectLater(
+        () => manager.selfHealStaleToken(),
+        throwsA(isA<StateError>()),
+      );
+      // **CRITICAL**: store cleared on typed auth-invalidation.
+      expect(await store.read(), isNull);
+      expect(states.last, MessengerSessionState.expired);
+      expect(manager.session, isNull);
+      // Auth header empty → next RPC goes без Authorization.
+      expect(await manager.currentAuthHeaderValueForTest, isNull);
+      await manager.dispose();
+    });
 
-    test(
-      'refresh fails with network error → state.error, '
-      'store NOT cleared, token preserved',
-      () async {
-        final store = InMemoryAuthTokenStore();
-        final states = <MessengerSessionState>[];
-        final manager = MessengerSessionManager.attachWithRpcs(
-          sessionRpc: (c) async =>
-              sessionFor(token: 'live', validFor: const Duration(hours: 24)),
-          refreshRpc: (c) async => throw const SocketException('offline'),
-          authTokenProvider: _FakeProvider([ctx(), ctx()]),
-          store: store,
-          errorReporter: null,
-          emitState: states.add,
-        );
-        await manager.init();
-        final storeBefore = await store.read();
-        final tokenBefore = manager.session!.sessionToken;
-        states.clear();
+    test('refresh fails with network error → state.error, '
+        'store NOT cleared, token preserved', () async {
+      final store = InMemoryAuthTokenStore();
+      final states = <MessengerSessionState>[];
+      final manager = MessengerSessionManager.attachWithRpcs(
+        sessionRpc: (c) async =>
+            sessionFor(token: 'live', validFor: const Duration(hours: 24)),
+        refreshRpc: (c) async => throw const SocketException('offline'),
+        authTokenProvider: _FakeProvider([ctx(), ctx()]),
+        store: store,
+        errorReporter: null,
+        emitState: states.add,
+      );
+      await manager.init();
+      final storeBefore = await store.read();
+      final tokenBefore = manager.session!.sessionToken;
+      states.clear();
 
-        await expectLater(
-          () => manager.selfHealStaleToken(),
-          throwsA(isA<StateError>()),
-        );
-        // **CRITICAL**: store NOT cleared on network error.
-        final storeAfter = await store.read();
-        expect(storeAfter, isNotNull);
-        expect(storeAfter!.session.sessionToken, storeBefore!.session.sessionToken);
-        // Session still alive on manager side.
-        expect(manager.session?.sessionToken, tokenBefore);
-        expect(states.last, MessengerSessionState.error);
-        await manager.dispose();
-      },
-    );
+      await expectLater(
+        () => manager.selfHealStaleToken(),
+        throwsA(isA<StateError>()),
+      );
+      // **CRITICAL**: store NOT cleared on network error.
+      final storeAfter = await store.read();
+      expect(storeAfter, isNotNull);
+      expect(
+        storeAfter!.session.sessionToken,
+        storeBefore!.session.sessionToken,
+      );
+      // Session still alive on manager side.
+      expect(manager.session?.sessionToken, tokenBefore);
+      expect(states.last, MessengerSessionState.error);
+      await manager.dispose();
+    });
 
     test(
       'withAuthRetry — refresh fails unauthorized → second RPC NOT attempted',
@@ -468,8 +459,7 @@ void main() {
         final manager = MessengerSessionManager.attachWithRpcs(
           sessionRpc: (c) async =>
               sessionFor(token: 'live', validFor: const Duration(hours: 24)),
-          refreshRpc: (c) async =>
-              throw InvalidTokenException(reason: 'dead'),
+          refreshRpc: (c) async => throw InvalidTokenException(reason: 'dead'),
           authTokenProvider: _FakeProvider([ctx(), ctx()]),
           store: InMemoryAuthTokenStore(),
           errorReporter: null,
@@ -482,10 +472,9 @@ void main() {
             rpcCalls++;
             throw MessengerNotAuthenticatedException();
           }, manager),
-          throwsA(anyOf(
-            isA<MessengerNotAuthenticatedException>(),
-            isA<StateError>(),
-          )),
+          throwsA(
+            anyOf(isA<MessengerNotAuthenticatedException>(), isA<StateError>()),
+          ),
         );
         // RPC tried exactly once — refresh died, no second attempt.
         expect(rpcCalls, 1);
@@ -532,11 +521,7 @@ void main() {
           throwsA(isA<MessengerNotAuthenticatedException>()),
         );
         expect(rpcCalls, 2, reason: '1 original + 1 retry');
-        expect(
-          refreshCalls,
-          1,
-          reason: 'exactly 1 refresh — no infinite loop',
-        );
+        expect(refreshCalls, 1, reason: 'exactly 1 refresh — no infinite loop');
         await manager.dispose();
       },
     );

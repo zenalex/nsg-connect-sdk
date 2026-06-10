@@ -28,6 +28,7 @@ void main() {
       }
       if (s.text != null) out.add(s.text!);
     }
+
     for (final s in spans) {
       visit(s);
     }
@@ -47,6 +48,7 @@ void main() {
       }
       if (s.text == text) found = merged;
     }
+
     for (final s in spans) {
       visit(s, null);
     }

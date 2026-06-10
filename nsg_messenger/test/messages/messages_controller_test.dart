@@ -440,8 +440,9 @@ void main() {
         rpc.sendMessageHandler =
             (roomId, body, msgType, clientTxnId, attachment) {
               callCount++;
-              if (callCount == 1)
+              if (callCount == 1) {
                 return Future.error(StateError('first failed'));
+              }
               return Future.value(
                 _msg(
                   eventId: 'e-retry-success',
@@ -487,7 +488,11 @@ void main() {
             (roomId, body, msgType, clientTxnId, attachment) {
               if (failing) return Future.error(StateError('network down'));
               return Future.value(
-                _msg(eventId: 'e-$clientTxnId', body: body, clientTxnId: clientTxnId),
+                _msg(
+                  eventId: 'e-$clientTxnId',
+                  body: body,
+                  clientTxnId: clientTxnId,
+                ),
               );
             };
 
@@ -569,128 +574,138 @@ void main() {
       },
     );
 
-    test(
-      'init() seed-ит историю реакций через listReactions → reactionsFor '
-      'показывает агрегированные count (phase 2)',
-      () async {
-        final rpc = _FakeRpc();
-        rpc.listMessagesHandler = (r, ft, l) => Future.value(
-          _page(messages: [_msg(eventId: 'h-1', body: 'hi')]),
-        );
-        rpc.listReactionsResult = [
-          _reactionEvent(
-            targetEventId: 'h-1', key: '👍',
-            reactorMatrixId: '@a:t', reactionEventId: 'r-1',
-          ),
-          _reactionEvent(
-            targetEventId: 'h-1', key: '👍',
-            reactorMatrixId: '@b:t', reactionEventId: 'r-2',
-          ),
-          _reactionEvent(
-            targetEventId: 'h-1', key: '❤️',
-            reactorMatrixId: '@a:t', reactionEventId: 'r-3',
-          ),
-        ];
-        final eventCtrl = StreamController<MessengerEvent>.broadcast();
-        final controller = _make(rpc: rpc, events: eventCtrl.stream);
-        await controller.init();
-        // _seedReactions — unawaited; даём microtask-ам отработать.
-        await Future<void>.delayed(const Duration(milliseconds: 10));
+    test('init() seed-ит историю реакций через listReactions → reactionsFor '
+        'показывает агрегированные count (phase 2)', () async {
+      final rpc = _FakeRpc();
+      rpc.listMessagesHandler = (r, ft, l) => Future.value(
+        _page(
+          messages: [_msg(eventId: 'h-1', body: 'hi')],
+        ),
+      );
+      rpc.listReactionsResult = [
+        _reactionEvent(
+          targetEventId: 'h-1',
+          key: '👍',
+          reactorMatrixId: '@a:t',
+          reactionEventId: 'r-1',
+        ),
+        _reactionEvent(
+          targetEventId: 'h-1',
+          key: '👍',
+          reactorMatrixId: '@b:t',
+          reactionEventId: 'r-2',
+        ),
+        _reactionEvent(
+          targetEventId: 'h-1',
+          key: '❤️',
+          reactorMatrixId: '@a:t',
+          reactionEventId: 'r-3',
+        ),
+      ];
+      final eventCtrl = StreamController<MessengerEvent>.broadcast();
+      final controller = _make(rpc: rpc, events: eventCtrl.stream);
+      await controller.init();
+      // _seedReactions — unawaited; даём microtask-ам отработать.
+      await Future<void>.delayed(const Duration(milliseconds: 10));
 
-        expect(rpc.lastListReactionsEventIds, ['h-1'],
-            reason: 'seed дёрнут с eventId-ами страницы');
-        final byKey = {
-          for (final g in controller.reactionsFor('h-1')) g.key: g.count,
-        };
-        expect(byKey['👍'], 2);
-        expect(byKey['❤️'], 1);
-        await controller.dispose();
-        await eventCtrl.close();
-      },
-    );
+      expect(
+        rpc.lastListReactionsEventIds,
+        ['h-1'],
+        reason: 'seed дёрнут с eventId-ами страницы',
+      );
+      final byKey = {
+        for (final g in controller.reactionsFor('h-1')) g.key: g.count,
+      };
+      expect(byKey['👍'], 2);
+      expect(byKey['❤️'], 1);
+      await controller.dispose();
+      await eventCtrl.close();
+    });
 
-    test(
-      'init() seed-ит persisted read-receipts через listReadReceipts → '
-      'readByPeerMatrixIds непустой (B22)',
-      () async {
-        final ts = DateTime.utc(2026, 1, 1, 10);
-        final rpc = _FakeRpc();
-        rpc.listMessagesHandler = (r, ft, l) => Future.value(
-          _page(messages: [_msg(eventId: 'h-1', body: 'hi', timestamp: ts)]),
-        );
-        rpc.listReadReceiptsResult = [
-          _readReceiptEvent(
-            readerMatrixId: '@peer:test',
-            readEventId: 'h-1',
-            serverTimestamp: ts,
-          ),
-        ];
-        final eventCtrl = StreamController<MessengerEvent>.broadcast();
-        final controller = _make(rpc: rpc, events: eventCtrl.stream);
-        await controller.init();
-        // _seedReadReceipts — unawaited; даём microtask-ам отработать.
-        await Future<void>.delayed(const Duration(milliseconds: 10));
+    test('init() seed-ит persisted read-receipts через listReadReceipts → '
+        'readByPeerMatrixIds непустой (B22)', () async {
+      final ts = DateTime.utc(2026, 1, 1, 10);
+      final rpc = _FakeRpc();
+      rpc.listMessagesHandler = (r, ft, l) => Future.value(
+        _page(
+          messages: [_msg(eventId: 'h-1', body: 'hi', timestamp: ts)],
+        ),
+      );
+      rpc.listReadReceiptsResult = [
+        _readReceiptEvent(
+          readerMatrixId: '@peer:test',
+          readEventId: 'h-1',
+          serverTimestamp: ts,
+        ),
+      ];
+      final eventCtrl = StreamController<MessengerEvent>.broadcast();
+      final controller = _make(rpc: rpc, events: eventCtrl.stream);
+      await controller.init();
+      // _seedReadReceipts — unawaited; даём microtask-ам отработать.
+      await Future<void>.delayed(const Duration(milliseconds: 10));
 
-        expect(rpc.listReadReceiptsCalls, 1, reason: 'seed дёрнут в init');
-        final state = controller.state as MessagesReady;
-        final readers = controller.readByPeerMatrixIds(state.messages[0]);
-        expect(readers, contains('@peer:test'),
-            reason: 'persisted receipt → ✓✓ сразу при открытии чата');
-        await controller.dispose();
-        await eventCtrl.close();
-      },
-    );
+      expect(rpc.listReadReceiptsCalls, 1, reason: 'seed дёрнут в init');
+      final state = controller.state as MessagesReady;
+      final readers = controller.readByPeerMatrixIds(state.messages[0]);
+      expect(
+        readers,
+        contains('@peer:test'),
+        reason: 'persisted receipt → ✓✓ сразу при открытии чата',
+      );
+      await controller.dispose();
+      await eventCtrl.close();
+    });
 
-    test(
-      'monotonic guard: seed старее realtime НЕ перетирает свежий marker '
-      '(B22)',
-      () async {
-        final tsOld = DateTime.utc(2026, 1, 1, 10);
-        final tsNew = DateTime.utc(2026, 1, 1, 12);
-        final rpc = _FakeRpc();
-        rpc.listMessagesHandler = (r, ft, l) => Future.value(
-          _page(
-            messages: [
-              // h-2 newer (top), h-1 older.
-              _msg(eventId: 'h-2', body: 'new', timestamp: tsNew),
-              _msg(eventId: 'h-1', body: 'old', timestamp: tsOld),
-            ],
-          ),
-        );
-        // Seed возвращает СТАРЫЙ pointer (h-1).
-        rpc.listReadReceiptsResult = [
-          _readReceiptEvent(
-            readerMatrixId: '@peer:test',
-            readEventId: 'h-1',
-            serverTimestamp: tsOld,
-          ),
-        ];
-        final eventCtrl = StreamController<MessengerEvent>.broadcast();
-        final controller = _make(rpc: rpc, events: eventCtrl.stream);
-        await controller.init();
-        // Realtime СВЕЖИЙ receipt (h-2) — двигает marker вперёд.
-        eventCtrl.add(
-          _readReceiptEvent(
-            readerMatrixId: '@peer:test',
-            readEventId: 'h-2',
-            serverTimestamp: tsNew,
-          ),
-        );
-        // Дать отработать и seed (unawaited) и realtime — порядок их
-        // применения не важен: monotonic-guard держит max.
-        await Future<void>.delayed(const Duration(milliseconds: 10));
+    test('monotonic guard: seed старее realtime НЕ перетирает свежий marker '
+        '(B22)', () async {
+      final tsOld = DateTime.utc(2026, 1, 1, 10);
+      final tsNew = DateTime.utc(2026, 1, 1, 12);
+      final rpc = _FakeRpc();
+      rpc.listMessagesHandler = (r, ft, l) => Future.value(
+        _page(
+          messages: [
+            // h-2 newer (top), h-1 older.
+            _msg(eventId: 'h-2', body: 'new', timestamp: tsNew),
+            _msg(eventId: 'h-1', body: 'old', timestamp: tsOld),
+          ],
+        ),
+      );
+      // Seed возвращает СТАРЫЙ pointer (h-1).
+      rpc.listReadReceiptsResult = [
+        _readReceiptEvent(
+          readerMatrixId: '@peer:test',
+          readEventId: 'h-1',
+          serverTimestamp: tsOld,
+        ),
+      ];
+      final eventCtrl = StreamController<MessengerEvent>.broadcast();
+      final controller = _make(rpc: rpc, events: eventCtrl.stream);
+      await controller.init();
+      // Realtime СВЕЖИЙ receipt (h-2) — двигает marker вперёд.
+      eventCtrl.add(
+        _readReceiptEvent(
+          readerMatrixId: '@peer:test',
+          readEventId: 'h-2',
+          serverTimestamp: tsNew,
+        ),
+      );
+      // Дать отработать и seed (unawaited) и realtime — порядок их
+      // применения не важен: monotonic-guard держит max.
+      await Future<void>.delayed(const Duration(milliseconds: 10));
 
-        final state = controller.state as MessagesReady;
-        // Marker должен стоять на h-2 (newer): оба message прочитаны peer-ом.
-        final readersNew = controller.readByPeerMatrixIds(state.messages[0]);
-        final readersOld = controller.readByPeerMatrixIds(state.messages[1]);
-        expect(readersNew, contains('@peer:test'),
-            reason: 'свежий realtime marker не откатан seed-ом');
-        expect(readersOld, contains('@peer:test'));
-        await controller.dispose();
-        await eventCtrl.close();
-      },
-    );
+      final state = controller.state as MessagesReady;
+      // Marker должен стоять на h-2 (newer): оба message прочитаны peer-ом.
+      final readersNew = controller.readByPeerMatrixIds(state.messages[0]);
+      final readersOld = controller.readByPeerMatrixIds(state.messages[1]);
+      expect(
+        readersNew,
+        contains('@peer:test'),
+        reason: 'свежий realtime marker не откатан seed-ом',
+      );
+      expect(readersOld, contains('@peer:test'));
+      await controller.dispose();
+      await eventCtrl.close();
+    });
 
     test('init() listMessages throws → Error state', () async {
       final rpc = _FakeRpc();
@@ -1540,25 +1555,31 @@ void main() {
       });
 
       eventCtrl
-        ..add(_reactionEvent(
-          reactionEventId: 'r1',
-          targetEventId: 'target-1',
-          key: '😂',
-          reactorMatrixId: '@a:test',
-        ))
-        ..add(_reactionEvent(
-          reactionEventId: 'r2',
-          targetEventId: 'target-1',
-          key: '😂',
-          reactorMatrixId: '@b:test',
-        ))
+        ..add(
+          _reactionEvent(
+            reactionEventId: 'r1',
+            targetEventId: 'target-1',
+            key: '😂',
+            reactorMatrixId: '@a:test',
+          ),
+        )
+        ..add(
+          _reactionEvent(
+            reactionEventId: 'r2',
+            targetEventId: 'target-1',
+            key: '😂',
+            reactorMatrixId: '@b:test',
+          ),
+        )
         // Дубль того же reaction-event-id — idempotent skip.
-        ..add(_reactionEvent(
-          reactionEventId: 'r2',
-          targetEventId: 'target-1',
-          key: '😂',
-          reactorMatrixId: '@b:test',
-        ));
+        ..add(
+          _reactionEvent(
+            reactionEventId: 'r2',
+            targetEventId: 'target-1',
+            key: '😂',
+            reactorMatrixId: '@b:test',
+          ),
+        );
       await Future<void>.delayed(Duration.zero);
 
       final g = controller.reactionsFor('target-1').single;
@@ -1573,18 +1594,22 @@ void main() {
       });
 
       eventCtrl
-        ..add(_reactionEvent(
-          reactionEventId: 'r1',
-          targetEventId: 'target-1',
-          key: '👍',
-          reactorMatrixId: '@a:test',
-        ))
-        ..add(_reactionEvent(
-          reactionEventId: 'r2',
-          targetEventId: 'target-1',
-          key: '🙏',
-          reactorMatrixId: '@a:test',
-        ));
+        ..add(
+          _reactionEvent(
+            reactionEventId: 'r1',
+            targetEventId: 'target-1',
+            key: '👍',
+            reactorMatrixId: '@a:test',
+          ),
+        )
+        ..add(
+          _reactionEvent(
+            reactionEventId: 'r2',
+            targetEventId: 'target-1',
+            key: '🙏',
+            reactorMatrixId: '@a:test',
+          ),
+        );
       await Future<void>.delayed(Duration.zero);
 
       final groups = controller.reactionsFor('target-1');
@@ -1592,32 +1617,38 @@ void main() {
       expect(groups.map((g) => g.key).toSet(), {'👍', '🙏'});
     });
 
-    test('redaction реакции → count декрементится, группа исчезает при 0',
-        () async {
-      final (controller, _, eventCtrl) = await setupReady();
-      addTearDown(() async {
-        await controller.dispose();
-        await eventCtrl.close();
-      });
+    test(
+      'redaction реакции → count декрементится, группа исчезает при 0',
+      () async {
+        final (controller, _, eventCtrl) = await setupReady();
+        addTearDown(() async {
+          await controller.dispose();
+          await eventCtrl.close();
+        });
 
-      eventCtrl.add(_reactionEvent(
-        reactionEventId: 'rxn-x',
-        targetEventId: 'target-1',
-        key: '😮',
-        reactorMatrixId: '@a:test',
-      ));
-      await Future<void>.delayed(Duration.zero);
-      expect(controller.reactionsFor('target-1').single.count, 1);
+        eventCtrl.add(
+          _reactionEvent(
+            reactionEventId: 'rxn-x',
+            targetEventId: 'target-1',
+            key: '😮',
+            reactorMatrixId: '@a:test',
+          ),
+        );
+        await Future<void>.delayed(Duration.zero);
+        expect(controller.reactionsFor('target-1').single.count, 1);
 
-      // Redaction — знает только reactionEventId.
-      eventCtrl.add(_reactionEvent(
-        reactionEventId: 'rxn-x',
-        reactorMatrixId: '@a:test',
-        redacted: true,
-      ));
-      await Future<void>.delayed(Duration.zero);
-      expect(controller.reactionsFor('target-1'), isEmpty);
-    });
+        // Redaction — знает только reactionEventId.
+        eventCtrl.add(
+          _reactionEvent(
+            reactionEventId: 'rxn-x',
+            reactorMatrixId: '@a:test',
+            redacted: true,
+          ),
+        );
+        await Future<void>.delayed(Duration.zero);
+        expect(controller.reactionsFor('target-1'), isEmpty);
+      },
+    );
 
     test('toggleReaction: нет своей реакции → sendReaction вызван', () async {
       final (controller, rpc, eventCtrl) = await setupReady();
@@ -1642,12 +1673,14 @@ void main() {
       });
 
       // Сначала self-реакция прилетает через stream (сохраняет ref).
-      eventCtrl.add(_reactionEvent(
-        reactionEventId: 'my-rxn',
-        targetEventId: 'target-1',
-        key: '👍',
-        reactorMatrixId: _kSelfMatrixUserId,
-      ));
+      eventCtrl.add(
+        _reactionEvent(
+          reactionEventId: 'my-rxn',
+          targetEventId: 'target-1',
+          key: '👍',
+          reactorMatrixId: _kSelfMatrixUserId,
+        ),
+      );
       await Future<void>.delayed(Duration.zero);
 
       await controller.toggleReaction('target-1', '👍');
@@ -1663,12 +1696,14 @@ void main() {
       });
 
       final before = controller.reactionsVersionListenable.value;
-      eventCtrl.add(_reactionEvent(
-        reactionEventId: 'r1',
-        targetEventId: 'target-1',
-        key: '👍',
-        reactorMatrixId: '@a:test',
-      ));
+      eventCtrl.add(
+        _reactionEvent(
+          reactionEventId: 'r1',
+          targetEventId: 'target-1',
+          key: '👍',
+          reactorMatrixId: '@a:test',
+        ),
+      );
       await Future<void>.delayed(Duration.zero);
       expect(controller.reactionsVersionListenable.value, greaterThan(before));
     });
@@ -1774,39 +1809,33 @@ class _CapturingSendRpc implements MessagesRpc {
     required int roomId,
     required String targetEventId,
     required String key,
-  }) =>
-      _inner.sendReaction(
-        roomId: roomId,
-        targetEventId: targetEventId,
-        key: key,
-      );
+  }) => _inner.sendReaction(
+    roomId: roomId,
+    targetEventId: targetEventId,
+    key: key,
+  );
 
   @override
   Future<void> removeReaction({
     required int roomId,
     required String reactionEventId,
-  }) =>
-      _inner.removeReaction(roomId: roomId, reactionEventId: reactionEventId);
+  }) => _inner.removeReaction(roomId: roomId, reactionEventId: reactionEventId);
 
   @override
   Future<List<MessengerMessage>> searchMessages({
     required int roomId,
     required String query,
     int limit = 50,
-  }) =>
-      _inner.searchMessages(roomId: roomId, query: query, limit: limit);
+  }) => _inner.searchMessages(roomId: roomId, query: query, limit: limit);
 
   @override
   Future<List<MessengerEvent>> listReactions({
     required int roomId,
     required List<String> eventIds,
-  }) =>
-      _inner.listReactions(roomId: roomId, eventIds: eventIds);
+  }) => _inner.listReactions(roomId: roomId, eventIds: eventIds);
 
   @override
-  Future<List<MessengerEvent>> listReadReceipts({
-    required int roomId,
-  }) =>
+  Future<List<MessengerEvent>> listReadReceipts({required int roomId}) =>
       _inner.listReadReceipts(roomId: roomId);
 }
 
@@ -2102,9 +2131,7 @@ class _FakeRpc implements MessagesRpc {
   int listReadReceiptsCalls = 0;
 
   @override
-  Future<List<MessengerEvent>> listReadReceipts({
-    required int roomId,
-  }) async {
+  Future<List<MessengerEvent>> listReadReceipts({required int roomId}) async {
     listReadReceiptsCalls += 1;
     return listReadReceiptsResult;
   }

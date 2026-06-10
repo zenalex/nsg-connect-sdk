@@ -110,10 +110,7 @@ class _GradientFallback extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            _hsl(h, 0.55, 0.62),
-            _hsl((h + 40) % 360, 0.6, 0.48),
-          ],
+          colors: [_hsl(h, 0.55, 0.62), _hsl((h + 40) % 360, 0.6, 0.48)],
         ),
       ),
       alignment: Alignment.center,

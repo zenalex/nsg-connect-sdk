@@ -24,33 +24,34 @@ void main() {
       } catch (_) {}
     });
 
-    test('populates rooms.list with the fixture rooms (active filter)',
-        () async {
-      await NsgMessenger.initDemo(
-        rooms: [
-          DemoRoomFixture(
-            id: 1,
-            name: 'Alpha',
-            lastMessageAt: DateTime.utc(2026, 5, 23, 12, 0),
-          ),
-          DemoRoomFixture(
-            id: 2,
-            name: 'Bravo',
-            unreadCount: 3,
-            lastMessageAt: DateTime.utc(2026, 5, 23, 11, 0),
-          ),
-        ],
-      );
+    test(
+      'populates rooms.list with the fixture rooms (active filter)',
+      () async {
+        await NsgMessenger.initDemo(
+          rooms: [
+            DemoRoomFixture(
+              id: 1,
+              name: 'Alpha',
+              lastMessageAt: DateTime.utc(2026, 5, 23, 12, 0),
+            ),
+            DemoRoomFixture(
+              id: 2,
+              name: 'Bravo',
+              unreadCount: 3,
+              lastMessageAt: DateTime.utc(2026, 5, 23, 11, 0),
+            ),
+          ],
+        );
 
-      // Default `list()` (no includeArchived) returns only non-archived.
-      final result = await NsgMessenger.rooms.list();
-      expect(result, hasLength(2));
-      expect(result.first.name, 'Alpha');
-      expect(result.last.unreadCount, 3);
-    });
+        // Default `list()` (no includeArchived) returns only non-archived.
+        final result = await NsgMessenger.rooms.list();
+        expect(result, hasLength(2));
+        expect(result.first.name, 'Alpha');
+        expect(result.last.unreadCount, 3);
+      },
+    );
 
-    test('rooms.get(id) returns details derived from the fixture',
-        () async {
+    test('rooms.get(id) returns details derived from the fixture', () async {
       await NsgMessenger.initDemo(
         rooms: [DemoRoomFixture(id: 42, name: 'The answer')],
       );
@@ -63,89 +64,91 @@ void main() {
       expect(details.participants.first.displayName, 'You');
     });
 
-    test('rooms.list with includeArchived=true also surfaces archived',
-        () async {
-      await NsgMessenger.initDemo(
-        rooms: [
-          DemoRoomFixture(id: 1, name: 'Active'),
-          DemoRoomFixture(id: 2, name: 'Old', archived: true),
-        ],
-      );
+    test(
+      'rooms.list with includeArchived=true also surfaces archived',
+      () async {
+        await NsgMessenger.initDemo(
+          rooms: [
+            DemoRoomFixture(id: 1, name: 'Active'),
+            DemoRoomFixture(id: 2, name: 'Old', archived: true),
+          ],
+        );
 
-      final active = await NsgMessenger.rooms.list();
-      expect(active.map((r) => r.id), [1]);
+        final active = await NsgMessenger.rooms.list();
+        expect(active.map((r) => r.id), [1]);
 
-      final all = await NsgMessenger.rooms.list(includeArchived: true);
-      expect(all.map((r) => r.id), [1, 2]);
-    });
+        final all = await NsgMessenger.rooms.list(includeArchived: true);
+        expect(all.map((r) => r.id), [1, 2]);
+      },
+    );
 
-    test('calling initDemo twice without dispose throws StateError',
-        () async {
-      await NsgMessenger.initDemo(
-        rooms: [DemoRoomFixture(id: 1, name: 'One')],
-      );
+    test('calling initDemo twice without dispose throws StateError', () async {
+      await NsgMessenger.initDemo(rooms: [DemoRoomFixture(id: 1, name: 'One')]);
 
       expect(
-        () => NsgMessenger.initDemo(
-          rooms: [DemoRoomFixture(id: 2, name: 'Two')],
-        ),
+        () =>
+            NsgMessenger.initDemo(rooms: [DemoRoomFixture(id: 2, name: 'Two')]),
         throwsA(isA<StateError>()),
       );
     });
 
-    test('dispose() resets the runtime so initDemo can be called again',
-        () async {
-      await NsgMessenger.initDemo(
-        rooms: [DemoRoomFixture(id: 1, name: 'First')],
-      );
-      await NsgMessenger.dispose();
+    test(
+      'dispose() resets the runtime so initDemo can be called again',
+      () async {
+        await NsgMessenger.initDemo(
+          rooms: [DemoRoomFixture(id: 1, name: 'First')],
+        );
+        await NsgMessenger.dispose();
 
-      await NsgMessenger.initDemo(
-        rooms: [DemoRoomFixture(id: 9, name: 'After dispose')],
-      );
+        await NsgMessenger.initDemo(
+          rooms: [DemoRoomFixture(id: 9, name: 'After dispose')],
+        );
 
-      final after = await NsgMessenger.rooms.list();
-      expect(after.single.name, 'After dispose');
-    });
+        final after = await NsgMessenger.rooms.list();
+        expect(after.single.name, 'After dispose');
+      },
+    );
 
-    test('messages flow through the demo MessagesRpc into rooms.list',
-        () async {
-      // Smoke-check that DemoMessageFixture survives the conversion
-      // pipeline — fixtures with no matching roomId are silently
-      // dropped, so an orphan message must not crash initDemo.
-      await NsgMessenger.initDemo(
-        rooms: [
-          DemoRoomFixture(
-            id: 7,
-            name: 'Chat',
-            lastMessagePreview: 'hi',
-            lastMessageAt: DateTime.utc(2026, 5, 23, 9),
-          ),
-        ],
-        messages: [
-          DemoMessageFixture(
-            roomId: 7,
-            eventId: 'evt-1',
-            body: 'hi',
-            senderName: 'Peer',
-            sentAt: DateTime.utc(2026, 5, 23, 9),
-          ),
-          // Orphan — silently dropped.
-          DemoMessageFixture(
-            roomId: 999,
-            eventId: 'evt-orphan',
-            body: 'lost',
-            senderName: 'Ghost',
-            sentAt: DateTime.utc(2026, 5, 23, 9),
-          ),
-        ],
-        locale: const NsgMessengerLocale(locale: Locale('en')),
-      );
+    test(
+      'messages flow through the demo MessagesRpc into rooms.list',
+      () async {
+        // Smoke-check that DemoMessageFixture survives the conversion
+        // pipeline — fixtures with no matching roomId are silently
+        // dropped, so an orphan message must not crash initDemo.
+        await NsgMessenger.initDemo(
+          rooms: [
+            DemoRoomFixture(
+              id: 7,
+              name: 'Chat',
+              lastMessagePreview: 'hi',
+              lastMessageAt: DateTime.utc(2026, 5, 23, 9),
+            ),
+          ],
+          messages: [
+            DemoMessageFixture(
+              roomId: 7,
+              eventId: 'evt-1',
+              body: 'hi',
+              senderName: 'Peer',
+              sentAt: DateTime.utc(2026, 5, 23, 9),
+            ),
+            // Orphan — silently dropped.
+            DemoMessageFixture(
+              roomId: 999,
+              eventId: 'evt-orphan',
+              body: 'lost',
+              senderName: 'Ghost',
+              sentAt: DateTime.utc(2026, 5, 23, 9),
+            ),
+          ],
+          locale: const NsgMessengerLocale(locale: Locale('en')),
+        );
 
-      // The summary should still be reachable.
-      final list = await NsgMessenger.rooms.list();
-      expect(list.single.id, 7);
-      expect(list.single.lastMessagePreview, 'hi');
-    });
+        // The summary should still be reachable.
+        final list = await NsgMessenger.rooms.list();
+        expect(list.single.id, 7);
+        expect(list.single.lastMessagePreview, 'hi');
+      },
+    );
   });
 }

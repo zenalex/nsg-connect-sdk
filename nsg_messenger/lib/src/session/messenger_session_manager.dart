@@ -215,7 +215,9 @@ class MessengerSessionManager {
       if (cached != null && cached.fingerprint != fp) {
         await _store.clear();
       }
-      if (kDebugMode) debugPrint('[SessionManager.init] _createNewSession (RPC)...');
+      if (kDebugMode) {
+        debugPrint('[SessionManager.init] _createNewSession (RPC)...');
+      }
       await _createNewSession(ctx, fp);
       if (kDebugMode) debugPrint('[SessionManager.init] _createNewSession OK');
     } catch (e, st) {
@@ -276,7 +278,9 @@ class MessengerSessionManager {
   // ───────────────────────────────────────────────────────────────────
 
   Future<void> _createNewSession(MessengerAuthContext ctx, String fp) async {
-    if (kDebugMode) debugPrint('[SessionManager._createNewSession] calling _sessionRpc...');
+    if (kDebugMode) {
+      debugPrint('[SessionManager._createNewSession] calling _sessionRpc...');
+    }
     final session = await _sessionRpc(ctx).timeout(
       const Duration(seconds: 15),
       onTimeout: () {

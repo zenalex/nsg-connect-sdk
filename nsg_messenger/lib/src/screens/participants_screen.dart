@@ -147,7 +147,7 @@ class _ParticipantsScreenState extends State<ParticipantsScreen> {
           }
           final showAdminButton =
               details.viewerRole == RoomMemberRole.admin ||
-                  details.viewerRole == RoomMemberRole.owner;
+              details.viewerRole == RoomMemberRole.owner;
           return RefreshIndicator(
             onRefresh: _refresh,
             child: ListView.builder(

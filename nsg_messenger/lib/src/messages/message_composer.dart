@@ -233,7 +233,8 @@ class _MessageComposerState extends State<MessageComposer> {
     // **B12**: transition в edit-mode — pre-populate body и focus поля.
     final newTarget = widget.editTarget;
     final oldTarget = oldWidget.editTarget;
-    if (newTarget != null && newTarget.matrixEventId != oldTarget?.matrixEventId) {
+    if (newTarget != null &&
+        newTarget.matrixEventId != oldTarget?.matrixEventId) {
       // Entering edit-mode OR switching to different message.
       _ctl.text = newTarget.body;
       _ctl.selection = TextSelection.collapsed(offset: _ctl.text.length);
@@ -719,9 +720,7 @@ class _MessageComposerState extends State<MessageComposer> {
       // Tick timer для UI mm:ss обновления (раз в 200ms — достаточно
       // плавно, не дёргает CPU).
       _recordTickTimer?.cancel();
-      _recordTickTimer = Timer.periodic(const Duration(milliseconds: 200), (
-        _,
-      ) {
+      _recordTickTimer = Timer.periodic(const Duration(milliseconds: 200), (_) {
         if (!mounted) return;
         setState(() {}); // trigger rebuild для timer display
       });
@@ -730,9 +729,9 @@ class _MessageComposerState extends State<MessageComposer> {
         debugPrint('[MessageComposer] _startRecording failed: $e');
       }
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l.voiceRecordError)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(l.voiceRecordError)));
       }
       await recorder.dispose();
       _recorder = null;
@@ -780,9 +779,9 @@ class _MessageComposerState extends State<MessageComposer> {
     if (duration < _kMinRecordDuration) {
       File(recordedPath).delete().catchError((_) => File(recordedPath));
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l.voiceRecordTooShort)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(l.voiceRecordTooShort)));
       }
       return;
     }
@@ -817,9 +816,9 @@ class _MessageComposerState extends State<MessageComposer> {
         debugPrint('[MessageComposer] voice send failed: $e');
       }
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l.voiceRecordError)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(l.voiceRecordError)));
       }
     }
   }
@@ -839,7 +838,8 @@ class _MessageComposerState extends State<MessageComposer> {
     // **B-voice**: mic-button показывается когда composer empty (нет
     // текста) + есть attachment-flow + не редактируем. Иначе — обычная
     // send-кнопка.
-    final showMic = !_hasText &&
+    final showMic =
+        !_hasText &&
         widget.editTarget == null &&
         widget.onSendAttachment != null &&
         widget.enabled &&
@@ -924,8 +924,8 @@ class _MessageComposerState extends State<MessageComposer> {
                               // практически невозможна (никто не композит
                               // 4096 символов за один IME-сеанс).
                               maxLength: kMessageBodyMaxChars,
-                              maxLengthEnforcement: MaxLengthEnforcement
-                                  .enforced,
+                              maxLengthEnforcement:
+                                  MaxLengthEnforcement.enforced,
                               // textInputAction.send только на mobile —
                               // на desktop macOS этот input action заставляет
                               // платформу вызывать performAction(send) на
@@ -939,9 +939,7 @@ class _MessageComposerState extends State<MessageComposer> {
                               // на soft-keyboard). На desktop callback
                               // триггерится и на Shift+Enter (см. выше),
                               // что вызывает преждевременный submit.
-                              onSubmitted: _kIsMobile
-                                  ? (_) => _submit()
-                                  : null,
+                              onSubmitted: _kIsMobile ? (_) => _submit() : null,
                               // #12: пока открыт typeahead упоминаний, тап (в
                               // т.ч. по самому оверлею) не должен уводить фокус
                               // из поля — иначе focus-listener убирает оверлей
@@ -1016,16 +1014,17 @@ class _MessageComposerState extends State<MessageComposer> {
                     )
                   else if (_recording)
                     IconButton(
-                      icon: Icon(Icons.stop_circle, color: theme.colorScheme.error),
+                      icon: Icon(
+                        Icons.stop_circle,
+                        color: theme.colorScheme.error,
+                      ),
                       tooltip: l.voiceRecordingHint,
                       onPressed: () => _stopRecording(),
                     )
                   else
                     IconButton(
                       icon: Icon(
-                        widget.editTarget != null
-                            ? Icons.check
-                            : Icons.send,
+                        widget.editTarget != null ? Icons.check : Icons.send,
                       ),
                       tooltip: widget.editTarget != null
                           ? l.messageComposerSaveTooltip
@@ -1260,10 +1259,7 @@ String? _matrixLocalpart(String matrixUserId) {
 /// Содержит pulse-индикатор + текст «Запись…» + mm:ss таймер.
 /// Real waveform analysis — Phase2 (backlog).
 class _RecordingIndicator extends StatefulWidget {
-  const _RecordingIndicator({
-    required this.startedAt,
-    required this.textColor,
-  });
+  const _RecordingIndicator({required this.startedAt, required this.textColor});
 
   final DateTime? startedAt;
   final Color textColor;
@@ -1306,7 +1302,11 @@ class _RecordingIndicatorState extends State<_RecordingIndicator>
         children: [
           FadeTransition(
             opacity: _pulse,
-            child: Icon(Icons.fiber_manual_record, color: widget.textColor, size: 14),
+            child: Icon(
+              Icons.fiber_manual_record,
+              color: widget.textColor,
+              size: 14,
+            ),
           ),
           const SizedBox(width: 8),
           Text(l.voiceRecordingHint, style: TextStyle(color: widget.textColor)),
@@ -1323,4 +1323,3 @@ class _RecordingIndicatorState extends State<_RecordingIndicator>
     );
   }
 }
-

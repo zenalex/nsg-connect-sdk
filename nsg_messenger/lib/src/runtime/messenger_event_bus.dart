@@ -303,7 +303,11 @@ class MessengerEventBus {
   /// network-stack drop-нет request, server-side TTL (60s) сам выкинет
   /// stale presence. Errors silent (debugPrint только).
   void onAppLifecycleChanged(AppLifecycleState state) {
-    if (kDebugMode) debugPrint('[MessengerEventBus] onAppLifecycleChanged: $state (current _backgrounded=$_backgrounded hasListeners=$hasListeners)');
+    if (kDebugMode) {
+      debugPrint(
+        '[MessengerEventBus] onAppLifecycleChanged: $state (current _backgrounded=$_backgrounded hasListeners=$hasListeners)',
+      );
+    }
     if (_disposed) return;
     switch (state) {
       case AppLifecycleState.paused:
@@ -320,7 +324,9 @@ class MessengerEventBus {
         _backgrounded = false;
         _firePresence(foreground: true);
         if (hasListeners) {
-          if (kDebugMode) debugPrint('[MessengerEventBus] resumed → re-attach underlying');
+          if (kDebugMode) {
+            debugPrint('[MessengerEventBus] resumed → re-attach underlying');
+          }
           _startUnderlyingSubscription();
         }
 
@@ -384,16 +390,28 @@ class MessengerEventBus {
 
   void _ensureController() {
     if (_controller != null) return;
-    if (kDebugMode) debugPrint('[MessengerEventBus] _ensureController — creating broadcast controller');
+    if (kDebugMode) {
+      debugPrint(
+        '[MessengerEventBus] _ensureController — creating broadcast controller',
+      );
+    }
     _controller = StreamController<MessengerEvent>.broadcast(
       onListen: () {
-        if (kDebugMode) debugPrint('[MessengerEventBus] onListen fired → _startUnderlyingSubscription');
+        if (kDebugMode) {
+          debugPrint(
+            '[MessengerEventBus] onListen fired → _startUnderlyingSubscription',
+          );
+        }
         _startUnderlyingSubscription();
       },
       onCancel: () {
         // Все listener-ы отписались — экономим сервер-side sync worker.
         // Если кто-то снова listen-ёт — onListen триггернёт re-subscribe.
-        if (kDebugMode) debugPrint('[MessengerEventBus] onCancel fired → _stopUnderlyingSubscription');
+        if (kDebugMode) {
+          debugPrint(
+            '[MessengerEventBus] onCancel fired → _stopUnderlyingSubscription',
+          );
+        }
         _stopUnderlyingSubscription();
       },
     );
@@ -401,7 +419,11 @@ class MessengerEventBus {
 
   void _startUnderlyingSubscription() {
     if (_disposed) {
-      if (kDebugMode) debugPrint('[MessengerEventBus] _startUnderlyingSubscription SKIPPED (disposed)');
+      if (kDebugMode) {
+        debugPrint(
+          '[MessengerEventBus] _startUnderlyingSubscription SKIPPED (disposed)',
+        );
+      }
       return;
     }
     // **Важен порядок**: сначала чекаем `_stopping`, потом
@@ -426,14 +448,26 @@ class MessengerEventBus {
       return;
     }
     if (_underlyingSub != null) {
-      if (kDebugMode) debugPrint('[MessengerEventBus] _startUnderlyingSubscription SKIPPED (already running)');
+      if (kDebugMode) {
+        debugPrint(
+          '[MessengerEventBus] _startUnderlyingSubscription SKIPPED (already running)',
+        );
+      }
       return;
     }
-    if (kDebugMode) debugPrint('[MessengerEventBus] _startUnderlyingSubscription → calling _streamFactory()');
+    if (kDebugMode) {
+      debugPrint(
+        '[MessengerEventBus] _startUnderlyingSubscription → calling _streamFactory()',
+      );
+    }
     try {
       _underlyingSub = _streamFactory().listen(
         (event) {
-          if (kDebugMode) debugPrint('[MessengerEventBus] event received type=${event.eventType.name} roomId=${event.roomId} matrixEventId=${event.message?.matrixEventId} typingIds=${event.typingMatrixUserIds} readReceipt=(${event.readReceiptMatrixUserId}, ${event.readReceiptEventId})');
+          if (kDebugMode) {
+            debugPrint(
+              '[MessengerEventBus] event received type=${event.eventType.name} roomId=${event.roomId} matrixEventId=${event.message?.matrixEventId} typingIds=${event.typingMatrixUserIds} readReceipt=(${event.readReceiptMatrixUserId}, ${event.readReceiptEventId})',
+            );
+          }
           // **TASK20 followup (a)**: первый успешный event после
           // reconnect-а = transport здоров. Reset failure counter и
           // emit healthy state (idempotent — _setConnectionState
@@ -480,7 +514,11 @@ class MessengerEventBus {
           // **CRITICAL**: token / auth cache НЕ trogаем. Auth invalidation
           // — отдельный axis (`MessengerSessionManager` ловит 401
           // отдельно через retry-interceptor).
-          if (kDebugMode) debugPrint('[MessengerEventBus] underlying stream onError: ${e.runtimeType}: $e');
+          if (kDebugMode) {
+            debugPrint(
+              '[MessengerEventBus] underlying stream onError: ${e.runtimeType}: $e',
+            );
+          }
           _onError?.call(e, st);
           _scheduleReconnect(reason: 'onError');
         },
@@ -488,15 +526,27 @@ class MessengerEventBus {
           // Серверный стрим закрылся — schedule reconnect. До TASK20
           // followup (a) bus просто nulled sub и ждал onListen, что
           // оставляло клиент silent навсегда (server restart кейс).
-          if (kDebugMode) debugPrint('[MessengerEventBus] underlying stream onDone — server closed connection');
+          if (kDebugMode) {
+            debugPrint(
+              '[MessengerEventBus] underlying stream onDone — server closed connection',
+            );
+          }
           _scheduleReconnect(reason: 'onDone');
         },
       );
-      if (kDebugMode) debugPrint('[MessengerEventBus] _startUnderlyingSubscription DONE (sub installed)');
+      if (kDebugMode) {
+        debugPrint(
+          '[MessengerEventBus] _startUnderlyingSubscription DONE (sub installed)',
+        );
+      }
     } catch (e, st) {
       // Subscription factory сама бросила (auth не готов / network) —
       // считаем как failed-attempt и schedule retry.
-      if (kDebugMode) debugPrint('[MessengerEventBus] _streamFactory() THREW synchronously: ${e.runtimeType}: $e');
+      if (kDebugMode) {
+        debugPrint(
+          '[MessengerEventBus] _streamFactory() THREW synchronously: ${e.runtimeType}: $e',
+        );
+      }
       _onError?.call(e, st);
       _scheduleReconnect(reason: 'factory threw');
     }
@@ -520,13 +570,21 @@ class MessengerEventBus {
     // Уже есть pending retry timer — игнорируем повторный signal.
     // (Например onError + onDone могут прилететь подряд.)
     if (_retryTimer != null) {
-      if (kDebugMode) debugPrint('[MessengerEventBus] _scheduleReconnect SKIP (timer already pending) reason=$reason');
+      if (kDebugMode) {
+        debugPrint(
+          '[MessengerEventBus] _scheduleReconnect SKIP (timer already pending) reason=$reason',
+        );
+      }
       return;
     }
     // Если в background или нет listeners — reconnect не нужен; на
     // resume / новый listen уже сработает _startUnderlyingSubscription.
     if (_backgrounded || !hasListeners) {
-      if (kDebugMode) debugPrint('[MessengerEventBus] _scheduleReconnect SKIP (backgrounded=$_backgrounded hasListeners=$hasListeners) reason=$reason');
+      if (kDebugMode) {
+        debugPrint(
+          '[MessengerEventBus] _scheduleReconnect SKIP (backgrounded=$_backgrounded hasListeners=$hasListeners) reason=$reason',
+        );
+      }
       return;
     }
     _consecutiveFailures += 1;
@@ -636,7 +694,11 @@ class MessengerEventBus {
   void _listenToSessionState() {
     _stateSub = _sessionStateStream.listen(
       (state) async {
-        if (kDebugMode) debugPrint('[MessengerEventBus] sessionState=$state hasListeners=$hasListeners backgrounded=$_backgrounded');
+        if (kDebugMode) {
+          debugPrint(
+            '[MessengerEventBus] sessionState=$state hasListeners=$hasListeners backgrounded=$_backgrounded',
+          );
+        }
         if (_disposed) return;
         if (state == MessengerSessionState.refreshing ||
             state == MessengerSessionState.expired ||
@@ -647,10 +709,18 @@ class MessengerEventBus {
           // во время свернутого app-а откроет underlying sub впустую
           // и сломает battery suppression.
           if (hasListeners && !_backgrounded) {
-            if (kDebugMode) debugPrint('[MessengerEventBus] sessionState=active → re-attach underlying');
+            if (kDebugMode) {
+              debugPrint(
+                '[MessengerEventBus] sessionState=active → re-attach underlying',
+              );
+            }
             _startUnderlyingSubscription();
           } else {
-            if (kDebugMode) debugPrint('[MessengerEventBus] sessionState=active but SKIP re-attach (hasListeners=$hasListeners backgrounded=$_backgrounded)');
+            if (kDebugMode) {
+              debugPrint(
+                '[MessengerEventBus] sessionState=active but SKIP re-attach (hasListeners=$hasListeners backgrounded=$_backgrounded)',
+              );
+            }
           }
         }
       },
@@ -658,7 +728,9 @@ class MessengerEventBus {
         // Session-state stream сам никогда не должен ошибиться, но если
         // вдруг — log + продолжаем работать с последним известным
         // состоянием.
-        if (kDebugMode) debugPrint('[MessengerEventBus] session-state stream error: $e\n$st');
+        if (kDebugMode) {
+          debugPrint('[MessengerEventBus] session-state stream error: $e\n$st');
+        }
         _onError?.call(e, st);
       },
     );

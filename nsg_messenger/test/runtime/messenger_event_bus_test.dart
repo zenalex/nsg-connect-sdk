@@ -203,48 +203,45 @@ void main() {
     await stateCtl.close();
   });
 
-  test(
-    'upstream onError → onError callback fires, listeners НЕ видят error '
-    '(TASK20 followup (a): bus swallows transport errors, переключается '
-    'в reconnecting)',
-    () async {
-      final stateCtl = StreamController<MessengerSessionState>.broadcast();
-      final upstream = StreamController<MessengerEvent>.broadcast();
-      Object? capturedByCallback;
-      final bus = MessengerEventBus.attachWithFactory(
-        streamFactory: () => upstream.stream,
-        sessionStateStream: stateCtl.stream,
-        onError: (e, _) => capturedByCallback = e,
-        // Очень короткий backoff чтобы тест не висел.
-        reconnectBackoff: const [Duration(milliseconds: 1)],
-      );
+  test('upstream onError → onError callback fires, listeners НЕ видят error '
+      '(TASK20 followup (a): bus swallows transport errors, переключается '
+      'в reconnecting)', () async {
+    final stateCtl = StreamController<MessengerSessionState>.broadcast();
+    final upstream = StreamController<MessengerEvent>.broadcast();
+    Object? capturedByCallback;
+    final bus = MessengerEventBus.attachWithFactory(
+      streamFactory: () => upstream.stream,
+      sessionStateStream: stateCtl.stream,
+      onError: (e, _) => capturedByCallback = e,
+      // Очень короткий backoff чтобы тест не висел.
+      reconnectBackoff: const [Duration(milliseconds: 1)],
+    );
 
-      Object? capturedByListener;
-      final sub = bus.events.listen(
-        (_) {},
-        onError: (Object e) => capturedByListener = e,
-      );
-      await Future<void>.delayed(Duration.zero);
+    Object? capturedByListener;
+    final sub = bus.events.listen(
+      (_) {},
+      onError: (Object e) => capturedByListener = e,
+    );
+    await Future<void>.delayed(Duration.zero);
 
-      upstream.addError(StateError('fake stream error'));
-      await Future<void>.delayed(Duration.zero);
-      // Callback всё ещё видит error (для ErrorReporter / log).
-      expect(capturedByCallback, isA<StateError>());
-      // Но listener-ы НЕ — transport layer handles silently.
-      expect(
-        capturedByListener,
-        isNull,
-        reason:
-            'TASK20 followup (a): transport errors не пробрасываются consumers — '
-            'они triggers reconnect, а не UI error state.',
-      );
+    upstream.addError(StateError('fake stream error'));
+    await Future<void>.delayed(Duration.zero);
+    // Callback всё ещё видит error (для ErrorReporter / log).
+    expect(capturedByCallback, isA<StateError>());
+    // Но listener-ы НЕ — transport layer handles silently.
+    expect(
+      capturedByListener,
+      isNull,
+      reason:
+          'TASK20 followup (a): transport errors не пробрасываются consumers — '
+          'они triggers reconnect, а не UI error state.',
+    );
 
-      await sub.cancel();
-      await bus.dispose();
-      await upstream.close();
-      await stateCtl.close();
-    },
-  );
+    await sub.cancel();
+    await bus.dispose();
+    await upstream.close();
+    await stateCtl.close();
+  });
 
   test('dispose: idempotent, последующий events геттер не падает', () async {
     final stateCtl = StreamController<MessengerSessionState>.broadcast();

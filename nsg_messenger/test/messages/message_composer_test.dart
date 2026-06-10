@@ -49,31 +49,34 @@ void main() {
   });
 
   testWidgets(
-      'body > 4096 chars → отправляется обрезанным до лимита (никогда не '
-      'улетает server-side MessageBodyTooLargeException)', (tester) async {
-    final sent = <String>[];
-    await tester.pumpWidget(
-      wrap(
-        MessageComposer(
-          onSend: (b, {mentionedMessengerUserIds}) async => sent.add(b),
+    'body > 4096 chars → отправляется обрезанным до лимита (никогда не '
+    'улетает server-side MessageBodyTooLargeException)',
+    (tester) async {
+      final sent = <String>[];
+      await tester.pumpWidget(
+        wrap(
+          MessageComposer(
+            onSend: (b, {mentionedMessengerUserIds}) async => sent.add(b),
+          ),
         ),
-      ),
-    );
-    // 5000 символов — выше лимита 4096. maxLength=enforced обрезает на
-    // вводе; defensive clamp в _submit — второй пояс.
-    await tester.enterText(find.byType(TextField), 'a' * 5000);
-    await tester.pump();
-    await tester.tap(find.byIcon(Icons.send));
-    await tester.pump();
+      );
+      // 5000 символов — выше лимита 4096. maxLength=enforced обрезает на
+      // вводе; defensive clamp в _submit — второй пояс.
+      await tester.enterText(find.byType(TextField), 'a' * 5000);
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.send));
+      await tester.pump();
 
-    expect(sent.length, 1);
-    expect(sent.single.length, 4096,
-        reason: 'body обрезан до kMessageBodyMaxChars перед отправкой');
-  });
+      expect(sent.length, 1);
+      expect(
+        sent.single.length,
+        4096,
+        reason: 'body обрезан до kMessageBodyMaxChars перед отправкой',
+      );
+    },
+  );
 
-  testWidgets('hardware Enter submits (desktop) without Shift', (
-    tester,
-  ) async {
+  testWidgets('hardware Enter submits (desktop) without Shift', (tester) async {
     final sent = <String>[];
     await tester.pumpWidget(
       wrap(
@@ -177,9 +180,7 @@ void main() {
     status: ChatMessageStatus.sent,
   );
 
-  testWidgets('↑-arrow в пустом composer → onRequestEditLast', (
-    tester,
-  ) async {
+  testWidgets('↑-arrow в пустом composer → onRequestEditLast', (tester) async {
     var requested = 0;
     await tester.pumpWidget(
       wrap(
@@ -361,16 +362,14 @@ void main() {
 
   testWidgets('B12: Ctrl+B оборачивает выделение в **bold**', (tester) async {
     await tester.pumpWidget(
-      wrap(
-        MessageComposer(
-          onSend: (_, {mentionedMessengerUserIds}) async {},
-        ),
-      ),
+      wrap(MessageComposer(onSend: (_, {mentionedMessengerUserIds}) async {})),
     );
     await tester.enterText(find.byType(TextField), 'hello world');
     await tester.pump();
-    ctlOf(tester).selection =
-        const TextSelection(baseOffset: 0, extentOffset: 5); // "hello"
+    ctlOf(tester).selection = const TextSelection(
+      baseOffset: 0,
+      extentOffset: 5,
+    ); // "hello"
     await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
     await tester.sendKeyEvent(LogicalKeyboardKey.keyB);
     await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
@@ -380,16 +379,14 @@ void main() {
 
   testWidgets('B12: Ctrl+I оборачивает выделение в _italic_', (tester) async {
     await tester.pumpWidget(
-      wrap(
-        MessageComposer(
-          onSend: (_, {mentionedMessengerUserIds}) async {},
-        ),
-      ),
+      wrap(MessageComposer(onSend: (_, {mentionedMessengerUserIds}) async {})),
     );
     await tester.enterText(find.byType(TextField), 'hello world');
     await tester.pump();
-    ctlOf(tester).selection =
-        const TextSelection(baseOffset: 6, extentOffset: 11); // "world"
+    ctlOf(tester).selection = const TextSelection(
+      baseOffset: 6,
+      extentOffset: 11,
+    ); // "world"
     await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
     await tester.sendKeyEvent(LogicalKeyboardKey.keyI);
     await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
@@ -401,11 +398,7 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      wrap(
-        MessageComposer(
-          onSend: (_, {mentionedMessengerUserIds}) async {},
-        ),
-      ),
+      wrap(MessageComposer(onSend: (_, {mentionedMessengerUserIds}) async {})),
     );
     await tester.enterText(find.byType(TextField), 'hi');
     await tester.pump();

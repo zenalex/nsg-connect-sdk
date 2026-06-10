@@ -86,11 +86,8 @@ class _Rule {
   const _Rule({required this.regex, required this.build});
 
   final RegExp regex;
-  final InlineSpan Function(
-    Match m,
-    TextStyle baseStyle,
-    Color accentColor,
-  ) build;
+  final InlineSpan Function(Match m, TextStyle baseStyle, Color accentColor)
+  build;
 }
 
 class _Match {
@@ -107,10 +104,7 @@ class _Match {
 // **`code` НЕ имеет word-boundary guard** — `foo`bar`baz` matchится
 // как `bar` inside code, что обычно intent юзера.
 final _codeRe = RegExp(r'`([^`\n]+)`', unicode: true);
-final _linkRe = RegExp(
-  r'\[([^\]\n]+)\]\((https?://[^\s)]+)\)',
-  unicode: true,
-);
+final _linkRe = RegExp(r'\[([^\]\n]+)\]\((https?://[^\s)]+)\)', unicode: true);
 final _boldRe = RegExp(
   r'(?<![\p{L}\p{N}_*])\*\*(\S(?:[^*\n]*\S)?)\*\*(?![\p{L}\p{N}_*])',
   unicode: true,
@@ -169,9 +163,7 @@ final List<_Rule> _rules = [
     build: (m, base, accent) {
       final inner = m.group(1)!;
       final innerStyle = base.copyWith(fontWeight: FontWeight.w700);
-      return TextSpan(
-        children: _parsePass(inner, innerStyle, accent),
-      );
+      return TextSpan(children: _parsePass(inner, innerStyle, accent));
     },
   ),
   _Rule(
@@ -182,9 +174,7 @@ final List<_Rule> _rules = [
         decoration: TextDecoration.lineThrough,
         decorationColor: base.color?.withValues(alpha: 0.7),
       );
-      return TextSpan(
-        children: _parsePass(inner, innerStyle, accent),
-      );
+      return TextSpan(children: _parsePass(inner, innerStyle, accent));
     },
   ),
   _Rule(
@@ -192,9 +182,7 @@ final List<_Rule> _rules = [
     build: (m, base, accent) {
       final inner = m.group(1)!;
       final innerStyle = base.copyWith(fontStyle: FontStyle.italic);
-      return TextSpan(
-        children: _parsePass(inner, innerStyle, accent),
-      );
+      return TextSpan(children: _parsePass(inner, innerStyle, accent));
     },
   ),
   _Rule(
@@ -202,9 +190,7 @@ final List<_Rule> _rules = [
     build: (m, base, accent) {
       final inner = m.group(1)!;
       final innerStyle = base.copyWith(fontStyle: FontStyle.italic);
-      return TextSpan(
-        children: _parsePass(inner, innerStyle, accent),
-      );
+      return TextSpan(children: _parsePass(inner, innerStyle, accent));
     },
   ),
 ];

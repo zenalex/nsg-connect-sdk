@@ -32,8 +32,7 @@ void main() {
     });
 
     // ── B20: brightness-coherent инъекция ────────────────────────────
-    test(
-        'applyTo: dark colorScheme над light parent → brightness + textTheme '
+    test('applyTo: dark colorScheme над light parent → brightness + textTheme '
         'становятся dark-coherent (B20)', () {
       final parent = ThemeData.light(); // brightness light, чёрный textTheme
       const darkScheme = ColorScheme.dark();
@@ -49,18 +48,20 @@ void main() {
     });
 
     test(
-        'applyTo: light colorScheme над dark parent → light-coherent (обратный '
-        'кейс B20 — фабрика инъектит init-light поверх dark ambient)', () {
-      final parent = ThemeData.dark(); // brightness dark, белый textTheme
-      const lightScheme = ColorScheme.light();
-      const theme = NsgMessengerTheme(colorScheme: lightScheme);
-      final result = theme.applyTo(parent);
+      'applyTo: light colorScheme над dark parent → light-coherent (обратный '
+      'кейс B20 — фабрика инъектит init-light поверх dark ambient)',
+      () {
+        final parent = ThemeData.dark(); // brightness dark, белый textTheme
+        const lightScheme = ColorScheme.light();
+        const theme = NsgMessengerTheme(colorScheme: lightScheme);
+        final result = theme.applyTo(parent);
 
-      expect(result.brightness, Brightness.light);
-      // Без фикса title остался бы белым (от dark-parent) → невидим на
-      // светлом surface. После фикса — onSurface (тёмный).
-      expect(result.textTheme.titleMedium?.color, lightScheme.onSurface);
-    });
+        expect(result.brightness, Brightness.light);
+        // Без фикса title остался бы белым (от dark-parent) → невидим на
+        // светлом surface. После фикса — onSurface (тёмный).
+        expect(result.textTheme.titleMedium?.color, lightScheme.onSurface);
+      },
+    );
 
     test('applyTo: host textTheme override побеждает recolor', () {
       final parent = ThemeData.light();
@@ -346,30 +347,31 @@ void main() {
   // the first match against `supported` by languageCode.
   group('NsgMessengerLocale.resolveFromSystem', () {
     test('system locale en-US first → returns Locale("en")', () {
-      final result = NsgMessengerLocale.resolveFromSystem(
-        const [Locale('en', 'US')],
-      );
+      final result = NsgMessengerLocale.resolveFromSystem(const [
+        Locale('en', 'US'),
+      ]);
       expect(result.locale, const Locale('en'));
     });
 
     test('system locale ru-RU first → returns Locale("ru")', () {
-      final result = NsgMessengerLocale.resolveFromSystem(
-        const [Locale('ru', 'RU')],
-      );
+      final result = NsgMessengerLocale.resolveFromSystem(const [
+        Locale('ru', 'RU'),
+      ]);
       expect(result.locale, const Locale('ru'));
     });
 
     test('first locale unsupported (de-DE), second en-US → returns en', () {
-      final result = NsgMessengerLocale.resolveFromSystem(
-        const [Locale('de', 'DE'), Locale('en', 'US')],
-      );
+      final result = NsgMessengerLocale.resolveFromSystem(const [
+        Locale('de', 'DE'),
+        Locale('en', 'US'),
+      ]);
       expect(result.locale, const Locale('en'));
     });
 
     test('no matching locale (only de-DE) → fallback to Locale("ru")', () {
-      final result = NsgMessengerLocale.resolveFromSystem(
-        const [Locale('de', 'DE')],
-      );
+      final result = NsgMessengerLocale.resolveFromSystem(const [
+        Locale('de', 'DE'),
+      ]);
       expect(result.locale, const Locale('ru'));
     });
 

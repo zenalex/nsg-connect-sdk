@@ -741,8 +741,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     participantsByMatrixId: _participantsByMatrixId,
                     readByPeerCountFor: (m) =>
                         _controller.readByPeerMatrixIds(m).length,
-                    isGroupChat:
-                        _roomDetails?.roomType == RoomType.group,
+                    isGroupChat: _roomDetails?.roomType == RoomType.group,
                     onTapReadStatus: _openReadReceiptsSheet,
                     reactionsFor: (m) => m.matrixEventId == null
                         ? const <ReactionGroup>[]
@@ -1042,7 +1041,8 @@ class _Loaded extends StatelessWidget {
                       // (Telegram-style). reverse:true + DESC messages →
                       // визуально-нижнее = messages[i-1]; показываем аватар,
                       // если оно от другого отправителя (или это самый низ).
-                      final showSenderAvatar = !isOwn &&
+                      final showSenderAvatar =
+                          !isOwn &&
                           isGroupChat &&
                           (i == 0 ||
                               messages[i - 1].senderMatrixUserId !=
@@ -1066,8 +1066,7 @@ class _Loaded extends StatelessWidget {
                               isOwn && isGroupChat && onTapReadStatus != null
                               ? () => onTapReadStatus!(m)
                               : null,
-                          reactions:
-                              reactionsFor != null
+                          reactions: reactionsFor != null
                               ? reactionsFor!(m)
                               : const <ReactionGroup>[],
                           onToggleReaction: onToggleReaction != null
@@ -1154,8 +1153,10 @@ class _RoomTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     // Loading: spinner instead of «Room #N».
     if (details == null) {
-      final color = Theme.of(context).appBarTheme.foregroundColor
-              ?.withValues(alpha: 0.7) ??
+      final color =
+          Theme.of(
+            context,
+          ).appBarTheme.foregroundColor?.withValues(alpha: 0.7) ??
           Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7);
       return SizedBox(
         width: 18,
@@ -1188,8 +1189,9 @@ class _RoomTitle extends StatelessWidget {
             Icon(
               Icons.edit_outlined,
               size: 14,
-              color: Theme.of(context).appBarTheme.foregroundColor
-                  ?.withValues(alpha: 0.6),
+              color: Theme.of(
+                context,
+              ).appBarTheme.foregroundColor?.withValues(alpha: 0.6),
             ),
           ],
         ),
@@ -1247,8 +1249,7 @@ class _RenameRoomDialogState extends State<_RenameRoomDialog> {
           child: Text(l.roomRenameCancel),
         ),
         FilledButton(
-          onPressed: () =>
-              Navigator.of(context).pop(_ctl.text.trim()),
+          onPressed: () => Navigator.of(context).pop(_ctl.text.trim()),
           child: Text(l.roomRenameSave),
         ),
       ],
@@ -1354,8 +1355,7 @@ class _ReadReceiptsSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = NsgL10n.of(context);
     final theme = Theme.of(context);
-    final showDetailed =
-        details.totalParticipants <= kReadReceiptsDetailedMax;
+    final showDetailed = details.totalParticipants <= kReadReceiptsDetailedMax;
 
     // Considered «peers»: все participants кроме self. Используем
     // matrixUserId как key — readReceiptMatrixUserId приходит в том
@@ -1404,8 +1404,7 @@ class _ReadReceiptsSheet extends StatelessWidget {
                   Text(
                     '${readers.length} / ${details.totalParticipants - 1}',
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color:
-                          theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                       fontFeatures: const [FontFeature.tabularFigures()],
                     ),
                   ),
@@ -1453,8 +1452,7 @@ class _ReadReceiptsSheet extends StatelessWidget {
         ],
         if (nonReaders.isNotEmpty) ...[
           _SectionHeader(
-            title:
-                '${l.readReceiptsSectionUnread} (${nonReaders.length})',
+            title: '${l.readReceiptsSectionUnread} (${nonReaders.length})',
           ),
           for (final p in nonReaders) _ParticipantTile(p: p, didRead: false),
         ],
@@ -1468,10 +1466,7 @@ class _ReadReceiptsSheet extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 26),
       child: Text(
-        l.readReceiptsLargeGroupHint(
-          readCount,
-          details.totalParticipants - 1,
-        ),
+        l.readReceiptsLargeGroupHint(readCount, details.totalParticipants - 1),
         style: theme.textTheme.bodyMedium?.copyWith(
           color: theme.colorScheme.onSurface.withValues(alpha: 0.75),
           height: 1.4,
@@ -1588,8 +1583,9 @@ class _SearchInRoomScreen extends StatefulWidget {
 }
 
 class _SearchInRoomScreenState extends State<_SearchInRoomScreen> {
-  late final TextEditingController _ctrl =
-      TextEditingController(text: widget.initialQuery);
+  late final TextEditingController _ctrl = TextEditingController(
+    text: widget.initialQuery,
+  );
   final _focusNode = FocusNode();
   Timer? _debounce;
   bool _busy = false;
@@ -1657,10 +1653,7 @@ class _SearchInRoomScreenState extends State<_SearchInRoomScreen> {
             hintText: 'Поиск по чату…',
             border: InputBorder.none,
           ),
-          style: TextStyle(
-            fontSize: 17,
-            color: theme.colorScheme.onSurface,
-          ),
+          style: TextStyle(fontSize: 17, color: theme.colorScheme.onSurface),
         ),
         actions: [
           if (_ctrl.text.isNotEmpty)
@@ -1737,7 +1730,8 @@ class _SearchInRoomScreenState extends State<_SearchInRoomScreen> {
         //   2. RoomDetails.participants — current member fallback;
         //   3. matrix-localpart `@user:server` → `user`;
         //   4. raw mxid как последний fallback.
-        final senderName = m.senderDisplayName ??
+        final senderName =
+            m.senderDisplayName ??
             p?.displayName ??
             _matrixLocalpart(m.senderMatrixUserId) ??
             m.senderMatrixUserId;
@@ -1746,11 +1740,7 @@ class _SearchInRoomScreenState extends State<_SearchInRoomScreen> {
           senderName: senderName,
           query: _lastQuery,
           onTap: () => Navigator.of(context).pop(
-            _SearchPick(
-              results: _results,
-              activeIndex: i,
-              query: _lastQuery,
-            ),
+            _SearchPick(results: _results, activeIndex: i, query: _lastQuery),
           ),
         );
       },
@@ -1931,8 +1921,7 @@ class _SearchNavBar extends StatelessWidget {
           decoration: BoxDecoration(
             border: Border(
               bottom: BorderSide(
-                color: theme.colorScheme.outlineVariant
-                    .withValues(alpha: 0.4),
+                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
                 width: 0.5,
               ),
             ),
@@ -1959,8 +1948,9 @@ class _SearchNavBar extends StatelessWidget {
                       TextSpan(
                         text: '«$query»',
                         style: TextStyle(
-                          color: theme.colorScheme.onSurface
-                              .withValues(alpha: 0.75),
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.75,
+                          ),
                         ),
                       ),
                     ],

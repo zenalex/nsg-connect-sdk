@@ -61,7 +61,8 @@ class FirebasePushTokenProvider implements PushTokenProvider {
         if (!provider._disposed) provider._tokenController.add(token);
       },
       onError: (Object e, StackTrace st) {
-        if (kDebugMode) debugPrint('[FirebasePushTokenProvider] onTokenRefresh error: $e');
+        if (kDebugMode)
+          debugPrint('[FirebasePushTokenProvider] onTokenRefresh error: $e');
       },
     );
 
@@ -160,7 +161,8 @@ class FirebasePushTokenProvider implements PushTokenProvider {
         },
       );
     } catch (e) {
-      if (kDebugMode) debugPrint('[FirebasePushTokenProvider] getCurrentToken failed: $e');
+      if (kDebugMode)
+        debugPrint('[FirebasePushTokenProvider] getCurrentToken failed: $e');
       return null;
     }
   }
@@ -244,5 +246,8 @@ Future<void> nsgMessengerBackgroundHandler(RemoteMessage message) async {
   // Без этого handler-а Firebase всё равно показывает notification
   // (если payload содержит `notification` field, который мы send-аем
   // в FcmPushAdapter._buildFcmMessage).
-  if (kDebugMode) debugPrint('[nsgMessengerBackgroundHandler] received: ${message.messageId}');
+  if (kDebugMode)
+    debugPrint(
+      '[nsgMessengerBackgroundHandler] received: ${message.messageId}',
+    );
 }

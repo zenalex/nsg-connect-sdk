@@ -179,7 +179,9 @@ class ChatsListController extends ChangeNotifier {
     } catch (e) {
       // Silent fail — dropdown просто не появится. Server недоступен →
       // юзер увидит generic «Failed to load chats» через _runRefresh.
-      if (kDebugMode) debugPrint('[ChatsListController] loadAvailableProducts failed: $e');
+      if (kDebugMode) {
+        debugPrint('[ChatsListController] loadAvailableProducts failed: $e');
+      }
     } finally {
       _availableProductsLoading = false;
     }
@@ -203,7 +205,9 @@ class ChatsListController extends ChangeNotifier {
         // Underlying event stream errored — list state не трогаем
         // (последний known list ещё актуален); SDK сам обработает
         // session-state переход на expired/error.
-        if (kDebugMode) debugPrint('[ChatsListController] event stream error: $e');
+        if (kDebugMode) {
+          debugPrint('[ChatsListController] event stream error: $e');
+        }
       },
     );
     _stateSub = _sessionStates.listen(_onSessionState);

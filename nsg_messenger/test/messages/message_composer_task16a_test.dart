@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nsg_messenger/nsg_messenger.dart';
-import 'package:nsg_messenger/src/i18n/generated/nsg_l10n.dart';
-import 'package:nsg_messenger/src/messages/chat_message.dart';
 import 'package:nsg_messenger/src/messages/message_composer.dart';
 
 /// TASK16-A: tests для @-typeahead + reply quote chip + mention выбор

@@ -154,11 +154,12 @@ typedef ListKnownContactsRpc = Future<List<RoomParticipant>> Function();
 /// **B16-ext (group avatar)**: загрузка/смена аватара group/team/
 /// productRoom. Принимает image bytes + MIME, возвращает mxcUrl.
 /// Direct chats отклоняются.
-typedef SetRoomAvatarRpc = Future<String> Function({
-  required int roomId,
-  required ByteData bytes,
-  required String mimeType,
-});
+typedef SetRoomAvatarRpc =
+    Future<String> Function({
+      required int roomId,
+      required ByteData bytes,
+      required String mimeType,
+    });
 
 /// Public API для работы с комнатами из host-app. Доступен через
 /// `NsgMessenger.rooms`. Под капотом:
@@ -398,18 +399,15 @@ class NsgMessengerRooms {
                 session(),
               ),
       muteRoomRpc:
-          ({
-            required int roomId,
-            DateTime? mutedUntil,
-            int? muteForSeconds,
-          }) => withAuthRetry(
-            () => client.messenger.muteRoom(
-              roomId: roomId,
-              mutedUntil: mutedUntil,
-              muteForSeconds: muteForSeconds,
-            ),
-            session(),
-          ),
+          ({required int roomId, DateTime? mutedUntil, int? muteForSeconds}) =>
+              withAuthRetry(
+                () => client.messenger.muteRoom(
+                  roomId: roomId,
+                  mutedUntil: mutedUntil,
+                  muteForSeconds: muteForSeconds,
+                ),
+                session(),
+              ),
       unmuteRoomRpc: ({required int roomId}) => withAuthRetry(
         () => client.messenger.unmuteRoom(roomId: roomId),
         session(),
@@ -517,20 +515,15 @@ class NsgMessengerRooms {
               ),
       renameRoomRpc: ({required int roomId, required String newName}) =>
           withAuthRetry(
-            () => client.messenger.renameRoom(
-              roomId: roomId,
-              newName: newName,
-            ),
+            () => client.messenger.renameRoom(roomId: roomId, newName: newName),
             session(),
           ),
       dissolveRoomRpc: ({required int roomId}) => withAuthRetry(
         () => client.messenger.dissolveRoom(roomId: roomId),
         session(),
       ),
-      listKnownContactsRpc: () => withAuthRetry(
-        () => client.messenger.listKnownContacts(),
-        session(),
-      ),
+      listKnownContactsRpc: () =>
+          withAuthRetry(() => client.messenger.listKnownContacts(), session()),
       setRoomAvatarRpc:
           ({
             required int roomId,
@@ -579,40 +572,37 @@ class NsgMessengerRooms {
   }) {
     // Test factories may omit the chat-create RPCs — default to stubs
     // that throw so tests calling those paths fail loudly.
-    findUserByEmailRpc ??= ({
-      required String email,
-      String tenantExternalKey = 'nsg',
-    }) async => throw UnimplementedError(
-          'findUserByEmailRpc not set in attachWithRpcs',
-        );
-    searchUsersRpc ??= ({
-      required String query,
-      int limit = 20,
-      String tenantExternalKey = 'nsg',
-    }) async => throw UnimplementedError(
+    findUserByEmailRpc ??=
+        ({required String email, String tenantExternalKey = 'nsg'}) async =>
+            throw UnimplementedError(
+              'findUserByEmailRpc not set in attachWithRpcs',
+            );
+    searchUsersRpc ??=
+        ({
+          required String query,
+          int limit = 20,
+          String tenantExternalKey = 'nsg',
+        }) async => throw UnimplementedError(
           'searchUsersRpc not set in attachWithRpcs',
         );
-    inviteToRoomRpc ??= ({
-      required int roomId,
-      required int targetMessengerUserId,
-    }) async => throw UnimplementedError(
-          'inviteToRoomRpc not set in attachWithRpcs',
-        );
-    renameRoomRpc ??=
-        ({required int roomId, required String newName}) async =>
+    inviteToRoomRpc ??=
+        ({required int roomId, required int targetMessengerUserId}) async =>
             throw UnimplementedError(
-              'renameRoomRpc not set in attachWithRpcs',
+              'inviteToRoomRpc not set in attachWithRpcs',
             );
-    dissolveRoomRpc ??= ({required int roomId}) async => throw
-        UnimplementedError('dissolveRoomRpc not set in attachWithRpcs');
-    listKnownContactsRpc ??=
-        () async => const <RoomParticipant>[];
-    setRoomAvatarRpc ??= ({
-      required int roomId,
-      required ByteData bytes,
-      required String mimeType,
-    }) async =>
-        throw UnimplementedError('setRoomAvatarRpc not set in attachWithRpcs');
+    renameRoomRpc ??= ({required int roomId, required String newName}) async =>
+        throw UnimplementedError('renameRoomRpc not set in attachWithRpcs');
+    dissolveRoomRpc ??= ({required int roomId}) async =>
+        throw UnimplementedError('dissolveRoomRpc not set in attachWithRpcs');
+    listKnownContactsRpc ??= () async => const <RoomParticipant>[];
+    setRoomAvatarRpc ??=
+        ({
+          required int roomId,
+          required ByteData bytes,
+          required String mimeType,
+        }) async => throw UnimplementedError(
+          'setRoomAvatarRpc not set in attachWithRpcs',
+        );
     final r = NsgMessengerRooms._(
       listRpc: listRpc,
       getRpc: getRpc,
@@ -969,11 +959,7 @@ class NsgMessengerRooms {
   Future<RoomParticipant> findUserByEmail({
     required String email,
     String tenantExternalKey = 'nsg',
-  }) =>
-      _findUserByEmailRpc(
-        email: email,
-        tenantExternalKey: tenantExternalKey,
-      );
+  }) => _findUserByEmailRpc(email: email, tenantExternalKey: tenantExternalKey);
 
   /// **Known contacts** — все participants комнат, в которых я состою,
   /// distinct, без self / ghosts. Сортировка `displayName ASC`.
@@ -986,8 +972,7 @@ class NsgMessengerRooms {
   /// Без кэширования: список достаточно небольшой (десятки людей),
   /// сервер делает 3 SQL запроса. Если станет узким местом — добавим
   /// in-memory cache с invalidation на membershipChanged/messageCreated.
-  Future<List<RoomParticipant>> listKnownContacts() =>
-      _listKnownContactsRpc();
+  Future<List<RoomParticipant>> listKnownContacts() => _listKnownContactsRpc();
 
   /// **Chat-create flow (extended)**: search users by email exact-match
   /// (when query contains `@`) OR by nickname/displayName ILIKE
@@ -1000,12 +985,11 @@ class NsgMessengerRooms {
     required String query,
     int limit = 20,
     String tenantExternalKey = 'nsg',
-  }) =>
-      _searchUsersRpc(
-        query: query,
-        limit: limit,
-        tenantExternalKey: tenantExternalKey,
-      );
+  }) => _searchUsersRpc(
+    query: query,
+    limit: limit,
+    tenantExternalKey: tenantExternalKey,
+  );
 
   /// **Add user to existing chat**: invite a messenger user (same tenant)
   /// to a room caller is already member of. Idempotent — if target is
@@ -1076,16 +1060,24 @@ class NsgMessengerRooms {
 
   /// Подписка на realtime события для invalidation cache.
   void _subscribeToEvents() {
-    if (kDebugMode) debugPrint('[NsgMessengerRooms] _subscribeToEvents — calling _eventBus.events.listen');
+    if (kDebugMode) {
+      debugPrint(
+        '[NsgMessengerRooms] _subscribeToEvents — calling _eventBus.events.listen',
+      );
+    }
     _eventsSub = _eventBus.events.listen(
       _onEvent,
       onError: (Object e, StackTrace st) {
         // Underlying error — для cache не критично, оставляем как есть
         // (TTL подстрахует через 30s). Лог для observability.
-        if (kDebugMode) debugPrint('[NsgMessengerRooms] event-bus error: $e\n$st');
+        if (kDebugMode) {
+          debugPrint('[NsgMessengerRooms] event-bus error: $e\n$st');
+        }
       },
     );
-    if (kDebugMode) debugPrint('[NsgMessengerRooms] _subscribeToEvents — listener attached');
+    if (kDebugMode) {
+      debugPrint('[NsgMessengerRooms] _subscribeToEvents — listener attached');
+    }
   }
 
   void _onEvent(MessengerEvent event) {
@@ -1206,8 +1198,9 @@ class NsgMessengerRooms {
             _typingNamesByRoom.remove(roomId);
           } else {
             _typingByRoom[roomId] = Set<String>.unmodifiable(ids);
-            _typingNamesByRoom[roomId] =
-                List<String>.unmodifiable(names ?? const <String>[]);
+            _typingNamesByRoom[roomId] = List<String>.unmodifiable(
+              names ?? const <String>[],
+            );
           }
           _typingVersion.value = _typingVersion.value + 1;
         }

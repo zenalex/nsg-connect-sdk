@@ -60,10 +60,26 @@ class _GlassPaletteSpec {
           base: Color(0xFF2A1428),
           accent: Color(0xFFE89A55),
           blobs: [
-            _BlobSpec(xFraction: 0.15, yFraction: 0.12, color: Color(0xFF5A2C57)),
-            _BlobSpec(xFraction: 0.85, yFraction: 0.20, color: Color(0xFFD45A78)),
-            _BlobSpec(xFraction: 0.20, yFraction: 0.85, color: Color(0xFFE89A55)),
-            _BlobSpec(xFraction: 0.88, yFraction: 0.92, color: Color(0xFFF0CFA0)),
+            _BlobSpec(
+              xFraction: 0.15,
+              yFraction: 0.12,
+              color: Color(0xFF5A2C57),
+            ),
+            _BlobSpec(
+              xFraction: 0.85,
+              yFraction: 0.20,
+              color: Color(0xFFD45A78),
+            ),
+            _BlobSpec(
+              xFraction: 0.20,
+              yFraction: 0.85,
+              color: Color(0xFFE89A55),
+            ),
+            _BlobSpec(
+              xFraction: 0.88,
+              yFraction: 0.92,
+              color: Color(0xFFF0CFA0),
+            ),
           ],
         );
       case GlassPalette.oceanic:
@@ -71,10 +87,26 @@ class _GlassPaletteSpec {
           base: Color(0xFF0F1F38),
           accent: Color(0xFF5BB8A8),
           blobs: [
-            _BlobSpec(xFraction: 0.12, yFraction: 0.15, color: Color(0xFF1E3A5F)),
-            _BlobSpec(xFraction: 0.85, yFraction: 0.18, color: Color(0xFF4A7FB8)),
-            _BlobSpec(xFraction: 0.15, yFraction: 0.88, color: Color(0xFF5BB8A8)),
-            _BlobSpec(xFraction: 0.90, yFraction: 0.90, color: Color(0xFFA8E0D0)),
+            _BlobSpec(
+              xFraction: 0.12,
+              yFraction: 0.15,
+              color: Color(0xFF1E3A5F),
+            ),
+            _BlobSpec(
+              xFraction: 0.85,
+              yFraction: 0.18,
+              color: Color(0xFF4A7FB8),
+            ),
+            _BlobSpec(
+              xFraction: 0.15,
+              yFraction: 0.88,
+              color: Color(0xFF5BB8A8),
+            ),
+            _BlobSpec(
+              xFraction: 0.90,
+              yFraction: 0.90,
+              color: Color(0xFFA8E0D0),
+            ),
           ],
         );
       case GlassPalette.aurora:
@@ -82,10 +114,26 @@ class _GlassPaletteSpec {
           base: Color(0xFF13092E),
           accent: Color(0xFFA65BD8),
           blobs: [
-            _BlobSpec(xFraction: 0.12, yFraction: 0.10, color: Color(0xFF2D1B5A)),
-            _BlobSpec(xFraction: 0.85, yFraction: 0.15, color: Color(0xFFA65BD8)),
-            _BlobSpec(xFraction: 0.15, yFraction: 0.88, color: Color(0xFF5BD8A6)),
-            _BlobSpec(xFraction: 0.90, yFraction: 0.85, color: Color(0xFFD8E05B)),
+            _BlobSpec(
+              xFraction: 0.12,
+              yFraction: 0.10,
+              color: Color(0xFF2D1B5A),
+            ),
+            _BlobSpec(
+              xFraction: 0.85,
+              yFraction: 0.15,
+              color: Color(0xFFA65BD8),
+            ),
+            _BlobSpec(
+              xFraction: 0.15,
+              yFraction: 0.88,
+              color: Color(0xFF5BD8A6),
+            ),
+            _BlobSpec(
+              xFraction: 0.90,
+              yFraction: 0.85,
+              color: Color(0xFFD8E05B),
+            ),
           ],
         );
       case GlassPalette.ember:
@@ -93,10 +141,26 @@ class _GlassPaletteSpec {
           base: Color(0xFF1F0808),
           accent: Color(0xFFE0682E),
           blobs: [
-            _BlobSpec(xFraction: 0.10, yFraction: 0.10, color: Color(0xFF3D0E0E)),
-            _BlobSpec(xFraction: 0.90, yFraction: 0.15, color: Color(0xFFA82F3E)),
-            _BlobSpec(xFraction: 0.15, yFraction: 0.88, color: Color(0xFFE0682E)),
-            _BlobSpec(xFraction: 0.88, yFraction: 0.90, color: Color(0xFFF5C26B)),
+            _BlobSpec(
+              xFraction: 0.10,
+              yFraction: 0.10,
+              color: Color(0xFF3D0E0E),
+            ),
+            _BlobSpec(
+              xFraction: 0.90,
+              yFraction: 0.15,
+              color: Color(0xFFA82F3E),
+            ),
+            _BlobSpec(
+              xFraction: 0.15,
+              yFraction: 0.88,
+              color: Color(0xFFE0682E),
+            ),
+            _BlobSpec(
+              xFraction: 0.88,
+              yFraction: 0.90,
+              color: Color(0xFFF5C26B),
+            ),
           ],
         );
     }
@@ -122,10 +186,7 @@ class _WallpaperPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     // 1. Solid base color (deep aubergine / navy / indigo / crimson).
-    canvas.drawRect(
-      Offset.zero & size,
-      Paint()..color = spec.base,
-    );
+    canvas.drawRect(Offset.zero & size, Paint()..color = spec.base);
 
     // 2. Blob radius scales to viewport so blobs fill the screen
     //    proportionally on both phone-sized (~390px) and desktop windows
@@ -146,10 +207,7 @@ class _WallpaperPainter extends CustomPainter {
       final paint = Paint()
         ..blendMode = BlendMode.screen
         ..shader = RadialGradient(
-          colors: [
-            blob.color,
-            blob.color.withValues(alpha: 0),
-          ],
+          colors: [blob.color, blob.color.withValues(alpha: 0)],
           stops: const [0.0, 0.7],
         ).createShader(rect);
       canvas.drawCircle(center, blobRadius, paint);
@@ -159,6 +217,5 @@ class _WallpaperPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _WallpaperPainter old) =>
-      old.spec.base != spec.base ||
-      old.spec.blobs.length != spec.blobs.length;
+      old.spec.base != spec.base || old.spec.blobs.length != spec.blobs.length;
 }

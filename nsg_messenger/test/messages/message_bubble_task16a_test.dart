@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nsg_messenger/nsg_messenger.dart';
-import 'package:nsg_messenger/src/messages/chat_message.dart';
 import 'package:nsg_messenger/src/messages/message_bubble.dart';
 import 'package:nsg_messenger/src/rooms/room_summary_tile.dart'
     show registerTimeagoLocales;
-import 'package:nsg_messenger/src/widgets/nsg_avatar_image.dart';
 
 import '../test_helpers.dart';
 
@@ -124,7 +122,9 @@ void main() {
     void collect(InlineSpan s) {
       if (s is TextSpan) {
         all.add(s);
-        for (final c in s.children ?? const <InlineSpan>[]) collect(c);
+        for (final c in s.children ?? const <InlineSpan>[]) {
+          collect(c);
+        }
       }
     }
 
@@ -163,7 +163,9 @@ void main() {
     void collect(InlineSpan s) {
       if (s is TextSpan) {
         all.add(s);
-        for (final c in s.children ?? const <InlineSpan>[]) collect(c);
+        for (final c in s.children ?? const <InlineSpan>[]) {
+          collect(c);
+        }
       }
     }
 
@@ -243,22 +245,23 @@ void main() {
       expect(find.byType(NsgAvatarImage), findsNothing);
     });
 
-    testWidgets('own message в group → аватара нет (даже при showSenderAvatar)', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        wrap(
-          MessageBubble(
-            message: make(senderMatrix: '@me:localhost', sender: 1),
-            isOwn: true,
-            onRetry: (_) {},
-            isGroupChat: true,
-            showSenderAvatar: true,
+    testWidgets(
+      'own message в group → аватара нет (даже при showSenderAvatar)',
+      (tester) async {
+        await tester.pumpWidget(
+          wrap(
+            MessageBubble(
+              message: make(senderMatrix: '@me:localhost', sender: 1),
+              isOwn: true,
+              onRetry: (_) {},
+              isGroupChat: true,
+              showSenderAvatar: true,
+            ),
           ),
-        ),
-      );
-      expect(find.byType(NsgAvatarImage), findsNothing);
-    });
+        );
+        expect(find.byType(NsgAvatarImage), findsNothing);
+      },
+    );
 
     testWidgets('direct (не group) peer → аватара нет', (tester) async {
       await tester.pumpWidget(

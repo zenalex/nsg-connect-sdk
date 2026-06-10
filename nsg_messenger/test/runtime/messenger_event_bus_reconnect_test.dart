@@ -22,7 +22,7 @@ void main() {
   /// pop-ит следующий controller из очереди (или re-uses last если очередь
   /// пустая). `factoryCalls` пробрасывается наружу.
   ({StreamFactory factory, List<StreamController<MessengerEvent>> controllers})
-      makeQueueFactory(int slots) {
+  makeQueueFactory(int slots) {
     final controllers = List.generate(
       slots,
       (_) => StreamController<MessengerEvent>.broadcast(),
@@ -39,81 +39,86 @@ void main() {
 
   /// Helper: дать bus event чтобы reset failure counter.
   MessengerEvent makeEvent() => MessengerEvent(
-        eventType: MessengerEventType.messageCreated,
-        serverTimestamp: DateTime.now().toUtc(),
-        roomId: 1,
-        matrixRoomId: '!fake:localhost',
+    eventType: MessengerEventType.messageCreated,
+    serverTimestamp: DateTime.now().toUtc(),
+    roomId: 1,
+    matrixRoomId: '!fake:localhost',
+  );
+
+  test(
+    'happy path — нет error-ов, connection-state остаётся healthy',
+    () async {
+      final stateCtl = StreamController<MessengerSessionState>.broadcast();
+      final upstream = StreamController<MessengerEvent>.broadcast();
+      final transitions = <MessengerConnectionState>[];
+      final bus = MessengerEventBus.attachWithFactory(
+        streamFactory: () => upstream.stream,
+        sessionStateStream: stateCtl.stream,
+        reconnectBackoff: const [Duration(milliseconds: 1)],
+        jitterRng: Random(0),
+      );
+      final sub2 = bus.connectionStateStream.listen(transitions.add);
+      final sub = bus.events.listen((_) {});
+      await pumpAsync();
+
+      expect(bus.connectionState, MessengerConnectionState.healthy);
+      expect(
+        transitions,
+        isEmpty,
+        reason: 'без error-ов stream не emit-ит (initial — geter)',
       );
 
-  test('happy path — нет error-ов, connection-state остаётся healthy',
-      () async {
-    final stateCtl = StreamController<MessengerSessionState>.broadcast();
-    final upstream = StreamController<MessengerEvent>.broadcast();
-    final transitions = <MessengerConnectionState>[];
-    final bus = MessengerEventBus.attachWithFactory(
-      streamFactory: () => upstream.stream,
-      sessionStateStream: stateCtl.stream,
-      reconnectBackoff: const [Duration(milliseconds: 1)],
-      jitterRng: Random(0),
-    );
-    final sub2 = bus.connectionStateStream.listen(transitions.add);
-    final sub = bus.events.listen((_) {});
-    await pumpAsync();
-
-    expect(bus.connectionState, MessengerConnectionState.healthy);
-    expect(transitions, isEmpty,
-        reason: 'без error-ов stream не emit-ит (initial — geter)');
-
-    await sub.cancel();
-    await sub2.cancel();
-    await bus.dispose();
-    await upstream.close();
-    await stateCtl.close();
-  });
+      await sub.cancel();
+      await sub2.cancel();
+      await bus.dispose();
+      await upstream.close();
+      await stateCtl.close();
+    },
+  );
 
   test(
-      'single error → reconnecting → success → healthy '
-      '(factory вызвана 2 раза, transitions: reconnecting → healthy)',
-      () async {
-    final stateCtl = StreamController<MessengerSessionState>.broadcast();
-    final q = makeQueueFactory(2);
-    final transitions = <MessengerConnectionState>[];
-    final bus = MessengerEventBus.attachWithFactory(
-      streamFactory: q.factory,
-      sessionStateStream: stateCtl.stream,
-      reconnectBackoff: const [Duration(milliseconds: 1)],
-      jitterRng: Random(0),
-    );
-    final sub2 = bus.connectionStateStream.listen(transitions.add);
-    final sub = bus.events.listen((_) {});
-    await pumpAsync();
+    'single error → reconnecting → success → healthy '
+    '(factory вызвана 2 раза, transitions: reconnecting → healthy)',
+    () async {
+      final stateCtl = StreamController<MessengerSessionState>.broadcast();
+      final q = makeQueueFactory(2);
+      final transitions = <MessengerConnectionState>[];
+      final bus = MessengerEventBus.attachWithFactory(
+        streamFactory: q.factory,
+        sessionStateStream: stateCtl.stream,
+        reconnectBackoff: const [Duration(milliseconds: 1)],
+        jitterRng: Random(0),
+      );
+      final sub2 = bus.connectionStateStream.listen(transitions.add);
+      final sub = bus.events.listen((_) {});
+      await pumpAsync();
 
-    // 1й stream — добавляем error → bus должен switch reconnecting,
-    // schedule retry, factory вызовется 2й раз.
-    q.controllers[0].addError(StateError('blip'));
-    await pumpAsync();
+      // 1й stream — добавляем error → bus должен switch reconnecting,
+      // schedule retry, factory вызовется 2й раз.
+      q.controllers[0].addError(StateError('blip'));
+      await pumpAsync();
 
-    expect(transitions, contains(MessengerConnectionState.reconnecting));
-    expect(bus.connectionState, MessengerConnectionState.reconnecting);
+      expect(transitions, contains(MessengerConnectionState.reconnecting));
+      expect(bus.connectionState, MessengerConnectionState.reconnecting);
 
-    // 2й stream — emit event → bus reset failure counter, emit healthy.
-    q.controllers[1].add(makeEvent());
-    await pumpAsync();
+      // 2й stream — emit event → bus reset failure counter, emit healthy.
+      q.controllers[1].add(makeEvent());
+      await pumpAsync();
 
-    expect(transitions.last, MessengerConnectionState.healthy);
-    expect(bus.connectionState, MessengerConnectionState.healthy);
+      expect(transitions.last, MessengerConnectionState.healthy);
+      expect(bus.connectionState, MessengerConnectionState.healthy);
 
-    await sub.cancel();
-    await sub2.cancel();
-    await bus.dispose();
-    for (final c in q.controllers) {
-      await c.close();
-    }
-    await stateCtl.close();
-  });
+      await sub.cancel();
+      await sub2.cancel();
+      await bus.dispose();
+      for (final c in q.controllers) {
+        await c.close();
+      }
+      await stateCtl.close();
+    },
+  );
 
-  test(
-      'три consecutive error-а → disconnected '
+  test('три consecutive error-а → disconnected '
       '(transitions: reconnecting → reconnecting → disconnected)', () async {
     final stateCtl = StreamController<MessengerSessionState>.broadcast();
     final q = makeQueueFactory(5);
@@ -146,7 +151,8 @@ void main() {
         // distinct() в _setConnectionState не emit-ит duplicate.
         MessengerConnectionState.disconnected, // failure 3
       ],
-      reason: 'промежуточная reconnecting → reconnecting дублирование '
+      reason:
+          'промежуточная reconnecting → reconnecting дублирование '
           'фильтруется',
     );
 
@@ -159,8 +165,7 @@ void main() {
     await stateCtl.close();
   });
 
-  test(
-      'recover из disconnected: после disconnected успешный event → healthy, '
+  test('recover из disconnected: после disconnected успешный event → healthy, '
       'counter сбрасывается', () async {
     final stateCtl = StreamController<MessengerSessionState>.broadcast();
     final q = makeQueueFactory(5);
@@ -245,47 +250,48 @@ void main() {
     await stateCtl.close();
   });
 
-  test('dispose: pending retry timer cancel-ится, factory больше не зовётся',
-      () async {
-    final stateCtl = StreamController<MessengerSessionState>.broadcast();
-    var factoryCalls = 0;
-    final upstreams = <StreamController<MessengerEvent>>[];
-    final bus = MessengerEventBus.attachWithFactory(
-      streamFactory: () {
-        factoryCalls++;
-        final c = StreamController<MessengerEvent>();
-        upstreams.add(c);
-        return c.stream;
-      },
-      sessionStateStream: stateCtl.stream,
-      // Длинный backoff чтобы успеть dispose до retry-а.
-      reconnectBackoff: const [Duration(seconds: 5)],
-      jitterRng: Random(0),
-    );
-    final sub = bus.events.listen((_) {});
-    await pumpAsync();
-    expect(factoryCalls, 1);
-
-    // Trigger error → schedule retry в 5s.
-    upstreams[0].addError(StateError('blip'));
-    await pumpAsync();
-    expect(bus.connectionState, MessengerConnectionState.reconnecting);
-    expect(factoryCalls, 1, reason: 'retry в queue, ещё не fire');
-
-    // Dispose до retry — factory НЕ должна быть вызвана повторно.
-    await sub.cancel();
-    await bus.dispose();
-    await pumpAsync(50);
-    expect(factoryCalls, 1, reason: 'dispose cancel-нет pending retry timer');
-
-    for (final c in upstreams) {
-      await c.close();
-    }
-    await stateCtl.close();
-  });
-
   test(
-      'forceReconnect: healthy-fast-path (no-op если sub жив + healthy), '
+    'dispose: pending retry timer cancel-ится, factory больше не зовётся',
+    () async {
+      final stateCtl = StreamController<MessengerSessionState>.broadcast();
+      var factoryCalls = 0;
+      final upstreams = <StreamController<MessengerEvent>>[];
+      final bus = MessengerEventBus.attachWithFactory(
+        streamFactory: () {
+          factoryCalls++;
+          final c = StreamController<MessengerEvent>();
+          upstreams.add(c);
+          return c.stream;
+        },
+        sessionStateStream: stateCtl.stream,
+        // Длинный backoff чтобы успеть dispose до retry-а.
+        reconnectBackoff: const [Duration(seconds: 5)],
+        jitterRng: Random(0),
+      );
+      final sub = bus.events.listen((_) {});
+      await pumpAsync();
+      expect(factoryCalls, 1);
+
+      // Trigger error → schedule retry в 5s.
+      upstreams[0].addError(StateError('blip'));
+      await pumpAsync();
+      expect(bus.connectionState, MessengerConnectionState.reconnecting);
+      expect(factoryCalls, 1, reason: 'retry в queue, ещё не fire');
+
+      // Dispose до retry — factory НЕ должна быть вызвана повторно.
+      await sub.cancel();
+      await bus.dispose();
+      await pumpAsync(50);
+      expect(factoryCalls, 1, reason: 'dispose cancel-нет pending retry timer');
+
+      for (final c in upstreams) {
+        await c.close();
+      }
+      await stateCtl.close();
+    },
+  );
+
+  test('forceReconnect: healthy-fast-path (no-op если sub жив + healthy), '
       'иначе re-subscribes и reset counter', () async {
     final stateCtl = StreamController<MessengerSessionState>.broadcast();
     var factoryCalls = 0;
@@ -312,8 +318,11 @@ void main() {
     // окно потерь и WebSocketClosedException в логе.
     bus.forceReconnect();
     await pumpAsync();
-    expect(factoryCalls, 1,
-        reason: 'forceReconnect на healthy + alive sub — no-op');
+    expect(
+      factoryCalls,
+      1,
+      reason: 'forceReconnect на healthy + alive sub — no-op',
+    );
 
     // Trigger disconnected: первая ошибка → reconnecting + retry.
     upstreams[0].addError(StateError('e1'));
@@ -331,8 +340,11 @@ void main() {
     final beforeForce = factoryCalls;
     bus.forceReconnect();
     await pumpAsync();
-    expect(factoryCalls, greaterThan(beforeForce),
-        reason: 'forceReconnect из non-healthy state — пересоздаёт sub');
+    expect(
+      factoryCalls,
+      greaterThan(beforeForce),
+      reason: 'forceReconnect из non-healthy state — пересоздаёт sub',
+    );
 
     await sub.cancel();
     await bus.dispose();

@@ -193,9 +193,11 @@ class _CountingRpc implements MessagesRpc {
           senderMatrixUserId: '@bob:test',
           msgType: 'm.text',
           body: 'hi $listCalls',
-          serverTimestamp: DateTime.utc(2026, 1, 1).add(
-            Duration(seconds: listCalls),
-          ),
+          serverTimestamp: DateTime.utc(
+            2026,
+            1,
+            1,
+          ).add(Duration(seconds: listCalls)),
         ),
       ],
       nextToken: 't$listCalls',
@@ -283,7 +285,6 @@ class _CountingRpc implements MessagesRpc {
   }) async => const <MessengerEvent>[];
 
   @override
-  Future<List<MessengerEvent>> listReadReceipts({
-    required int roomId,
-  }) async => const <MessengerEvent>[];
+  Future<List<MessengerEvent>> listReadReceipts({required int roomId}) async =>
+      const <MessengerEvent>[];
 }

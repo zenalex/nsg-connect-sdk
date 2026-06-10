@@ -18,30 +18,31 @@ void main() {
   });
 
   test(
-      'didChangeAppLifecycleState без init — no-op (bus == null, не crash-ит)',
-      () {
-    // Sanity-check: runtime singleton без init.
-    expect(
-      () => MessengerRuntime.instance
-          .didChangeAppLifecycleState(AppLifecycleState.resumed),
-      returnsNormally,
-    );
-  });
+    'didChangeAppLifecycleState без init — no-op (bus == null, не crash-ит)',
+    () {
+      // Sanity-check: runtime singleton без init.
+      expect(
+        () => MessengerRuntime.instance.didChangeAppLifecycleState(
+          AppLifecycleState.resumed,
+        ),
+        returnsNormally,
+      );
+    },
+  );
 
-  test(
-      'после initDemo + resumed lifecycle: bus.forceReconnect триггерится '
+  test('после initDemo + resumed lifecycle: bus.forceReconnect триггерится '
       '(connectionState остаётся healthy, без crash-а)', () async {
     await NsgMessenger.initDemo(rooms: const []);
-    final initial =
-        MessengerRuntime.instance.connectionState;
+    final initial = MessengerRuntime.instance.connectionState;
     expect(initial, MessengerConnectionState.healthy);
 
     // Demo-bus использует replay-stream без error-ов; resumed просто
     // дёрнет bus.onAppLifecycleChanged + bus.forceReconnect, оба
     // должны отработать без exception-ов.
     expect(
-      () => MessengerRuntime.instance
-          .didChangeAppLifecycleState(AppLifecycleState.resumed),
+      () => MessengerRuntime.instance.didChangeAppLifecycleState(
+        AppLifecycleState.resumed,
+      ),
       returnsNormally,
     );
 
@@ -55,17 +56,21 @@ void main() {
     );
   });
 
-  test('paused lifecycle: forwards to bus.onAppLifecycleChanged без crash-а',
-      () async {
-    await NsgMessenger.initDemo(rooms: const []);
-    expect(
-      () => MessengerRuntime.instance
-          .didChangeAppLifecycleState(AppLifecycleState.paused),
-      returnsNormally,
-    );
-    // resume назад чтобы tearDown с чистым state.
-    MessengerRuntime.instance
-        .didChangeAppLifecycleState(AppLifecycleState.resumed);
-    await Future<void>.delayed(const Duration(milliseconds: 10));
-  });
+  test(
+    'paused lifecycle: forwards to bus.onAppLifecycleChanged без crash-а',
+    () async {
+      await NsgMessenger.initDemo(rooms: const []);
+      expect(
+        () => MessengerRuntime.instance.didChangeAppLifecycleState(
+          AppLifecycleState.paused,
+        ),
+        returnsNormally,
+      );
+      // resume назад чтобы tearDown с чистым state.
+      MessengerRuntime.instance.didChangeAppLifecycleState(
+        AppLifecycleState.resumed,
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    },
+  );
 }

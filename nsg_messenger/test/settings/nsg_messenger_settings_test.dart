@@ -13,7 +13,11 @@ void main() {
           rpcCalls++;
           return NotificationSettings(showMessagePreview: true);
         },
-        setRpc: ({required bool showMessagePreview, bool? sendReadReceipts}) async {},
+        setRpc:
+            ({
+              required bool showMessagePreview,
+              bool? sendReadReceipts,
+            }) async {},
       );
       final first = await settings.get();
       expect(first.showMessagePreview, isTrue);
@@ -28,10 +32,11 @@ void main() {
       bool? setValue;
       final settings = NsgMessengerSettings.attachWithRpcs(
         getRpc: () async => NotificationSettings(showMessagePreview: true),
-        setRpc: ({required bool showMessagePreview, bool? sendReadReceipts}) async {
-          setRpcCalls++;
-          setValue = showMessagePreview;
-        },
+        setRpc:
+            ({required bool showMessagePreview, bool? sendReadReceipts}) async {
+              setRpcCalls++;
+              setValue = showMessagePreview;
+            },
       );
       await settings.set(showMessagePreview: false);
       expect(setRpcCalls, 1);
@@ -49,10 +54,11 @@ void main() {
           showMessagePreview: true,
           sendReadReceipts: true,
         ),
-        setRpc: ({required bool showMessagePreview, bool? sendReadReceipts}) async {
-          setShow = showMessagePreview;
-          setReceipts = sendReadReceipts;
-        },
+        setRpc:
+            ({required bool showMessagePreview, bool? sendReadReceipts}) async {
+              setShow = showMessagePreview;
+              setReceipts = sendReadReceipts;
+            },
       );
       await settings.set(showMessagePreview: true, sendReadReceipts: false);
       expect(setShow, isTrue);
@@ -68,7 +74,11 @@ void main() {
           rpcCalls++;
           return NotificationSettings(showMessagePreview: true);
         },
-        setRpc: ({required bool showMessagePreview, bool? sendReadReceipts}) async {},
+        setRpc:
+            ({
+              required bool showMessagePreview,
+              bool? sendReadReceipts,
+            }) async {},
       );
       await settings.get();
       await settings.get();
@@ -81,8 +91,11 @@ void main() {
     test('set() throw → cache не модифицируется', () async {
       final settings = NsgMessengerSettings.attachWithRpcs(
         getRpc: () async => NotificationSettings(showMessagePreview: true),
-        setRpc: ({required bool showMessagePreview, bool? sendReadReceipts}) async =>
-            throw StateError('network down'),
+        setRpc:
+            ({
+              required bool showMessagePreview,
+              bool? sendReadReceipts,
+            }) async => throw StateError('network down'),
       );
       await settings.get(); // populate cache
       await expectLater(

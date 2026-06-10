@@ -349,8 +349,12 @@ class NsgRoomTileTokens extends ThemeExtension<NsgRoomTileTokens> {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(avatarSize, unreadBadgeSize, contentPadding, titleSubtitleSpacing);
+  int get hashCode => Object.hash(
+    avatarSize,
+    unreadBadgeSize,
+    contentPadding,
+    titleSubtitleSpacing,
+  );
 }
 
 /// Locale-config для SDK (TASK22 Chunk 1 — фактически unused теперь
@@ -380,9 +384,7 @@ class NsgMessengerLocale {
   ///
   /// **TASK22 followup (f)**: previously returned `Locale('ru')` always
   /// (stub). Now reads platform locale.
-  static NsgMessengerLocale resolveFromSystem([
-    List<Locale>? platformLocales,
-  ]) {
+  static NsgMessengerLocale resolveFromSystem([List<Locale>? platformLocales]) {
     final locales = platformLocales ?? PlatformDispatcher.instance.locales;
     for (final systemLocale in locales) {
       for (final s in supported) {

@@ -450,7 +450,6 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Promote to admin'));
     await tester.pumpAndSettle();
-    expect(onChangedCalls, 0,
-        reason: 'на ошибке RPC refresh не триггерим');
+    expect(onChangedCalls, 0, reason: 'на ошибке RPC refresh не триггерим');
   });
 }

@@ -38,8 +38,7 @@ export 'src/widgets/connection_state_indicator.dart'
 // **CHATista Glass design (2026-05-24)**: vivid multi-blob wallpaper
 // widget. Host-app wraps app body in Stack with this at base; SDK
 // widgets render on top with translucent palette (ChatistaTheme.glass*).
-export 'src/widgets/glass_background.dart'
-    show GlassBackground, GlassPalette;
+export 'src/widgets/glass_background.dart' show GlassBackground, GlassPalette;
 
 // B16-extension: универсальный круглый аватар c fallback на gradient
 // + инициалы. Используется в chat row / participants / settings.
@@ -48,8 +47,7 @@ export 'src/widgets/nsg_avatar_image.dart' show NsgAvatarImage;
 // Demo mode fixtures (TASK22-Phase2 Chunk 2 PART C). Used by the
 // `apps/spike_ui` theming sandbox + any host-app integration test
 // that wants to render SDK widgets without booting the real backend.
-export 'src/demo/demo_fixtures.dart'
-    show DemoRoomFixture, DemoMessageFixture;
+export 'src/demo/demo_fixtures.dart' show DemoRoomFixture, DemoMessageFixture;
 
 // Visible-for-testing: AuthTokenStore + InMemoryAuthTokenStore нужны
 // host-app-у, который хочет писать виджет/integration-тесты SDK без

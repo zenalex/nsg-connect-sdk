@@ -315,10 +315,7 @@ class MessagesController {
     final myEventId = _myReactionEventId(targetEventId, key);
     try {
       if (myEventId != null) {
-        await _rpc.removeReaction(
-          roomId: _roomId,
-          reactionEventId: myEventId,
-        );
+        await _rpc.removeReaction(roomId: _roomId, reactionEventId: myEventId);
       } else {
         await _rpc.sendReaction(
           roomId: _roomId,
@@ -440,9 +437,7 @@ class MessagesController {
     // сам разруливает type-switch и no-op-ит для нерелевантных
     // events (membership / unread / state changes — те обрабатываются
     // в NsgMessengerRooms).
-    _eventsSub ??= _events
-        .where((e) => e.roomId == _roomId)
-        .listen(_onEvent);
+    _eventsSub ??= _events.where((e) => e.roomId == _roomId).listen(_onEvent);
 
     final MessengerMessageListPage page;
     try {
@@ -785,7 +780,9 @@ class MessagesController {
       // network errors stack малоинформативен. Если нужно глубже
       // дебажить — использовать proper error reporter (TASK20 push
       // routing вынесет ErrorReporter на этот путь).
-      if (kDebugMode) debugPrint('[MessagesController.room=$_roomId] markRead failed: $e');
+      if (kDebugMode) {
+        debugPrint('[MessagesController.room=$_roomId] markRead failed: $e');
+      }
     }
   }
 

@@ -123,10 +123,7 @@ class NsgMessenger {
   ///
   /// `readOnly: true` hides the `MessageComposer` — recommended for
   /// demo use since send is disabled at the RPC layer.
-  static Widget demoChatScreen({
-    required int roomId,
-    bool readOnly = true,
-  }) {
+  static Widget demoChatScreen({required int roomId, bool readOnly = true}) {
     final data = _demoData;
     if (data == null) {
       throw StateError(

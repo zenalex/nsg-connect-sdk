@@ -37,14 +37,7 @@ Future<void> showMessageActionSheet({
 
 /// **Emoji reactions**: фиксированный набор быстрых реакций (MVP — без
 /// полного picker-а). Telegram/Slack-style quick row.
-const List<String> kQuickReactionEmojis = [
-  '👍',
-  '❤️',
-  '😂',
-  '😮',
-  '😢',
-  '🙏',
-];
+const List<String> kQuickReactionEmojis = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
 class _MessageActionSheetBody extends StatelessWidget {
   const _MessageActionSheetBody({

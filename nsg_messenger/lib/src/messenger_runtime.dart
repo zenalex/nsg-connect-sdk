@@ -238,7 +238,9 @@ class MessengerRuntime with WidgetsBindingObserver {
     String? productExternalKey,
     NsgMessengerConfig? config,
   }) async {
-    if (kDebugMode) debugPrint('[MessengerRuntime.init] enter (apiBaseUrl=$apiBaseUrl)');
+    if (kDebugMode) {
+      debugPrint('[MessengerRuntime.init] enter (apiBaseUrl=$apiBaseUrl)');
+    }
     if (_client != null) {
       // Повторный init — допускаем как смену AuthTokenProvider /
       // theme. Закрываем старый manager и client, создаём новые.
@@ -267,7 +269,9 @@ class MessengerRuntime with WidgetsBindingObserver {
       errorReporter: errorReporter,
       emitState: _emit,
     );
-    if (kDebugMode) debugPrint('[MessengerRuntime.init] SessionManager attached');
+    if (kDebugMode) {
+      debugPrint('[MessengerRuntime.init] SessionManager attached');
+    }
     // EventBus создаём ДО session.init() — важно, чтобы listener-ы
     // на _stateCtl были подключены до первого emit-а; иначе bus
     // пропустит начальный `refreshing → active` переход. Underlying
@@ -294,7 +298,9 @@ class MessengerRuntime with WidgetsBindingObserver {
       );
     }
     await _sessionManager!.init();
-    if (kDebugMode) debugPrint('[MessengerRuntime.init] _sessionManager.init() OK');
+    if (kDebugMode) {
+      debugPrint('[MessengerRuntime.init] _sessionManager.init() OK');
+    }
 
     // TASK20 Chunk 3: push token registration. Если host-app передал
     // provider — subscribe на token stream + регистрируем initial
@@ -315,7 +321,9 @@ class MessengerRuntime with WidgetsBindingObserver {
       );
       // Initial register если token уже доступен (provider может уже
       // получить от FCM до listener подписки).
-      if (kDebugMode) debugPrint('[MessengerRuntime.init] getCurrentToken (initial)...');
+      if (kDebugMode) {
+        debugPrint('[MessengerRuntime.init] getCurrentToken (initial)...');
+      }
       final initial = await pushTokenProvider.getCurrentToken();
       if (kDebugMode) {
         debugPrint(
@@ -324,9 +332,15 @@ class MessengerRuntime with WidgetsBindingObserver {
         );
       }
       if (initial != null) {
-        if (kDebugMode) debugPrint('[MessengerRuntime.init] _onPushTokenChanged (initial)...');
+        if (kDebugMode) {
+          debugPrint(
+            '[MessengerRuntime.init] _onPushTokenChanged (initial)...',
+          );
+        }
         await _onPushTokenChanged(initial);
-        if (kDebugMode) debugPrint('[MessengerRuntime.init] _onPushTokenChanged OK');
+        if (kDebugMode) {
+          debugPrint('[MessengerRuntime.init] _onPushTokenChanged OK');
+        }
       }
     }
     // **TASK20 followup (a)**: lifecycle observer на уровне runtime —
@@ -339,7 +353,9 @@ class MessengerRuntime with WidgetsBindingObserver {
     if (!_lifecycleObserverRegistered) {
       WidgetsBinding.instance.addObserver(this);
       _lifecycleObserverRegistered = true;
-      if (kDebugMode) debugPrint('[MessengerRuntime.init] lifecycle observer registered');
+      if (kDebugMode) {
+        debugPrint('[MessengerRuntime.init] lifecycle observer registered');
+      }
     }
     if (kDebugMode) debugPrint('[MessengerRuntime.init] all done');
   }
@@ -422,7 +438,9 @@ class MessengerRuntime with WidgetsBindingObserver {
       // compile-out + built-in throttling длинных строк (offline
       // customer час будет писать сотни failure-ов; throttling
       // защищает от console flood).
-      if (kDebugMode) debugPrint('[MessengerRuntime] registerDevice failed: $e\n$st');
+      if (kDebugMode) {
+        debugPrint('[MessengerRuntime] registerDevice failed: $e\n$st');
+      }
     }
   }
 

@@ -138,7 +138,8 @@ class MessageBubble extends StatelessWidget {
       return const SizedBox(width: _kAvatarSize + _kAvatarGap);
     }
     final p = participantsByMatrixId?[message.senderMatrixUserId];
-    final name = p?.displayName ??
+    final name =
+        p?.displayName ??
         _matrixLocalpart(message.senderMatrixUserId) ??
         message.senderMatrixUserId;
     return Padding(
@@ -210,116 +211,121 @@ class MessageBubble extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 GestureDetector(
-              onLongPress: canLongPress ? () => onLongPress!(message) : null,
-              child: Container(
-                constraints: BoxConstraints(
-                  maxWidth:
-                      MediaQuery.of(context).size.width *
-                      tokens.maxWidthFraction,
-                ),
-                padding: tokens.padding,
-                decoration: BoxDecoration(
-                  color: bubbleColor,
-                  borderRadius: isOwn ? tokens.radiusOwn : tokens.radiusPeer,
-                ),
-                child: Column(
-                  crossAxisAlignment: align,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (isTombstone)
-                      Text(
-                        l.messageDeletedPlaceholder,
-                        style: TextStyle(
-                          color: tombstoneColor,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      )
-                    else ...[
-                      // TASK16-A: reply chip ПЕРЕД attachment/body.
-                      if (message.replyToMessageId != null)
-                        _ReplyChip(
-                          replyToMessageId: message.replyToMessageId!,
-                          findReplyTarget: findReplyTarget,
-                          onTap: onReplyChipTap,
-                          participantsByMatrixId: participantsByMatrixId,
-                          textColor: textColor,
-                          accentColor: theme.colorScheme.primary,
-                        ),
-                      // TASK19 Chunk 3: render attachment ПЕРЕД body — UI
-                      // convention (image/file сверху, text comment снизу).
-                      // Если RPC не передан (text-only screen / test без
-                      // mock) — пропускаем attachment, body остаётся.
-                      if (message.attachment != null &&
-                          thumbnailRpc != null &&
-                          fullSizeRpc != null)
-                        AttachmentBubble(
-                          attachment: message.attachment!,
-                          thumbnailRpc: thumbnailRpc!,
-                          fullSizeRpc: fullSizeRpc!,
-                          textColor: textColor,
-                        ),
-                      // Body fallback — для media-сообщения это часто
-                      // filename / generic «image» (см. server-side
-                      // `defaultAttachmentBody`). Hide-аем если body
-                      // совпадает с filename — UI уже показал filename
-                      // в `_FileRow`. Для image — body почти всегда
-                      // filename, рендерим только если non-empty и не
-                      // равно filename.
-                      if (_shouldRenderBodyText(message))
-                        _BodyText(
-                          body: message.body,
-                          mentionedMessengerUserIds:
-                              message.mentionedMessengerUserIds,
-                          participantsByMessengerId: participantsByMessengerId,
-                          textColor: textColor,
-                          mentionColor: theme.colorScheme.primary,
-                        ),
-                    ],
-                    const SizedBox(height: 4),
-                    Row(
+                  onLongPress: canLongPress
+                      ? () => onLongPress!(message)
+                      : null,
+                  child: Container(
+                    constraints: BoxConstraints(
+                      maxWidth:
+                          MediaQuery.of(context).size.width *
+                          tokens.maxWidthFraction,
+                    ),
+                    padding: tokens.padding,
+                    decoration: BoxDecoration(
+                      color: bubbleColor,
+                      borderRadius: isOwn
+                          ? tokens.radiusOwn
+                          : tokens.radiusPeer,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: align,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        RelativeTimeText(
-                          timestamp: message.serverTimestamp.toLocal(),
-                          lang: lang,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: textColor.withValues(alpha: 0.7),
-                            fontSize: 11,
-                          ),
-                        ),
-                        // TASK37: «edited» badge. Не показываем для
-                        // tombstone (deleted overrides everything).
-                        if (message.isEdited && !isTombstone) ...[
-                          const SizedBox(width: 4),
+                        if (isTombstone)
                           Text(
-                            '· ${l.messageEditedBadge}',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: textColor.withValues(alpha: 0.6),
-                              fontSize: 11,
+                            l.messageDeletedPlaceholder,
+                            style: TextStyle(
+                              color: tombstoneColor,
                               fontStyle: FontStyle.italic,
                             ),
-                          ),
+                          )
+                        else ...[
+                          // TASK16-A: reply chip ПЕРЕД attachment/body.
+                          if (message.replyToMessageId != null)
+                            _ReplyChip(
+                              replyToMessageId: message.replyToMessageId!,
+                              findReplyTarget: findReplyTarget,
+                              onTap: onReplyChipTap,
+                              participantsByMatrixId: participantsByMatrixId,
+                              textColor: textColor,
+                              accentColor: theme.colorScheme.primary,
+                            ),
+                          // TASK19 Chunk 3: render attachment ПЕРЕД body — UI
+                          // convention (image/file сверху, text comment снизу).
+                          // Если RPC не передан (text-only screen / test без
+                          // mock) — пропускаем attachment, body остаётся.
+                          if (message.attachment != null &&
+                              thumbnailRpc != null &&
+                              fullSizeRpc != null)
+                            AttachmentBubble(
+                              attachment: message.attachment!,
+                              thumbnailRpc: thumbnailRpc!,
+                              fullSizeRpc: fullSizeRpc!,
+                              textColor: textColor,
+                            ),
+                          // Body fallback — для media-сообщения это часто
+                          // filename / generic «image» (см. server-side
+                          // `defaultAttachmentBody`). Hide-аем если body
+                          // совпадает с filename — UI уже показал filename
+                          // в `_FileRow`. Для image — body почти всегда
+                          // filename, рендерим только если non-empty и не
+                          // равно filename.
+                          if (_shouldRenderBodyText(message))
+                            _BodyText(
+                              body: message.body,
+                              mentionedMessengerUserIds:
+                                  message.mentionedMessengerUserIds,
+                              participantsByMessengerId:
+                                  participantsByMessengerId,
+                              textColor: textColor,
+                              mentionColor: theme.colorScheme.primary,
+                            ),
                         ],
-                        if (isOwn && !isTombstone) ...[
-                          const SizedBox(width: 6),
-                          _StatusIcon(
-                            status: message.status,
-                            color: textColor,
-                            size: tokens.statusIconSize,
-                            onRetry: () => onRetry(message),
-                            retryTooltip: l.commonRetry,
-                            readByPeerCount: readByPeerCount,
-                            isGroupChat: isGroupChat,
-                            onTapReadStatus: onTapReadStatus,
-                            accentColor: theme.colorScheme.primary,
-                          ),
-                        ],
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            RelativeTimeText(
+                              timestamp: message.serverTimestamp.toLocal(),
+                              lang: lang,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: textColor.withValues(alpha: 0.7),
+                                fontSize: 11,
+                              ),
+                            ),
+                            // TASK37: «edited» badge. Не показываем для
+                            // tombstone (deleted overrides everything).
+                            if (message.isEdited && !isTombstone) ...[
+                              const SizedBox(width: 4),
+                              Text(
+                                '· ${l.messageEditedBadge}',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: textColor.withValues(alpha: 0.6),
+                                  fontSize: 11,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ],
+                            if (isOwn && !isTombstone) ...[
+                              const SizedBox(width: 6),
+                              _StatusIcon(
+                                status: message.status,
+                                color: textColor,
+                                size: tokens.statusIconSize,
+                                onRetry: () => onRetry(message),
+                                retryTooltip: l.commonRetry,
+                                readByPeerCount: readByPeerCount,
+                                isGroupChat: isGroupChat,
+                                onTapReadStatus: onTapReadStatus,
+                                accentColor: theme.colorScheme.primary,
+                              ),
+                            ],
+                          ],
+                        ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
                 // **Emoji reactions**: чипы под bubble (emoji × count).
                 // Hidden когда нет реакций или это tombstone.
                 if (!isTombstone && reactions.isNotEmpty)
@@ -403,9 +409,7 @@ class _ReactionChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: group.mine ? mineColor : plainColor,
         borderRadius: BorderRadius.circular(12),
-        border: group.mine
-            ? Border.all(color: mineBorder, width: 1)
-            : null,
+        border: group.mine ? Border.all(color: mineBorder, width: 1) : null,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -764,10 +768,7 @@ class _BodyTextState extends State<_BodyText> {
               onTap: () => setState(() => _expanded = true),
               borderRadius: BorderRadius.circular(4),
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 4,
-                  vertical: 2,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                 child: Text(
                   l.messageShowMore,
                   style: TextStyle(
@@ -881,7 +882,9 @@ class _BodyTextState extends State<_BodyText> {
         result.add(span);
         continue;
       }
-      result.addAll(_splitMentionsInText(text, span.style, allowed, mentionStyle));
+      result.addAll(
+        _splitMentionsInText(text, span.style, allowed, mentionStyle),
+      );
     }
     return result;
   }

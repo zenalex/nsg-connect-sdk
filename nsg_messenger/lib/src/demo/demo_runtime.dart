@@ -106,10 +106,8 @@ class DemoRuntimeData {
           matrixEventId: m.eventId,
           roomId: m.roomId,
           matrixRoomId: '!demo-${m.roomId}:demo',
-          senderMessengerUserId:
-              m.isOwn ? selfMessengerUserId : -2,
-          senderMatrixUserId:
-              m.isOwn ? selfMatrixUserId : '@demo-peer:demo',
+          senderMessengerUserId: m.isOwn ? selfMessengerUserId : -2,
+          senderMatrixUserId: m.isOwn ? selfMatrixUserId : '@demo-peer:demo',
           msgType: 'm.text',
           body: m.body,
           serverTimestamp: m.sentAt.toUtc(),
@@ -208,8 +206,7 @@ Future<void> installDemoRuntime({
   // Build a never-completing session-state stream (controller stays
   // open for the lifetime of the demo) — `MessengerEventBus` needs
   // *something* and will sit on it forever waiting for emits.
-  final sessionStateCtl =
-      StreamController<MessengerSessionState>.broadcast();
+  final sessionStateCtl = StreamController<MessengerSessionState>.broadcast();
 
   // Demo event stream: never emits real events. Broadcast so multiple
   // listeners (Rooms + per-screen subscriptions) are fine.
@@ -258,7 +255,11 @@ Future<void> installDemoRuntime({
     getOrCreateProductRoomRpc: _readOnlyProduct,
     openSupportChatRpc: _readOnlySupport,
     muteRoomRpc:
-        ({required int roomId, DateTime? mutedUntil, int? muteForSeconds}) async {},
+        ({
+          required int roomId,
+          DateTime? mutedUntil,
+          int? muteForSeconds,
+        }) async {},
     unmuteRoomRpc: ({required int roomId}) async {},
     archiveRoomRpc: ({required int roomId}) async {},
     unarchiveRoomRpc: ({required int roomId}) async {},
@@ -284,13 +285,15 @@ Future<void> installDemoRuntime({
           required int targetMessengerUserId,
           required RoomMemberRole newRole,
         }) async {},
-    listBannedUsersRpc: ({required int roomId}) async => const <RoomParticipant>[],
+    listBannedUsersRpc: ({required int roomId}) async =>
+        const <RoomParticipant>[],
     eventBus: eventBus,
   );
 
   final settings = NsgMessengerSettings.attachWithRpcs(
     getRpc: () async => NotificationSettings(showMessagePreview: true),
-    setRpc: ({required bool showMessagePreview, bool? sendReadReceipts}) async {},
+    setRpc:
+        ({required bool showMessagePreview, bool? sendReadReceipts}) async {},
   );
 
   // Hand off to the runtime's package-private installer.
@@ -379,7 +382,10 @@ class _DemoMessagesRpc implements MessagesRpc {
   }
 
   @override
-  Future<bool> markRead({required int roomId, required String matrixEventId}) async {
+  Future<bool> markRead({
+    required int roomId,
+    required String matrixEventId,
+  }) async {
     // Silent no-op so the auto-mark-as-read in ChatScreen does not
     // throw and clog the console.
     return true;
@@ -408,10 +414,7 @@ class _DemoMessagesRpc implements MessagesRpc {
   }
 
   @override
-  Future<void> sendTyping({
-    required int roomId,
-    required bool typing,
-  }) async {
+  Future<void> sendTyping({required int roomId, required bool typing}) async {
     // Demo: silent no-op (typing indicator не имеет смысла в
     // single-user demo runtime).
   }
@@ -454,9 +457,7 @@ class _DemoMessagesRpc implements MessagesRpc {
   }
 
   @override
-  Future<List<MessengerEvent>> listReadReceipts({
-    required int roomId,
-  }) async {
+  Future<List<MessengerEvent>> listReadReceipts({required int roomId}) async {
     // Demo: нет persisted read-receipts в fixtures.
     return const <MessengerEvent>[];
   }

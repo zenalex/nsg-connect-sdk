@@ -86,8 +86,9 @@ class _AddMembersToGroupScreenState extends State<AddMembersToGroupScreen> {
       final details = results[1] as RoomDetails;
       setState(() {
         _contacts = contacts;
-        _existingMemberIds =
-            details.participants.map((p) => p.messengerUserId).toSet();
+        _existingMemberIds = details.participants
+            .map((p) => p.messengerUserId)
+            .toSet();
         _contactsLoading = false;
       });
     } catch (e) {
@@ -256,68 +257,61 @@ class _AddMembersToGroupScreenState extends State<AddMembersToGroupScreen> {
             child: _showingContacts && _contactsLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _visibleList.isEmpty
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Text(
-                            _showingContacts
-                                ? 'Нет доступных контактов — введи поиск.'
-                                : (_searched
-                                    ? 'Никого не нашлось.'
-                                    : ''),
-                            textAlign: TextAlign.center,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurface
-                                  .withValues(alpha: 0.6),
-                            ),
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        _showingContacts
+                            ? 'Нет доступных контактов — введи поиск.'
+                            : (_searched ? 'Никого не нашлось.' : ''),
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.6,
                           ),
                         ),
-                      )
-                    : ListView.separated(
-                        itemCount: _visibleList.length,
-                        separatorBuilder: (_, _) => const Divider(height: 1),
-                        itemBuilder: (_, i) {
-                          final u = _visibleList[i];
-                          final selected =
-                              _selected.containsKey(u.messengerUserId);
-                          return ListTile(
-                            leading: NsgAvatarImage(
-                              mxcUrl: u.avatarUrl,
-                              fallbackName: u.displayName ?? u.matrixUserId,
-                              size: 40,
-                            ),
-                            title: Text(
-                              u.displayName ?? u.matrixUserId,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            subtitle: Text(
-                              u.matrixUserId,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 11),
-                            ),
-                            trailing: Icon(
-                              selected
-                                  ? Icons.check_circle
-                                  : Icons.add_circle_outline,
-                              color: selected
-                                  ? theme.colorScheme.primary
-                                  : null,
-                            ),
-                            onTap: () => _toggle(u),
-                          );
-                        },
                       ),
+                    ),
+                  )
+                : ListView.separated(
+                    itemCount: _visibleList.length,
+                    separatorBuilder: (_, _) => const Divider(height: 1),
+                    itemBuilder: (_, i) {
+                      final u = _visibleList[i];
+                      final selected = _selected.containsKey(u.messengerUserId);
+                      return ListTile(
+                        leading: NsgAvatarImage(
+                          mxcUrl: u.avatarUrl,
+                          fallbackName: u.displayName ?? u.matrixUserId,
+                          size: 40,
+                        ),
+                        title: Text(
+                          u.displayName ?? u.matrixUserId,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: Text(
+                          u.matrixUserId,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                        trailing: Icon(
+                          selected
+                              ? Icons.check_circle
+                              : Icons.add_circle_outline,
+                          color: selected ? theme.colorScheme.primary : null,
+                        ),
+                        onTap: () => _toggle(u),
+                      );
+                    },
+                  ),
           ),
           if (_error != null)
             Container(
               color: theme.colorScheme.errorContainer,
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 10,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               child: Text(
                 _error!,
                 style: TextStyle(
@@ -331,8 +325,7 @@ class _AddMembersToGroupScreenState extends State<AddMembersToGroupScreen> {
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
               child: FilledButton(
-                onPressed:
-                    (_selected.isNotEmpty && !_busy) ? _invite : null,
+                onPressed: (_selected.isNotEmpty && !_busy) ? _invite : null,
                 style: FilledButton.styleFrom(
                   minimumSize: const Size.fromHeight(48),
                 ),

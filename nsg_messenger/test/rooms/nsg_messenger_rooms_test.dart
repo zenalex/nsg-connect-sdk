@@ -447,7 +447,11 @@ void main() {
     await Future<void>.delayed(Duration.zero);
 
     await ctx.rooms.list();
-    expect(ctx.listCalls(), 2, reason: 'list invalidated (превью могло измениться)');
+    expect(
+      ctx.listCalls(),
+      2,
+      reason: 'list invalidated (превью могло измениться)',
+    );
     await ctx.rooms.get(7);
     expect(ctx.getCalls(), 2, reason: 'details(7) invalidated');
 

@@ -39,8 +39,7 @@ void main() {
     await ctl.close();
   });
 
-  testWidgets('stream emit reconnecting → жёлтый круг (amber)',
-      (tester) async {
+  testWidgets('stream emit reconnecting → жёлтый круг (amber)', (tester) async {
     final ctl = StreamController<MessengerConnectionState>.broadcast();
     await tester.pumpWidget(
       wrap(
@@ -90,8 +89,9 @@ void main() {
     await ctl.close();
   });
 
-  testWidgets('без onTap — нет InkResponse-а (статичная иконка)',
-      (tester) async {
+  testWidgets('без onTap — нет InkResponse-а (статичная иконка)', (
+    tester,
+  ) async {
     final ctl = StreamController<MessengerConnectionState>.broadcast();
     await tester.pumpWidget(
       wrap(

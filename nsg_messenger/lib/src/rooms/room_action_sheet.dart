@@ -109,8 +109,12 @@ class _RoomActionSheetBody extends StatelessWidget {
               title: Text(l.roomActionMute),
               onTap: () async {
                 final navigator = Navigator.of(context);
-                navigator.pop(); // закрываем main sheet
+                // #17: duration-sheet показываем на ЖИВОМ контексте (main sheet
+                // ещё открыт). Раньше pop() шёл первым → showModalBottomSheet на
+                // pop-нутом контексте не открывался → muteRoom не вызывался (тот
+                // же дефект, что был у kick/ban). Main sheet закрываем после.
                 await _showMuteDurationSheet(context, room, controller);
+                if (navigator.canPop()) navigator.pop();
               },
             ),
           if (room.archived)
@@ -152,11 +156,14 @@ class _RoomActionSheetBody extends StatelessWidget {
             ),
             onTap: () async {
               final navigator = Navigator.of(context);
-              navigator.pop(); // закрываем main sheet — confirm dialog
-              // должен быть viewport-level, не nested в sheet.
+              // #17: confirm на ЖИВОМ контексте ДО pop. Раньше pop() шёл первым
+              // → showDialog на мёртвом контексте → confirmed=false → leaveRoom
+              // не вызывался (тот же дефект, что был у kick/ban). pop — после
+              // подтверждения.
               final confirmed = await _showLeaveConfirmDialog(context);
               if (!confirmed) return;
               if (!context.mounted) return;
+              navigator.pop();
               await _runOptimisticDirect(
                 context,
                 () => controller.leaveRoom(room.id),

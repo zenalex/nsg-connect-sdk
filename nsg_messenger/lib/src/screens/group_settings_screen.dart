@@ -42,7 +42,7 @@ class GroupSettingsScreen extends StatefulWidget {
   /// `true` если пользователь сохранил новое имя (мы перезагрузим
   /// details).
   final Future<bool?> Function(BuildContext context, String currentName)
-      onRequestRename;
+  onRequestRename;
 
   @override
   State<GroupSettingsScreen> createState() => _GroupSettingsScreenState();
@@ -72,10 +72,7 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
   }
 
   Future<void> _openRename(RoomDetails details) async {
-    final saved = await widget.onRequestRename(
-      context,
-      details.name ?? '',
-    );
+    final saved = await widget.onRequestRename(context, details.name ?? '');
     if (saved == true) {
       await _refresh();
     }
@@ -219,19 +216,14 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
       if (!mounted) return;
       messenger?.hideCurrentSnackBar();
       messenger?.showSnackBar(
-        SnackBar(
-          content: Text('$e'),
-          duration: const Duration(seconds: 5),
-        ),
+        SnackBar(content: Text('$e'), duration: const Duration(seconds: 5)),
       );
       return;
     }
 
     if (!mounted) return;
     messenger?.hideCurrentSnackBar();
-    messenger?.showSnackBar(
-      SnackBar(content: Text(l.groupDissolveSuccess)),
-    );
+    messenger?.showSnackBar(SnackBar(content: Text(l.groupDissolveSuccess)));
     // Возвращаемся к корневому экрану (chat list). PopUntil isFirst
     // безопасно: даже если на стэке есть ChatScreen → GroupSettings,
     // оба слетят.
@@ -253,10 +245,7 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: Text(
-                  '${snap.error}',
-                  textAlign: TextAlign.center,
-                ),
+                child: Text('${snap.error}', textAlign: TextAlign.center),
               ),
             );
           }
@@ -264,7 +253,8 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
           if (details == null) {
             return const Center(child: CircularProgressIndicator());
           }
-          final isAdmin = details.viewerRole == RoomMemberRole.admin ||
+          final isAdmin =
+              details.viewerRole == RoomMemberRole.admin ||
               details.viewerRole == RoomMemberRole.owner;
           final isGroup = details.roomType == RoomType.group;
           return RefreshIndicator(
@@ -308,9 +298,7 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
                             child: SizedBox(
                               width: 28,
                               height: 28,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 3,
-                              ),
+                              child: CircularProgressIndicator(strokeWidth: 3),
                             ),
                           ),
                         ),
@@ -340,8 +328,9 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
                                 maxLines: 2,
                                 textAlign: TextAlign.center,
                                 overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.titleLarge
-                                    ?.copyWith(fontWeight: FontWeight.w600),
+                                style: theme.textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
                             if (isAdmin && isGroup) ...[
@@ -363,8 +352,7 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
                   child: Text(
                     _roomTypeLabel(details.roomType),
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurface
-                          .withValues(alpha: 0.6),
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                     ),
                   ),
                 ),
@@ -375,8 +363,7 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
                   trailing: Text(
                     '${details.totalParticipants}',
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurface
-                          .withValues(alpha: 0.6),
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                     ),
                   ),
                   onTap: () {
@@ -443,4 +430,3 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
     return type.name;
   }
 }
-

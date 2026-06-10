@@ -141,7 +141,9 @@ class ChatistaTheme {
 
     final colorScheme = ColorScheme.dark(
       primary: accent,
-      onPrimary: const Color(0xFF1A0F1A), // dark ink for high contrast on accent
+      onPrimary: const Color(
+        0xFF1A0F1A,
+      ), // dark ink for high contrast on accent
       primaryContainer: accent.withValues(alpha: 0.33),
       onPrimaryContainer: fg,
       secondary: accent,
@@ -347,50 +349,50 @@ class _Accent {
 
 class _CremaAccent extends _Accent {
   const _CremaAccent()
-      : super(
-          light: const Color(0xFFB8704A),
-          dark: const Color(0xFFD89971),
-          soft: const Color(0xFFF0D8C5),
-          softDark: const Color(0xFF3D2D22),
-        );
+    : super(
+        light: const Color(0xFFB8704A),
+        dark: const Color(0xFFD89971),
+        soft: const Color(0xFFF0D8C5),
+        softDark: const Color(0xFF3D2D22),
+      );
 }
 
 class _MatchaAccent extends _Accent {
   const _MatchaAccent()
-      : super(
-          light: const Color(0xFF6B8E5A),
-          dark: const Color(0xFF9CB987),
-          soft: const Color(0xFFDEE8D2),
-          softDark: const Color(0xFF2C3624),
-        );
+    : super(
+        light: const Color(0xFF6B8E5A),
+        dark: const Color(0xFF9CB987),
+        soft: const Color(0xFFDEE8D2),
+        softDark: const Color(0xFF2C3624),
+      );
 }
 
 class _CobaltAccent extends _Accent {
   const _CobaltAccent()
-      : super(
-          light: const Color(0xFF3D5BB8),
-          dark: const Color(0xFF7A93D8),
-          soft: const Color(0xFFD6DEF1),
-          softDark: const Color(0xFF1F2A4A),
-        );
+    : super(
+        light: const Color(0xFF3D5BB8),
+        dark: const Color(0xFF7A93D8),
+        soft: const Color(0xFFD6DEF1),
+        softDark: const Color(0xFF1F2A4A),
+      );
 }
 
 class _RoseAccent extends _Accent {
   const _RoseAccent()
-      : super(
-          light: const Color(0xFFB85878),
-          dark: const Color(0xFFD88FA5),
-          soft: const Color(0xFFF1D8E0),
-          softDark: const Color(0xFF3D1F28),
-        );
+    : super(
+        light: const Color(0xFFB85878),
+        dark: const Color(0xFFD88FA5),
+        soft: const Color(0xFFF1D8E0),
+        softDark: const Color(0xFF3D1F28),
+      );
 }
 
 class _InkAccent extends _Accent {
   const _InkAccent()
-      : super(
-          light: const Color(0xFF2A2620),
-          dark: const Color(0xFFE8E2D6),
-          soft: const Color(0xFFD8D4CC),
-          softDark: const Color(0xFF33302A),
-        );
+    : super(
+        light: const Color(0xFF2A2620),
+        dark: const Color(0xFFE8E2D6),
+        soft: const Color(0xFFD8D4CC),
+        softDark: const Color(0xFF33302A),
+      );
 }

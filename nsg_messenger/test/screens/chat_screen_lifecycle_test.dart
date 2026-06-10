@@ -226,7 +226,6 @@ class _StubRpc implements MessagesRpc {
   }) async => const <MessengerEvent>[];
 
   @override
-  Future<List<MessengerEvent>> listReadReceipts({
-    required int roomId,
-  }) async => const <MessengerEvent>[];
+  Future<List<MessengerEvent>> listReadReceipts({required int roomId}) async =>
+      const <MessengerEvent>[];
 }

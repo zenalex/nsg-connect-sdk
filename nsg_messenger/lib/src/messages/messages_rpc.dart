@@ -127,9 +127,7 @@ abstract class MessagesRpc {
   /// — тот же shape что realtime `m.receipt`. Controller скармливает их в
   /// `_applyReadReceipt`-путь при открытии чата, чтобы ✓✓ были видны
   /// сразу (раньше терялись до первого realtime receipt-а).
-  Future<List<MessengerEvent>> listReadReceipts({
-    required int roomId,
-  });
+  Future<List<MessengerEvent>> listReadReceipts({required int roomId});
 
   /// **B17 search in messages**: keyword-поиск через Matrix `/search`.
   /// Empty/short query (< 2 chars) → пустой list. Server-side limit
@@ -266,13 +264,11 @@ class ClientMessagesRpc implements MessagesRpc {
   );
 
   @override
-  Future<void> sendTyping({
-    required int roomId,
-    required bool typing,
-  }) => withAuthRetry(
-    () => _client.messenger.sendTyping(roomId: roomId, typing: typing),
-    _session,
-  );
+  Future<void> sendTyping({required int roomId, required bool typing}) =>
+      withAuthRetry(
+        () => _client.messenger.sendTyping(roomId: roomId, typing: typing),
+        _session,
+      );
 
   @override
   Future<String> sendReaction({
@@ -319,18 +315,14 @@ class ClientMessagesRpc implements MessagesRpc {
     required int roomId,
     required List<String> eventIds,
   }) => withAuthRetry(
-    () => _client.messenger.listReactions(
-      roomId: roomId,
-      eventIds: eventIds,
-    ),
+    () => _client.messenger.listReactions(roomId: roomId, eventIds: eventIds),
     _session,
   );
 
   @override
-  Future<List<MessengerEvent>> listReadReceipts({
-    required int roomId,
-  }) => withAuthRetry(
-    () => _client.messenger.listReadReceipts(roomId: roomId),
-    _session,
-  );
+  Future<List<MessengerEvent>> listReadReceipts({required int roomId}) =>
+      withAuthRetry(
+        () => _client.messenger.listReadReceipts(roomId: roomId),
+        _session,
+      );
 }
