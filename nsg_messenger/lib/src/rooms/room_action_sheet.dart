@@ -109,12 +109,13 @@ class _RoomActionSheetBody extends StatelessWidget {
               title: Text(l.roomActionMute),
               onTap: () async {
                 final navigator = Navigator.of(context);
-                // #17: duration-sheet показываем на ЖИВОМ контексте (main sheet
-                // ещё открыт). Раньше pop() шёл первым → showModalBottomSheet на
-                // pop-нутом контексте не открывался → muteRoom не вызывался (тот
-                // же дефект, что был у kick/ban). Main sheet закрываем после.
-                await _showMuteDurationSheet(context, room, controller);
-                if (navigator.canPop()) navigator.pop();
+                // #17/#28: закрываем main sheet, затем duration-sheet показываем
+                // на navigator.context — это живой root-контекст, переживающий
+                // pop. Так RPC доходит (фикс #17: раньше pop шёл до показа и
+                // showModalBottomSheet падал на мёртвом контексте), и нет «панели
+                // поверх панели» (фикс регрессии #28: main sheet уже закрыт).
+                navigator.pop();
+                await _showMuteDurationSheet(navigator.context, room, controller);
               },
             ),
           if (room.archived)
