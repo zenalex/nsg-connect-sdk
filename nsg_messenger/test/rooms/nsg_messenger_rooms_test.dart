@@ -574,6 +574,33 @@ void main() {
     await ctx.stateCtl.close();
   });
 
+  // Regression «новый чат невидим до reload»: createDirect должен
+  // инжектить локальный roomCreated в EventBus, чтобы chat-list (и любой
+  // другой подписчик) реактивно обновился у создателя без перезагрузки.
+  test('createDirect: эмитит локальный roomCreated на EventBus', () async {
+    final ctx = buildRooms(
+      initialList: const [],
+      detailsFor: (id) => details(id: id),
+    );
+    final seen = <MessengerEvent>[];
+    final sub = ctx.rooms.eventBus.events.listen(seen.add);
+    await Future<void>.delayed(Duration.zero);
+
+    final result = await ctx.rooms.createDirect(42);
+    await Future<void>.delayed(Duration.zero);
+
+    final created = seen
+        .where((e) => e.eventType == MessengerEventType.roomCreated)
+        .toList();
+    expect(created, hasLength(1), reason: 'ровно один локальный roomCreated');
+    expect(created.single.roomId, result.id);
+
+    await sub.cancel();
+    await ctx.rooms.dispose();
+    await ctx.upstream.close();
+    await ctx.stateCtl.close();
+  });
+
   test(
     'invalidate(roomId): точечная инвалидация details, list не трогаем',
     () async {

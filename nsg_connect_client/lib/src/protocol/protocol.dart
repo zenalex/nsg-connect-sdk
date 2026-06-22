@@ -45,32 +45,33 @@ import 'errors/room_unavailable_exception.dart' as _i32;
 import 'errors/tenant_not_found_exception.dart' as _i33;
 import 'greetings/greeting.dart' as _i34;
 import 'identity_mapping.dart' as _i35;
-import 'messenger_auth_context.dart' as _i36;
-import 'messenger_event.dart' as _i37;
-import 'messenger_message.dart' as _i38;
-import 'messenger_message_list_page.dart' as _i39;
-import 'messenger_session.dart' as _i40;
-import 'messenger_session_token.dart' as _i41;
-import 'messenger_user.dart' as _i42;
-import 'notification_settings.dart' as _i43;
-import 'presence_state.dart' as _i44;
-import 'product.dart' as _i45;
-import 'push_queue_message.dart' as _i46;
-import 'room.dart' as _i47;
-import 'room_details.dart' as _i48;
-import 'room_membership.dart' as _i49;
-import 'room_participant.dart' as _i50;
-import 'room_summary.dart' as _i51;
-import 'tenant.dart' as _i52;
-import 'package:nsg_connect_client/src/protocol/messenger_event.dart' as _i53;
-import 'package:nsg_connect_client/src/protocol/room_participant.dart' as _i54;
-import 'package:nsg_connect_client/src/protocol/messenger_message.dart' as _i55;
-import 'package:nsg_connect_client/src/protocol/room_summary.dart' as _i56;
-import 'package:nsg_connect_client/src/protocol/product.dart' as _i57;
+import 'message_index.dart' as _i36;
+import 'messenger_auth_context.dart' as _i37;
+import 'messenger_event.dart' as _i38;
+import 'messenger_message.dart' as _i39;
+import 'messenger_message_list_page.dart' as _i40;
+import 'messenger_session.dart' as _i41;
+import 'messenger_session_token.dart' as _i42;
+import 'messenger_user.dart' as _i43;
+import 'notification_settings.dart' as _i44;
+import 'presence_state.dart' as _i45;
+import 'product.dart' as _i46;
+import 'push_queue_message.dart' as _i47;
+import 'room.dart' as _i48;
+import 'room_details.dart' as _i49;
+import 'room_membership.dart' as _i50;
+import 'room_participant.dart' as _i51;
+import 'room_summary.dart' as _i52;
+import 'tenant.dart' as _i53;
+import 'package:nsg_connect_client/src/protocol/messenger_event.dart' as _i54;
+import 'package:nsg_connect_client/src/protocol/room_participant.dart' as _i55;
+import 'package:nsg_connect_client/src/protocol/messenger_message.dart' as _i56;
+import 'package:nsg_connect_client/src/protocol/room_summary.dart' as _i57;
+import 'package:nsg_connect_client/src/protocol/product.dart' as _i58;
 import 'package:serverpod_auth_idp_client/serverpod_auth_idp_client.dart'
-    as _i58;
-import 'package:serverpod_auth_core_client/serverpod_auth_core_client.dart'
     as _i59;
+import 'package:serverpod_auth_core_client/serverpod_auth_core_client.dart'
+    as _i60;
 export 'attachment_bytes.dart';
 export 'attachment_ref.dart';
 export 'device_registration.dart';
@@ -105,6 +106,7 @@ export 'errors/room_unavailable_exception.dart';
 export 'errors/tenant_not_found_exception.dart';
 export 'greetings/greeting.dart';
 export 'identity_mapping.dart';
+export 'message_index.dart';
 export 'messenger_auth_context.dart';
 export 'messenger_event.dart';
 export 'messenger_message.dart';
@@ -260,56 +262,59 @@ class Protocol extends _i1.SerializationManager {
     if (t == _i35.IdentityMapping) {
       return _i35.IdentityMapping.fromJson(data) as T;
     }
-    if (t == _i36.MessengerAuthContext) {
-      return _i36.MessengerAuthContext.fromJson(data) as T;
+    if (t == _i36.MessageIndex) {
+      return _i36.MessageIndex.fromJson(data) as T;
     }
-    if (t == _i37.MessengerEvent) {
-      return _i37.MessengerEvent.fromJson(data) as T;
+    if (t == _i37.MessengerAuthContext) {
+      return _i37.MessengerAuthContext.fromJson(data) as T;
     }
-    if (t == _i38.MessengerMessage) {
-      return _i38.MessengerMessage.fromJson(data) as T;
+    if (t == _i38.MessengerEvent) {
+      return _i38.MessengerEvent.fromJson(data) as T;
     }
-    if (t == _i39.MessengerMessageListPage) {
-      return _i39.MessengerMessageListPage.fromJson(data) as T;
+    if (t == _i39.MessengerMessage) {
+      return _i39.MessengerMessage.fromJson(data) as T;
     }
-    if (t == _i40.MessengerSession) {
-      return _i40.MessengerSession.fromJson(data) as T;
+    if (t == _i40.MessengerMessageListPage) {
+      return _i40.MessengerMessageListPage.fromJson(data) as T;
     }
-    if (t == _i41.MessengerSessionToken) {
-      return _i41.MessengerSessionToken.fromJson(data) as T;
+    if (t == _i41.MessengerSession) {
+      return _i41.MessengerSession.fromJson(data) as T;
     }
-    if (t == _i42.MessengerUser) {
-      return _i42.MessengerUser.fromJson(data) as T;
+    if (t == _i42.MessengerSessionToken) {
+      return _i42.MessengerSessionToken.fromJson(data) as T;
     }
-    if (t == _i43.NotificationSettings) {
-      return _i43.NotificationSettings.fromJson(data) as T;
+    if (t == _i43.MessengerUser) {
+      return _i43.MessengerUser.fromJson(data) as T;
     }
-    if (t == _i44.PresenceState) {
-      return _i44.PresenceState.fromJson(data) as T;
+    if (t == _i44.NotificationSettings) {
+      return _i44.NotificationSettings.fromJson(data) as T;
     }
-    if (t == _i45.Product) {
-      return _i45.Product.fromJson(data) as T;
+    if (t == _i45.PresenceState) {
+      return _i45.PresenceState.fromJson(data) as T;
     }
-    if (t == _i46.PushQueueMessage) {
-      return _i46.PushQueueMessage.fromJson(data) as T;
+    if (t == _i46.Product) {
+      return _i46.Product.fromJson(data) as T;
     }
-    if (t == _i47.Room) {
-      return _i47.Room.fromJson(data) as T;
+    if (t == _i47.PushQueueMessage) {
+      return _i47.PushQueueMessage.fromJson(data) as T;
     }
-    if (t == _i48.RoomDetails) {
-      return _i48.RoomDetails.fromJson(data) as T;
+    if (t == _i48.Room) {
+      return _i48.Room.fromJson(data) as T;
     }
-    if (t == _i49.RoomMembership) {
-      return _i49.RoomMembership.fromJson(data) as T;
+    if (t == _i49.RoomDetails) {
+      return _i49.RoomDetails.fromJson(data) as T;
     }
-    if (t == _i50.RoomParticipant) {
-      return _i50.RoomParticipant.fromJson(data) as T;
+    if (t == _i50.RoomMembership) {
+      return _i50.RoomMembership.fromJson(data) as T;
     }
-    if (t == _i51.RoomSummary) {
-      return _i51.RoomSummary.fromJson(data) as T;
+    if (t == _i51.RoomParticipant) {
+      return _i51.RoomParticipant.fromJson(data) as T;
     }
-    if (t == _i52.Tenant) {
-      return _i52.Tenant.fromJson(data) as T;
+    if (t == _i52.RoomSummary) {
+      return _i52.RoomSummary.fromJson(data) as T;
+    }
+    if (t == _i53.Tenant) {
+      return _i53.Tenant.fromJson(data) as T;
     }
     if (t == _i1.getType<_i2.AttachmentBytes?>()) {
       return (data != null ? _i2.AttachmentBytes.fromJson(data) : null) as T;
@@ -455,62 +460,65 @@ class Protocol extends _i1.SerializationManager {
     if (t == _i1.getType<_i35.IdentityMapping?>()) {
       return (data != null ? _i35.IdentityMapping.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i36.MessengerAuthContext?>()) {
-      return (data != null ? _i36.MessengerAuthContext.fromJson(data) : null)
+    if (t == _i1.getType<_i36.MessageIndex?>()) {
+      return (data != null ? _i36.MessageIndex.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i37.MessengerAuthContext?>()) {
+      return (data != null ? _i37.MessengerAuthContext.fromJson(data) : null)
           as T;
     }
-    if (t == _i1.getType<_i37.MessengerEvent?>()) {
-      return (data != null ? _i37.MessengerEvent.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i38.MessengerEvent?>()) {
+      return (data != null ? _i38.MessengerEvent.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i38.MessengerMessage?>()) {
-      return (data != null ? _i38.MessengerMessage.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i39.MessengerMessage?>()) {
+      return (data != null ? _i39.MessengerMessage.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i39.MessengerMessageListPage?>()) {
+    if (t == _i1.getType<_i40.MessengerMessageListPage?>()) {
       return (data != null
-              ? _i39.MessengerMessageListPage.fromJson(data)
+              ? _i40.MessengerMessageListPage.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i1.getType<_i40.MessengerSession?>()) {
-      return (data != null ? _i40.MessengerSession.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i41.MessengerSession?>()) {
+      return (data != null ? _i41.MessengerSession.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i41.MessengerSessionToken?>()) {
-      return (data != null ? _i41.MessengerSessionToken.fromJson(data) : null)
+    if (t == _i1.getType<_i42.MessengerSessionToken?>()) {
+      return (data != null ? _i42.MessengerSessionToken.fromJson(data) : null)
           as T;
     }
-    if (t == _i1.getType<_i42.MessengerUser?>()) {
-      return (data != null ? _i42.MessengerUser.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i43.MessengerUser?>()) {
+      return (data != null ? _i43.MessengerUser.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i43.NotificationSettings?>()) {
-      return (data != null ? _i43.NotificationSettings.fromJson(data) : null)
+    if (t == _i1.getType<_i44.NotificationSettings?>()) {
+      return (data != null ? _i44.NotificationSettings.fromJson(data) : null)
           as T;
     }
-    if (t == _i1.getType<_i44.PresenceState?>()) {
-      return (data != null ? _i44.PresenceState.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i45.PresenceState?>()) {
+      return (data != null ? _i45.PresenceState.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i45.Product?>()) {
-      return (data != null ? _i45.Product.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i46.Product?>()) {
+      return (data != null ? _i46.Product.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i46.PushQueueMessage?>()) {
-      return (data != null ? _i46.PushQueueMessage.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i47.PushQueueMessage?>()) {
+      return (data != null ? _i47.PushQueueMessage.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i47.Room?>()) {
-      return (data != null ? _i47.Room.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i48.Room?>()) {
+      return (data != null ? _i48.Room.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i48.RoomDetails?>()) {
-      return (data != null ? _i48.RoomDetails.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i49.RoomDetails?>()) {
+      return (data != null ? _i49.RoomDetails.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i49.RoomMembership?>()) {
-      return (data != null ? _i49.RoomMembership.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i50.RoomMembership?>()) {
+      return (data != null ? _i50.RoomMembership.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i50.RoomParticipant?>()) {
-      return (data != null ? _i50.RoomParticipant.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i51.RoomParticipant?>()) {
+      return (data != null ? _i51.RoomParticipant.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i51.RoomSummary?>()) {
-      return (data != null ? _i51.RoomSummary.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i52.RoomSummary?>()) {
+      return (data != null ? _i52.RoomSummary.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i52.Tenant?>()) {
-      return (data != null ? _i52.Tenant.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i53.Tenant?>()) {
+      return (data != null ? _i53.Tenant.fromJson(data) : null) as T;
     }
     if (t == List<String>) {
       return (data as List).map((e) => deserialize<String>(e)).toList() as T;
@@ -530,15 +538,15 @@ class Protocol extends _i1.SerializationManager {
               : null)
           as T;
     }
-    if (t == List<_i38.MessengerMessage>) {
+    if (t == List<_i39.MessengerMessage>) {
       return (data as List)
-              .map((e) => deserialize<_i38.MessengerMessage>(e))
+              .map((e) => deserialize<_i39.MessengerMessage>(e))
               .toList()
           as T;
     }
-    if (t == List<_i50.RoomParticipant>) {
+    if (t == List<_i51.RoomParticipant>) {
       return (data as List)
-              .map((e) => deserialize<_i50.RoomParticipant>(e))
+              .map((e) => deserialize<_i51.RoomParticipant>(e))
               .toList()
           as T;
     }
@@ -551,42 +559,48 @@ class Protocol extends _i1.SerializationManager {
               : null)
           as T;
     }
-    if (t == List<_i53.MessengerEvent>) {
+    if (t == List<_i54.MessengerEvent>) {
       return (data as List)
-              .map((e) => deserialize<_i53.MessengerEvent>(e))
+              .map((e) => deserialize<_i54.MessengerEvent>(e))
               .toList()
           as T;
     }
     if (t == List<String>) {
       return (data as List).map((e) => deserialize<String>(e)).toList() as T;
     }
-    if (t == List<_i54.RoomParticipant>) {
+    if (t == List<_i55.RoomParticipant>) {
       return (data as List)
-              .map((e) => deserialize<_i54.RoomParticipant>(e))
+              .map((e) => deserialize<_i55.RoomParticipant>(e))
               .toList()
           as T;
     }
-    if (t == List<_i55.MessengerMessage>) {
+    if (t == List<_i56.MessengerMessage>) {
       return (data as List)
-              .map((e) => deserialize<_i55.MessengerMessage>(e))
+              .map((e) => deserialize<_i56.MessengerMessage>(e))
               .toList()
           as T;
     }
-    if (t == List<_i56.RoomSummary>) {
+    if (t == List<_i57.RoomSummary>) {
       return (data as List)
-              .map((e) => deserialize<_i56.RoomSummary>(e))
+              .map((e) => deserialize<_i57.RoomSummary>(e))
               .toList()
           as T;
     }
-    if (t == List<_i57.Product>) {
-      return (data as List).map((e) => deserialize<_i57.Product>(e)).toList()
+    if (t == List<_i58.Product>) {
+      return (data as List).map((e) => deserialize<_i58.Product>(e)).toList()
           as T;
     }
-    try {
-      return _i58.Protocol().deserialize<T>(data, t);
-    } on _i1.DeserializationTypeNotFoundException catch (_) {}
+    if (t == Map<String, int>) {
+      return (data as Map).map(
+            (k, v) => MapEntry(deserialize<String>(k), deserialize<int>(v)),
+          )
+          as T;
+    }
     try {
       return _i59.Protocol().deserialize<T>(data, t);
+    } on _i1.DeserializationTypeNotFoundException catch (_) {}
+    try {
+      return _i60.Protocol().deserialize<T>(data, t);
     } on _i1.DeserializationTypeNotFoundException catch (_) {}
     return super.deserialize<T>(data, t);
   }
@@ -629,23 +643,24 @@ class Protocol extends _i1.SerializationManager {
       _i33.TenantNotFoundException => 'TenantNotFoundException',
       _i34.Greeting => 'Greeting',
       _i35.IdentityMapping => 'IdentityMapping',
-      _i36.MessengerAuthContext => 'MessengerAuthContext',
-      _i37.MessengerEvent => 'MessengerEvent',
-      _i38.MessengerMessage => 'MessengerMessage',
-      _i39.MessengerMessageListPage => 'MessengerMessageListPage',
-      _i40.MessengerSession => 'MessengerSession',
-      _i41.MessengerSessionToken => 'MessengerSessionToken',
-      _i42.MessengerUser => 'MessengerUser',
-      _i43.NotificationSettings => 'NotificationSettings',
-      _i44.PresenceState => 'PresenceState',
-      _i45.Product => 'Product',
-      _i46.PushQueueMessage => 'PushQueueMessage',
-      _i47.Room => 'Room',
-      _i48.RoomDetails => 'RoomDetails',
-      _i49.RoomMembership => 'RoomMembership',
-      _i50.RoomParticipant => 'RoomParticipant',
-      _i51.RoomSummary => 'RoomSummary',
-      _i52.Tenant => 'Tenant',
+      _i36.MessageIndex => 'MessageIndex',
+      _i37.MessengerAuthContext => 'MessengerAuthContext',
+      _i38.MessengerEvent => 'MessengerEvent',
+      _i39.MessengerMessage => 'MessengerMessage',
+      _i40.MessengerMessageListPage => 'MessengerMessageListPage',
+      _i41.MessengerSession => 'MessengerSession',
+      _i42.MessengerSessionToken => 'MessengerSessionToken',
+      _i43.MessengerUser => 'MessengerUser',
+      _i44.NotificationSettings => 'NotificationSettings',
+      _i45.PresenceState => 'PresenceState',
+      _i46.Product => 'Product',
+      _i47.PushQueueMessage => 'PushQueueMessage',
+      _i48.Room => 'Room',
+      _i49.RoomDetails => 'RoomDetails',
+      _i50.RoomMembership => 'RoomMembership',
+      _i51.RoomParticipant => 'RoomParticipant',
+      _i52.RoomSummary => 'RoomSummary',
+      _i53.Tenant => 'Tenant',
       _ => null,
     };
   }
@@ -728,46 +743,48 @@ class Protocol extends _i1.SerializationManager {
         return 'Greeting';
       case _i35.IdentityMapping():
         return 'IdentityMapping';
-      case _i36.MessengerAuthContext():
+      case _i36.MessageIndex():
+        return 'MessageIndex';
+      case _i37.MessengerAuthContext():
         return 'MessengerAuthContext';
-      case _i37.MessengerEvent():
+      case _i38.MessengerEvent():
         return 'MessengerEvent';
-      case _i38.MessengerMessage():
+      case _i39.MessengerMessage():
         return 'MessengerMessage';
-      case _i39.MessengerMessageListPage():
+      case _i40.MessengerMessageListPage():
         return 'MessengerMessageListPage';
-      case _i40.MessengerSession():
+      case _i41.MessengerSession():
         return 'MessengerSession';
-      case _i41.MessengerSessionToken():
+      case _i42.MessengerSessionToken():
         return 'MessengerSessionToken';
-      case _i42.MessengerUser():
+      case _i43.MessengerUser():
         return 'MessengerUser';
-      case _i43.NotificationSettings():
+      case _i44.NotificationSettings():
         return 'NotificationSettings';
-      case _i44.PresenceState():
+      case _i45.PresenceState():
         return 'PresenceState';
-      case _i45.Product():
+      case _i46.Product():
         return 'Product';
-      case _i46.PushQueueMessage():
+      case _i47.PushQueueMessage():
         return 'PushQueueMessage';
-      case _i47.Room():
+      case _i48.Room():
         return 'Room';
-      case _i48.RoomDetails():
+      case _i49.RoomDetails():
         return 'RoomDetails';
-      case _i49.RoomMembership():
+      case _i50.RoomMembership():
         return 'RoomMembership';
-      case _i50.RoomParticipant():
+      case _i51.RoomParticipant():
         return 'RoomParticipant';
-      case _i51.RoomSummary():
+      case _i52.RoomSummary():
         return 'RoomSummary';
-      case _i52.Tenant():
+      case _i53.Tenant():
         return 'Tenant';
     }
-    className = _i58.Protocol().getClassNameForObject(data);
+    className = _i59.Protocol().getClassNameForObject(data);
     if (className != null) {
       return 'serverpod_auth_idp.$className';
     }
-    className = _i59.Protocol().getClassNameForObject(data);
+    className = _i60.Protocol().getClassNameForObject(data);
     if (className != null) {
       return 'serverpod_auth_core.$className';
     }
@@ -882,64 +899,67 @@ class Protocol extends _i1.SerializationManager {
     if (dataClassName == 'IdentityMapping') {
       return deserialize<_i35.IdentityMapping>(data['data']);
     }
+    if (dataClassName == 'MessageIndex') {
+      return deserialize<_i36.MessageIndex>(data['data']);
+    }
     if (dataClassName == 'MessengerAuthContext') {
-      return deserialize<_i36.MessengerAuthContext>(data['data']);
+      return deserialize<_i37.MessengerAuthContext>(data['data']);
     }
     if (dataClassName == 'MessengerEvent') {
-      return deserialize<_i37.MessengerEvent>(data['data']);
+      return deserialize<_i38.MessengerEvent>(data['data']);
     }
     if (dataClassName == 'MessengerMessage') {
-      return deserialize<_i38.MessengerMessage>(data['data']);
+      return deserialize<_i39.MessengerMessage>(data['data']);
     }
     if (dataClassName == 'MessengerMessageListPage') {
-      return deserialize<_i39.MessengerMessageListPage>(data['data']);
+      return deserialize<_i40.MessengerMessageListPage>(data['data']);
     }
     if (dataClassName == 'MessengerSession') {
-      return deserialize<_i40.MessengerSession>(data['data']);
+      return deserialize<_i41.MessengerSession>(data['data']);
     }
     if (dataClassName == 'MessengerSessionToken') {
-      return deserialize<_i41.MessengerSessionToken>(data['data']);
+      return deserialize<_i42.MessengerSessionToken>(data['data']);
     }
     if (dataClassName == 'MessengerUser') {
-      return deserialize<_i42.MessengerUser>(data['data']);
+      return deserialize<_i43.MessengerUser>(data['data']);
     }
     if (dataClassName == 'NotificationSettings') {
-      return deserialize<_i43.NotificationSettings>(data['data']);
+      return deserialize<_i44.NotificationSettings>(data['data']);
     }
     if (dataClassName == 'PresenceState') {
-      return deserialize<_i44.PresenceState>(data['data']);
+      return deserialize<_i45.PresenceState>(data['data']);
     }
     if (dataClassName == 'Product') {
-      return deserialize<_i45.Product>(data['data']);
+      return deserialize<_i46.Product>(data['data']);
     }
     if (dataClassName == 'PushQueueMessage') {
-      return deserialize<_i46.PushQueueMessage>(data['data']);
+      return deserialize<_i47.PushQueueMessage>(data['data']);
     }
     if (dataClassName == 'Room') {
-      return deserialize<_i47.Room>(data['data']);
+      return deserialize<_i48.Room>(data['data']);
     }
     if (dataClassName == 'RoomDetails') {
-      return deserialize<_i48.RoomDetails>(data['data']);
+      return deserialize<_i49.RoomDetails>(data['data']);
     }
     if (dataClassName == 'RoomMembership') {
-      return deserialize<_i49.RoomMembership>(data['data']);
+      return deserialize<_i50.RoomMembership>(data['data']);
     }
     if (dataClassName == 'RoomParticipant') {
-      return deserialize<_i50.RoomParticipant>(data['data']);
+      return deserialize<_i51.RoomParticipant>(data['data']);
     }
     if (dataClassName == 'RoomSummary') {
-      return deserialize<_i51.RoomSummary>(data['data']);
+      return deserialize<_i52.RoomSummary>(data['data']);
     }
     if (dataClassName == 'Tenant') {
-      return deserialize<_i52.Tenant>(data['data']);
+      return deserialize<_i53.Tenant>(data['data']);
     }
     if (dataClassName.startsWith('serverpod_auth_idp.')) {
       data['className'] = dataClassName.substring(19);
-      return _i58.Protocol().deserializeByClassName(data);
+      return _i59.Protocol().deserializeByClassName(data);
     }
     if (dataClassName.startsWith('serverpod_auth_core.')) {
       data['className'] = dataClassName.substring(20);
-      return _i59.Protocol().deserializeByClassName(data);
+      return _i60.Protocol().deserializeByClassName(data);
     }
     return super.deserializeByClassName(data);
   }
@@ -954,10 +974,10 @@ class Protocol extends _i1.SerializationManager {
       return null;
     }
     try {
-      return _i58.Protocol().mapRecordToJson(record);
+      return _i59.Protocol().mapRecordToJson(record);
     } catch (_) {}
     try {
-      return _i59.Protocol().mapRecordToJson(record);
+      return _i60.Protocol().mapRecordToJson(record);
     } catch (_) {}
     throw Exception('Unsupported record type ${record.runtimeType}');
   }

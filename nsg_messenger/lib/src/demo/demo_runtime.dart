@@ -293,7 +293,11 @@ Future<void> installDemoRuntime({
   final settings = NsgMessengerSettings.attachWithRpcs(
     getRpc: () async => NotificationSettings(showMessagePreview: true),
     setRpc:
-        ({required bool showMessagePreview, bool? sendReadReceipts}) async {},
+        ({
+          required bool showMessagePreview,
+          bool? sendReadReceipts,
+          bool? discoverable,
+        }) async {},
   );
 
   // Hand off to the runtime's package-private installer.

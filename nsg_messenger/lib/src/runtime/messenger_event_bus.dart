@@ -196,6 +196,38 @@ class MessengerEventBus {
     return _controller!.stream;
   }
 
+  /// Инжектировать **локально-происходящее** [MessengerEvent] в
+  /// broadcast-стрим, как если бы оно прилетело с сервера через
+  /// `/sync`. Используется SDK, чтобы caller-инициированные мутации
+  /// (`createDirect`/`createGroup`) мгновенно становились reactive на
+  /// **локальном** клиенте, не дожидаясь Matrix `/sync` round-trip-а.
+  ///
+  /// Закрывает баг «новый чат невидим до перезагрузки» у создателя
+  /// комнаты: сервер эмитит `roomCreated` ТОЛЬКО через sync-worker
+  /// (latency, а membership-event и вовсе может быть пропущен), поэтому
+  /// чат-лист оставался stale до полного reload. Local emit → reactor
+  /// `NsgMessengerRooms` инвалидирует list-cache, `ChatsListController`
+  /// перезапрашивает `listRooms` → комната появляется сразу.
+  ///
+  /// **Local-only**: НЕ доходит до других устройств / других юзеров.
+  /// Cross-user доставка по-прежнему идёт через server sync-worker в
+  /// per-user channel. Peer узнаёт о комнате через свой `/sync`.
+  ///
+  /// No-op если [dispose]-нут или broadcast-controller ещё не создан
+  /// (нет listener-ов — некого кормить). Дедуп по `matrixEventId`
+  /// обходится намеренно: local-события его не несут.
+  void emitLocal(MessengerEvent event) {
+    if (_disposed) return;
+    _ensureController();
+    if (kDebugMode) {
+      debugPrint(
+        '[MessengerEventBus] emitLocal type=${event.eventType.name} '
+        'roomId=${event.roomId}',
+      );
+    }
+    _controller?.add(event);
+  }
+
   /// Узкий стрим конкретной комнаты — фильтр над [events]. Один
   /// underlying sync worker per user независимо от количества открытых
   /// чатов; SDK / spike фильтруют локально (см. ревью TASK17 plan Q2).

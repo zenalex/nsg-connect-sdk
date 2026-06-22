@@ -314,6 +314,12 @@ class NsgMessengerRooms {
        _setRoomAvatarRpc = setRoomAvatarRpc,
        _eventBus = eventBus;
 
+  /// Test-only доступ к привязанному [MessengerEventBus] — для проверки
+  /// локального emit-а (`createDirect` → `roomCreated`). В production не
+  /// используется: SDK эмитит через `_eventBus` напрямую.
+  @visibleForTesting
+  MessengerEventBus get eventBus => _eventBus;
+
   /// Production-фабрика. Привязывается к `client.messenger.*` методам.
   ///
   /// **TASK20 followup (α)**: каждый RPC оборачивается в [withAuthRetry]
@@ -1042,6 +1048,23 @@ class NsgMessengerRooms {
   void _onCreateResult(RoomDetails result) {
     _listEntry = null;
     _putDetails(result);
+    // Драйвим тот же reactive-путь, что прислал бы server `/sync`:
+    // caller только что создал/получил доступ к комнате, но сервер
+    // эмитит `roomCreated` ТОЛЬКО через Matrix sync-worker (latency,
+    // либо membership-event может быть пропущен целиком) — из-за чего
+    // чат-лист оставался stale до полного reload. Инжектим локальный
+    // `roomCreated`, чтобы `ChatsListController` перезапросил listRooms
+    // и комната появилась у создателя сразу. Local-only; peer узнаёт о
+    // комнате через свой sync-worker. `_onEvent` тоже поймает это
+    // событие (повторный invalidate list-cache — идемпотентно).
+    _eventBus.emitLocal(
+      MessengerEvent(
+        eventType: MessengerEventType.roomCreated,
+        serverTimestamp: DateTime.now().toUtc(),
+        roomId: result.id,
+        matrixRoomId: result.matrixRoomId,
+      ),
+    );
   }
 
   void _putDetails(RoomDetails d) {

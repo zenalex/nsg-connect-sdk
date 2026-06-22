@@ -76,8 +76,21 @@ void main() {
             return listResult;
           },
       getRpc: ({required int roomId}) async => throw UnimplementedError(),
-      createDirectRpc: ({required int peerMessengerUserId}) async =>
-          throw UnimplementedError(),
+      // Возвращает RoomDetails «новой» прямой комнаты — для теста
+      // live-появления чата после createDirect (баг «новый чат невидим
+      // до reload»). id детерминирован от peer-id.
+      createDirectRpc: ({required int peerMessengerUserId}) async => RoomDetails(
+        id: 1000 + peerMessengerUserId,
+        matrixRoomId: '!direct-$peerMessengerUserId:localhost',
+        name: 'Direct $peerMessengerUserId',
+        unreadCount: 0,
+        archived: false,
+        muted: false,
+        roomType: RoomType.direct,
+        participants: const [],
+        totalParticipants: 2,
+        viewerRole: RoomMemberRole.owner,
+      ),
       createGroupRpc:
           ({
             required String name,
@@ -413,6 +426,46 @@ void main() {
     expect(last.rooms.length, 2);
     await teardown(ctx);
   });
+
+  // Regression: «новый чат невидим до перезагрузки» (E2E прод 2026-06-22).
+  // Создатель direct-чата не видел его в списке, т.к. сервер эмитит
+  // roomCreated только через Matrix /sync (latency / пропуск membership-
+  // event). Фикс: NsgMessengerRooms._onCreateResult инжектит локальный
+  // roomCreated в EventBus → ChatsListController перезапрашивает listRooms.
+  test(
+    'createDirect → локальный roomCreated → новый чат в списке без reload',
+    () async {
+      final ctx = buildController(initialList: const []);
+      ctx.controller.init();
+      await tick();
+      expect(ctx.controller.state, isA<ChatsListReady>());
+      expect((ctx.controller.state as ChatsListReady).rooms, isEmpty);
+      expect(ctx.listCalls(), 1);
+
+      // Сервер теперь вернёт свежесозданную комнату — как реальный
+      // listRooms сразу после createDirect (server-side данные есть).
+      ctx.setListResult([summary(id: 1042, name: 'Direct 42')]);
+
+      // Создаём прямой чат. SDK инвалидирует list-cache и эмитит
+      // локальный roomCreated → контроллер делает refresh.
+      final room = await ctx.rooms.createDirect(42);
+      expect(room.id, 1042);
+      await tick();
+
+      expect(
+        ctx.listCalls(),
+        2,
+        reason: 'createDirect обязан триггерить refresh списка',
+      );
+      final s = ctx.controller.state as ChatsListReady;
+      expect(
+        s.rooms.map((r) => r.id),
+        contains(1042),
+        reason: 'новый чат виден в списке без перезагрузки страницы',
+      );
+      await teardown(ctx);
+    },
+  );
 
   test('первый fetch падает → Error(lastKnown=null)', () async {
     final ctx = buildController(initialList: const []);

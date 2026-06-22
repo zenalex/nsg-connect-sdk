@@ -33,6 +33,7 @@ class _NotificationSettingsScreenState
   Future<NotificationSettings>? _future;
   bool? _localShowPreview;
   bool? _localSendReceipts; // **B11**
+  bool? _localDiscoverable; // **Settings**: приватность — найти в поиске.
   bool _saving = false;
 
   @override
@@ -50,6 +51,9 @@ class _NotificationSettingsScreenState
       setState(() {
         _localShowPreview = s.showMessagePreview;
         _localSendReceipts = s.sendReadReceipts ?? true;
+        // Default discoverable=true (legacy users без значения видимы в
+        // поиске — соответствует поведению до приватности).
+        _localDiscoverable = s.discoverable ?? true;
       });
     }
     return s;
@@ -113,6 +117,38 @@ class _NotificationSettingsScreenState
     }
   }
 
+  /// **Settings**: toggle «находить меня в поиске» (privacy.discoverable).
+  /// Optimistic + revert, как [_toggle]. showMessagePreview передаём
+  /// текущим (set требует его).
+  Future<void> _toggleDiscoverable(bool newValue) async {
+    if (_saving) return;
+    final prev = _localDiscoverable ?? true;
+    setState(() {
+      _localDiscoverable = newValue;
+      _saving = true;
+    });
+    try {
+      await _settings.set(
+        showMessagePreview: _localShowPreview ?? true,
+        discoverable: newValue,
+      );
+      if (mounted) setState(() => _saving = false);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _localDiscoverable = prev;
+        _saving = false;
+      });
+      final messenger = ScaffoldMessenger.maybeOf(context);
+      messenger?.showSnackBar(
+        SnackBar(
+          content: Text(NsgL10n.of(context).notificationSettingsSaveFailed),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = NsgL10n.of(context);
@@ -135,6 +171,7 @@ class _NotificationSettingsScreenState
           }
           final showPreview = _localShowPreview ?? true;
           final sendReceipts = _localSendReceipts ?? true;
+          final discoverable = _localDiscoverable ?? true;
           return ListView(
             children: [
               SwitchListTile(
@@ -149,9 +186,38 @@ class _NotificationSettingsScreenState
                 value: sendReceipts,
                 onChanged: _saving ? null : _toggleReadReceipts,
               ),
+              _SectionHeader(text: l.settingsPrivacySectionTitle),
+              SwitchListTile(
+                title: Text(l.notificationSettingsDiscoverableTitle),
+                subtitle: Text(l.notificationSettingsDiscoverableSubtitle),
+                value: discoverable,
+                onChanged: _saving ? null : _toggleDiscoverable,
+              ),
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+/// Subheader-полоска между секциями (например, «Приватность»).
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
+      child: Text(
+        text,
+        style: theme.textTheme.labelLarge?.copyWith(
+          color: theme.colorScheme.primary,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }

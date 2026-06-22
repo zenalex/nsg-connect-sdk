@@ -27,11 +27,13 @@ abstract class NotificationSettings implements _i1.SerializableModel {
   NotificationSettings._({
     required this.showMessagePreview,
     this.sendReadReceipts,
+    this.discoverable,
   });
 
   factory NotificationSettings({
     required bool showMessagePreview,
     bool? sendReadReceipts,
+    bool? discoverable,
   }) = _NotificationSettingsImpl;
 
   factory NotificationSettings.fromJson(
@@ -46,6 +48,9 @@ abstract class NotificationSettings implements _i1.SerializableModel {
           : _i1.BoolJsonExtension.fromJson(
               jsonSerialization['sendReadReceipts'],
             ),
+      discoverable: jsonSerialization['discoverable'] == null
+          ? null
+          : _i1.BoolJsonExtension.fromJson(jsonSerialization['discoverable']),
     );
   }
 
@@ -57,12 +62,19 @@ abstract class NotificationSettings implements _i1.SerializableModel {
   /// трактует null как «не менять» (оставляет текущее значение).
   bool? sendReadReceipts;
 
+  /// **Settings (Профиль и Настройки)**: приватность — можно ли найти
+  /// юзера в поиске (`searchUsers` + чужой `findUserByEmail`). См. doc
+  /// у `MessengerUser.discoverable`. Nullable — те же backward-compat
+  /// семантики (null на set = «не менять»).
+  bool? discoverable;
+
   /// Returns a shallow copy of this [NotificationSettings]
   /// with some or all fields replaced by the given arguments.
   @_i1.useResult
   NotificationSettings copyWith({
     bool? showMessagePreview,
     bool? sendReadReceipts,
+    bool? discoverable,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -70,6 +82,7 @@ abstract class NotificationSettings implements _i1.SerializableModel {
       '__className__': 'NotificationSettings',
       'showMessagePreview': showMessagePreview,
       if (sendReadReceipts != null) 'sendReadReceipts': sendReadReceipts,
+      if (discoverable != null) 'discoverable': discoverable,
     };
   }
 
@@ -85,9 +98,11 @@ class _NotificationSettingsImpl extends NotificationSettings {
   _NotificationSettingsImpl({
     required bool showMessagePreview,
     bool? sendReadReceipts,
+    bool? discoverable,
   }) : super._(
          showMessagePreview: showMessagePreview,
          sendReadReceipts: sendReadReceipts,
+         discoverable: discoverable,
        );
 
   /// Returns a shallow copy of this [NotificationSettings]
@@ -97,12 +112,14 @@ class _NotificationSettingsImpl extends NotificationSettings {
   NotificationSettings copyWith({
     bool? showMessagePreview,
     Object? sendReadReceipts = _Undefined,
+    Object? discoverable = _Undefined,
   }) {
     return NotificationSettings(
       showMessagePreview: showMessagePreview ?? this.showMessagePreview,
       sendReadReceipts: sendReadReceipts is bool?
           ? sendReadReceipts
           : this.sendReadReceipts,
+      discoverable: discoverable is bool? ? discoverable : this.discoverable,
     );
   }
 }

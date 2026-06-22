@@ -17,6 +17,7 @@ void main() {
             ({
               required bool showMessagePreview,
               bool? sendReadReceipts,
+              bool? discoverable,
             }) async {},
       );
       final first = await settings.get();
@@ -33,7 +34,11 @@ void main() {
       final settings = NsgMessengerSettings.attachWithRpcs(
         getRpc: () async => NotificationSettings(showMessagePreview: true),
         setRpc:
-            ({required bool showMessagePreview, bool? sendReadReceipts}) async {
+            ({
+              required bool showMessagePreview,
+              bool? sendReadReceipts,
+              bool? discoverable,
+            }) async {
               setRpcCalls++;
               setValue = showMessagePreview;
             },
@@ -55,7 +60,11 @@ void main() {
           sendReadReceipts: true,
         ),
         setRpc:
-            ({required bool showMessagePreview, bool? sendReadReceipts}) async {
+            ({
+              required bool showMessagePreview,
+              bool? sendReadReceipts,
+              bool? discoverable,
+            }) async {
               setShow = showMessagePreview;
               setReceipts = sendReadReceipts;
             },
@@ -65,6 +74,31 @@ void main() {
       expect(setReceipts, isFalse);
       final after = await settings.get();
       expect(after.sendReadReceipts, isFalse, reason: 'кэш обновлён');
+    });
+
+    test('Settings: set(discoverable) прокидывается в RPC + кэш', () async {
+      bool? setShow;
+      bool? setDiscoverable;
+      final settings = NsgMessengerSettings.attachWithRpcs(
+        getRpc: () async => NotificationSettings(
+          showMessagePreview: true,
+          discoverable: true,
+        ),
+        setRpc:
+            ({
+              required bool showMessagePreview,
+              bool? sendReadReceipts,
+              bool? discoverable,
+            }) async {
+              setShow = showMessagePreview;
+              setDiscoverable = discoverable;
+            },
+      );
+      await settings.set(showMessagePreview: true, discoverable: false);
+      expect(setShow, isTrue);
+      expect(setDiscoverable, isFalse);
+      final after = await settings.get();
+      expect(after.discoverable, isFalse, reason: 'кэш обновлён');
     });
 
     test('invalidate(): следующий get() дёрнет RPC', () async {
@@ -78,6 +112,7 @@ void main() {
             ({
               required bool showMessagePreview,
               bool? sendReadReceipts,
+              bool? discoverable,
             }) async {},
       );
       await settings.get();
@@ -95,6 +130,7 @@ void main() {
             ({
               required bool showMessagePreview,
               bool? sendReadReceipts,
+              bool? discoverable,
             }) async => throw StateError('network down'),
       );
       await settings.get(); // populate cache

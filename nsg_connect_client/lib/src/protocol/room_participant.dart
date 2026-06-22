@@ -24,6 +24,7 @@ abstract class RoomParticipant implements _i1.SerializableModel {
     this.displayName,
     this.avatarUrl,
     required this.role,
+    this.username,
   });
 
   factory RoomParticipant({
@@ -32,6 +33,7 @@ abstract class RoomParticipant implements _i1.SerializableModel {
     String? displayName,
     String? avatarUrl,
     required _i2.RoomMemberRole role,
+    String? username,
   }) = _RoomParticipantImpl;
 
   factory RoomParticipant.fromJson(Map<String, dynamic> jsonSerialization) {
@@ -41,6 +43,7 @@ abstract class RoomParticipant implements _i1.SerializableModel {
       displayName: jsonSerialization['displayName'] as String?,
       avatarUrl: jsonSerialization['avatarUrl'] as String?,
       role: _i2.RoomMemberRole.fromJson((jsonSerialization['role'] as String)),
+      username: jsonSerialization['username'] as String?,
     );
   }
 
@@ -54,6 +57,12 @@ abstract class RoomParticipant implements _i1.SerializableModel {
 
   _i2.RoomMemberRole role;
 
+  /// **Вариант B (@username)**: публичный handle пользователя (см.
+  /// EmailAccount.username). Nullable — старые пользователи без backfill
+  /// или non-nsg identity-провайдеры его не имеют. UI показывает
+  /// `@username` рядом с displayName в результатах поиска.
+  String? username;
+
   /// Returns a shallow copy of this [RoomParticipant]
   /// with some or all fields replaced by the given arguments.
   @_i1.useResult
@@ -63,6 +72,7 @@ abstract class RoomParticipant implements _i1.SerializableModel {
     String? displayName,
     String? avatarUrl,
     _i2.RoomMemberRole? role,
+    String? username,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -73,6 +83,7 @@ abstract class RoomParticipant implements _i1.SerializableModel {
       if (displayName != null) 'displayName': displayName,
       if (avatarUrl != null) 'avatarUrl': avatarUrl,
       'role': role.toJson(),
+      if (username != null) 'username': username,
     };
   }
 
@@ -91,12 +102,14 @@ class _RoomParticipantImpl extends RoomParticipant {
     String? displayName,
     String? avatarUrl,
     required _i2.RoomMemberRole role,
+    String? username,
   }) : super._(
          messengerUserId: messengerUserId,
          matrixUserId: matrixUserId,
          displayName: displayName,
          avatarUrl: avatarUrl,
          role: role,
+         username: username,
        );
 
   /// Returns a shallow copy of this [RoomParticipant]
@@ -109,6 +122,7 @@ class _RoomParticipantImpl extends RoomParticipant {
     Object? displayName = _Undefined,
     Object? avatarUrl = _Undefined,
     _i2.RoomMemberRole? role,
+    Object? username = _Undefined,
   }) {
     return RoomParticipant(
       messengerUserId: messengerUserId ?? this.messengerUserId,
@@ -116,6 +130,7 @@ class _RoomParticipantImpl extends RoomParticipant {
       displayName: displayName is String? ? displayName : this.displayName,
       avatarUrl: avatarUrl is String? ? avatarUrl : this.avatarUrl,
       role: role ?? this.role,
+      username: username is String? ? username : this.username,
     );
   }
 }

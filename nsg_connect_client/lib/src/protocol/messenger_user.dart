@@ -26,9 +26,11 @@ abstract class MessengerUser implements _i1.SerializableModel {
     this.avatarUrl,
     bool? showMessagePreview,
     bool? sendReadReceipts,
+    bool? discoverable,
     required this.createdAt,
   }) : showMessagePreview = showMessagePreview ?? true,
-       sendReadReceipts = sendReadReceipts ?? true;
+       sendReadReceipts = sendReadReceipts ?? true,
+       discoverable = discoverable ?? true;
 
   factory MessengerUser({
     int? id,
@@ -39,6 +41,7 @@ abstract class MessengerUser implements _i1.SerializableModel {
     String? avatarUrl,
     bool? showMessagePreview,
     bool? sendReadReceipts,
+    bool? discoverable,
     required DateTime createdAt,
   }) = _MessengerUserImpl;
 
@@ -61,6 +64,9 @@ abstract class MessengerUser implements _i1.SerializableModel {
           : _i1.BoolJsonExtension.fromJson(
               jsonSerialization['sendReadReceipts'],
             ),
+      discoverable: jsonSerialization['discoverable'] == null
+          ? null
+          : _i1.BoolJsonExtension.fromJson(jsonSerialization['discoverable']),
       createdAt: _i1.DateTimeJsonExtension.fromJson(
         jsonSerialization['createdAt'],
       ),
@@ -104,6 +110,14 @@ abstract class MessengerUser implements _i1.SerializableModel {
   /// чистится, но peer НЕ видит ✓✓). default=true (как было).
   bool sendReadReceipts;
 
+  /// **Settings (Профиль и Настройки)**: discoverable в поиске. `true`
+  /// (default) → пользователь находится через `searchUsers`/`findUserByEmail`
+  /// другими. `false` → скрыт от поиска (кроме self-lookup — свой профиль
+  /// по своему email всегда виден). Privacy-toggle: «не дать незнакомцам
+  /// найти меня по имени/@username/email». Default true = backward-compat
+  /// (существующие строки остаются находимыми).
+  bool discoverable;
+
   DateTime createdAt;
 
   /// Returns a shallow copy of this [MessengerUser]
@@ -118,6 +132,7 @@ abstract class MessengerUser implements _i1.SerializableModel {
     String? avatarUrl,
     bool? showMessagePreview,
     bool? sendReadReceipts,
+    bool? discoverable,
     DateTime? createdAt,
   });
   @override
@@ -133,6 +148,7 @@ abstract class MessengerUser implements _i1.SerializableModel {
       if (avatarUrl != null) 'avatarUrl': avatarUrl,
       'showMessagePreview': showMessagePreview,
       'sendReadReceipts': sendReadReceipts,
+      'discoverable': discoverable,
       'createdAt': createdAt.toJson(),
     };
   }
@@ -155,6 +171,7 @@ class _MessengerUserImpl extends MessengerUser {
     String? avatarUrl,
     bool? showMessagePreview,
     bool? sendReadReceipts,
+    bool? discoverable,
     required DateTime createdAt,
   }) : super._(
          id: id,
@@ -165,6 +182,7 @@ class _MessengerUserImpl extends MessengerUser {
          avatarUrl: avatarUrl,
          showMessagePreview: showMessagePreview,
          sendReadReceipts: sendReadReceipts,
+         discoverable: discoverable,
          createdAt: createdAt,
        );
 
@@ -181,6 +199,7 @@ class _MessengerUserImpl extends MessengerUser {
     Object? avatarUrl = _Undefined,
     bool? showMessagePreview,
     bool? sendReadReceipts,
+    bool? discoverable,
     DateTime? createdAt,
   }) {
     return MessengerUser(
@@ -194,6 +213,7 @@ class _MessengerUserImpl extends MessengerUser {
       avatarUrl: avatarUrl is String? ? avatarUrl : this.avatarUrl,
       showMessagePreview: showMessagePreview ?? this.showMessagePreview,
       sendReadReceipts: sendReadReceipts ?? this.sendReadReceipts,
+      discoverable: discoverable ?? this.discoverable,
       createdAt: createdAt ?? this.createdAt,
     );
   }

@@ -243,6 +243,29 @@ class NsgMessenger {
     );
   }
 
+  /// **Settings (Профиль и Настройки)**: сменить отображаемое имя
+  /// текущего пользователя. Имя показывается в чатах (RoomSummary /
+  /// участники / шапка direct-чата) и в профиле.
+  ///
+  /// Server: validate `1..50` непустых символов → save в
+  /// `MessengerUser.displayName` + best-effort `setDisplayName` на
+  /// Matrix-профиле (чтобы другие matrix-клиенты тоже увидели).
+  ///
+  /// Throws `ArgumentError`, если `displayName` вне диапазона `1..50`
+  /// (host-app должен валидировать и на client-е перед вызовом). Прочие
+  /// ошибки save — re-throw от Serverpod / Matrix.
+  ///
+  /// Host-app после успеха может обновить локальный профиль и сбросить
+  /// `rooms.invalidate()` (server-computed display-имена для direct-чатов
+  /// подтянутся свежими на следующем list/get). Текущий
+  /// [NsgMessenger.session] не мутируется — отражает старое имя до
+  /// re-init / reauthenticate.
+  static Future<void> setDisplayName(String displayName) {
+    return MessengerRuntime.instance.client.messenger.setDisplayName(
+      displayName: displayName,
+    );
+  }
+
   /// **B17 phase 2**: кросс-room keyword-поиск по сообщениям ВСЕХ комнат
   /// пользователя (Matrix `/search` без room-фильтра). Каждый
   /// [MessengerMessage] несёт свой `roomId`/`matrixRoomId` — host-app

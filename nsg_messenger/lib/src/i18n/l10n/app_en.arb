@@ -585,6 +585,18 @@
   "@notificationSettingsSaveFailed": {
     "description": "TASK20-Phase2 Chunk 4: snackbar при RPC fail в setNotificationSettings."
   },
+  "settingsPrivacySectionTitle": "Privacy",
+  "@settingsPrivacySectionTitle": {
+    "description": "Settings: subheader above privacy toggles on the notification settings screen."
+  },
+  "notificationSettingsDiscoverableTitle": "Findable in search",
+  "@notificationSettingsDiscoverableTitle": {
+    "description": "Settings: SwitchListTile title — toggle whether other users can find you by name or email in search."
+  },
+  "notificationSettingsDiscoverableSubtitle": "Others can find you by name or email. Turn off to hide from search.",
+  "@notificationSettingsDiscoverableSubtitle": {
+    "description": "Settings: SwitchListTile subtitle — explains the discoverable privacy trade-off."
+  },
 
   "connectionStateHealthy": "Connected",
   "@connectionStateHealthy": {

@@ -138,6 +138,9 @@
   "notificationSettingsReadReceiptsTitle": "Отправлять отметки о прочтении",
   "notificationSettingsReadReceiptsSubtitle": "Другие видят, что вы прочитали их сообщения. Выключите, чтобы читать незаметно.",
   "notificationSettingsSaveFailed": "Не удалось сохранить — попробуйте ещё раз",
+  "settingsPrivacySectionTitle": "Приватность",
+  "notificationSettingsDiscoverableTitle": "Меня можно найти в поиске",
+  "notificationSettingsDiscoverableSubtitle": "Другие могут найти вас по имени или email. Выключите, чтобы скрыться из поиска.",
 
   "connectionStateHealthy": "Подключено",
   "connectionStateReconnecting": "Переподключение…",

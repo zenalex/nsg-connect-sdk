@@ -299,13 +299,22 @@ class EndpointEmailAuth extends _i2.EndpointRef {
   /// **Validations**:
   ///   * email matches `_emailRegex` (иначе `email_invalid_format`).
   ///   * password.length >= 8 (иначе `password_too_short`).
+  ///   * username matches `^[a-z0-9_]{3,20}$` (иначе
+  ///     `username_invalid_format`).
   ///   * email не существует в этом tenant-е (иначе `email_already_taken`).
+  ///   * username не занят в этом tenant-е (иначе `username_taken`).
+  ///
+  /// **Вариант B (@username)** — username обязателен при регистрации,
+  /// хранится lowercase, уникален per tenant (case-insensitive). DB
+  /// unique-индекс — race-safe backstop (concurrent signUp с тем же
+  /// handle → `username_taken`).
   ///
   /// **Не верифицирует email by link** — Phase2 task. Все newly-signed-up
   /// аккаунты сразу могут логиниться.
   _i3.Future<_i5.MessengerAuthContext> signUp({
     required String email,
     required String password,
+    required String username,
     String? displayName,
     required String tenantExternalKey,
     String? productExternalKey,
@@ -316,10 +325,38 @@ class EndpointEmailAuth extends _i2.EndpointRef {
     {
       'email': email,
       'password': password,
+      'username': username,
       'displayName': displayName,
       'tenantExternalKey': tenantExternalKey,
       'productExternalKey': productExternalKey,
       'deviceId': deviceId,
+    },
+    authenticated: false,
+  );
+
+  /// **Вариант B (@username)** — проверка доступности handle для live-
+  /// валидации в UI регистрации (debounced на клиенте).
+  ///
+  /// Возвращает `true` если username:
+  ///   * валиден по формату `^[a-z0-9_]{3,20}$` (после нормализации), И
+  ///   * не занят в указанном tenant-е (case-insensitive).
+  ///
+  /// Невалидный формат → `false` (UI отдельно подсказывает формат через
+  /// локальную проверку). Это не authoritative — финальная проверка
+  /// уникальности происходит в [signUp] под защитой unique-индекса
+  /// (между check и signUp возможна гонка).
+  ///
+  /// Rate-limit не вешаем: low-risk read-only lookup, без SMTP/enumeration-
+  /// чувствительности (публичные handle-ы и так раскрываются в поиске).
+  _i3.Future<bool> checkUsernameAvailable({
+    required String username,
+    required String tenantExternalKey,
+  }) => caller.callServerEndpoint<bool>(
+    'emailAuth',
+    'checkUsernameAvailable',
+    {
+      'username': username,
+      'tenantExternalKey': tenantExternalKey,
     },
     authenticated: false,
   );
@@ -359,6 +396,43 @@ class EndpointEmailAuth extends _i2.EndpointRef {
       caller.callServerEndpoint<void>(
         'emailAuth',
         'signOut',
+        {'sessionToken': sessionToken},
+        authenticated: false,
+      );
+
+  /// **Settings (Аккаунт)**: сменить пароль, зная текущий (в отличие от
+  /// email-code reset). Авторизация — через [sessionToken] текущей
+  /// сессии. Существующие сессии НЕ отзываются (для этого —
+  /// [signOutAllOtherDevices]).
+  _i3.Future<void> changePassword({
+    required String sessionToken,
+    required String currentPassword,
+    required String newPassword,
+  }) => caller.callServerEndpoint<void>(
+    'emailAuth',
+    'changePassword',
+    {
+      'sessionToken': sessionToken,
+      'currentPassword': currentPassword,
+      'newPassword': newPassword,
+    },
+    authenticated: false,
+  );
+
+  /// **Settings (Аккаунт)**: «выйти со всех остальных устройств» —
+  /// отзывает все EmailSession аккаунта КРОМЕ текущей. Другие устройства
+  /// теряют свою email-сессию → не могут переоформить messenger-сессию
+  /// (на следующем refresh выпадают). Текущее устройство остаётся в
+  /// сессии. Возвращает число отозванных сессий.
+  ///
+  /// Messenger-токены здесь не трогаем: их revoke без точного «кроме
+  /// текущего» рискует разлогинить текущее устройство; они истекут на
+  /// ближайшем refresh-е, который у других устройств упадёт (email-сессия
+  /// отозвана).
+  _i3.Future<int> signOutAllOtherDevices({required String sessionToken}) =>
+      caller.callServerEndpoint<int>(
+        'emailAuth',
+        'signOutAllOtherDevices',
         {'sessionToken': sessionToken},
         authenticated: false,
       );
@@ -993,10 +1067,17 @@ class EndpointMessenger extends _i2.EndpointRef {
     },
   );
 
-  /// **B17 phase 2**: кросс-room keyword-поиск по сообщениям ВСЕХ комнат
-  /// viewer-а (Matrix `/search` без room-фильтра). Каждый результат несёт
-  /// свой `roomId`/`matrixRoomId` — клиент группирует/навигирует по комнате.
-  /// Empty/short query → пусто. Только Matrix FTS (без pagination-fallback).
+  /// **B17 phase 3**: кросс-room keyword-поиск по сообщениям ВСЕХ комнат
+  /// viewer-а через серверный `message_index` (case-insensitive ILIKE,
+  /// корректно для кириллицы). Каждый результат несёт свой
+  /// `roomId`/`matrixRoomId` — клиент группирует/навигирует по комнате.
+  /// Empty/short query → пусто.
+  ///
+  /// **Замена Synapse FTS** (см. [MatrixMessageService.searchAllMessagesIndexed]):
+  /// Synapse postgres в C-locale case-fold-ит только ASCII, не кириллицу,
+  /// поэтому старый Matrix `/search`-путь промахивался мимо сообщений с
+  /// другим регистром. Старый [MatrixMessageService.searchAllMessages]
+  /// оставлен в коде, но endpoint теперь идёт через индекс.
   _i3.Future<List<_i7.MessengerMessage>> searchAllMessages({
     required String query,
     required int limit,
@@ -1422,17 +1503,54 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// `showMessagePreview` — required (snapshot semantics).
   /// **B11**: `sendReadReceipts` nullable — `null` от старого клиента =
   /// «не менять» (оставляем текущее значение колонки).
+  /// **Settings**: `discoverable` nullable — те же семантики (приватность
+  /// «можно ли найти в поиске»).
   _i3.Future<void> setNotificationSettings({
     required bool showMessagePreview,
     bool? sendReadReceipts,
+    bool? discoverable,
   }) => caller.callServerEndpoint<void>(
     'messenger',
     'setNotificationSettings',
     {
       'showMessagePreview': showMessagePreview,
       'sendReadReceipts': sendReadReceipts,
+      'discoverable': discoverable,
     },
   );
+
+  /// **Settings (Профиль и Настройки)**: сменить отображаемое имя.
+  /// Обновляет `MessengerUser.displayName` (то, что видно в чатах) +
+  /// best-effort синк в Matrix-профиль + зеркалит в `EmailAccount.
+  /// displayName` (для multi-account roster и будущих логинов). Валидация
+  /// 1..50 символов после trim.
+  _i3.Future<void> setDisplayName({required String displayName}) =>
+      caller.callServerEndpoint<void>(
+        'messenger',
+        'setDisplayName',
+        {'displayName': displayName},
+      );
+
+  /// **Временный maintenance-endpoint**: backfill серверного
+  /// `message_index` из существующей Matrix-истории всех active-комнат.
+  /// Главный агент вызывает это ОДИН раз после деплоя, чтобы поиск нашёл
+  /// уже отправленные (до включения индексации) сообщения.
+  ///
+  /// Возвращает map `matrixRoomId → indexed count` (`-1` = ошибка для
+  /// этой комнаты, `0` = нет member-а с Matrix-токеном / пусто).
+  ///
+  /// **Guard**: caller должен (а) быть аутентифицирован messenger-токеном
+  /// И (б) его email — в allowlist-е `SEARCH_INDEX_ADMIN_EMAILS`
+  /// (comma-separated env). Если env пуст — endpoint disabled (бросает
+  /// [MessengerNotAuthenticatedException]), чтобы случайно не открыть
+  /// дорогую операцию всем. Защита намеренно простая — это temporary
+  /// maintenance, не постоянная админка.
+  _i3.Future<Map<String, int>> adminBackfillSearchIndex() =>
+      caller.callServerEndpoint<Map<String, int>>(
+        'messenger',
+        'adminBackfillSearchIndex',
+        {},
+      );
 }
 
 /// This is an example endpoint that returns a greeting message through

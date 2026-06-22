@@ -14,7 +14,11 @@ void main() {
     final settings = NsgMessengerSettings.attachWithRpcs(
       getRpc: () async => NotificationSettings(showMessagePreview: false),
       setRpc:
-          ({required bool showMessagePreview, bool? sendReadReceipts}) async {},
+          ({
+            required bool showMessagePreview,
+            bool? sendReadReceipts,
+            bool? discoverable,
+          }) async {},
     );
     await tester.pumpWidget(
       wrapL10n(NotificationSettingsScreen(settingsOverride: settings)),
@@ -31,7 +35,11 @@ void main() {
     final settings = NsgMessengerSettings.attachWithRpcs(
       getRpc: () async => NotificationSettings(showMessagePreview: true),
       setRpc:
-          ({required bool showMessagePreview, bool? sendReadReceipts}) async {
+          ({
+            required bool showMessagePreview,
+            bool? sendReadReceipts,
+            bool? discoverable,
+          }) async {
             calls.add(showMessagePreview);
           },
     );
@@ -52,7 +60,11 @@ void main() {
     final settings = NsgMessengerSettings.attachWithRpcs(
       getRpc: () async => NotificationSettings(showMessagePreview: true),
       setRpc:
-          ({required bool showMessagePreview, bool? sendReadReceipts}) async =>
+          ({
+            required bool showMessagePreview,
+            bool? sendReadReceipts,
+            bool? discoverable,
+          }) async =>
               throw StateError('network'),
     );
     await tester.pumpWidget(

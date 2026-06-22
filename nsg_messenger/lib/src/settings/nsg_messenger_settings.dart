@@ -31,11 +31,16 @@ class NsgMessengerSettings {
       () => client.messenger.getNotificationSettings(),
       MessengerRuntime.instance.sessionManager,
     ),
-    setRpc: ({required bool showMessagePreview, bool? sendReadReceipts}) =>
-        withAuthRetry(
+    setRpc:
+        ({
+          required bool showMessagePreview,
+          bool? sendReadReceipts,
+          bool? discoverable,
+        }) => withAuthRetry(
           () => client.messenger.setNotificationSettings(
             showMessagePreview: showMessagePreview,
             sendReadReceipts: sendReadReceipts,
+            discoverable: discoverable,
           ),
           MessengerRuntime.instance.sessionManager,
         ),
@@ -79,17 +84,20 @@ class NsgMessengerSettings {
   Future<void> set({
     required bool showMessagePreview,
     bool? sendReadReceipts,
+    bool? discoverable,
   }) async {
     await _setRpc(
       showMessagePreview: showMessagePreview,
       sendReadReceipts: sendReadReceipts,
+      discoverable: discoverable,
     );
     // Update cache immediately — UX: следующий `get()` reflect
-    // обновлённое значение без extra RPC. `sendReadReceipts == null`
-    // (не меняли) → сохраняем прежнее закэшированное значение.
+    // обновлённое значение без extra RPC. Nullable-поля (`null` =
+    // «не меняли») → сохраняем прежнее закэшированное значение.
     _cached = NotificationSettings(
       showMessagePreview: showMessagePreview,
       sendReadReceipts: sendReadReceipts ?? _cached?.sendReadReceipts,
+      discoverable: discoverable ?? _cached?.discoverable,
     );
     _cachedAt = DateTime.now();
   }
@@ -108,4 +116,5 @@ typedef SetNotificationSettingsRpc =
     Future<void> Function({
       required bool showMessagePreview,
       bool? sendReadReceipts,
+      bool? discoverable,
     });

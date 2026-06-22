@@ -29,6 +29,7 @@ abstract class EmailAccount implements _i1.SerializableModel {
     required this.passwordSalt,
     int? iterations,
     this.displayName,
+    this.username,
     bool? verified,
     required this.createdAt,
     this.lastLoginAt,
@@ -43,6 +44,7 @@ abstract class EmailAccount implements _i1.SerializableModel {
     required String passwordSalt,
     int? iterations,
     String? displayName,
+    String? username,
     bool? verified,
     required DateTime createdAt,
     DateTime? lastLoginAt,
@@ -57,6 +59,7 @@ abstract class EmailAccount implements _i1.SerializableModel {
       passwordSalt: jsonSerialization['passwordSalt'] as String,
       iterations: jsonSerialization['iterations'] as int?,
       displayName: jsonSerialization['displayName'] as String?,
+      username: jsonSerialization['username'] as String?,
       verified: jsonSerialization['verified'] == null
           ? null
           : _i1.BoolJsonExtension.fromJson(jsonSerialization['verified']),
@@ -96,6 +99,14 @@ abstract class EmailAccount implements _i1.SerializableModel {
   /// при signUp или позже из profile screen.
   String? displayName;
 
+  /// **Вариант B (@username)**: публичный уникальный handle для поиска
+  /// пользователей. Формат `^[a-z0-9_]{3,20}$`, ВСЕГДА храним lowercase
+  /// → case-insensitive uniqueness per tenant (см. индекс ниже).
+  /// Nullable на уровне схемы (миграция-safety + backfill старых строк),
+  /// но required на уровне endpoint-а (signUp требует username). v1 —
+  /// immutable (смена = phase 2).
+  String? username;
+
   /// Email verified (clicked verification link). На MVP всегда true
   /// (verify-by-email пока не реализован — Phase2).
   bool verified;
@@ -115,6 +126,7 @@ abstract class EmailAccount implements _i1.SerializableModel {
     String? passwordSalt,
     int? iterations,
     String? displayName,
+    String? username,
     bool? verified,
     DateTime? createdAt,
     DateTime? lastLoginAt,
@@ -130,6 +142,7 @@ abstract class EmailAccount implements _i1.SerializableModel {
       'passwordSalt': passwordSalt,
       'iterations': iterations,
       if (displayName != null) 'displayName': displayName,
+      if (username != null) 'username': username,
       'verified': verified,
       'createdAt': createdAt.toJson(),
       if (lastLoginAt != null) 'lastLoginAt': lastLoginAt?.toJson(),
@@ -153,6 +166,7 @@ class _EmailAccountImpl extends EmailAccount {
     required String passwordSalt,
     int? iterations,
     String? displayName,
+    String? username,
     bool? verified,
     required DateTime createdAt,
     DateTime? lastLoginAt,
@@ -164,6 +178,7 @@ class _EmailAccountImpl extends EmailAccount {
          passwordSalt: passwordSalt,
          iterations: iterations,
          displayName: displayName,
+         username: username,
          verified: verified,
          createdAt: createdAt,
          lastLoginAt: lastLoginAt,
@@ -181,6 +196,7 @@ class _EmailAccountImpl extends EmailAccount {
     String? passwordSalt,
     int? iterations,
     Object? displayName = _Undefined,
+    Object? username = _Undefined,
     bool? verified,
     DateTime? createdAt,
     Object? lastLoginAt = _Undefined,
@@ -193,6 +209,7 @@ class _EmailAccountImpl extends EmailAccount {
       passwordSalt: passwordSalt ?? this.passwordSalt,
       iterations: iterations ?? this.iterations,
       displayName: displayName is String? ? displayName : this.displayName,
+      username: username is String? ? username : this.username,
       verified: verified ?? this.verified,
       createdAt: createdAt ?? this.createdAt,
       lastLoginAt: lastLoginAt is DateTime? ? lastLoginAt : this.lastLoginAt,

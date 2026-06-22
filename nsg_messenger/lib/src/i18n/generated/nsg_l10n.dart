@@ -853,6 +853,24 @@ abstract class NsgL10n {
   /// **'Couldn\'t save settings — try again'**
   String get notificationSettingsSaveFailed;
 
+  /// Settings: subheader above privacy toggles on the notification settings screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy'**
+  String get settingsPrivacySectionTitle;
+
+  /// Settings: SwitchListTile title — toggle whether other users can find you by name or email in search.
+  ///
+  /// In en, this message translates to:
+  /// **'Findable in search'**
+  String get notificationSettingsDiscoverableTitle;
+
+  /// Settings: SwitchListTile subtitle — explains the discoverable privacy trade-off.
+  ///
+  /// In en, this message translates to:
+  /// **'Others can find you by name or email. Turn off to hide from search.'**
+  String get notificationSettingsDiscoverableSubtitle;
+
   /// TASK20 followup (a): tooltip над ConnectionStateIndicator widget-ом когда transport WS живой.
   ///
   /// In en, this message translates to:

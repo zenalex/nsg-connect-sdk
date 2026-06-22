@@ -427,6 +427,17 @@ class NsgL10nRu extends NsgL10n {
       'Не удалось сохранить — попробуйте ещё раз';
 
   @override
+  String get settingsPrivacySectionTitle => 'Приватность';
+
+  @override
+  String get notificationSettingsDiscoverableTitle =>
+      'Меня можно найти в поиске';
+
+  @override
+  String get notificationSettingsDiscoverableSubtitle =>
+      'Другие могут найти вас по имени или email. Выключите, чтобы скрыться из поиска.';
+
+  @override
   String get connectionStateHealthy => 'Подключено';
 
   @override

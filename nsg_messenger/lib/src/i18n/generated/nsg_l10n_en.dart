@@ -424,6 +424,16 @@ class NsgL10nEn extends NsgL10n {
       'Couldn\'t save settings — try again';
 
   @override
+  String get settingsPrivacySectionTitle => 'Privacy';
+
+  @override
+  String get notificationSettingsDiscoverableTitle => 'Findable in search';
+
+  @override
+  String get notificationSettingsDiscoverableSubtitle =>
+      'Others can find you by name or email. Turn off to hide from search.';
+
+  @override
   String get connectionStateHealthy => 'Connected';
 
   @override
