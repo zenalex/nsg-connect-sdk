@@ -168,7 +168,8 @@ class _MessageComposerState extends State<MessageComposer> {
   final TextEditingController _ctl = TextEditingController();
   final FocusNode _focus = FocusNode();
   final LayerLink _typeaheadAnchor = LayerLink();
-  bool _hasText = false;
+  final _hasTextVN = ValueNotifier<bool>(false);
+  Timer? _typeaheadDebounce;
   bool _uploading = false;
   OverlayEntry? _typeaheadOverlay;
 
@@ -295,7 +296,7 @@ class _MessageComposerState extends State<MessageComposer> {
 
   void _syncHasText() {
     final has = _ctl.text.trim().isNotEmpty;
-    if (has != _hasText) setState(() => _hasText = has);
+    if (has != _hasTextVN.value) _hasTextVN.value = has;
     _maybeTriggerTyping(has);
   }
 
@@ -405,16 +406,19 @@ class _MessageComposerState extends State<MessageComposer> {
   }
 
   void _syncTypeahead() {
-    final query = _currentMentionQuery();
-    final participants = widget.participants;
-    if (query == null ||
-        participants == null ||
-        participants.isEmpty ||
-        !_focus.hasFocus) {
-      _hideTypeahead();
-      return;
-    }
-    _showTypeahead(query, participants);
+    _typeaheadDebounce?.cancel();
+    _typeaheadDebounce = Timer(const Duration(milliseconds: 100), () {
+      final query = _currentMentionQuery();
+      final participants = widget.participants;
+      if (query == null ||
+          participants == null ||
+          participants.isEmpty ||
+          !_focus.hasFocus) {
+        _hideTypeahead();
+        return;
+      }
+      _showTypeahead(query, participants);
+    });
   }
 
   void _showTypeahead(String query, List<RoomParticipant> participants) {
@@ -649,14 +653,14 @@ class _MessageComposerState extends State<MessageComposer> {
       _ctl.clear();
       _pendingMentions.clear();
       _hideTypeahead();
-      setState(() => _hasText = false);
+      _hasTextVN.value = false;
       onEdit(eventId, body, mentionedMessengerUserIds: mentions);
       return;
     }
     _ctl.clear();
     _pendingMentions.clear();
     _hideTypeahead();
-    setState(() => _hasText = false);
+    _hasTextVN.value = false;
     widget.onSend(body, mentionedMessengerUserIds: mentions);
   }
 
@@ -832,14 +836,14 @@ class _MessageComposerState extends State<MessageComposer> {
     final bubbleTokens =
         theme.extension<NsgMessageBubbleTokens>() ??
         NsgMessageBubbleTokens.fallback;
-    final canSend = widget.enabled && _hasText && !_uploading;
+    final canSend = widget.enabled && _hasTextVN.value && !_uploading;
     final canAttach =
         widget.enabled && !_uploading && widget.onSendAttachment != null;
     // **B-voice**: mic-button показывается когда composer empty (нет
     // текста) + есть attachment-flow + не редактируем. Иначе — обычная
     // send-кнопка.
     final showMic =
-        !_hasText &&
+        !_hasTextVN.value &&
         widget.editTarget == null &&
         widget.onSendAttachment != null &&
         widget.enabled &&
