@@ -284,6 +284,7 @@ class _MessageComposerState extends State<MessageComposer> {
       final cb = widget.onTyping;
       if (cb != null) unawaited(cb(false));
     }
+    _typeaheadDebounce?.cancel();
     _typeaheadOverlay?.remove();
     _typeaheadOverlay = null;
     _ctl.removeListener(_syncHasText);
@@ -291,6 +292,7 @@ class _MessageComposerState extends State<MessageComposer> {
     _focus.removeListener(_syncTypeahead);
     _ctl.dispose();
     _focus.dispose();
+    _hasTextVN.dispose();
     super.dispose();
   }
 
@@ -836,18 +838,8 @@ class _MessageComposerState extends State<MessageComposer> {
     final bubbleTokens =
         theme.extension<NsgMessageBubbleTokens>() ??
         NsgMessageBubbleTokens.fallback;
-    final canSend = widget.enabled && _hasTextVN.value && !_uploading;
     final canAttach =
         widget.enabled && !_uploading && widget.onSendAttachment != null;
-    // **B-voice**: mic-button показывается когда composer empty (нет
-    // текста) + есть attachment-flow + не редактируем. Иначе — обычная
-    // send-кнопка.
-    final showMic =
-        !_hasTextVN.value &&
-        widget.editTarget == null &&
-        widget.onSendAttachment != null &&
-        widget.enabled &&
-        !_uploading;
     return Material(
       color: theme.colorScheme.surface,
       elevation: 8,
@@ -903,97 +895,101 @@ class _MessageComposerState extends State<MessageComposer> {
                             // `HardwareKeyboard.addHandler` — это первый
                             // уровень dispatch, до того как event попадёт
                             // в EditableText.
-                            child: TextField(
-                              controller: _ctl,
-                              focusNode: _focus,
-                              enabled: widget.enabled && !_uploading,
-                              minLines: 1,
-                              maxLines: 5,
-                              // Telegram-style лимит. `maxLengthEnforcement`
-                              // truncated → typing/paste выше лимита просто
-                              // обрезается (без error-dialog-а; counter под
-                              // полем визуально подсказывает оставшийся
-                              // объём). Сервер тоже валидирует
-                              // (MessageBodyTooLargeException) — anti-abuse.
-                              //
-                              // `enforced` (не `truncateAfterCompositionEnds`):
-                              // последний обрезал только ПОСЛЕ завершения IME-
-                              // композиции, поэтому paste-then-immediate-send
-                              // (особенно desktop, где paste не даёт
-                              // composition-end) проскакивал > лимита и ловил
-                              // server-side MessageBodyTooLargeException →
-                              // silent failed-send (наблюдали в проде: 5760
-                              // chars). `enforced` режет немедленно на любом
-                              // вводе/paste. Mid-IME-обрезка для лимита 4096
-                              // практически невозможна (никто не композит
-                              // 4096 символов за один IME-сеанс).
-                              maxLength: kMessageBodyMaxChars,
-                              maxLengthEnforcement:
-                                  MaxLengthEnforcement.enforced,
-                              // textInputAction.send только на mobile —
-                              // на desktop macOS этот input action заставляет
-                              // платформу вызывать performAction(send) на
-                              // Enter ЛЮБОГО типа (включая Shift+Enter),
-                              // минуя HardwareKeyboard handler и Shortcuts;
-                              // ломает desktop UX «Shift+Enter = newline».
-                              textInputAction: _kIsMobile
-                                  ? TextInputAction.send
-                                  : TextInputAction.newline,
-                              // onSubmitted — только на mobile (кнопка Send
-                              // на soft-keyboard). На desktop callback
-                              // триггерится и на Shift+Enter (см. выше),
-                              // что вызывает преждевременный submit.
-                              onSubmitted: _kIsMobile ? (_) => _submit() : null,
-                              // #12: пока открыт typeahead упоминаний, тап (в
-                              // т.ч. по самому оверлею) не должен уводить фокус
-                              // из поля — иначе focus-listener убирает оверлей
-                              // раньше, чем срабатывает onTap выбора, и клик по
-                              // подсказке «теряется» (баг на web). По смене
-                              // каретки/запроса оверлей всё равно скрывается
-                              // через _ctl-listener (_syncTypeahead).
-                              onTapOutside: (event) {
-                                if (_typeaheadOverlay != null) return;
-                                _focus.unfocus();
-                              },
-                              // **B19 (phase2)**: format-кнопки в context-menu
-                              // выделения (Bold/Italic) — мобильный/тач-аналог
-                              // Ctrl/Cmd+B/I (B12). Добавляются только когда
-                              // есть выделение (collapsed → нечего оборачивать).
-                              contextMenuBuilder: (ctx, editableState) {
-                                final items = List<ContextMenuButtonItem>.of(
-                                  editableState.contextMenuButtonItems,
-                                );
-                                final sel =
-                                    editableState.textEditingValue.selection;
-                                if (sel.isValid && !sel.isCollapsed) {
-                                  items.addAll([
-                                    ContextMenuButtonItem(
-                                      label: l.composerFormatBold,
-                                      onPressed: () {
-                                        editableState.hideToolbar();
-                                        _wrapSelection('**');
-                                      },
-                                    ),
-                                    ContextMenuButtonItem(
-                                      label: l.composerFormatItalic,
-                                      onPressed: () {
-                                        editableState.hideToolbar();
-                                        _wrapSelection('_');
-                                      },
-                                    ),
-                                  ]);
-                                }
-                                return AdaptiveTextSelectionToolbar.buttonItems(
-                                  anchors: editableState.contextMenuAnchors,
-                                  buttonItems: items,
-                                );
-                              },
-                              decoration: InputDecoration(
-                                hintText: l.chatScreenSendHint,
-                                border: InputBorder.none,
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 12,
+                            child: RepaintBoundary(
+                              child: TextField(
+                                controller: _ctl,
+                                focusNode: _focus,
+                                enabled: widget.enabled && !_uploading,
+                                minLines: 1,
+                                maxLines: 5,
+                                // Telegram-style лимит. `maxLengthEnforcement`
+                                // truncated → typing/paste выше лимита просто
+                                // обрезается (без error-dialog-а; counter под
+                                // полем визуально подсказывает оставшийся
+                                // объём). Сервер тоже валидирует
+                                // (MessageBodyTooLargeException) — anti-abuse.
+                                //
+                                // `enforced` (не `truncateAfterCompositionEnds`):
+                                // последний обрезал только ПОСЛЕ завершения IME-
+                                // композиции, поэтому paste-then-immediate-send
+                                // (особенно desktop, где paste не даёт
+                                // composition-end) проскакивал > лимита и ловил
+                                // server-side MessageBodyTooLargeException →
+                                // silent failed-send (наблюдали в проде: 5760
+                                // chars). `enforced` режет немедленно на любом
+                                // вводе/paste. Mid-IME-обрезка для лимита 4096
+                                // практически невозможна (никто не композит
+                                // 4096 символов за один IME-сеанс).
+                                maxLength: kMessageBodyMaxChars,
+                                maxLengthEnforcement:
+                                    MaxLengthEnforcement.enforced,
+                                // textInputAction.send только на mobile —
+                                // на desktop macOS этот input action заставляет
+                                // платформу вызывать performAction(send) на
+                                // Enter ЛЮБОГО типа (включая Shift+Enter),
+                                // минуя HardwareKeyboard handler и Shortcuts;
+                                // ломает desktop UX «Shift+Enter = newline».
+                                textInputAction: _kIsMobile
+                                    ? TextInputAction.send
+                                    : TextInputAction.newline,
+                                // onSubmitted — только на mobile (кнопка Send
+                                // на soft-keyboard). На desktop callback
+                                // триггерится и на Shift+Enter (см. выше),
+                                // что вызывает преждевременный submit.
+                                onSubmitted: _kIsMobile
+                                    ? (_) => _submit()
+                                    : null,
+                                // #12: пока открыт typeahead упоминаний, тап (в
+                                // т.ч. по самому оверлею) не должен уводить фокус
+                                // из поля — иначе focus-listener убирает оверлей
+                                // раньше, чем срабатывает onTap выбора, и клик по
+                                // подсказке «теряется» (баг на web). По смене
+                                // каретки/запроса оверлей всё равно скрывается
+                                // через _ctl-listener (_syncTypeahead).
+                                onTapOutside: (event) {
+                                  if (_typeaheadOverlay != null) return;
+                                  _focus.unfocus();
+                                },
+                                // **B19 (phase2)**: format-кнопки в context-menu
+                                // выделения (Bold/Italic) — мобильный/тач-аналог
+                                // Ctrl/Cmd+B/I (B12). Добавляются только когда
+                                // есть выделение (collapsed → нечего оборачивать).
+                                contextMenuBuilder: (ctx, editableState) {
+                                  final items = List<ContextMenuButtonItem>.of(
+                                    editableState.contextMenuButtonItems,
+                                  );
+                                  final sel =
+                                      editableState.textEditingValue.selection;
+                                  if (sel.isValid && !sel.isCollapsed) {
+                                    items.addAll([
+                                      ContextMenuButtonItem(
+                                        label: l.composerFormatBold,
+                                        onPressed: () {
+                                          editableState.hideToolbar();
+                                          _wrapSelection('**');
+                                        },
+                                      ),
+                                      ContextMenuButtonItem(
+                                        label: l.composerFormatItalic,
+                                        onPressed: () {
+                                          editableState.hideToolbar();
+                                          _wrapSelection('_');
+                                        },
+                                      ),
+                                    ]);
+                                  }
+                                  return AdaptiveTextSelectionToolbar.buttonItems(
+                                    anchors: editableState.contextMenuAnchors,
+                                    buttonItems: items,
+                                  );
+                                },
+                                decoration: InputDecoration(
+                                  hintText: l.chatScreenSendHint,
+                                  border: InputBorder.none,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 12,
+                                  ),
                                 ),
                               ),
                             ),
@@ -1003,32 +999,39 @@ class _MessageComposerState extends State<MessageComposer> {
                   // для long-press вместо обычного send когда composer
                   // empty. Long-press start → запись; release → stop+send;
                   // короткий tap (< 1s) → snackbar "too short".
-                  if (showMic && !_recording)
-                    GestureDetector(
-                      onLongPressStart: (_) => _startRecording(),
-                      onLongPressEnd: (_) => _stopRecording(),
-                      child: IconButton(
-                        icon: const Icon(Icons.mic_none),
-                        tooltip: l.voiceRecordTooltip,
-                        // Tap (short) ничего не делает — snackbar/feedback
-                        // на отмена показывается через _stopRecording если
-                        // запись была короткой.
-                        onPressed: () {},
-                      ),
-                    )
-                  else if (_recording)
-                    IconButton(
-                      icon: Icon(
-                        Icons.stop_circle,
-                        color: theme.colorScheme.error,
-                      ),
-                      tooltip: l.voiceRecordingHint,
-                      onPressed: () => _stopRecording(),
-                    )
-                  else
-                    ValueListenableBuilder<bool>(
-                      valueListenable: _hasTextVN,
-                      builder: (_, hasText, __) {
+                  ValueListenableBuilder<bool>(
+                    valueListenable: _hasTextVN,
+                    builder: (_, hasText, __) {
+                      final showMic =
+                          !hasText &&
+                          widget.editTarget == null &&
+                          widget.onSendAttachment != null &&
+                          widget.enabled &&
+                          !_uploading;
+                      if (showMic && !_recording) {
+                        return GestureDetector(
+                          onLongPressStart: (_) => _startRecording(),
+                          onLongPressEnd: (_) => _stopRecording(),
+                          child: IconButton(
+                            icon: const Icon(Icons.mic_none),
+                            tooltip: l.voiceRecordTooltip,
+                            onPressed: () {},
+                          ),
+                        );
+                        // **B-voice**: показываем mic IconButton с GestureDetector
+                        // для long-press вместо обычного send когда composer
+                        // empty. Long-press start → запись; release → stop+send;
+                        // короткий tap (< 1s) → snackbar "too short".
+                      } else if (_recording) {
+                        return IconButton(
+                          icon: Icon(
+                            Icons.stop_circle,
+                            color: theme.colorScheme.error,
+                          ),
+                          tooltip: l.voiceRecordingHint,
+                          onPressed: () => _stopRecording(),
+                        );
+                      } else {
                         final canSend =
                             widget.enabled && hasText && !_uploading;
                         return IconButton(
@@ -1042,8 +1045,9 @@ class _MessageComposerState extends State<MessageComposer> {
                               : l.chatScreenSendTooltip,
                           onPressed: canSend ? _submit : null,
                         );
-                      },
-                    ),
+                      }
+                    },
+                  ),
                 ],
               ),
             ),
