@@ -1026,14 +1026,23 @@ class _MessageComposerState extends State<MessageComposer> {
                       onPressed: () => _stopRecording(),
                     )
                   else
-                    IconButton(
-                      icon: Icon(
-                        widget.editTarget != null ? Icons.check : Icons.send,
-                      ),
-                      tooltip: widget.editTarget != null
-                          ? l.messageComposerSaveTooltip
-                          : l.chatScreenSendTooltip,
-                      onPressed: canSend ? _submit : null,
+                    ValueListenableBuilder<bool>(
+                      valueListenable: _hasTextVN,
+                      builder: (_, hasText, __) {
+                        final canSend =
+                            widget.enabled && hasText && !_uploading;
+                        return IconButton(
+                          icon: Icon(
+                            widget.editTarget != null
+                                ? Icons.check
+                                : Icons.send,
+                          ),
+                          tooltip: widget.editTarget != null
+                              ? l.messageComposerSaveTooltip
+                              : l.chatScreenSendTooltip,
+                          onPressed: canSend ? _submit : null,
+                        );
+                      },
                     ),
                 ],
               ),
