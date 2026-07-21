@@ -1,7 +1,7 @@
 name: nsg_messenger
 description: NSG Connect — Flutter SDK для встраивания мессенджера Chatista в продуктовые приложения.
 version: 0.0.1
-homepage: https://github.com/zenalex/nsg-connect
+homepage: https://github.com/zenalex/nsg-connect-sdk
 # На время разработки SDK depends-ит на nsg_connect_client/_flutter
 # через path. Перед публикацией на pub.dev снимаем publish_to и
 # меняем path-зависимости на git/version.
@@ -17,15 +17,17 @@ dependencies:
   # Сгенерированный Serverpod-клиент NSG Connect (TASK03/04).
   nsg_connect_client:
     path: ../nsg_connect_client
-  nsg_connect_flutter:
-    path: ../nsg_connect_flutter
-  serverpod_flutter: 3.4.8
+  serverpod_flutter: 3.4.11
   # TASK12 Chunk 3: persistent token storage (DPAPI/Keychain/Keystore).
   # Версия зафиксирована до 9.x — API stable, fallback в memory на
   # ошибках встроен в AuthTokenStore (см. _SecureAuthTokenStore).
   flutter_secure_storage: ^9.2.2
   # Для fingerprint-а MessengerAuthContext (sha256 без accessToken).
   crypto: ^3.0.3
+  # Web-only: paste картинки из буфера в composer (Ctrl+V). Используется
+  # только в clipboard_image_web.dart (conditional import) — на не-web
+  # платформах не компилируется. Pure-dart web-interop, без native кода.
+  web: ^1.1.0
   # @visibleForTesting и прочие аннотации.
   meta: ^1.16.0
   # TASK14: аватарки в чат-листе с graceful fallback на initials.
@@ -49,6 +51,12 @@ dependencies:
   # TASK19 Chunk 3: media attachments — picker для image/video из
   # gallery/camera. file_picker (для arbitrary файлов) — Phase2.
   image_picker: ^1.1.2
+  # Issue #54 п.2: отправка ПРОИЗВОЛЬНЫХ файлов (не только картинок).
+  # image_picker принципиально умеет только media из галереи/камеры,
+  # поэтому пункт «Файл» в пикере строится на file_picker. Плагин
+  # покрывает все нужные платформы (Win/mac/Linux/iOS/Android/web) и
+  # с image_picker не конфликтует — разные плагины, разные каналы.
+  file_picker: ^8.1.7
   # TASK19 Chunk 3: fullscreen image viewer с pinch-zoom для tap-on-
   # bubble в chat. Используется только в `AttachmentImageViewer`,
   # никаких других usage-ов в SDK.
@@ -65,14 +73,54 @@ dependencies:
   # объявляем direct dependency — иначе pub каждый раз assumes
   # transitive можно пропасть.
   path_provider: ^2.1.4
+  # TASK46 (SDK): голосовые звонки 1:1 (WebRTC поверх Matrix-сигналинга).
+  # Тот же pin, что доказан спайком (apps/spike): собирается на web
+  # (dart2js/--no-wasm) + windows (нативный libwebrtc.m144). CallController
+  # держит RTCPeerConnection за WebRtcAdapter-интерфейсом (тестируемость),
+  # прямой usage flutter_webrtc — только в RealWebRtcAdapter.
+  flutter_webrtc: ^1.5.2
+  # TASK46 (SDK): UUID для callId (per-звонок) + partyId (per-device).
+  uuid: ^4.5.1
+  # TASK47 iter1: дисковый оффлайн-кэш чатов (список + последние сообщения,
+  # только текст). sqflite — тот же движок, что в Titan-клиенте
+  # (совместимость, §6), + sqflite_common_ffi для desktop (Win/Linux/mac).
+  # WEB: дисковый кэш в iter1 ОТКЛЮЧЁН (нужен sqlite-wasm worker — отдельная
+  # web-стратегия, §6/iter2); на web работает индикация оффлайна + in-memory.
+  sqflite: ^2.4.2
+  sqflite_common_ffi: ^2.4.0+2
+  # Web-безопасные интерфейсы (Database/DatabaseFactory) — импортируются
+  # в store и стабе фабрики, чтобы SDK КОМПИЛИРОВАЛСЯ на web (dart:io/ffi
+  # берутся только в io-варианте фабрики через conditional import).
+  sqflite_common: ^2.5.4
+  # join() путей кэш-БД (уже транзитивно, но объявляем явно).
+  path: ^1.9.0
+  # Пересылка (forward) наружу: системный share sheet для текста/картинок
+  # (action-sheet «Поделиться»). Кроссплатформенный (Android/iOS/web/Win/
+  # Mac/Linux); на web file-share деградирует до Web Share API. XFile
+  # берётся из этого же пакета (re-export cross_file).
+  share_plus: ^12.0.1
+  pasteboard: ^0.5.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  # TASK46 (SDK): детерминистичный виртуальный таймер для теста
+  # invite-lifetime timeout в CallController (без реального ожидания).
+  fake_async: ^1.3.1
+  # Оптимистичный альбом (тест мультипика): фейковый ImagePickerPlatform
+  # (getMultiImageWithOptions) + MockPlatformInterfaceMixin.
+  image_picker_platform_interface: ^2.10.0
+  plugin_platform_interface: ^2.1.5
 
 flutter:
   # TASK22 Chunk 1: enable l10n code-gen из ARB-файлов через config
   # `l10n.yaml` (template-arb-file: app_en.arb; output-class: NsgL10n;
   # synthetic-package: false — generates lib/src/i18n/generated/).
   generate: true
+  # Ringback-ассеты исходящего звонка (обратный сигнал каллеру, две стадии).
+  # Грузятся just_audio по ключу `packages/nsg_messenger/assets/audio/...`;
+  # host-app получает их автоматически (см. assets/audio/README.md).
+  assets:
+    - assets/audio/ringback_connecting.wav
+    - assets/audio/ringback_ringing.wav

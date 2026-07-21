@@ -1,4 +1,10 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:nsg_connect_client/nsg_connect_client.dart';
+
+import 'forward_source.dart';
+import 'status_card_data.dart';
 
 /// UI-side представление сообщения в чате (TASK15).
 ///
@@ -41,6 +47,12 @@ class ChatMessage {
     this.deletedAt,
     this.mentionedMessengerUserIds,
     this.senderDisplayName,
+    this.albumId,
+    this.forwardedFromName,
+    this.forwardedFromMessengerUserId,
+    this.forwardedSource,
+    this.statusCard,
+    this.localImageBytes,
   });
 
   /// Идентификатор для optimistic dedup. Обязателен для собственных
@@ -112,9 +124,72 @@ class ChatMessage {
   ///   4. raw mxid.
   final String? senderDisplayName;
 
+  /// **Альбом**: общий id для нескольких картинок, отправленных одним
+  /// действием (клиентская группировка «одно сообщение с мозаикой»).
+  /// Едет в custom-поле `nsg.album_id` сырого Matrix-content-а (см.
+  /// [_albumIdFromContent]); optimistic-сообщения проставляют напрямую.
+  /// Non-null → рендер группирует подряд идущие сообщения одного альбома
+  /// в один пузырь-мозаику. Null → обычное одиночное сообщение.
+  final String? albumId;
+
+  /// **Пересылка (forward)**: имя исходного автора пересланного сообщения
+  /// (как в Telegram — «Переслано от X»). Едет в custom-поле
+  /// `nsg.forwarded_from` сырого Matrix-content-а (см. [_forwardedFromContent]).
+  /// Non-null → bubble рисует шапку «Переслано от <имя>». Null → обычное
+  /// (не пересланное) сообщение.
+  ///
+  /// **Re-forward**: при пересылке уже-пересланного сообщения сохраняется
+  /// ПЕРВЫЙ автор (значение переносится как есть, а не имя промежуточного
+  /// пересыльщика) — см. `MessagesController.forwardMessage`.
+  final String? forwardedFromName;
+
+  /// **Пересылка**: `messengerUserId` исходного автора (custom-поле
+  /// `nsg.forwarded_from_uid`). Опционально — для будущего tap-to-profile
+  /// на шапке «Переслано от X». Может быть null даже при заполненном
+  /// [forwardedFromName] (старый сервер / cross-tenant автор).
+  final int? forwardedFromMessengerUserId;
+
+  /// **Пересылка, issue #41**: координаты ПЕРВОИСТОЧНИКА (roomId + eventId)
+  /// в custom-полях `nsg.forwarded_room_id` / `nsg.forwarded_event_id`.
+  /// Non-null → шапка «Переслано от X» кликабельна и открывает исходный чат
+  /// на исходном сообщении.
+  ///
+  /// Null — **штатная** ситуация, а не ошибка: у сообщений, пересланных ДО
+  /// issue #41, этих полей в content-е нет (на старте это большинство
+  /// пересланных сообщений). UI в таком случае просто не делает шапку
+  /// кликабельной — см. [ForwardSource.tryParse].
+  final ForwardSource? forwardedSource;
+
+  /// **TASK58 (автопост статусов)**: структурированная статус-карточка,
+  /// приезжающая в custom-поле `nsg.status_card` сырого Matrix-content-а
+  /// (см. [StatusCardData.tryParse]). Заполняется для сообщений с
+  /// `msgType == 'nsg.status_card'` от бота-подпорки входящего webhook-а.
+  /// Non-null → bubble рисует карточку (`_StatusCardBubble`) вместо plain
+  /// body; null → обычный fallback на body (в т.ч. если поле не распарсилось).
+  final StatusCardData? statusCard;
+
+  /// **Оптимистичный альбом**: локальные байты картинки, показанные СРАЗУ
+  /// (мозаика видна до аплоада). Заполнено только для собственных pending-
+  /// картинок, у которых `attachment` ещё null (аплоад в фоне). После
+  /// `withUploadedAttachment` байты **сохраняются** (плитка расблюривается
+  /// без перезагрузки), обнуляются только при promote в sent из /sync или
+  /// в tombstone. НЕ участвует в `==`/`hashCode` (identity Uint8List
+  /// сломал бы optimistic dedup).
+  final Uint8List? localImageBytes;
+
+  /// **Оптимистичный альбом**: картинка ещё грузится (bytes есть, mxc —
+  /// нет). UI рисует плитку блюром + прогресс-индикатор. После аплоада
+  /// (`attachment != null`) — расблюр.
+  bool get isUploadingImage =>
+      status == ChatMessageStatus.pending &&
+      attachment == null &&
+      localImageBytes != null;
+
   bool get isEdited => editedAt != null;
   bool get isDeleted => deletedAt != null;
   bool get hasReply => replyToMessageId != null;
+  bool get isForwarded =>
+      forwardedFromName != null && forwardedFromName!.isNotEmpty;
   bool get hasMentions =>
       mentionedMessengerUserIds != null &&
       mentionedMessengerUserIds!.isNotEmpty;
@@ -129,23 +204,63 @@ class ChatMessage {
   factory ChatMessage.fromServer(
     MessengerMessage m, {
     String? overrideClientTxnId,
-  }) => ChatMessage(
-    clientTxnId: overrideClientTxnId ?? m.clientTxnId,
-    matrixEventId: m.matrixEventId,
-    senderMatrixUserId: m.senderMatrixUserId,
-    senderMessengerUserId: m.senderMessengerUserId,
-    body: m.body,
-    msgType: m.msgType,
-    serverTimestamp: m.serverTimestamp,
-    threadId: m.threadId,
-    replyToMessageId: m.replyToMessageId,
-    status: ChatMessageStatus.sent,
-    attachment: m.attachment,
-    editedAt: m.editedAt,
-    deletedAt: m.deletedAt,
-    mentionedMessengerUserIds: m.mentionedMessengerUserIds,
-    senderDisplayName: m.senderDisplayName,
-  );
+    Uint8List? overrideLocalImageBytes,
+  }) {
+    // Декодируем сырой Matrix-content ОДИН раз — из него достаём и
+    // `nsg.album_id`, и forward-атрибуцию (`nsg.forwarded_from[_uid]`).
+    final content = _decodeContent(m);
+    final fwdUid = content?['nsg.forwarded_from_uid'];
+    return ChatMessage(
+      clientTxnId: overrideClientTxnId ?? m.clientTxnId,
+      matrixEventId: m.matrixEventId,
+      senderMatrixUserId: m.senderMatrixUserId,
+      senderMessengerUserId: m.senderMessengerUserId,
+      body: m.body,
+      msgType: m.msgType,
+      serverTimestamp: m.serverTimestamp,
+      threadId: m.threadId,
+      replyToMessageId: m.replyToMessageId,
+      status: ChatMessageStatus.sent,
+      attachment: m.attachment,
+      editedAt: m.editedAt,
+      deletedAt: m.deletedAt,
+      mentionedMessengerUserIds: m.mentionedMessengerUserIds,
+      senderDisplayName: m.senderDisplayName,
+      albumId: _nonEmptyString(content?['nsg.album_id']),
+      forwardedFromName: _nonEmptyString(content?['nsg.forwarded_from']),
+      forwardedFromMessengerUserId: fwdUid is int ? fwdUid : null,
+      // Issue #41: координаты первоисточника — весь defensive-парсинг
+      // (полупара / не-число / пустая строка) внутри tryParse.
+      forwardedSource: ForwardSource.tryParse(content),
+      // **TASK58**: статус-карточка автопоста — тот же passthrough из
+      // сырого content-а, что album_id/forwarded_from.
+      statusCard: StatusCardData.tryParse(content),
+      localImageBytes: overrideLocalImageBytes,
+    );
+  }
+
+  /// Декодировать сырой Matrix-content DTO (server UTF-8/JSON-кодирует
+  /// полный content в [MessengerMessage.content]) в Map. Any decode-ошибка /
+  /// отсутствие content-а → null.
+  static Map<String, dynamic>? _decodeContent(MessengerMessage m) {
+    final raw = m.content;
+    if (raw == null) return null;
+    try {
+      final bytes = raw.buffer.asUint8List(
+        raw.offsetInBytes,
+        raw.lengthInBytes,
+      );
+      if (bytes.isEmpty) return null;
+      final decoded = jsonDecode(utf8.decode(bytes));
+      return decoded is Map<String, dynamic> ? decoded : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Вернуть значение, если это непустая строка; иначе null.
+  static String? _nonEmptyString(Object? v) =>
+      (v is String && v.isNotEmpty) ? v : null;
 
   /// Создать pending-сообщение для optimistic-render. UI показывает его
   /// сразу при `MessagesController.sendMessage`, replace на sent после
@@ -161,6 +276,11 @@ class ChatMessage {
     String? replyToMessageId,
     AttachmentRef? attachment,
     List<int>? mentionedMessengerUserIds,
+    String? albumId,
+    String? forwardedFromName,
+    int? forwardedFromMessengerUserId,
+    ForwardSource? forwardedSource,
+    Uint8List? localImageBytes,
   }) => ChatMessage(
     clientTxnId: clientTxnId,
     matrixEventId: null,
@@ -174,6 +294,11 @@ class ChatMessage {
     status: ChatMessageStatus.pending,
     attachment: attachment,
     mentionedMessengerUserIds: mentionedMessengerUserIds,
+    albumId: albumId,
+    forwardedFromName: forwardedFromName,
+    forwardedFromMessengerUserId: forwardedFromMessengerUserId,
+    forwardedSource: forwardedSource,
+    localImageBytes: localImageBytes,
   );
 
   /// Перевести pending → failed (retainable retry-state). Сохраняет
@@ -195,6 +320,12 @@ class ChatMessage {
     deletedAt: deletedAt,
     mentionedMessengerUserIds: mentionedMessengerUserIds,
     senderDisplayName: senderDisplayName,
+    albumId: albumId,
+    forwardedFromName: forwardedFromName,
+    forwardedFromMessengerUserId: forwardedFromMessengerUserId,
+    forwardedSource: forwardedSource,
+    statusCard: statusCard,
+    localImageBytes: localImageBytes,
   );
 
   /// Перевести failed → pending (на retry). Сохраняет тот же
@@ -215,7 +346,51 @@ class ChatMessage {
     deletedAt: deletedAt,
     mentionedMessengerUserIds: mentionedMessengerUserIds,
     senderDisplayName: senderDisplayName,
+    albumId: albumId,
+    forwardedFromName: forwardedFromName,
+    forwardedFromMessengerUserId: forwardedFromMessengerUserId,
+    forwardedSource: forwardedSource,
+    statusCard: statusCard,
+    localImageBytes: localImageBytes,
   );
+
+  /// **Оптимистичный альбом**: аплоад завершён — привязать `attachment`
+  /// (расблюр плитки). `msgType` пере-деривится из mime, `localImageBytes`
+  /// **сохраняются** (плитка показывает те же байты, пока не прилетит mxc —
+  /// без промежуточной перезагрузки), status остаётся `pending` (send RPC
+  /// ещё впереди). Промоут в sent/tombstone обнулит байты.
+  ChatMessage withUploadedAttachment(AttachmentRef ref) => ChatMessage(
+    clientTxnId: clientTxnId,
+    matrixEventId: matrixEventId,
+    senderMatrixUserId: senderMatrixUserId,
+    senderMessengerUserId: senderMessengerUserId,
+    body: body,
+    msgType: _msgTypeForMime(ref.mimeType),
+    serverTimestamp: serverTimestamp,
+    threadId: threadId,
+    replyToMessageId: replyToMessageId,
+    status: status,
+    attachment: ref,
+    editedAt: editedAt,
+    deletedAt: deletedAt,
+    mentionedMessengerUserIds: mentionedMessengerUserIds,
+    senderDisplayName: senderDisplayName,
+    albumId: albumId,
+    forwardedFromName: forwardedFromName,
+    forwardedFromMessengerUserId: forwardedFromMessengerUserId,
+    forwardedSource: forwardedSource,
+    localImageBytes: localImageBytes,
+  );
+
+  /// Matrix msgType из MIME для оптимистичного bubble (`m.image`/`m.video`/
+  /// `m.file`). Идентично серверному деривату; сервер подтверждает точное
+  /// значение в RPC-return.
+  static String _msgTypeForMime(String mime) {
+    if (mime.startsWith('image/')) return 'm.image';
+    if (mime.startsWith('video/')) return 'm.video';
+    if (mime.startsWith('audio/')) return 'm.audio';
+    return 'm.file';
+  }
 
   /// **TASK37**: применить edit — body заменяется, `editedAt`
   /// populated. Использует и optimistic-update в controller, и
@@ -240,6 +415,12 @@ class ChatMessage {
     deletedAt: deletedAt,
     mentionedMessengerUserIds: newMentionedMessengerUserIds,
     senderDisplayName: senderDisplayName,
+    albumId: albumId,
+    forwardedFromName: forwardedFromName,
+    forwardedFromMessengerUserId: forwardedFromMessengerUserId,
+    forwardedSource: forwardedSource,
+    statusCard: statusCard,
+    localImageBytes: localImageBytes,
   );
 
   /// **TASK37**: применить delete — body cleared, `deletedAt`
@@ -260,6 +441,10 @@ class ChatMessage {
     deletedAt: deletedAt,
     mentionedMessengerUserIds: null,
     senderDisplayName: senderDisplayName,
+    albumId: albumId,
+    forwardedFromName: forwardedFromName,
+    forwardedFromMessengerUserId: forwardedFromMessengerUserId,
+    forwardedSource: forwardedSource,
   );
 
   bool get isPending => status == ChatMessageStatus.pending;

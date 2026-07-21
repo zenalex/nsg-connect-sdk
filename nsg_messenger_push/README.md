@@ -69,3 +69,39 @@ TASK20-Phase2 (TBD priority после MVP):
   `device_info_plus` + `Platform.isIOS|Android` + `kIsWeb`.
 
 См. [TASK20.md](../../docs/tasks/TASK20.md) Phase2 для full plan.
+
+## Совместимость с firebase-стеком хост-приложения (TASK71)
+
+Пакет ставится рядом с разными версиями firebase у хоста — пин заменён
+диапазоном:
+
+| зависимость | диапазон | референс-хост (низ) | embedded-хост Futbolista (верх) |
+|---|---|---|---|
+| `firebase_core` | `>=3.6.0 <5.0.0` | 3.15.2 | 4.12.1 |
+| `firebase_messaging` | `>=15.1.3 <17.0.0` | 15.2.10 | 16.4.3 |
+
+Верхний край форсируется тем, что хост тянет `firebase_analytics` 12.x
+(требует `firebase_core` 4.x) — обойти нельзя даже при доставке пушей
+через nsg-connect. Оба края проверены: `flutter pub get` + тесты пакета
+зелёные, `dart analyze` чист (см. TASK71).
+
+**Почему диапазон работает без правок кода.** Пакет не использует
+`firebase_core` API вовсе — core лишь peer для host-овского
+`Firebase.initializeApp()`. Из `firebase_messaging` используется только
+стабильная в 15↔16 поверхность: `getToken` / `onTokenRefresh` /
+`requestPermission` / `onBackgroundMessage` / `onMessageOpenedApp` /
+`RemoteMessage.data` / `getAPNSToken`. `_flutterfire_internals` жёстко
+связывает core↔messaging по мажорам — pub сам выберет согласованную пару
+(3.6+15.1 или 4.x+16.x), микс невозможен.
+
+**Проверить верхний край локально** (pub в изоляции берёт новейшее =
+верх; чтобы прогнать именно нижний, хост его закрепит своим пином, как
+Chatista `firebase_core: ^3.6.0`):
+
+```yaml
+# временный dependency_overrides в pubspec пакета
+dependency_overrides:
+  firebase_core: ^4.12.1
+  firebase_messaging: ^16.4.3
+```
+затем `flutter pub get && flutter analyze lib && flutter test`.

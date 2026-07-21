@@ -102,7 +102,7 @@ void main() {
       final manager = MessengerSessionManager.attachWithRpcs(
         sessionRpc: (c) async =>
             sessionFor(token: 'live', validFor: const Duration(hours: 24)),
-        refreshRpc: (c) async => throw StateError('refresh must NOT be called'),
+        refreshRpc: (c, {previousToken}) async => throw StateError('refresh must NOT be called'),
         authTokenProvider: _FakeProvider([ctx()]),
         store: InMemoryAuthTokenStore(),
         errorReporter: null,
@@ -130,7 +130,7 @@ void main() {
             token: 'tok-initial',
             validFor: const Duration(hours: 24),
           ),
-          refreshRpc: (c) async {
+          refreshRpc: (c, {previousToken}) async {
             refreshCalls++;
             return sessionFor(
               token: 'tok-refreshed',
@@ -168,7 +168,7 @@ void main() {
             token: 'tok-initial',
             validFor: const Duration(hours: 24),
           ),
-          refreshRpc: (c) async {
+          refreshRpc: (c, {previousToken}) async {
             refreshCalls++;
             return sessionFor(
               token: 'tok-refreshed',
@@ -203,7 +203,7 @@ void main() {
       final manager = MessengerSessionManager.attachWithRpcs(
         sessionRpc: (c) async =>
             sessionFor(token: 'live', validFor: const Duration(hours: 24)),
-        refreshRpc: (c) async {
+        refreshRpc: (c, {previousToken}) async {
           refreshCalls++;
           throw StateError('refresh MUST NOT be called on network error');
         },
@@ -236,7 +236,7 @@ void main() {
       final manager = MessengerSessionManager.attachWithRpcs(
         sessionRpc: (c) async =>
             sessionFor(token: 'live', validFor: const Duration(hours: 24)),
-        refreshRpc: (c) async {
+        refreshRpc: (c, {previousToken}) async {
           refreshCalls++;
           throw StateError('refresh MUST NOT be called');
         },
@@ -263,7 +263,7 @@ void main() {
       final manager = MessengerSessionManager.attachWithRpcs(
         sessionRpc: (c) async =>
             sessionFor(token: 'live', validFor: const Duration(hours: 24)),
-        refreshRpc: (c) async {
+        refreshRpc: (c, {previousToken}) async {
           refreshCalls++;
           throw StateError('refresh MUST NOT be called');
         },
@@ -290,7 +290,7 @@ void main() {
       final manager = MessengerSessionManager.attachWithRpcs(
         sessionRpc: (c) async =>
             sessionFor(token: 'live', validFor: const Duration(hours: 24)),
-        refreshRpc: (c) async {
+        refreshRpc: (c, {previousToken}) async {
           refreshCalls++;
           throw StateError('refresh MUST NOT be called');
         },
@@ -328,7 +328,7 @@ void main() {
             token: 'tok-initial',
             validFor: const Duration(hours: 24),
           ),
-          refreshRpc: (c) async {
+          refreshRpc: (c, {previousToken}) async {
             refreshCalls++;
             return refreshCompleter.future;
           },
@@ -392,7 +392,7 @@ void main() {
       final manager = MessengerSessionManager.attachWithRpcs(
         sessionRpc: (c) async =>
             sessionFor(token: 'live', validFor: const Duration(hours: 24)),
-        refreshRpc: (c) async =>
+        refreshRpc: (c, {previousToken}) async =>
             throw InvalidTokenException(reason: 'simulated expiry'),
         authTokenProvider: _FakeProvider([ctx(), ctx()]),
         store: store,
@@ -424,7 +424,7 @@ void main() {
       final manager = MessengerSessionManager.attachWithRpcs(
         sessionRpc: (c) async =>
             sessionFor(token: 'live', validFor: const Duration(hours: 24)),
-        refreshRpc: (c) async => throw const SocketException('offline'),
+        refreshRpc: (c, {previousToken}) async => throw const SocketException('offline'),
         authTokenProvider: _FakeProvider([ctx(), ctx()]),
         store: store,
         errorReporter: null,
@@ -459,7 +459,7 @@ void main() {
         final manager = MessengerSessionManager.attachWithRpcs(
           sessionRpc: (c) async =>
               sessionFor(token: 'live', validFor: const Duration(hours: 24)),
-          refreshRpc: (c) async => throw InvalidTokenException(reason: 'dead'),
+          refreshRpc: (c, {previousToken}) async => throw InvalidTokenException(reason: 'dead'),
           authTokenProvider: _FakeProvider([ctx(), ctx()]),
           store: InMemoryAuthTokenStore(),
           errorReporter: null,
@@ -497,7 +497,7 @@ void main() {
             token: 'tok-initial',
             validFor: const Duration(hours: 24),
           ),
-          refreshRpc: (c) async {
+          refreshRpc: (c, {previousToken}) async {
             refreshCalls++;
             return sessionFor(
               token: 'tok-refreshed-$refreshCalls',

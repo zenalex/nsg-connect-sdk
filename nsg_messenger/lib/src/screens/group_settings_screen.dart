@@ -9,6 +9,7 @@ import '../messenger_runtime.dart';
 import '../rooms/nsg_messenger_rooms.dart';
 import '../widgets/nsg_avatar_image.dart';
 import 'add_members_to_group_screen.dart';
+import 'integrations_screen.dart';
 import 'participants_screen.dart';
 
 /// **B16-extension**: экран настроек группы. Открывается тапом по
@@ -78,6 +79,64 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
     }
   }
 
+  /// **Персональное имя (2026-07-13)**: диалог «своё название» — видно
+  /// только мне (customRoomName на моём membership). Пусто = сброс.
+  Future<void> _editCustomName(RoomDetails details) async {
+    final l = NsgL10n.of(context);
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final ctl = TextEditingController(text: details.name ?? '');
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l.roomCustomNameAction),
+        content: TextField(
+          controller: ctl,
+          autofocus: true,
+          maxLength: 64,
+          decoration: InputDecoration(
+            helperText: l.roomCustomNameHint,
+            helperMaxLines: 2,
+            border: const OutlineInputBorder(),
+          ),
+          onSubmitted: (v) => Navigator.of(ctx).pop(v),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(l.commonCancel),
+          ),
+          // Явный сброс к общему имени.
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(''),
+            child: Text(l.roomCustomNameReset),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(ctl.text),
+            child: Text(l.contactSave),
+          ),
+        ],
+      ),
+    );
+    if (result == null || !mounted) return;
+    try {
+      await _rooms.setRoomCustomName(roomId: widget.roomId, customName: result);
+      await _refresh();
+    } catch (e, st) {
+      // Пользователь видит ошибку — трекер обязан видеть причину. Пустой
+      // `result` = сброс к общему имени: путь тот же, но ломается иначе.
+      MessengerRuntime.instance.reportError(
+        e,
+        st,
+        tags: {
+          'room.action': result.isEmpty
+              ? 'resetRoomCustomName'
+              : 'setRoomCustomName',
+        },
+      );
+      messenger?.showSnackBar(SnackBar(content: Text(l.roomAdminGenericError)));
+    }
+  }
+
   /// **B16-ext (group avatar)**: pick image → upload → refresh details.
   /// Best-effort: ошибки показываются snackbar-ом, текущий avatar
   /// остаётся прежним.
@@ -93,7 +152,12 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
         maxHeight: 1024,
         imageQuality: 85,
       );
-    } catch (e) {
+    } catch (e, st) {
+      MessengerRuntime.instance.reportError(
+        e,
+        st,
+        tags: {'room.action': 'pickAvatar'},
+      );
       messenger?.showSnackBar(
         SnackBar(content: Text('Не удалось открыть галерею: $e')),
       );
@@ -117,8 +181,15 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
       messenger?.showSnackBar(
         const SnackBar(content: Text('Аватар группы обновлён')),
       );
-    } catch (e) {
+    } catch (e, st) {
       if (!mounted) return;
+      // Тег отделяет upload от «не открылась галерея» выше: снеки разные, но
+      // ломается тут уже сеть/сервер, а не picker.
+      MessengerRuntime.instance.reportError(
+        e,
+        st,
+        tags: {'room.action': 'setRoomAvatar'},
+      );
       messenger?.showSnackBar(
         SnackBar(content: Text('Не удалось загрузить аватар: $e')),
       );
@@ -212,8 +283,16 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
         ),
       );
       return;
-    } catch (e) {
+    } catch (e, st) {
       if (!mounted) return;
+      // Частичный dissolve — типизированная ветка выше (штатный ответ, owner
+      // просто повторяет). Здесь остаётся неожиданное, и его текст уходит
+      // пользователю сырым.
+      MessengerRuntime.instance.reportError(
+        e,
+        st,
+        tags: {'room.action': 'dissolveRoom'},
+      );
       messenger?.hideCurrentSnackBar();
       messenger?.showSnackBar(
         SnackBar(content: Text('$e'), duration: const Duration(seconds: 5)),
@@ -257,6 +336,11 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
               details.viewerRole == RoomMemberRole.admin ||
               details.viewerRole == RoomMemberRole.owner;
           final isGroup = details.roomType == RoomType.group;
+          // **TASK68**: раздел «Избранного» — комната с единственным
+          // участником. Прячем всё, что подразумевает собеседника
+          // (участники / добавить / роспуск группы), и показываем
+          // настройку автоочистки.
+          final isSaved = details.roomType == RoomType.saved;
           return RefreshIndicator(
             onRefresh: _refresh,
             child: ListView(
@@ -357,24 +441,48 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
                   ),
                 ),
                 const SizedBox(height: 28),
-                ListTile(
-                  leading: const Icon(Icons.people_outline),
-                  title: const Text('Участники'),
-                  trailing: Text(
-                    '${details.totalParticipants}',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                    ),
-                  ),
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) =>
-                            ParticipantsScreen(roomId: widget.roomId),
+                // **TASK68**: автоочистка — только для «Избранного»
+                // (сервер тем же гейтом отклоняет прочие типы).
+                if (isSaved)
+                  ListTile(
+                    leading: const Icon(Icons.auto_delete_outlined),
+                    title: Text(NsgL10n.of(context).autoCleanupTitle),
+                    subtitle: Text(NsgL10n.of(context).autoCleanupHint),
+                    trailing: Text(
+                      autoCleanupLabel(
+                        NsgL10n.of(context),
+                        details.autoCleanupTtlSeconds,
                       ),
-                    );
-                  },
-                ),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    onTap: () => _editAutoCleanup(details),
+                  ),
+                // Участники: у self-чата их ровно один (сам), строка
+                // бессмысленна.
+                if (!isSaved)
+                  ListTile(
+                    leading: const Icon(Icons.people_outline),
+                    title: const Text('Участники'),
+                    trailing: Text(
+                      '${details.totalParticipants}',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.6,
+                        ),
+                      ),
+                    ),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) =>
+                              ParticipantsScreen(roomId: widget.roomId),
+                        ),
+                      );
+                    },
+                  ),
                 if (isAdmin && isGroup)
                   ListTile(
                     leading: Icon(
@@ -389,6 +497,30 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
                       ),
                     ),
                     onTap: _openAddMembers,
+                  ),
+                // **Персональное имя (2026-07-13)**: видно только мне,
+                // сильнее общего названия группы (запрос постановщика —
+                // «та же система персонального именования для групп»).
+                ListTile(
+                  leading: const Icon(Icons.drive_file_rename_outline),
+                  title: Text(NsgL10n.of(context).roomCustomNameAction),
+                  subtitle: Text(NsgL10n.of(context).roomCustomNameHint),
+                  onTap: () => _editCustomName(details),
+                ),
+                // **TASK58**: «Интеграции» — автопосты (входящие webhook-и)
+                // комнаты. Видно только owner/admin (server enforces тоже).
+                if (isAdmin)
+                  ListTile(
+                    leading: const Icon(Icons.webhook),
+                    title: Text(NsgL10n.of(context).integrationsTitle),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) =>
+                              IntegrationsScreen(roomId: widget.roomId),
+                        ),
+                      );
+                    },
                   ),
                 if (details.viewerRole == RoomMemberRole.owner && isGroup) ...[
                   const SizedBox(height: 24),
@@ -417,7 +549,7 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
   }
 
   String _roomTypeLabel(RoomType type) {
-    // Используем if-chain — `RoomType` имеет 9 значений, не все из них
+    // Используем if-chain — `RoomType` имеет 10 значений, не все из них
     // в текущем UI используются (family / system / internal /
     // customerRoom — server-internal). Switch с required catch-all
     // выглядит хуже, чем targeted labels с дефолтом.
@@ -427,6 +559,92 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
     if (type == RoomType.support) return 'Поддержка';
     if (type == RoomType.team) return 'Команда';
     if (type == RoomType.family) return 'Семья';
+    if (type == RoomType.saved) return 'Раздел «Избранного»';
     return type.name;
   }
+
+  /// **TASK68**: выбор TTL автоочистки — «Никогда» + пресеты ТЗ
+  /// (день / неделя / месяц). «Свой» интервал отложен: пресеты
+  /// покрывают заявленные сценарии, а свободный ввод требует своего
+  /// пикера и валидации границ.
+  Future<void> _editAutoCleanup(RoomDetails details) async {
+    final l = NsgL10n.of(context);
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final current = details.autoCleanupTtlSeconds;
+    // Результат — запись, а не голый `Duration?`: «Никогда» это валидный
+    // выбор со значением null, и от свайп-закрытия (тоже null) его иначе
+    // не отличить — пользователь смахнул шит, а мы бы снесли ему TTL.
+    final choice = await showModalBottomSheet<({Duration? ttl})>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+              child: Text(
+                l.autoCleanupTitle,
+                style: Theme.of(sheetContext).textTheme.titleMedium,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Text(
+                l.autoCleanupHint,
+                style: Theme.of(sheetContext).textTheme.bodySmall,
+              ),
+            ),
+            for (final option in kAutoCleanupOptions)
+              ListTile(
+                title: Text(autoCleanupLabel(l, option?.inSeconds)),
+                trailing: (option?.inSeconds) == current
+                    ? Icon(
+                        Icons.check,
+                        color: Theme.of(sheetContext).colorScheme.primary,
+                      )
+                    : null,
+                onTap: () => Navigator.of(sheetContext).pop((ttl: option)),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (choice == null || !mounted) return;
+    if (choice.ttl?.inSeconds == current) return; // без изменений — no-op
+    try {
+      await _rooms.setRoomAutoCleanupTtl(
+        roomId: widget.roomId,
+        ttl: choice.ttl,
+      );
+      await _refresh();
+    } catch (e, st) {
+      MessengerRuntime.instance.reportError(
+        e,
+        st,
+        tags: {'room.action': 'setRoomAutoCleanupTtl'},
+      );
+      if (!mounted) return;
+      messenger?.showSnackBar(SnackBar(content: Text(l.roomAdminGenericError)));
+    }
+  }
+}
+
+/// **TASK68**: варианты TTL автоочистки для UI — «Никогда» (null) +
+/// пресеты §3.5 ТЗ. Держим рядом с рендером подписи, чтобы список и
+/// его человекочитаемые названия не разъезжались.
+const List<Duration?> kAutoCleanupOptions = <Duration?>[
+  null,
+  Duration(days: 1),
+  Duration(days: 7),
+  Duration(days: 30),
+];
+
+/// Подпись выбранного TTL: «Никогда» / «Через N дней».
+String autoCleanupLabel(NsgL10n l, int? ttlSeconds) {
+  if (ttlSeconds == null || ttlSeconds <= 0) return l.autoCleanupOff;
+  final days = Duration(seconds: ttlSeconds).inDays;
+  // TTL короче суток пресетами не задаётся, но сервер их допускает
+  // (minTtl = 1 час) — округляем вверх до дня, чтобы не показать «0 дней».
+  return l.autoCleanupAfterDays(days < 1 ? 1 : days);
 }

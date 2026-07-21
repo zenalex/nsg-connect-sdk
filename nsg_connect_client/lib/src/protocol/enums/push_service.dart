@@ -20,10 +20,23 @@ import 'package:serverpod_client/serverpod_client.dart' as _i1;
 ///   * `apns` — Apple Push Notification Service напрямую (только iOS,
 ///     для customer-app которые не используют Firebase).
 ///   * `webpush` — W3C Web Push API (для Chatista web).
+///   * `voip` — Apple PushKit VoIP-push (TASK46, звонки в фоне). Отдельный
+///     APNs-канал/топик `<bundleId>.voip`: будит убитый app и даёт
+///     показать CallKit-входящий вовремя. PushKit-токен отличается от
+///     обычного APNs/FCM-токена → регистрируется отдельным
+///     `DeviceRegistration` с этим `pushService`. Доставляется напрямую в
+///     APNs через `ApnsVoipPushAdapter` (мимо FCM).
+///   * `rustore` — RuStore Push (VKPNS) для Android-устройств без Google
+///     Play Services (TASK61). Клиент выбирает провайдера на старте
+///     (GMS → fcm, иначе RuStore); сервер доставляет через
+///     `RuStorePushAdapter` (VKPNS `messages:send`, FCM-совместимый
+///     формат, авторизация — сервисный токен проекта RuStore Console).
 enum PushService implements _i1.SerializableModel {
   fcm,
   apns,
-  webpush;
+  webpush,
+  voip,
+  rustore;
 
   static PushService fromJson(String name) {
     switch (name) {
@@ -33,6 +46,10 @@ enum PushService implements _i1.SerializableModel {
         return PushService.apns;
       case 'webpush':
         return PushService.webpush;
+      case 'voip':
+        return PushService.voip;
+      case 'rustore':
+        return PushService.rustore;
       default:
         throw ArgumentError(
           'Value "$name" cannot be converted to "PushService"',

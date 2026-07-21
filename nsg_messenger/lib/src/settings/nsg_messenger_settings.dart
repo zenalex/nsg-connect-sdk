@@ -36,11 +36,17 @@ class NsgMessengerSettings {
           required bool showMessagePreview,
           bool? sendReadReceipts,
           bool? discoverable,
+          String? whoCanMessageMe,
+          bool? showCardsOnCall,
+          bool? presenceHidden,
         }) => withAuthRetry(
           () => client.messenger.setNotificationSettings(
             showMessagePreview: showMessagePreview,
             sendReadReceipts: sendReadReceipts,
             discoverable: discoverable,
+            whoCanMessageMe: whoCanMessageMe,
+            showCardsOnCall: showCardsOnCall,
+            presenceHidden: presenceHidden,
           ),
           MessengerRuntime.instance.sessionManager,
         ),
@@ -85,11 +91,17 @@ class NsgMessengerSettings {
     required bool showMessagePreview,
     bool? sendReadReceipts,
     bool? discoverable,
+    String? whoCanMessageMe,
+    bool? showCardsOnCall,
+    bool? presenceHidden,
   }) async {
     await _setRpc(
       showMessagePreview: showMessagePreview,
       sendReadReceipts: sendReadReceipts,
       discoverable: discoverable,
+      whoCanMessageMe: whoCanMessageMe,
+      showCardsOnCall: showCardsOnCall,
+      presenceHidden: presenceHidden,
     );
     // Update cache immediately — UX: следующий `get()` reflect
     // обновлённое значение без extra RPC. Nullable-поля (`null` =
@@ -98,6 +110,9 @@ class NsgMessengerSettings {
       showMessagePreview: showMessagePreview,
       sendReadReceipts: sendReadReceipts ?? _cached?.sendReadReceipts,
       discoverable: discoverable ?? _cached?.discoverable,
+      whoCanMessageMe: whoCanMessageMe ?? _cached?.whoCanMessageMe,
+      showCardsOnCall: showCardsOnCall ?? _cached?.showCardsOnCall,
+      presenceHidden: presenceHidden ?? _cached?.presenceHidden,
     );
     _cachedAt = DateTime.now();
   }
@@ -117,4 +132,7 @@ typedef SetNotificationSettingsRpc =
       required bool showMessagePreview,
       bool? sendReadReceipts,
       bool? discoverable,
+      String? whoCanMessageMe,
+      bool? showCardsOnCall,
+      bool? presenceHidden,
     });

@@ -4,7 +4,8 @@ import 'package:nsg_connect_client/nsg_connect_client.dart';
 import '../i18n/generated/nsg_l10n.dart';
 import '../messenger_runtime.dart';
 import '../rooms/nsg_messenger_rooms.dart';
-import '../rooms/participant_action_sheet.dart' show mapAdminError;
+import '../rooms/participant_action_sheet.dart'
+    show isExpectedAdminError, mapAdminError;
 
 /// **TASK29 Chunk 2**: список заблокированных в комнате с возможностью
 /// `Unban`. Lazy-loaded на open (NsgMessengerRooms не кэширует banned
@@ -92,8 +93,17 @@ class _BannedUsersScreenState extends State<BannedUsersScreen> {
           ),
         ),
       );
-    } catch (e) {
+    } catch (e, st) {
       if (!mounted) return;
+      // Только немапнутое: известные админ-отказы объясняет mapAdminError,
+      // это штатный ответ сервера, а не баг.
+      if (!isExpectedAdminError(e)) {
+        MessengerRuntime.instance.reportError(
+          e,
+          st,
+          tags: {'room.action': 'unban'},
+        );
+      }
       // Revert.
       setState(() => _visible = snapshot);
       messenger?.showSnackBar(
@@ -123,8 +133,17 @@ class _BannedUsersScreenState extends State<BannedUsersScreen> {
           duration: const Duration(seconds: 3),
         ),
       );
-    } catch (e) {
+    } catch (e, st) {
       if (!mounted) return;
+      // Re-invite после unban — отдельный тег: снек тот же, но ломается
+      // здесь уже inviteToRoom, а не unban.
+      if (!isExpectedAdminError(e)) {
+        MessengerRuntime.instance.reportError(
+          e,
+          st,
+          tags: {'room.action': 'reinvite'},
+        );
+      }
       messenger?.showSnackBar(
         SnackBar(
           content: Text(mapAdminError(e, l)),

@@ -36,6 +36,10 @@ abstract class Room implements _i1.SerializableModel {
     required this.updatedAt,
     this.lastMessageAt,
     this.lastMessageBody,
+    this.supportEscalationTier,
+    this.awaitingOperatorSince,
+    this.autoCleanupTtlSeconds,
+    this.directPairKey,
   });
 
   factory Room({
@@ -54,6 +58,10 @@ abstract class Room implements _i1.SerializableModel {
     required DateTime updatedAt,
     DateTime? lastMessageAt,
     String? lastMessageBody,
+    int? supportEscalationTier,
+    DateTime? awaitingOperatorSince,
+    int? autoCleanupTtlSeconds,
+    String? directPairKey,
   }) = _RoomImpl;
 
   factory Room.fromJson(Map<String, dynamic> jsonSerialization) {
@@ -85,6 +93,14 @@ abstract class Room implements _i1.SerializableModel {
               jsonSerialization['lastMessageAt'],
             ),
       lastMessageBody: jsonSerialization['lastMessageBody'] as String?,
+      supportEscalationTier: jsonSerialization['supportEscalationTier'] as int?,
+      awaitingOperatorSince: jsonSerialization['awaitingOperatorSince'] == null
+          ? null
+          : _i1.DateTimeJsonExtension.fromJson(
+              jsonSerialization['awaitingOperatorSince'],
+            ),
+      autoCleanupTtlSeconds: jsonSerialization['autoCleanupTtlSeconds'] as int?,
+      directPairKey: jsonSerialization['directPairKey'] as String?,
     );
   }
 
@@ -132,6 +148,62 @@ abstract class Room implements _i1.SerializableModel {
 
   String? lastMessageBody;
 
+  /// **TASK48**: текущий достигнутый тир эскалации support-комнаты.
+  /// `null` = базовый уровень (фронт-линия, не эскалировано). При явной
+  /// или авто-эскалации ставится в номер подключённого тира. Значимо
+  /// только для support-комнат (roomType == support); у прочих остаётся
+  /// null. См. TASK48 §5.2 (конкурентность — условный UPDATE).
+  int? supportEscalationTier;
+
+  /// **TASK48 iter2**: момент, с которого support-чат ждёт ответа
+  /// ЧЕЛОВЕКА-оператора. Ставится при сообщении заявителя (если ещё
+  /// null), снимается (null) при ответе оператора-человека; бот НЕ
+  /// снимает. Основа авто-эскалации по таймауту: `SupportEscalationSweep
+  /// FutureCall` берёт комнаты, где `now - awaitingOperatorSince >
+  /// team.escalationTimeoutMinutes`. null = никто не ждёт. Существующие
+  /// комнаты после деплоя стартуют таймер только со следующего сообщения
+  /// заявителя (ретроактивной реконструкции нет). См. TASK48 §5.3.
+  DateTime? awaitingOperatorSince;
+
+  /// **TASK68 (автоочистка «Избранного»)**: TTL сообщений комнаты в
+  /// СЕКУНДАХ. `null` (дефолт) — автоочистка выключена, ничего не
+  /// удаляется. Настройка живёт на комнате, а не на пользователе:
+  /// «файлообмен» чистится раз в сутки, «заметки» — никогда.
+  ///
+  /// Секунды, а не Duration, потому что у Serverpod нет колоночного
+  /// типа Duration; SDK/UI работают с пресетами (день / неделя /
+  /// месяц / свой) — см. `SavedChatPolicy.allowedTtls`.
+  ///
+  /// Сметает `SavedCleanupFutureCall` — редактит (Matrix redaction)
+  /// сообщения старше TTL, **пропуская закреплённые**
+  /// (`m.room.pinned_events`). Значимо для любого типа комнаты, но
+  /// на TASK68 задаётся только для `RoomType.saved` (см.
+  /// `SavedChatService.setAutoCleanupTtl`).
+  int? autoCleanupTtlSeconds;
+
+  /// **Issue #40 (двоение личных чатов)**: канонический ключ пары
+  /// участников direct-комнаты — `"<minId>:<maxId>"` по
+  /// `MessengerUser.id`. Заполняется только для `roomType == direct`;
+  /// у group/team/support/saved/product остаётся `null`.
+  ///
+  /// **Зачем колонка, а не вычисление по RoomMembership**: после
+  /// `leaveRoom` строка membership ушедшего УДАЛЯЕТСЯ, и по локальной
+  /// БД уже невозможно узнать, между кем была комната. Поэтому
+  /// `_findExistingDirect` не находил осиротевшую комнату, `createDirect`
+  /// создавал новую, и у оставшегося участника чат двоился. Ключ на комнате
+  /// переживает уход любого участника и делает поиск однозначным.
+  ///
+  /// Индекс намеренно НЕ unique: на момент миграции в проде уже лежат
+  /// дубли (это и есть баг), unique-индекс просто не создался бы.
+  /// Уникальность держится на уровне приложения (`_findExistingDirect`
+  /// + revive вместо создания). Ужесточить до unique можно отдельной
+  /// миграцией ПОСЛЕ прогона `bin/cleanup_direct_duplicates.dart`.
+  ///
+  /// Legacy-комнаты (созданные до миграции) стартуют с `null` и
+  /// добираются лениво: `_findExistingDirect` при fallback-поиске по
+  /// RoomMembership проставляет ключ найденной комнате.
+  String? directPairKey;
+
   /// Returns a shallow copy of this [Room]
   /// with some or all fields replaced by the given arguments.
   @_i1.useResult
@@ -151,6 +223,10 @@ abstract class Room implements _i1.SerializableModel {
     DateTime? updatedAt,
     DateTime? lastMessageAt,
     String? lastMessageBody,
+    int? supportEscalationTier,
+    DateTime? awaitingOperatorSince,
+    int? autoCleanupTtlSeconds,
+    String? directPairKey,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -171,6 +247,13 @@ abstract class Room implements _i1.SerializableModel {
       'updatedAt': updatedAt.toJson(),
       if (lastMessageAt != null) 'lastMessageAt': lastMessageAt?.toJson(),
       if (lastMessageBody != null) 'lastMessageBody': lastMessageBody,
+      if (supportEscalationTier != null)
+        'supportEscalationTier': supportEscalationTier,
+      if (awaitingOperatorSince != null)
+        'awaitingOperatorSince': awaitingOperatorSince?.toJson(),
+      if (autoCleanupTtlSeconds != null)
+        'autoCleanupTtlSeconds': autoCleanupTtlSeconds,
+      if (directPairKey != null) 'directPairKey': directPairKey,
     };
   }
 
@@ -199,6 +282,10 @@ class _RoomImpl extends Room {
     required DateTime updatedAt,
     DateTime? lastMessageAt,
     String? lastMessageBody,
+    int? supportEscalationTier,
+    DateTime? awaitingOperatorSince,
+    int? autoCleanupTtlSeconds,
+    String? directPairKey,
   }) : super._(
          id: id,
          tenantId: tenantId,
@@ -215,6 +302,10 @@ class _RoomImpl extends Room {
          updatedAt: updatedAt,
          lastMessageAt: lastMessageAt,
          lastMessageBody: lastMessageBody,
+         supportEscalationTier: supportEscalationTier,
+         awaitingOperatorSince: awaitingOperatorSince,
+         autoCleanupTtlSeconds: autoCleanupTtlSeconds,
+         directPairKey: directPairKey,
        );
 
   /// Returns a shallow copy of this [Room]
@@ -237,6 +328,10 @@ class _RoomImpl extends Room {
     DateTime? updatedAt,
     Object? lastMessageAt = _Undefined,
     Object? lastMessageBody = _Undefined,
+    Object? supportEscalationTier = _Undefined,
+    Object? awaitingOperatorSince = _Undefined,
+    Object? autoCleanupTtlSeconds = _Undefined,
+    Object? directPairKey = _Undefined,
   }) {
     return Room(
       id: id is int? ? id : this.id,
@@ -262,6 +357,18 @@ class _RoomImpl extends Room {
       lastMessageBody: lastMessageBody is String?
           ? lastMessageBody
           : this.lastMessageBody,
+      supportEscalationTier: supportEscalationTier is int?
+          ? supportEscalationTier
+          : this.supportEscalationTier,
+      awaitingOperatorSince: awaitingOperatorSince is DateTime?
+          ? awaitingOperatorSince
+          : this.awaitingOperatorSince,
+      autoCleanupTtlSeconds: autoCleanupTtlSeconds is int?
+          ? autoCleanupTtlSeconds
+          : this.autoCleanupTtlSeconds,
+      directPairKey: directPairKey is String?
+          ? directPairKey
+          : this.directPairKey,
     );
   }
 }

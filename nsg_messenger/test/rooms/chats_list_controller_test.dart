@@ -79,18 +79,20 @@ void main() {
       // Возвращает RoomDetails «новой» прямой комнаты — для теста
       // live-появления чата после createDirect (баг «новый чат невидим
       // до reload»). id детерминирован от peer-id.
-      createDirectRpc: ({required int peerMessengerUserId}) async => RoomDetails(
-        id: 1000 + peerMessengerUserId,
-        matrixRoomId: '!direct-$peerMessengerUserId:localhost',
-        name: 'Direct $peerMessengerUserId',
-        unreadCount: 0,
-        archived: false,
-        muted: false,
-        roomType: RoomType.direct,
-        participants: const [],
-        totalParticipants: 2,
-        viewerRole: RoomMemberRole.owner,
-      ),
+      createDirectRpc: ({required int peerMessengerUserId}) async =>
+          RoomDetails(
+            id: 1000 + peerMessengerUserId,
+            matrixRoomId: '!direct-$peerMessengerUserId:localhost',
+            name: 'Direct $peerMessengerUserId',
+            unreadCount: 0,
+            archived: false,
+            muted: false,
+            roomType: RoomType.direct,
+            participants: const [],
+            totalParticipants: 2,
+            viewerRole: RoomMemberRole.owner,
+            canEscalateSupport: false,
+          ),
       createGroupRpc:
           ({
             required String name,
@@ -1374,6 +1376,253 @@ void main() {
     await upstream.close();
     await stateCtl.close();
   });
+
+  // ─── TASK44 фаза 1.5: папка-как-строка ──────────────────────────────
+
+  RoomSummary folderRoom({
+    required int id,
+    int? productId,
+    int unread = 0,
+    RoomType roomType = RoomType.group,
+    DateTime? lastMessageAt,
+    String? lastMessagePreview,
+  }) => RoomSummary(
+    id: id,
+    name: 'Room $id',
+    unreadCount: unread,
+    archived: false,
+    muted: false,
+    productId: productId,
+    roomType: roomType,
+    lastMessageAt: lastMessageAt,
+    lastMessagePreview: lastMessagePreview,
+  );
+
+  test(
+    'folders: derived из текущего списка (агрегат «Все» + группы)',
+    () async {
+      final ctx = buildController(
+        initialList: [folderRoom(id: 1), folderRoom(id: 2)],
+      );
+      ctx.controller.init();
+      await tick();
+      // Только личные комнаты → All + Personal = 2 папки, но одна
+      // содержательная группа → обёртка-папка не нужна.
+      expect(ctx.controller.folders.length, 2);
+      expect(foldersVisible(ctx.controller.folders), isFalse);
+      await teardown(ctx);
+    },
+  );
+
+  test('folders: пустой список → одна папка «Все»', () async {
+    final ctx = buildController(initialList: const []);
+    ctx.controller.init();
+    await tick();
+    expect(ctx.controller.folders.length, 1);
+    expect(foldersVisible(ctx.controller.folders), isFalse);
+    await teardown(ctx);
+  });
+
+  test('folders: группировка по продукту + unread-суммы + агрегаты', () async {
+    final t1 = DateTime.utc(2026, 1, 1, 10);
+    final t2 = DateTime.utc(2026, 1, 1, 12); // свежее
+    final ctx = buildController(
+      initialList: [
+        folderRoom(
+          id: 1,
+          productId: 10,
+          unread: 3,
+          lastMessageAt: t1,
+          lastMessagePreview: 'older',
+        ),
+        folderRoom(
+          id: 2,
+          productId: 10,
+          unread: 1,
+          lastMessageAt: t2,
+          lastMessagePreview: 'newest',
+        ),
+        folderRoom(id: 3, unread: 5), // личная
+      ],
+    );
+    ctx.controller.init();
+    await tick();
+
+    final folders = ctx.controller.folders;
+    expect(folders.map((f) => f.kind), [
+      ChatFolderKind.all,
+      ChatFolderKind.product,
+      ChatFolderKind.personal,
+    ]);
+    expect(folders.first.unreadCount, 9, reason: 'All = 3+1+5');
+    final prod = folders.firstWhere((f) => f.kind == ChatFolderKind.product);
+    expect(prod.unreadCount, 4, reason: 'product 10 = 3+1');
+    // Агрегаты фаза 1.5: превью/время самого свежего чата папки.
+    expect(prod.lastMessageAt, t2, reason: 'max lastMessageAt в папке');
+    expect(prod.lastMessagePreview, 'newest');
+    await teardown(ctx);
+  });
+
+  test(
+    'rootRows: продукт+личные → строка-папка + строки-чаты, сортировка',
+    () async {
+      final tOld = DateTime.utc(2026, 1, 1, 8);
+      final tMid = DateTime.utc(2026, 1, 1, 10);
+      final tNew = DateTime.utc(2026, 1, 1, 12);
+      final ctx = buildController(
+        initialList: [
+          folderRoom(id: 1, productId: 10, lastMessageAt: tOld),
+          folderRoom(id: 2, productId: 10, lastMessageAt: tNew), // самый свежий
+          folderRoom(id: 3, lastMessageAt: tMid), // личная
+        ],
+      );
+      ctx.controller.init();
+      await tick();
+
+      final rows = ctx.controller.rootRows;
+      // Две содержательные группы (продукт + личные) → обёртка активна:
+      // одна строка-папка (product 10, sortKey=tNew) + одна строка-чат
+      // (личная room 3, sortKey=tMid). Папка свежее → выше.
+      expect(rows.length, 2);
+      expect(rows[0], isA<ChatFolderRow>());
+      expect((rows[0] as ChatFolderRow).folder.productId, 10);
+      expect(rows[1], isA<ChatRoomRow>());
+      expect((rows[1] as ChatRoomRow).room.id, 3);
+      await teardown(ctx);
+    },
+  );
+
+  test(
+    'rootRows: одна группа (только продукт) → плоский список без папок',
+    () async {
+      final ctx = buildController(
+        initialList: [
+          folderRoom(id: 1, productId: 10),
+          folderRoom(id: 2, productId: 10),
+        ],
+      );
+      ctx.controller.init();
+      await tick();
+      final rows = ctx.controller.rootRows;
+      // foldersVisible == false → все чаты плоско, без строки-папки.
+      expect(rows.every((r) => r is ChatRoomRow), isTrue);
+      expect(rows.map((r) => (r as ChatRoomRow).room.id).toSet(), {1, 2});
+      await teardown(ctx);
+    },
+  );
+
+  test('rootRows: несколько продуктов → строка-папка на каждый', () async {
+    final ctx = buildController(
+      initialList: [
+        folderRoom(id: 1, productId: 10),
+        folderRoom(id: 2, productId: 20),
+      ],
+    );
+    ctx.controller.init();
+    await tick();
+    final rows = ctx.controller.rootRows;
+    final folderRows = rows.whereType<ChatFolderRow>().toList();
+    expect(folderRows.length, 2, reason: 'по строке-папке на продукт');
+    expect(folderRows.map((r) => r.folder.productId).toSet(), {10, 20});
+    // Личных чатов нет → строк-чатов в корне нет.
+    expect(rows.whereType<ChatRoomRow>(), isEmpty);
+    await teardown(ctx);
+  });
+
+  test(
+    'roomsInFolder: возвращает только чаты продукта; клиентски, без RPC',
+    () async {
+      final ctx = buildController(
+        initialList: [
+          folderRoom(id: 1, productId: 10),
+          folderRoom(id: 2, productId: 10),
+          folderRoom(id: 3, productId: 20),
+          folderRoom(id: 4), // личная
+        ],
+      );
+      ctx.controller.init();
+      await tick();
+      final baseline = ctx.listCalls();
+
+      expect(ctx.controller.roomsInFolder('product:10').map((r) => r.id), [
+        1,
+        2,
+      ]);
+      expect(ctx.controller.roomsInFolder('product:20').map((r) => r.id), [3]);
+      // Несуществующая папка → пусто.
+      expect(ctx.controller.roomsInFolder('product:999'), isEmpty);
+      // Никаких дополнительных RPC.
+      expect(
+        ctx.listCalls(),
+        baseline,
+        reason: 'roomsInFolder — чисто клиентский',
+      );
+      await teardown(ctx);
+    },
+  );
+
+  test(
+    'roomsInFolder реактивен: realtime-refresh обновляет содержимое',
+    () async {
+      final ctx = buildController(
+        initialList: [folderRoom(id: 1, productId: 10)],
+      );
+      ctx.controller.init();
+      await tick();
+      expect(ctx.controller.roomsInFolder('product:10').map((r) => r.id), [1]);
+
+      // Новая комната продукта 10 прилетела через realtime.
+      ctx.setListResult([
+        folderRoom(id: 1, productId: 10),
+        folderRoom(id: 2, productId: 10),
+      ]);
+      ctx.upstream.add(eventFor(roomId: 1));
+      await tick();
+
+      expect(
+        ctx.controller.roomsInFolder('product:10').map((r) => r.id),
+        [1, 2],
+        reason: 'открытый экран папки видит свежий состав',
+      );
+      await teardown(ctx);
+    },
+  );
+
+  test(
+    'rootRows/folders реактивны: realtime обновляет состав/бейджи',
+    () async {
+      final ctx = buildController(
+        initialList: [folderRoom(id: 1, productId: 10, unread: 2)],
+      );
+      ctx.controller.init();
+      await tick();
+      expect(
+        ctx.controller.folders
+            .firstWhere((f) => f.kind == ChatFolderKind.product)
+            .unreadCount,
+        2,
+      );
+
+      // Новое сообщение подняло unread + добавило комнату другого продукта.
+      ctx.setListResult([
+        folderRoom(id: 1, productId: 10, unread: 5),
+        folderRoom(id: 2, productId: 20, unread: 1),
+      ]);
+      ctx.upstream.add(eventFor(roomId: 1));
+      await tick();
+
+      final folders = ctx.controller.folders;
+      expect(
+        folders.where((f) => f.kind == ChatFolderKind.product).length,
+        2,
+        reason: 'появилась вторая продуктовая папка',
+      );
+      expect(folders.first.unreadCount, 6, reason: 'All = 5+1');
+      // rootRows тоже реактивен — теперь две строки-папки.
+      expect(ctx.controller.rootRows.whereType<ChatFolderRow>().length, 2);
+      await teardown(ctx);
+    },
+  );
 
   test('dispose: после него notifyListeners не происходит', () async {
     final ctx = buildController(initialList: [summary(id: 1)]);

@@ -8,6 +8,7 @@ import '../rooms/participant_action_sheet.dart';
 import '../rooms/role_badge.dart';
 import '../widgets/nsg_avatar_image.dart';
 import 'banned_users_screen.dart';
+import 'contact_profile_screen.dart';
 
 /// **TASK29 Chunk 2**: список участников комнаты с role badges +
 /// long-press → admin action sheet (kick/ban/promote/demote).
@@ -155,38 +156,57 @@ class _ParticipantsScreenState extends State<ParticipantsScreen> {
               itemBuilder: (context, i) {
                 final p = details.participants[i];
                 final isSelf = p.messengerUserId == _selfMessengerUserId;
-                return ListTile(
-                  leading: NsgAvatarImage(
-                    mxcUrl: p.avatarUrl,
-                    fallbackName: p.displayName ?? p.matrixUserId,
-                    size: 40,
-                  ),
-                  title: Text(
-                    p.displayName ?? p.matrixUserId,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  subtitle: Text(
-                    p.matrixUserId,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 11),
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      RoleBadge(role: p.role),
-                      if (showAdminButton && !isSelf) ...[
-                        const SizedBox(width: 4),
-                        IconButton(
-                          icon: const Icon(Icons.more_vert),
-                          tooltip: 'Действия',
-                          onPressed: () => _onLongPress(details, p),
-                        ),
+                // Issue #6: правый клик (desktop/web) — то же меню действий
+                // над участником, что и long-press. Гард ролей остаётся
+                // внутри _onLongPress (member → no-op). ListTile не имеет
+                // secondary-жеста, поэтому GestureDetector-обёртка;
+                // primary-тапы она не перехватывает — ripple сохраняется.
+                return GestureDetector(
+                  onSecondaryTap: () => _onLongPress(details, p),
+                  child: ListTile(
+                    leading: NsgAvatarImage(
+                      mxcUrl: p.avatarUrl,
+                      fallbackName: p.displayName ?? p.matrixUserId,
+                      size: 40,
+                    ),
+                    title: Text(
+                      p.displayName ?? p.matrixUserId,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Text(
+                      p.matrixUserId,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        RoleBadge(role: p.role),
+                        if (showAdminButton && !isSelf) ...[
+                          const SizedBox(width: 4),
+                          IconButton(
+                            icon: const Icon(Icons.more_vert),
+                            tooltip: 'Действия',
+                            onPressed: () => _onLongPress(details, p),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
+                    onLongPress: () => _onLongPress(details, p),
+                    // **TASK63**: тап по участнику (не по себе) — профиль
+                    // контакта: своё имя / заметка / метки.
+                    onTap: isSelf
+                        ? null
+                        : () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => ContactProfileScreen(
+                                contactMessengerUserId: p.messengerUserId,
+                              ),
+                            ),
+                          ),
                   ),
-                  onLongPress: () => _onLongPress(details, p),
                 );
               },
             ),

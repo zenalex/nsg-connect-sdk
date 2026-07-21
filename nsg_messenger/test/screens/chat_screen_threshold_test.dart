@@ -177,6 +177,16 @@ class _CountingRpc implements MessagesRpc {
   int listCalls = 0;
 
   @override
+  Future<TaskLink> createTaskFromMessage({
+    required int roomId,
+    required String matrixEventId,
+    required String body,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<bool> isTaskIntegrationAvailable({required int roomId}) async => false;
+
+  @override
   Future<MessengerMessageListPage> listMessages({
     required int roomId,
     String? fromToken,
@@ -213,6 +223,11 @@ class _CountingRpc implements MessagesRpc {
     AttachmentRef? attachment,
     String? replyToMatrixEventId,
     List<int>? mentionedMessengerUserIds,
+    String? albumId,
+    String? forwardedFromName,
+    int? forwardedFromMessengerUserId,
+    int? forwardedFromRoomId,
+    String? forwardedFromEventId,
   }) => throw UnimplementedError();
 
   @override
@@ -287,4 +302,21 @@ class _CountingRpc implements MessagesRpc {
   @override
   Future<List<MessengerEvent>> listReadReceipts({required int roomId}) async =>
       const <MessengerEvent>[];
+
+  // #35 pin — заглушки (эти тесты pin не покрывают).
+  @override
+  Future<List<String>> pinMessage({
+    required int roomId,
+    required String matrixEventId,
+  }) async => const <String>[];
+
+  @override
+  Future<List<String>> unpinMessage({
+    required int roomId,
+    required String matrixEventId,
+  }) async => const <String>[];
+
+  @override
+  Future<List<MessengerMessage>> listPinnedMessages({required int roomId}) async =>
+      const <MessengerMessage>[];
 }

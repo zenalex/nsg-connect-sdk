@@ -33,6 +33,7 @@ void main() {
     participants: const [],
     totalParticipants: 0,
     viewerRole: RoomMemberRole.member,
+    canEscalateSupport: false,
   );
 
   MessengerEvent messageEvent({int? roomId, String body = 'hi'}) =>

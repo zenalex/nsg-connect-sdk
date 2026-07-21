@@ -3,7 +3,9 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nsg_connect_client/nsg_connect_client.dart';
+import 'package:nsg_messenger/src/messages/attachments/attachment_picker.dart';
 import 'package:nsg_messenger/src/messages/chat_message.dart';
+import 'package:nsg_messenger/src/messages/composer_album_edit.dart';
 import 'package:nsg_messenger/src/messages/messages_controller.dart';
 import 'package:nsg_messenger/src/messages/messages_rpc.dart';
 import 'package:nsg_messenger/src/messages/messages_state.dart';
@@ -41,6 +43,52 @@ void main() {
       // DESC: buffered прилетел позже history → сидит на index 0.
       expect(state.messages[0].matrixEventId, 'e-buffered');
       expect(state.messages[1].matrixEventId, 'e-history-1');
+      await controller.dispose();
+      await eventCtrl.close();
+    });
+
+    test('refreshLatest до-тягивает пропущенное входящее на ПРАВИЛЬНУЮ '
+        'позицию (баг «сообщение в дыре» при открытии через push)', () async {
+      final rpc = _FakeRpc();
+      final eventCtrl = StreamController<MessengerEvent>.broadcast();
+      final controller = _make(rpc: rpc, events: eventCtrl.stream);
+
+      final tOld = DateTime.utc(2026, 5, 5, 10, 0); // пропущенное (старше)
+      final tNew = DateTime.utc(2026, 5, 5, 10, 5); // мой ответ (новее)
+
+      // init: в чате только мой ответ — входящее проскочило мимо.
+      rpc.listMessagesHandler = (roomId, fromToken, limit) async => _page(
+        messages: [_msg(eventId: 'reply', timestamp: tNew)],
+      );
+      await controller.init();
+      expect(
+        (controller.state as MessagesReady).messages.map(
+          (m) => m.matrixEventId,
+        ),
+        ['reply'],
+      );
+
+      // Свежая страница содержит пропущенное (старше ответа).
+      rpc.listMessagesHandler = (roomId, fromToken, limit) async => _page(
+        messages: [
+          _msg(eventId: 'reply', timestamp: tNew),
+          _msg(eventId: 'missed', timestamp: tOld),
+        ],
+      );
+      await controller.refreshLatest();
+
+      final state2 = controller.state as MessagesReady;
+      // DESC: reply (новее) index 0, missed (старше) вставлен на index 1.
+      expect(state2.messages.map((m) => m.matrixEventId), ['reply', 'missed']);
+
+      // Идемпотентность: повторный refreshLatest не дублирует.
+      await controller.refreshLatest();
+      expect(
+        (controller.state as MessagesReady).messages.map(
+          (m) => m.matrixEventId,
+        ),
+        ['reply', 'missed'],
+      );
       await controller.dispose();
       await eventCtrl.close();
     });
@@ -1369,6 +1417,304 @@ void main() {
     });
   });
 
+  // ──────────────── Редактирование альбома (editAlbum) ────────────────
+
+  group('MessagesController — editAlbum diff', () {
+    AttachmentRef uploadedRef() => AttachmentRef(
+      mxcUrl: 'mxc://localhost/new123',
+      mimeType: 'image/jpeg',
+      sizeBytes: 512,
+      originalFilename: 'new.jpg',
+      thumbnailMxcUrl: 'mxc://localhost/new123',
+    );
+
+    PickedAttachment picked() => PickedAttachment(
+      bytes: Uint8List.fromList(List.filled(10, 1)),
+      mimeType: 'image/jpeg',
+      originalFilename: 'new.jpg',
+    );
+
+    Future<MessengerMessage> echoSend(
+      int roomId,
+      String body,
+      String msgType,
+      String clientTxnId,
+      AttachmentRef? attachment,
+    ) async => MessengerMessage(
+      matrixEventId: 'sent-$clientTxnId',
+      roomId: roomId,
+      matrixRoomId: '!room:test',
+      senderMessengerUserId: _kSelfMessengerUserId,
+      senderMatrixUserId: _kSelfMatrixUserId,
+      msgType: msgType,
+      body: body,
+      content: ByteData(0),
+      serverTimestamp: DateTime.utc(2026, 6, 1),
+      clientTxnId: clientTxnId,
+      attachment: attachment,
+    );
+
+    test(
+      'removed → deleteMessage(eventId) на каждую убранную картинку',
+      () async {
+        final rpc = _FakeRpc();
+        // Картинки должны быть в state: deleteMessage редактит только
+        // загруженные сообщения (иначе early-return).
+        rpc.listMessagesHandler = (_, _, _) async => _page(
+          messages: [
+            _msg(eventId: 'img-a', body: 'a', clientTxnId: null),
+            _msg(eventId: 'img-b', body: 'b', clientTxnId: null),
+          ],
+        );
+        final deleted = <String>[];
+        rpc.deleteMessageHandler = (_, eventId) async => deleted.add(eventId);
+
+        final eventCtrl = StreamController<MessengerEvent>.broadcast();
+        final controller = _make(rpc: rpc, events: eventCtrl.stream);
+        await controller.init();
+
+        await controller.editAlbum(
+          ComposerAlbumEditResult(
+            albumId: 'album-1',
+            removedImageEventIds: const ['img-a', 'img-b'],
+            newAttachments: const [],
+            newCaption: '',
+            captionEventId: null,
+          ),
+        );
+
+        expect(deleted, ['img-a', 'img-b']);
+        await controller.dispose();
+        await eventCtrl.close();
+      },
+    );
+
+    test('newAttachments → uploadAttachment + sendMessage с albumId', () async {
+      final rpc = _FakeRpc();
+      rpc.listMessagesHandler = (_, _, _) async => _page(messages: []);
+      rpc.uploadAttachmentHandler = (_, _, _) async => uploadedRef();
+      rpc.sendMessageHandler = echoSend;
+
+      final eventCtrl = StreamController<MessengerEvent>.broadcast();
+      final controller = _make(rpc: rpc, events: eventCtrl.stream);
+      await controller.init();
+
+      await controller.editAlbum(
+        ComposerAlbumEditResult(
+          albumId: 'album-1',
+          removedImageEventIds: const [],
+          newAttachments: [picked(), picked()],
+          newCaption: '',
+          captionEventId: null,
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      // Обе новые картинки ушли как sendMessage с общим albumId + attachment.
+      final imageSends = rpc.sentMessages
+          .where((s) => s.attachment != null)
+          .toList();
+      expect(imageSends.length, 2);
+      expect(imageSends.every((s) => s.albumId == 'album-1'), isTrue);
+      await controller.dispose();
+      await eventCtrl.close();
+    });
+
+    test(
+      'caption changed (есть eventId, новая непуста) → editMessage',
+      () async {
+        final rpc = _FakeRpc();
+        rpc.listMessagesHandler = (_, _, _) async => _page(
+          messages: [
+            _msg(eventId: 'cap-1', body: 'старая подпись', clientTxnId: null),
+          ],
+        );
+        String? capturedEditId;
+        String? capturedBody;
+        rpc.editMessageHandler = (_, eventId, newBody) {
+          capturedEditId = eventId;
+          capturedBody = newBody;
+          return Future.value(
+            MessengerMessage(
+              matrixEventId: eventId,
+              roomId: _kRoomId,
+              matrixRoomId: '!room:test',
+              senderMessengerUserId: _kSelfMessengerUserId,
+              senderMatrixUserId: _kSelfMatrixUserId,
+              msgType: 'm.text',
+              body: newBody,
+              serverTimestamp: DateTime.utc(2026, 6, 1),
+              editedAt: DateTime.utc(2026, 6, 1),
+            ),
+          );
+        };
+
+        final eventCtrl = StreamController<MessengerEvent>.broadcast();
+        final controller = _make(rpc: rpc, events: eventCtrl.stream);
+        await controller.init();
+
+        await controller.editAlbum(
+          ComposerAlbumEditResult(
+            albumId: 'album-1',
+            removedImageEventIds: const [],
+            newAttachments: const [],
+            newCaption: 'новая подпись',
+            captionEventId: 'cap-1',
+          ),
+        );
+
+        expect(capturedEditId, 'cap-1');
+        expect(capturedBody, 'новая подпись');
+        await controller.dispose();
+        await eventCtrl.close();
+      },
+    );
+
+    test('caption без изменений → editMessage НЕ вызывается', () async {
+      final rpc = _FakeRpc();
+      rpc.listMessagesHandler = (_, _, _) async => _page(
+        messages: [_msg(eventId: 'cap-1', body: 'та же', clientTxnId: null)],
+      );
+      var editCalls = 0;
+      rpc.editMessageHandler = (_, eventId, newBody) {
+        editCalls++;
+        return Future.value(_msg(eventId: eventId, body: newBody));
+      };
+
+      final eventCtrl = StreamController<MessengerEvent>.broadcast();
+      final controller = _make(rpc: rpc, events: eventCtrl.stream);
+      await controller.init();
+
+      await controller.editAlbum(
+        ComposerAlbumEditResult(
+          albumId: 'album-1',
+          removedImageEventIds: const [],
+          newAttachments: const [],
+          newCaption: 'та же', // идентична текущей
+          captionEventId: 'cap-1',
+        ),
+      );
+
+      expect(
+        editCalls,
+        0,
+        reason: 'подпись не менялась — лишний m.replace не шлём',
+      );
+      await controller.dispose();
+      await eventCtrl.close();
+    });
+
+    test(
+      'caption очищена (есть eventId, новая пуста) → deleteMessage подписи',
+      () async {
+        final rpc = _FakeRpc();
+        rpc.listMessagesHandler = (_, _, _) async => _page(
+          messages: [
+            _msg(eventId: 'cap-1', body: 'подпись', clientTxnId: null),
+          ],
+        );
+        final deleted = <String>[];
+        rpc.deleteMessageHandler = (_, eventId) async => deleted.add(eventId);
+
+        final eventCtrl = StreamController<MessengerEvent>.broadcast();
+        final controller = _make(rpc: rpc, events: eventCtrl.stream);
+        await controller.init();
+
+        await controller.editAlbum(
+          ComposerAlbumEditResult(
+            albumId: 'album-1',
+            removedImageEventIds: const [],
+            newAttachments: const [],
+            newCaption: '   ', // trim → пусто
+            captionEventId: 'cap-1',
+          ),
+        );
+
+        expect(deleted, ['cap-1']);
+        await controller.dispose();
+        await eventCtrl.close();
+      },
+    );
+
+    test(
+      'caption добавлена (нет eventId, новая непуста) → sendMessage с albumId',
+      () async {
+        final rpc = _FakeRpc();
+        rpc.listMessagesHandler = (_, _, _) async => _page(messages: []);
+        rpc.sendMessageHandler = echoSend;
+
+        final eventCtrl = StreamController<MessengerEvent>.broadcast();
+        final controller = _make(rpc: rpc, events: eventCtrl.stream);
+        await controller.init();
+
+        await controller.editAlbum(
+          ComposerAlbumEditResult(
+            albumId: 'album-1',
+            removedImageEventIds: const [],
+            newAttachments: const [],
+            newCaption: 'первая подпись',
+            captionEventId: null,
+          ),
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        final captionSends = rpc.sentMessages
+            .where((s) => s.attachment == null && s.body == 'первая подпись')
+            .toList();
+        expect(captionSends.length, 1);
+        expect(captionSends.single.albumId, 'album-1');
+        await controller.dispose();
+        await eventCtrl.close();
+      },
+    );
+
+    test(
+      'полный дифф: add + remove + caption edit — порядок add→remove→caption',
+      () async {
+        final rpc = _FakeRpc();
+        rpc.listMessagesHandler = (_, _, _) async => _page(
+          messages: [
+            _msg(eventId: 'img-old', body: 'old', clientTxnId: null),
+            _msg(eventId: 'cap-1', body: 'старая', clientTxnId: null),
+          ],
+        );
+        rpc.uploadAttachmentHandler = (_, _, _) async => uploadedRef();
+        rpc.sendMessageHandler = echoSend;
+        final ops = <String>[];
+        rpc.deleteMessageHandler = (_, eventId) async =>
+            ops.add('delete:$eventId');
+        rpc.editMessageHandler = (_, eventId, newBody) {
+          ops.add('edit:$eventId');
+          return Future.value(_msg(eventId: eventId, body: newBody));
+        };
+
+        final eventCtrl = StreamController<MessengerEvent>.broadcast();
+        final controller = _make(rpc: rpc, events: eventCtrl.stream);
+        await controller.init();
+        // Отметим отправку картинок в ops через отдельный маркер: sentMessages
+        // фиксирует их, а порядок delete/edit проверяем напрямую.
+
+        await controller.editAlbum(
+          ComposerAlbumEditResult(
+            albumId: 'album-1',
+            removedImageEventIds: const ['img-old'],
+            newAttachments: [picked()],
+            newCaption: 'новая',
+            captionEventId: 'cap-1',
+          ),
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        // Новая картинка ушла.
+        expect(rpc.sentMessages.where((s) => s.attachment != null).length, 1);
+        // delete (картинки) перед edit (подписи).
+        expect(ops, ['delete:img-old', 'edit:cap-1']);
+        await controller.dispose();
+        await eventCtrl.close();
+      },
+    );
+  });
+
   group('MessagesController — TASK16-A reply + mention', () {
     test('findByEventId: hit/miss', () async {
       final rpc = _FakeRpc();
@@ -1708,6 +2054,235 @@ void main() {
       expect(controller.reactionsVersionListenable.value, greaterThan(before));
     });
   });
+
+  // ───────────── Оптимистичный альбом (sendAlbumOptimistic) ─────────────
+  group('MessagesController — sendAlbumOptimistic', () {
+    AttachmentRef uploadedRef(String id) => AttachmentRef(
+      mxcUrl: 'mxc://localhost/$id',
+      mimeType: 'image/jpeg',
+      sizeBytes: 4,
+      originalFilename: '$id.jpg',
+      thumbnailMxcUrl: 'mxc://localhost/$id',
+    );
+
+    PickedAttachment picked(String name) => PickedAttachment(
+      bytes: Uint8List.fromList(List.filled(4, 1)),
+      mimeType: 'image/jpeg',
+      originalFilename: '$name.jpg',
+    );
+
+    Future<MessengerMessage> echoSend(
+      int roomId,
+      String body,
+      String msgType,
+      String clientTxnId,
+      AttachmentRef? attachment,
+    ) async => MessengerMessage(
+      matrixEventId: 'sent-$clientTxnId',
+      roomId: roomId,
+      matrixRoomId: '!room:test',
+      senderMessengerUserId: _kSelfMessengerUserId,
+      senderMatrixUserId: _kSelfMatrixUserId,
+      msgType: msgType,
+      body: body,
+      content: ByteData(0),
+      serverTimestamp: DateTime.utc(2026, 6, 1),
+      clientTxnId: clientTxnId,
+      attachment: attachment,
+    );
+
+    test(
+      'вставляет N pending-пузырей СИНХРОННО с байтами (мозаика сразу)',
+      () async {
+        final rpc = _FakeRpc();
+        rpc.listMessagesHandler = (_, _, _) async => _page(messages: []);
+        // Аплоад «висит» — проверяем, что пузыри видны ДО его завершения.
+        final uploadGate = Completer<AttachmentRef>();
+        rpc.uploadAttachmentHandler = (_, _, _) => uploadGate.future;
+        rpc.sendMessageHandler = echoSend;
+        final eventCtrl = StreamController<MessengerEvent>.broadcast();
+        final controller = _make(rpc: rpc, events: eventCtrl.stream);
+        await controller.init();
+
+        final albumId = controller.sendAlbumOptimistic(
+          images: [picked('a'), picked('b'), picked('c')],
+        );
+        // Возврат сразу, аплоад ещё не тронут (gate висит).
+        expect(albumId, isNotNull);
+        final state = controller.state as MessagesReady;
+        // 3 pending-картинки (без подписи).
+        expect(state.messages.length, 3);
+        expect(state.messages.every((m) => m.isUploadingImage), isTrue);
+        expect(
+          state.messages.every((m) => m.localImageBytes != null),
+          isTrue,
+          reason: 'у каждого члена локальные байты',
+        );
+        expect(state.messages.every((m) => m.albumId == albumId), isTrue);
+        expect(
+          state.messages.every((m) => m.attachment == null),
+          isTrue,
+          reason: 'аплоад ещё не завершён',
+        );
+
+        uploadGate.complete(uploadedRef('a'));
+        await controller.dispose();
+        await eventCtrl.close();
+      },
+    );
+
+    test('фон-аплоад патчит attachment (расблюр) затем шлёт send', () async {
+      final rpc = _FakeRpc();
+      rpc.listMessagesHandler = (_, _, _) async => _page(messages: []);
+      var uploadCount = 0;
+      rpc.uploadAttachmentHandler = (_, _, _) async {
+        uploadCount++;
+        return uploadedRef('u$uploadCount');
+      };
+      rpc.sendMessageHandler = echoSend;
+      final eventCtrl = StreamController<MessengerEvent>.broadcast();
+      final controller = _make(rpc: rpc, events: eventCtrl.stream);
+      await controller.init();
+
+      controller.sendAlbumOptimistic(images: [picked('a'), picked('b')]);
+      // Дать фоновому аплоаду + send прокрутиться.
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      final state = controller.state as MessagesReady;
+      expect(state.messages.length, 2);
+      // После аплоада+send: attachment есть, статус sent (echoSend promote).
+      expect(state.messages.every((m) => m.attachment != null), isTrue);
+      expect(state.messages.every((m) => m.isSent), isTrue);
+      // Все image-send ушли с общим albumId.
+      final imageSends = rpc.sentMessages
+          .where((s) => s.attachment != null)
+          .toList();
+      expect(imageSends.length, 2);
+      expect(imageSends.every((s) => s.albumId != null), isTrue);
+      expect(
+        imageSends.map((s) => s.albumId).toSet().length,
+        1,
+        reason: 'один общий albumId',
+      );
+
+      await controller.dispose();
+      await eventCtrl.close();
+    });
+
+    test('подпись уходит отдельным членом альбома с тем же albumId', () async {
+      final rpc = _FakeRpc();
+      rpc.listMessagesHandler = (_, _, _) async => _page(messages: []);
+      rpc.uploadAttachmentHandler = (_, _, _) async => uploadedRef('u');
+      rpc.sendMessageHandler = echoSend;
+      final eventCtrl = StreamController<MessengerEvent>.broadcast();
+      final controller = _make(rpc: rpc, events: eventCtrl.stream);
+      await controller.init();
+
+      final albumId = controller.sendAlbumOptimistic(
+        images: [picked('a')],
+        caption: 'Наш альбом',
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      // Одна картинка + подпись → альбом (albumId != null).
+      expect(albumId, isNotNull);
+      final captionSends = rpc.sentMessages
+          .where((s) => s.attachment == null && s.body == 'Наш альбом')
+          .toList();
+      expect(captionSends.length, 1);
+      expect(captionSends.first.albumId, albumId);
+
+      await controller.dispose();
+      await eventCtrl.close();
+    });
+
+    test(
+      'одна картинка без подписи → albumId null (одиночное сообщение)',
+      () async {
+        final rpc = _FakeRpc();
+        rpc.listMessagesHandler = (_, _, _) async => _page(messages: []);
+        rpc.uploadAttachmentHandler = (_, _, _) async => uploadedRef('u');
+        rpc.sendMessageHandler = echoSend;
+        final eventCtrl = StreamController<MessengerEvent>.broadcast();
+        final controller = _make(rpc: rpc, events: eventCtrl.stream);
+        await controller.init();
+
+        final albumId = controller.sendAlbumOptimistic(
+          images: [picked('solo')],
+        );
+        expect(albumId, isNull);
+        final state = controller.state as MessagesReady;
+        expect(state.messages.length, 1);
+
+        await controller.dispose();
+        await eventCtrl.close();
+      },
+    );
+
+    test(
+      'ошибка аплоада → failed → retry пере-загружает тем же txnId',
+      () async {
+        final rpc = _FakeRpc();
+        rpc.listMessagesHandler = (_, _, _) async => _page(messages: []);
+        var attempt = 0;
+        rpc.uploadAttachmentHandler = (_, _, _) async {
+          attempt++;
+          if (attempt == 1) throw Exception('нет сети');
+          return uploadedRef('retry-ok');
+        };
+        rpc.sendMessageHandler = echoSend;
+        final eventCtrl = StreamController<MessengerEvent>.broadcast();
+        final controller = _make(rpc: rpc, events: eventCtrl.stream);
+        await controller.init();
+
+        controller.sendAlbumOptimistic(images: [picked('a')]);
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+
+        // Первый аплоад упал → пузырь failed (байты сохранены).
+        var state = controller.state as MessagesReady;
+        expect(state.messages.length, 1);
+        expect(state.messages[0].isFailed, isTrue);
+        expect(state.messages[0].attachment, isNull);
+        expect(state.messages[0].localImageBytes, isNotNull);
+        final txn = state.messages[0].clientTxnId!;
+
+        // Retry → повторный upload (attempt 2 успешен) → attachment + send.
+        await controller.retry(txn);
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+
+        state = controller.state as MessagesReady;
+        expect(attempt, 2, reason: 'был повторный upload');
+        expect(state.messages[0].attachment, isNotNull);
+        expect(state.messages[0].isSent, isTrue);
+
+        await controller.dispose();
+        await eventCtrl.close();
+      },
+    );
+
+    test('только подпись без картинок → обычное текстовое сообщение', () async {
+      final rpc = _FakeRpc();
+      rpc.listMessagesHandler = (_, _, _) async => _page(messages: []);
+      rpc.sendMessageHandler = echoSend;
+      final eventCtrl = StreamController<MessengerEvent>.broadcast();
+      final controller = _make(rpc: rpc, events: eventCtrl.stream);
+      await controller.init();
+
+      final albumId = controller.sendAlbumOptimistic(
+        images: const [],
+        caption: 'просто текст',
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(albumId, isNull);
+      final state = controller.state as MessagesReady;
+      expect(state.messages.length, 1);
+      expect(state.messages[0].body, 'просто текст');
+
+      await controller.dispose();
+      await eventCtrl.close();
+    });
+  });
 }
 
 /// Wrapper-капчер для verifying что `sendMessage` получает новые
@@ -1716,6 +2291,21 @@ void main() {
 class _CapturingSendRpc implements MessagesRpc {
   _CapturingSendRpc(this._inner);
   final _FakeRpc _inner;
+
+  @override
+  Future<TaskLink> createTaskFromMessage({
+    required int roomId,
+    required String matrixEventId,
+    required String body,
+  }) => _inner.createTaskFromMessage(
+    roomId: roomId,
+    matrixEventId: matrixEventId,
+    body: body,
+  );
+
+  @override
+  Future<bool> isTaskIntegrationAvailable({required int roomId}) =>
+      _inner.isTaskIntegrationAvailable(roomId: roomId);
 
   String? lastReplyTo;
   List<int>? lastMentions;
@@ -1736,6 +2326,11 @@ class _CapturingSendRpc implements MessagesRpc {
     AttachmentRef? attachment,
     String? replyToMatrixEventId,
     List<int>? mentionedMessengerUserIds,
+    String? albumId,
+    String? forwardedFromName,
+    int? forwardedFromMessengerUserId,
+    int? forwardedFromRoomId,
+    String? forwardedFromEventId,
   }) async {
     lastReplyTo = replyToMatrixEventId;
     lastMentions = mentionedMessengerUserIds;
@@ -1837,6 +2432,23 @@ class _CapturingSendRpc implements MessagesRpc {
   @override
   Future<List<MessengerEvent>> listReadReceipts({required int roomId}) =>
       _inner.listReadReceipts(roomId: roomId);
+
+  // #35 pin — делегируем к _inner (эти тесты pin не покрывают).
+  @override
+  Future<List<String>> pinMessage({
+    required int roomId,
+    required String matrixEventId,
+  }) => _inner.pinMessage(roomId: roomId, matrixEventId: matrixEventId);
+
+  @override
+  Future<List<String>> unpinMessage({
+    required int roomId,
+    required String matrixEventId,
+  }) => _inner.unpinMessage(roomId: roomId, matrixEventId: matrixEventId);
+
+  @override
+  Future<List<MessengerMessage>> listPinnedMessages({required int roomId}) =>
+      _inner.listPinnedMessages(roomId: roomId);
 }
 
 // ───────────────────────────────────────────────────────────────────
@@ -1946,6 +2558,16 @@ MessengerEvent _reactionEvent({
 );
 
 class _FakeRpc implements MessagesRpc {
+  @override
+  Future<TaskLink> createTaskFromMessage({
+    required int roomId,
+    required String matrixEventId,
+    required String body,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<bool> isTaskIntegrationAvailable({required int roomId}) async => false;
+
   Future<MessengerMessageListPage> Function(
     int roomId,
     String? fromToken,
@@ -1989,6 +2611,12 @@ class _FakeRpc implements MessagesRpc {
     return h(roomId, fromToken, limit);
   }
 
+  /// Лог всех sendMessage-вызовов (body + albumId + attachment) — для тестов
+  /// диффа альбома, где важно, что новые картинки/подпись ушли с albumId.
+  final List<({String body, String? albumId, AttachmentRef? attachment})>
+  sentMessages =
+      <({String body, String? albumId, AttachmentRef? attachment})>[];
+
   @override
   Future<MessengerMessage> sendMessage({
     required int roomId,
@@ -1998,7 +2626,13 @@ class _FakeRpc implements MessagesRpc {
     AttachmentRef? attachment,
     String? replyToMatrixEventId,
     List<int>? mentionedMessengerUserIds,
+    String? albumId,
+    String? forwardedFromName,
+    int? forwardedFromMessengerUserId,
+    int? forwardedFromRoomId,
+    String? forwardedFromEventId,
   }) {
+    sentMessages.add((body: body, albumId: albumId, attachment: attachment));
     final h = sendMessageHandler;
     if (h == null) throw StateError('sendMessageHandler not set');
     return h(roomId, body, msgType, clientTxnId, attachment);
@@ -2135,6 +2769,23 @@ class _FakeRpc implements MessagesRpc {
     listReadReceiptsCalls += 1;
     return listReadReceiptsResult;
   }
+
+  // #35 pin — заглушки (эти тесты pin не покрывают).
+  @override
+  Future<List<String>> pinMessage({
+    required int roomId,
+    required String matrixEventId,
+  }) async => const <String>[];
+
+  @override
+  Future<List<String>> unpinMessage({
+    required int roomId,
+    required String matrixEventId,
+  }) async => const <String>[];
+
+  @override
+  Future<List<MessengerMessage>> listPinnedMessages({required int roomId}) async =>
+      const <MessengerMessage>[];
 }
 
 // Использую _eventForRoom как "rejected ChatMessage helper" нет — этот

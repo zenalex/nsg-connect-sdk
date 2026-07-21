@@ -1,0 +1,4 @@
+# Libraries should not include pubspec.lock, per https://dart.dev/guides/libraries/private-files#pubspeclock.
+# (Единообразно с sdk/nsg_messenger; TASK71: чтобы widening firebase-диапазона
+# не гонял committed-lock между 3.x и 4.x — хост резолвит свой.)
+/pubspec.lock

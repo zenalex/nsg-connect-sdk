@@ -68,7 +68,59 @@ enum MessengerEventType implements _i1.SerializableModel {
   /// Реакция на сообщение добавлена/снята (emoji reactions). Payload —
   /// reaction* поля в [MessengerEvent]. SDK клиентски агрегирует
   /// (target, key) → count + own-flag; см. MessagesController.
-  reactionChanged;
+  reactionChanged,
+
+  /// **TASK46** — 1:1 голосовой сигналинг (WebRTC поверх Matrix). Каждое
+  /// значение — входящее (Matrix `/sync` → клиент) call-событие с
+  /// payload в `call*` полях [MessengerEvent] (callId / callPartyId /
+  /// callSdp / callCandidates / ...). Dispatcher мапит Matrix `m.call.*`
+  /// → сюда и эмитит в канал ПОЛУЧАТЕЛЯ (echo-skip отправителю, как для
+  /// message). SDK CallController паттерн-матчит по этим типам. Маппинг:
+  ///   * `m.call.invite`        → callInvite       (SDP offer в callSdp)
+  ///   * `m.call.answer`        → callAnswer       (SDP answer в callSdp)
+  ///   * `m.call.candidates`    → callCandidates   (trickle ICE в callCandidates)
+  ///   * `m.call.hangup`        → callHangup       (причина в callHangupReason)
+  ///   * `m.call.select_answer` → callSelectAnswer (callSelectedPartyId)
+  ///   * `m.call.reject`        → callReject
+  ///   * `m.call.negotiate`     → callNegotiate    (ICE restart / renegotiation:
+  ///                                                SDP в callSdp, роль
+  ///                                                offer/answer в callSdpType)
+  callInvite,
+  callAnswer,
+  callCandidates,
+  callHangup,
+  callSelectAnswer,
+  callReject,
+  callNegotiate,
+
+  /// **TASK55 итер.2b**: смена online-статуса подписанного контакта.
+  /// Гейтится capability `presence` (см. userEventStream) — старым
+  /// клиентам не доставляется (unknown enum уронил бы стрим).
+  presenceUpdated,
+
+  /// **TASK62/63 realtime-синк (2026-07-13)**: набор папок/membership
+  /// чатов пользователя изменился (create/rename/delete/add/remove) —
+  /// другие устройства сбрасывают кэш папок. Payload не нужен.
+  chatFoldersChanged,
+
+  /// Контакт-данные пользователя изменились (alias/заметка/метки) —
+  /// сброс кэша меток + списка комнат (alias в именах direct).
+  contactMetaChanged,
+
+  /// **TASK52 итер.2**: пришла/изменилась карточка-заявка (message-
+  /// request) — получатель сбрасывает список входящих заявок. Payload
+  /// не нужен (клиент дочитывает listIncomingContactRequests).
+  contactRequestChanged,
+
+  /// **Issue #35 — закрепление сообщений**: список закреплённых
+  /// сообщений комнаты изменился (pin/unpin). Payload — `pinnedEventIds`
+  /// (полный новый список matrixEventId в порядке закрепления). SDK
+  /// открытого чата обновляет плашку закреплённых. Источник правды —
+  /// Matrix state event `m.room.pinned_events`; dispatcher парсит его
+  /// (state + timeline) и эмитит это событие. Гейтится capability
+  /// `pinned-messages` (для легаси-клиента без knownEventTypes — unknown
+  /// enum уронил бы стрим; урок callNegotiate/presence).
+  pinnedMessagesChanged;
 
   static MessengerEventType fromJson(String name) {
     switch (name) {
@@ -106,6 +158,30 @@ enum MessengerEventType implements _i1.SerializableModel {
         return MessengerEventType.typingChanged;
       case 'reactionChanged':
         return MessengerEventType.reactionChanged;
+      case 'callInvite':
+        return MessengerEventType.callInvite;
+      case 'callAnswer':
+        return MessengerEventType.callAnswer;
+      case 'callCandidates':
+        return MessengerEventType.callCandidates;
+      case 'callHangup':
+        return MessengerEventType.callHangup;
+      case 'callSelectAnswer':
+        return MessengerEventType.callSelectAnswer;
+      case 'callReject':
+        return MessengerEventType.callReject;
+      case 'callNegotiate':
+        return MessengerEventType.callNegotiate;
+      case 'presenceUpdated':
+        return MessengerEventType.presenceUpdated;
+      case 'chatFoldersChanged':
+        return MessengerEventType.chatFoldersChanged;
+      case 'contactMetaChanged':
+        return MessengerEventType.contactMetaChanged;
+      case 'contactRequestChanged':
+        return MessengerEventType.contactRequestChanged;
+      case 'pinnedMessagesChanged':
+        return MessengerEventType.pinnedMessagesChanged;
       default:
         throw ArgumentError(
           'Value "$name" cannot be converted to "MessengerEventType"',

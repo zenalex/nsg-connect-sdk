@@ -39,6 +39,9 @@ abstract class RoomDetails implements _i1.SerializableModel {
     required this.participants,
     required this.totalParticipants,
     required this.viewerRole,
+    this.supportEscalationTier,
+    required this.canEscalateSupport,
+    this.autoCleanupTtlSeconds,
   });
 
   factory RoomDetails({
@@ -58,6 +61,9 @@ abstract class RoomDetails implements _i1.SerializableModel {
     required List<_i3.RoomParticipant> participants,
     required int totalParticipants,
     required _i4.RoomMemberRole viewerRole,
+    int? supportEscalationTier,
+    required bool canEscalateSupport,
+    int? autoCleanupTtlSeconds,
   }) = _RoomDetailsImpl;
 
   factory RoomDetails.fromJson(Map<String, dynamic> jsonSerialization) {
@@ -88,6 +94,11 @@ abstract class RoomDetails implements _i1.SerializableModel {
       viewerRole: _i4.RoomMemberRole.fromJson(
         (jsonSerialization['viewerRole'] as String),
       ),
+      supportEscalationTier: jsonSerialization['supportEscalationTier'] as int?,
+      canEscalateSupport: _i1.BoolJsonExtension.fromJson(
+        jsonSerialization['canEscalateSupport'],
+      ),
+      autoCleanupTtlSeconds: jsonSerialization['autoCleanupTtlSeconds'] as int?,
     );
   }
 
@@ -128,6 +139,25 @@ abstract class RoomDetails implements _i1.SerializableModel {
   /// Роль ТЕКУЩЕГО viewer-а в комнате.
   _i4.RoomMemberRole viewerRole;
 
+  /// **TASK48**: текущий достигнутый тир эскалации support-комнаты
+  /// (см. `Room.supportEscalationTier`). null для не-support-комнат и
+  /// для support-комнат на базовом уровне.
+  int? supportEscalationTier;
+
+  /// **TASK48**: может ли ТЕКУЩИЙ viewer эскалировать этот support-чат
+  /// (позвать следующий тир). true ⟺ комната support-типа И viewer —
+  /// оператор-член И существует непустой тир выше текущего. Клиент сам
+  /// это не вычислит — считаем на сервере, UI лишь рисует кнопку.
+  bool canEscalateSupport;
+
+  /// **TASK68**: TTL автоочистки комнаты в секундах (`Room
+  /// .autoCleanupTtlSeconds`). `null` = автоочистка выключена. Экран
+  /// настроек комнаты рисует по нему выбранный пресет.
+  ///
+  /// Nullable и НЕ required — старый клиент/сервер-скью трактует
+  /// отсутствие как «выключено».
+  int? autoCleanupTtlSeconds;
+
   /// Returns a shallow copy of this [RoomDetails]
   /// with some or all fields replaced by the given arguments.
   @_i1.useResult
@@ -148,6 +178,9 @@ abstract class RoomDetails implements _i1.SerializableModel {
     List<_i3.RoomParticipant>? participants,
     int? totalParticipants,
     _i4.RoomMemberRole? viewerRole,
+    int? supportEscalationTier,
+    bool? canEscalateSupport,
+    int? autoCleanupTtlSeconds,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -169,6 +202,11 @@ abstract class RoomDetails implements _i1.SerializableModel {
       'participants': participants.toJson(valueToJson: (v) => v.toJson()),
       'totalParticipants': totalParticipants,
       'viewerRole': viewerRole.toJson(),
+      if (supportEscalationTier != null)
+        'supportEscalationTier': supportEscalationTier,
+      'canEscalateSupport': canEscalateSupport,
+      if (autoCleanupTtlSeconds != null)
+        'autoCleanupTtlSeconds': autoCleanupTtlSeconds,
     };
   }
 
@@ -198,6 +236,9 @@ class _RoomDetailsImpl extends RoomDetails {
     required List<_i3.RoomParticipant> participants,
     required int totalParticipants,
     required _i4.RoomMemberRole viewerRole,
+    int? supportEscalationTier,
+    required bool canEscalateSupport,
+    int? autoCleanupTtlSeconds,
   }) : super._(
          id: id,
          matrixRoomId: matrixRoomId,
@@ -215,6 +256,9 @@ class _RoomDetailsImpl extends RoomDetails {
          participants: participants,
          totalParticipants: totalParticipants,
          viewerRole: viewerRole,
+         supportEscalationTier: supportEscalationTier,
+         canEscalateSupport: canEscalateSupport,
+         autoCleanupTtlSeconds: autoCleanupTtlSeconds,
        );
 
   /// Returns a shallow copy of this [RoomDetails]
@@ -238,6 +282,9 @@ class _RoomDetailsImpl extends RoomDetails {
     List<_i3.RoomParticipant>? participants,
     int? totalParticipants,
     _i4.RoomMemberRole? viewerRole,
+    Object? supportEscalationTier = _Undefined,
+    bool? canEscalateSupport,
+    Object? autoCleanupTtlSeconds = _Undefined,
   }) {
     return RoomDetails(
       id: id ?? this.id,
@@ -265,6 +312,13 @@ class _RoomDetailsImpl extends RoomDetails {
           participants ?? this.participants.map((e0) => e0.copyWith()).toList(),
       totalParticipants: totalParticipants ?? this.totalParticipants,
       viewerRole: viewerRole ?? this.viewerRole,
+      supportEscalationTier: supportEscalationTier is int?
+          ? supportEscalationTier
+          : this.supportEscalationTier,
+      canEscalateSupport: canEscalateSupport ?? this.canEscalateSupport,
+      autoCleanupTtlSeconds: autoCleanupTtlSeconds is int?
+          ? autoCleanupTtlSeconds
+          : this.autoCleanupTtlSeconds,
     );
   }
 }

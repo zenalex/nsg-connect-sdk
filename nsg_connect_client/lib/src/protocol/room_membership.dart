@@ -31,9 +31,13 @@ abstract class RoomMembership implements _i1.SerializableModel {
     this.lastReadAt,
     int? unreadCount,
     this.powerLevel,
+    this.customRoomName,
+    this.writeBannedUntil,
+    bool? dismissedUntilMessage,
   }) : role = role ?? 'member',
        archived = archived ?? false,
-       unreadCount = unreadCount ?? 0;
+       unreadCount = unreadCount ?? 0,
+       dismissedUntilMessage = dismissedUntilMessage ?? false;
 
   factory RoomMembership({
     int? id,
@@ -48,6 +52,9 @@ abstract class RoomMembership implements _i1.SerializableModel {
     DateTime? lastReadAt,
     int? unreadCount,
     int? powerLevel,
+    String? customRoomName,
+    DateTime? writeBannedUntil,
+    bool? dismissedUntilMessage,
   }) = _RoomMembershipImpl;
 
   factory RoomMembership.fromJson(Map<String, dynamic> jsonSerialization) {
@@ -74,6 +81,17 @@ abstract class RoomMembership implements _i1.SerializableModel {
           : _i1.DateTimeJsonExtension.fromJson(jsonSerialization['lastReadAt']),
       unreadCount: jsonSerialization['unreadCount'] as int?,
       powerLevel: jsonSerialization['powerLevel'] as int?,
+      customRoomName: jsonSerialization['customRoomName'] as String?,
+      writeBannedUntil: jsonSerialization['writeBannedUntil'] == null
+          ? null
+          : _i1.DateTimeJsonExtension.fromJson(
+              jsonSerialization['writeBannedUntil'],
+            ),
+      dismissedUntilMessage: jsonSerialization['dismissedUntilMessage'] == null
+          ? null
+          : _i1.BoolJsonExtension.fromJson(
+              jsonSerialization['dismissedUntilMessage'],
+            ),
     );
   }
 
@@ -138,6 +156,29 @@ abstract class RoomMembership implements _i1.SerializableModel {
   /// для round-trip к Matrix.
   int? powerLevel;
 
+  /// **Персональное имя комнаты (запрос постановщика 2026-07-13)**:
+  /// видит ТОЛЬКО этот участник (membership per-viewer — идеальное
+  /// место). Высший приоритет имени в _toSummary (сильнее group-name
+  /// и direct-alias). trim ≤64; null = не задано.
+  String? customRoomName;
+
+  /// **Write-ban (запрос постановщика 2026-07-13)**: запрет ПИСАТЬ в
+  /// комнату (человек остаётся участником-читателем — в отличие от
+  /// kick/ban). null = нет запрета; дата в будущем = до неё;
+  /// 9999-12-31 = навсегда (клиент показывает «навсегда» для year ≥
+  /// 9000). Enforcement в sendMessage (WriteBannedException).
+  DateTime? writeBannedUntil;
+
+  /// **TASK75 — «закрыть чат» (per-operator, до следующего сообщения)**:
+  /// оператор скрыл support-чат у СЕБЯ до нового сообщения заявителя.
+  /// true = скрыт. НЕ путать с ручным `archived`: dismissed авто-
+  /// сбрасывается в false в `MatrixSyncDispatcher._publishEvents`, когда
+  /// заявитель (owner комнаты) присылает сообщение (+ эмит
+  /// roomMembershipUpdated, чтобы список у оператора вернул чат). Тикет
+  /// и комната при этом не закрываются. Клиент прячет dismissed из
+  /// support-списка. См. TASK75 §3.
+  bool dismissedUntilMessage;
+
   /// Returns a shallow copy of this [RoomMembership]
   /// with some or all fields replaced by the given arguments.
   @_i1.useResult
@@ -154,6 +195,9 @@ abstract class RoomMembership implements _i1.SerializableModel {
     DateTime? lastReadAt,
     int? unreadCount,
     int? powerLevel,
+    String? customRoomName,
+    DateTime? writeBannedUntil,
+    bool? dismissedUntilMessage,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -171,6 +215,10 @@ abstract class RoomMembership implements _i1.SerializableModel {
       if (lastReadAt != null) 'lastReadAt': lastReadAt?.toJson(),
       'unreadCount': unreadCount,
       if (powerLevel != null) 'powerLevel': powerLevel,
+      if (customRoomName != null) 'customRoomName': customRoomName,
+      if (writeBannedUntil != null)
+        'writeBannedUntil': writeBannedUntil?.toJson(),
+      'dismissedUntilMessage': dismissedUntilMessage,
     };
   }
 
@@ -196,6 +244,9 @@ class _RoomMembershipImpl extends RoomMembership {
     DateTime? lastReadAt,
     int? unreadCount,
     int? powerLevel,
+    String? customRoomName,
+    DateTime? writeBannedUntil,
+    bool? dismissedUntilMessage,
   }) : super._(
          id: id,
          roomId: roomId,
@@ -209,6 +260,9 @@ class _RoomMembershipImpl extends RoomMembership {
          lastReadAt: lastReadAt,
          unreadCount: unreadCount,
          powerLevel: powerLevel,
+         customRoomName: customRoomName,
+         writeBannedUntil: writeBannedUntil,
+         dismissedUntilMessage: dismissedUntilMessage,
        );
 
   /// Returns a shallow copy of this [RoomMembership]
@@ -228,6 +282,9 @@ class _RoomMembershipImpl extends RoomMembership {
     Object? lastReadAt = _Undefined,
     int? unreadCount,
     Object? powerLevel = _Undefined,
+    Object? customRoomName = _Undefined,
+    Object? writeBannedUntil = _Undefined,
+    bool? dismissedUntilMessage,
   }) {
     return RoomMembership(
       id: id is int? ? id : this.id,
@@ -244,6 +301,14 @@ class _RoomMembershipImpl extends RoomMembership {
       lastReadAt: lastReadAt is DateTime? ? lastReadAt : this.lastReadAt,
       unreadCount: unreadCount ?? this.unreadCount,
       powerLevel: powerLevel is int? ? powerLevel : this.powerLevel,
+      customRoomName: customRoomName is String?
+          ? customRoomName
+          : this.customRoomName,
+      writeBannedUntil: writeBannedUntil is DateTime?
+          ? writeBannedUntil
+          : this.writeBannedUntil,
+      dismissedUntilMessage:
+          dismissedUntilMessage ?? this.dismissedUntilMessage,
     );
   }
 }

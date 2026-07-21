@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -139,6 +140,40 @@ void main() {
     );
     await t.tap(find.byType(ListTile));
     expect(tapped, isTrue);
+  });
+
+  // Issue #6: правый клик мыши (desktop/web) по строке чата — тот же
+  // callback, что long-press (открытие room action sheet). Long-press
+  // при этом не меняется.
+  testWidgets('правый клик → onLongPress callback срабатывает', (t) async {
+    var longPressed = false;
+    var tapped = false;
+    await t.pumpWidget(
+      wrap(
+        RoomSummaryTile(
+          room: summary(),
+          onTap: () => tapped = true,
+          onLongPress: () => longPressed = true,
+        ),
+      ),
+    );
+    await t.tap(find.byType(ListTile), buttons: kSecondaryButton);
+    expect(longPressed, isTrue);
+    // Правый клик не должен провоцировать обычный onTap (открытие чата).
+    expect(tapped, isFalse);
+  });
+
+  testWidgets('long-press остаётся рабочим параллельно с правым кликом', (
+    t,
+  ) async {
+    var longPressed = false;
+    await t.pumpWidget(
+      wrap(
+        RoomSummaryTile(room: summary(), onLongPress: () => longPressed = true),
+      ),
+    );
+    await t.longPress(find.byType(ListTile));
+    expect(longPressed, isTrue);
   });
 
   // ---------------------------------------------------------------

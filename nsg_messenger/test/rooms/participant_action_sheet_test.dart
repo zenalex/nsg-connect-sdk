@@ -21,6 +21,7 @@ void main() {
     participants: const [],
     totalParticipants: 0,
     viewerRole: viewerRole,
+    canEscalateSupport: false,
   );
 
   RoomParticipant buildTarget({

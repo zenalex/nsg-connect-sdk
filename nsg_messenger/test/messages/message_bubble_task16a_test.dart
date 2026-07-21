@@ -278,5 +278,50 @@ void main() {
       );
       expect(find.byType(NsgAvatarImage), findsNothing);
     });
+
+    testWidgets('TASK69 2C: тап по аватару → onSenderAvatarTap(senderMatrix)', (
+      tester,
+    ) async {
+      final tapped = <String>[];
+      await tester.pumpWidget(
+        wrap(
+          MessageBubble(
+            message: make(senderMatrix: '@bob:localhost', sender: 2),
+            isOwn: false,
+            onRetry: (_) {},
+            isGroupChat: true,
+            participantsByMatrixId: {'@bob:localhost': bob},
+            showSenderAvatar: true,
+            onSenderAvatarTap: tapped.add,
+          ),
+        ),
+      );
+      await tester.tap(find.byType(NsgAvatarImage));
+      await tester.pump();
+      expect(tapped, ['@bob:localhost']);
+    });
+
+    testWidgets('TASK69 2C: в режиме выбора тап по аватару НЕ упоминает', (
+      tester,
+    ) async {
+      final tapped = <String>[];
+      await tester.pumpWidget(
+        wrap(
+          MessageBubble(
+            message: make(senderMatrix: '@bob:localhost', sender: 2),
+            isOwn: false,
+            onRetry: (_) {},
+            isGroupChat: true,
+            participantsByMatrixId: {'@bob:localhost': bob},
+            showSenderAvatar: true,
+            onSenderAvatarTap: tapped.add,
+            selectionMode: true,
+          ),
+        ),
+      );
+      await tester.tap(find.byType(NsgAvatarImage), warnIfMissed: false);
+      await tester.pump();
+      expect(tapped, isEmpty);
+    });
   });
 }

@@ -34,6 +34,12 @@ class _NotificationSettingsScreenState
   bool? _localShowPreview;
   bool? _localSendReceipts; // **B11**
   bool? _localDiscoverable; // **Settings**: приватность — найти в поиске.
+  // **TASK52**: приватность — direct только от контактов; визитки на звонке.
+  bool? _localContactsOnly;
+  bool? _localShowCards;
+  // **TASK55 итер.3**: показывать ли мой last seen/online (инверсия
+  // presenceHidden; взаимность — скрыл, значит не видишь чужой).
+  bool? _localPresenceVisible;
   bool _saving = false;
 
   @override
@@ -54,9 +60,28 @@ class _NotificationSettingsScreenState
         // Default discoverable=true (legacy users без значения видимы в
         // поиске — соответствует поведению до приватности).
         _localDiscoverable = s.discoverable ?? true;
+        _localContactsOnly = s.whoCanMessageMe == 'contacts';
+        _localShowCards = s.showCardsOnCall ?? true;
+        _localPresenceVisible = !(s.presenceHidden ?? false);
       });
     }
     return s;
+  }
+
+  /// Отправить в трекер ошибку сохранения настройки, которую увидел
+  /// пользователь. Все шесть тумблеров показывают ОДИН снек
+  /// `notificationSettingsSaveFailed` — без тега [field] в трекере они
+  /// неотличимы; [field] = имя поля в `_settings.set`.
+  ///
+  /// Терять это особенно дёшево: тумблер оптимистичный и на ошибке
+  /// отщёлкивает назад, так что внешне «просто не сработало» — а среди полей
+  /// есть приватность (discoverable / whoCanMessageMe / presenceHidden).
+  void _reportSaveFailed(Object e, StackTrace st, String field) {
+    MessengerRuntime.instance.reportError(
+      e,
+      st,
+      tags: {'settings.field': field},
+    );
   }
 
   Future<void> _toggle(bool newValue) async {
@@ -69,7 +94,8 @@ class _NotificationSettingsScreenState
     try {
       await _settings.set(showMessagePreview: newValue);
       if (mounted) setState(() => _saving = false);
-    } catch (_) {
+    } catch (e, st) {
+      _reportSaveFailed(e, st, 'showMessagePreview');
       if (!mounted) return;
       // Revert + snackbar.
       setState(() {
@@ -101,7 +127,8 @@ class _NotificationSettingsScreenState
         sendReadReceipts: newValue,
       );
       if (mounted) setState(() => _saving = false);
-    } catch (_) {
+    } catch (e, st) {
+      _reportSaveFailed(e, st, 'sendReadReceipts');
       if (!mounted) return;
       setState(() {
         _localSendReceipts = prev;
@@ -133,7 +160,8 @@ class _NotificationSettingsScreenState
         discoverable: newValue,
       );
       if (mounted) setState(() => _saving = false);
-    } catch (_) {
+    } catch (e, st) {
+      _reportSaveFailed(e, st, 'discoverable');
       if (!mounted) return;
       setState(() {
         _localDiscoverable = prev;
@@ -141,6 +169,98 @@ class _NotificationSettingsScreenState
       });
       final messenger = ScaffoldMessenger.maybeOf(context);
       messenger?.showSnackBar(
+        SnackBar(
+          content: Text(NsgL10n.of(context).notificationSettingsSaveFailed),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  /// **TASK52**: toggle «писать могут только контакты»
+  /// (whoCanMessageMe everyone↔contacts). Optimistic + revert.
+  Future<void> _toggleContactsOnly(bool newValue) async {
+    if (_saving) return;
+    final prev = _localContactsOnly ?? false;
+    setState(() {
+      _localContactsOnly = newValue;
+      _saving = true;
+    });
+    try {
+      await _settings.set(
+        showMessagePreview: _localShowPreview ?? true,
+        whoCanMessageMe: newValue ? 'contacts' : 'everyone',
+      );
+      if (mounted) setState(() => _saving = false);
+    } catch (e, st) {
+      _reportSaveFailed(e, st, 'whoCanMessageMe');
+      if (!mounted) return;
+      setState(() {
+        _localContactsOnly = prev;
+        _saving = false;
+      });
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: Text(NsgL10n.of(context).notificationSettingsSaveFailed),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  /// **TASK52**: toggle «визитки на экране звонка». Optimistic + revert.
+  Future<void> _toggleShowCards(bool newValue) async {
+    if (_saving) return;
+    final prev = _localShowCards ?? true;
+    setState(() {
+      _localShowCards = newValue;
+      _saving = true;
+    });
+    try {
+      await _settings.set(
+        showMessagePreview: _localShowPreview ?? true,
+        showCardsOnCall: newValue,
+      );
+      if (mounted) setState(() => _saving = false);
+    } catch (e, st) {
+      _reportSaveFailed(e, st, 'showCardsOnCall');
+      if (!mounted) return;
+      setState(() {
+        _localShowCards = prev;
+        _saving = false;
+      });
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: Text(NsgL10n.of(context).notificationSettingsSaveFailed),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  /// **TASK55 итер.3**: toggle «показывать, когда я в сети» (инверсия
+  /// presenceHidden). Optimistic + revert.
+  Future<void> _togglePresenceVisible(bool newValue) async {
+    if (_saving) return;
+    final prev = _localPresenceVisible ?? true;
+    setState(() {
+      _localPresenceVisible = newValue;
+      _saving = true;
+    });
+    try {
+      await _settings.set(
+        showMessagePreview: _localShowPreview ?? true,
+        presenceHidden: !newValue,
+      );
+      if (mounted) setState(() => _saving = false);
+    } catch (e, st) {
+      _reportSaveFailed(e, st, 'presenceHidden');
+      if (!mounted) return;
+      setState(() {
+        _localPresenceVisible = prev;
+        _saving = false;
+      });
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
         SnackBar(
           content: Text(NsgL10n.of(context).notificationSettingsSaveFailed),
           duration: const Duration(seconds: 3),
@@ -192,6 +312,27 @@ class _NotificationSettingsScreenState
                 subtitle: Text(l.notificationSettingsDiscoverableSubtitle),
                 value: discoverable,
                 onChanged: _saving ? null : _toggleDiscoverable,
+              ),
+              SwitchListTile(
+                key: const Key('whoCanMessageMeToggle'),
+                title: Text(l.settingsWhoCanMessageTitle),
+                subtitle: Text(l.settingsWhoCanMessageSubtitle),
+                value: _localContactsOnly ?? false,
+                onChanged: _saving ? null : _toggleContactsOnly,
+              ),
+              SwitchListTile(
+                key: const Key('showCardsOnCallToggle'),
+                title: Text(l.settingsShowCardsOnCallTitle),
+                subtitle: Text(l.settingsShowCardsOnCallSubtitle),
+                value: _localShowCards ?? true,
+                onChanged: _saving ? null : _toggleShowCards,
+              ),
+              SwitchListTile(
+                key: const Key('presenceVisibleToggle'),
+                title: Text(l.settingsPresenceVisibleTitle),
+                subtitle: Text(l.settingsPresenceVisibleSubtitle),
+                value: _localPresenceVisible ?? true,
+                onChanged: _saving ? null : _togglePresenceVisible,
               ),
             ],
           );

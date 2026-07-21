@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:nsg_connect_client/nsg_connect_client.dart';
 
 import '../i18n/generated/nsg_l10n.dart';
+import '../messenger_runtime.dart';
+import 'attachments/image_actions.dart';
 import 'chat_message.dart';
+import 'emoji_reaction_picker.dart';
+import 'forward_picker_sheet.dart';
+import 'message_share.dart';
 import 'messages_controller.dart';
 
 /// Bottom-sheet с per-message actions (Edit / Delete / Copy) — TASK37
@@ -23,6 +29,11 @@ Future<void> showMessageActionSheet({
   required ChatMessage message,
   required bool isOwn,
   required MessagesController controller,
+  void Function(ChatMessage message)? onStartEdit,
+  void Function(ChatMessage message)? onSelectMessage,
+  void Function(ChatMessage message)? onReplyWithMention,
+  ImageActions? imageActions,
+  bool canPin = false,
 }) {
   return showModalBottomSheet<void>(
     context: context,
@@ -31,6 +42,11 @@ Future<void> showMessageActionSheet({
       message: message,
       isOwn: isOwn,
       controller: controller,
+      onStartEdit: onStartEdit,
+      onSelectMessage: onSelectMessage,
+      onReplyWithMention: onReplyWithMention,
+      imageActions: imageActions,
+      canPin: canPin,
     ),
   );
 }
@@ -44,11 +60,54 @@ class _MessageActionSheetBody extends StatelessWidget {
     required this.message,
     required this.isOwn,
     required this.controller,
+    this.onStartEdit,
+    this.onSelectMessage,
+    this.onReplyWithMention,
+    this.imageActions,
+    this.canPin = false,
   });
 
   final ChatMessage message;
   final bool isOwn;
   final MessagesController controller;
+
+  /// **Issue #35**: показывать ли пункт «Закрепить»/«Открепить». ChatScreen
+  /// вычисляет по типу комнаты + роли viewer-а (direct — всегда; группы —
+  /// admin/owner). Сам pin/unpin ещё раз проверяется сервером.
+  final bool canPin;
+
+  /// Share/copy-действия для картинок. `null` → строим из
+  /// `controller.downloadFullSize` (прод); тесты инъектят фейк.
+  final ImageActions? imageActions;
+
+  /// **TASK69 2C**: если задан — показывается пункт «Ответить с упоминанием»
+  /// (reply + @автор в композере). ChatScreen прокидывает его только для
+  /// групп и чужих сообщений (в 1:1 и для своих упоминание избыточно).
+  final void Function(ChatMessage message)? onReplyWithMention;
+
+  /// Если задан — «Изменить» открывает редактирование **в композере**
+  /// (inline edit-mode, тот же ввод/визуал что и новое сообщение) вместо
+  /// legacy-диалога. ChatScreen передаёт `(m) => _editTarget.value = m`.
+  final void Function(ChatMessage message)? onStartEdit;
+
+  /// **Пересылка (мультивыбор)**: если задан — показывается пункт «Выбрать»,
+  /// который включает режим множественного выбора в ChatScreen (стартуя с
+  /// этого сообщения). `null` → пункт скрыт (напр. demo без host-обвязки).
+  final void Function(ChatMessage message)? onSelectMessage;
+
+  /// Отправить в трекер ошибку действия над сообщением, которую увидел
+  /// пользователь. Тег [action] отделяет пути друг от друга.
+  ///
+  /// Ожидаемый отказ репортить не надо: «интеграция не настроена»
+  /// ([TaskIntegrationNotConfiguredException]) ловится отдельной `on`-веткой —
+  /// это конфиг тенанта, а не баг.
+  void _reportActionFailed(Object e, StackTrace st, String action) {
+    MessengerRuntime.instance.reportError(
+      e,
+      st,
+      tags: {'message.action': action},
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -57,102 +116,318 @@ class _MessageActionSheetBody extends StatelessWidget {
     // с stable matrixEventId (sent, non-tombstone). Pending/failed/
     // deleted — нет id для реакции.
     final canReact = !message.isDeleted && message.matrixEventId != null;
+    // Скролл обязателен: на десктопе (невысокое окно) шит обрезается по
+    // высоте, и нижние пункты («Копировать» и далее) были недостижимы.
     return SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (canReact)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  for (final emoji in kQuickReactionEmojis)
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (canReact)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    for (final emoji in kQuickReactionEmojis)
+                      InkResponse(
+                        onTap: () {
+                          Navigator.of(context).pop();
+                          controller.toggleReaction(
+                            message.matrixEventId!,
+                            emoji,
+                          );
+                        },
+                        radius: 24,
+                        child: Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: Text(
+                            emoji,
+                            style: const TextStyle(fontSize: 26),
+                          ),
+                        ),
+                      ),
+                    // **F2 ч.1**: «+» → полный emoji-picker (за пределами
+                    // быстрого ряда). Пикер открывается ПОВЕРХ этого шита
+                    // (context валиден); на выборе — закрываем шит и ставим
+                    // реакцию, на отмене — шит остаётся.
                     InkResponse(
-                      onTap: () {
-                        Navigator.of(context).pop();
+                      onTap: () async {
+                        final navigator = Navigator.of(context);
+                        final picked = await showEmojiReactionPicker(context);
+                        if (picked == null) return;
+                        navigator.pop();
                         controller.toggleReaction(
                           message.matrixEventId!,
-                          emoji,
+                          picked,
                         );
                       },
                       radius: 24,
                       child: Padding(
                         padding: const EdgeInsets.all(8),
-                        child: Text(
-                          emoji,
-                          style: const TextStyle(fontSize: 26),
+                        child: Icon(
+                          Icons.add_reaction_outlined,
+                          size: 26,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ),
-                ],
-              ),
-            ),
-          if (canReact) const Divider(height: 1),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-            child: Text(
-              l.messageActionSheetTitle,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-          ),
-          // **TASK16-A**: Reply visible для всех non-tombstone (Q4
-          // sign-off — own AND peer messages reply-able). Tombstone
-          // отфильтрован вызовом showMessageActionSheet (long-press
-          // disabled на bubble) — defense только UI affordance.
-          if (!message.isDeleted)
-            ListTile(
-              leading: const Icon(Icons.reply_outlined),
-              title: Text(l.messageActionReply),
-              onTap: () {
-                Navigator.of(context).pop();
-                controller.setReplyTarget(message);
-              },
-            ),
-          if (isOwn) ...[
-            ListTile(
-              leading: const Icon(Icons.edit_outlined),
-              title: Text(l.messageActionEdit),
-              onTap: () async {
-                final navigator = Navigator.of(context);
-                navigator.pop();
-                await _handleEdit(context);
-              },
-            ),
-            ListTile(
-              leading: Icon(
-                Icons.delete_outline,
-                color: Theme.of(context).colorScheme.error,
-              ),
-              title: Text(
-                l.messageActionDelete,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-              onTap: () async {
-                final navigator = Navigator.of(context);
-                navigator.pop();
-                await _handleDelete(context);
-              },
-            ),
-          ],
-          ListTile(
-            leading: const Icon(Icons.copy_outlined),
-            title: Text(l.messageActionCopy),
-            onTap: () async {
-              final navigator = Navigator.of(context);
-              final messenger = ScaffoldMessenger.maybeOf(context);
-              final l = NsgL10n.of(context);
-              navigator.pop();
-              await Clipboard.setData(ClipboardData(text: message.body));
-              messenger?.showSnackBar(
-                SnackBar(
-                  content: Text(l.messageCopiedSnack),
-                  duration: const Duration(seconds: 2),
+                  ],
                 ),
-              );
-            },
-          ),
-        ],
+              ),
+            if (canReact) const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              child: Text(
+                l.messageActionSheetTitle,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            // **TASK16-A**: Reply visible для всех non-tombstone (Q4
+            // sign-off — own AND peer messages reply-able). Tombstone
+            // отфильтрован вызовом showMessageActionSheet (long-press
+            // disabled на bubble) — defense только UI affordance.
+            if (!message.isDeleted)
+              ListTile(
+                leading: const Icon(Icons.reply_outlined),
+                title: Text(l.messageActionReply),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  controller.setReplyTarget(message);
+                },
+              ),
+            // **TASK69 2C**: «Ответить с упоминанием» — reply + @автор в
+            // композере. Только для групп/чужих (гейт в ChatScreen через
+            // наличие onReplyWithMention).
+            if (!message.isDeleted && onReplyWithMention != null)
+              ListTile(
+                leading: const Icon(Icons.alternate_email),
+                title: Text(l.messageActionReplyWithMention),
+                onTap: () {
+                  final cb = onReplyWithMention!;
+                  Navigator.of(context).pop();
+                  cb(message);
+                },
+              ),
+            // **Issue #35**: закрепить / открепить сообщение. Видно если у
+            // viewer-а есть права (canPin — direct всегда, группы admin/owner)
+            // и есть stable matrixEventId (sent, non-tombstone). Toggle Pin/
+            // Unpin по текущему состоянию `controller.isPinned`.
+            if (canPin && !message.isDeleted && message.matrixEventId != null)
+              Builder(
+                builder: (context) {
+                  final pinned = controller.isPinned(message.matrixEventId!);
+                  return ListTile(
+                    leading: Icon(
+                      pinned ? Icons.push_pin : Icons.push_pin_outlined,
+                    ),
+                    title: Text(
+                      pinned ? l.messageActionUnpin : l.messageActionPin,
+                    ),
+                    onTap: () async {
+                      final navigator = Navigator.of(context);
+                      final messenger = ScaffoldMessenger.maybeOf(context);
+                      final l = NsgL10n.of(context);
+                      final eventId = message.matrixEventId!;
+                      navigator.pop();
+                      await _handlePinToggle(messenger, l, eventId, pinned);
+                    },
+                  );
+                },
+              ),
+            // «Копировать» — самый частый пункт, держим наверху (раньше был
+            // внизу и на десктопе обрезался высотой шита).
+            ListTile(
+              leading: const Icon(Icons.copy_outlined),
+              title: Text(l.messageActionCopy),
+              onTap: () async {
+                final navigator = Navigator.of(context);
+                final messenger = ScaffoldMessenger.maybeOf(context);
+                final l = NsgL10n.of(context);
+                navigator.pop();
+                await Clipboard.setData(ClipboardData(text: message.body));
+                messenger?.showSnackBar(
+                  SnackBar(
+                    content: Text(l.messageCopiedSnack),
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              },
+            ),
+            // **Скопировать изображение** — для сообщений-картинок (запрос
+            // постановщика: картинку из сообщения нельзя было скопировать).
+            // Кладёт картинку в буфер обмена (desktop — bitmap/файл, mobile/
+            // web — bitmap). Расшаривание наружу — отдельный пункт «Поделиться».
+            if (!message.isDeleted && _isImageAttachment(message))
+              ListTile(
+                leading: const Icon(Icons.image_outlined),
+                title: Text(l.messageActionCopyImage),
+                onTap: () async {
+                  final navigator = Navigator.of(context);
+                  final messenger = ScaffoldMessenger.maybeOf(context);
+                  final l = NsgL10n.of(context);
+                  final att = message.attachment!;
+                  navigator.pop();
+                  final actions =
+                      imageActions ??
+                      ImageActions.fromDownloader(controller.downloadFullSize);
+                  try {
+                    await actions.copyImage(att);
+                    messenger?.showSnackBar(
+                      SnackBar(
+                        content: Text(l.imageCopiedSnack),
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  } catch (e, st) {
+                    _reportActionFailed(e, st, 'copyImage');
+                    messenger?.showSnackBar(
+                      SnackBar(
+                        content: Text(l.imageCopyFailed),
+                        duration: const Duration(seconds: 3),
+                      ),
+                    );
+                  }
+                },
+              ),
+            // **Пересылка (forward)** — внутренний пикер чата → перенос
+            // сообщения/альбома в целевую комнату. Visible для non-deleted
+            // (own И peer, как Reply).
+            if (!message.isDeleted)
+              ListTile(
+                leading: const Icon(Icons.forward_outlined),
+                title: Text(l.messageActionForward),
+                onTap: () async {
+                  // navigator/messenger захватываем ДО pop (context листа
+                  // после pop недействителен). `l` из build — просто объект
+                  // локализации, живёт после pop.
+                  final navigator = Navigator.of(context);
+                  final messenger = ScaffoldMessenger.maybeOf(context);
+                  navigator.pop();
+                  // **F1**: мультивыбор целевых чатов — переслать во все.
+                  final rooms = await showForwardPickerMulti(
+                    context: navigator.context,
+                  );
+                  if (rooms == null || rooms.isEmpty) return;
+                  try {
+                    await controller.forwardMessagesToRooms(
+                      targetRoomIds: rooms
+                          .map((r) => r.id)
+                          .toList(growable: false),
+                      messages: [message],
+                    );
+                    messenger?.showSnackBar(
+                      SnackBar(
+                        content: Text(l.forwardedToChatsSnack(rooms.length)),
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  } catch (e, st) {
+                    _reportActionFailed(e, st, 'forward');
+                    messenger?.showSnackBar(
+                      SnackBar(
+                        content: Text(l.forwardFailed),
+                        duration: const Duration(seconds: 3),
+                      ),
+                    );
+                  }
+                },
+              ),
+            // **Пересылка (мультивыбор)** — войти в режим выбора нескольких
+            // сообщений (Telegram-style) и переслать их пачкой. Видно только
+            // если host прокинул колбэк (ChatScreen). Как Forward — для
+            // non-deleted (own И peer).
+            if (!message.isDeleted && onSelectMessage != null)
+              ListTile(
+                leading: const Icon(Icons.check_circle_outline),
+                title: Text(l.messageActionSelect),
+                onTap: () {
+                  final navigator = Navigator.of(context);
+                  final cb = onSelectMessage!;
+                  navigator.pop();
+                  cb(message);
+                },
+              ),
+            if (isOwn) ...[
+              ListTile(
+                leading: const Icon(Icons.edit_outlined),
+                title: Text(l.messageActionEdit),
+                onTap: () async {
+                  final navigator = Navigator.of(context);
+                  final startEdit = onStartEdit;
+                  navigator.pop();
+                  // Предпочитаем inline-редактирование в композере (красиво +
+                  // удобно для длинных сообщений, тот же механизм ввода).
+                  // Fallback на legacy-диалог — если host не прокинул callback
+                  // (напр. в старых тестах).
+                  if (startEdit != null) {
+                    startEdit(message);
+                  } else {
+                    await _handleEdit(context);
+                  }
+                },
+              ),
+              ListTile(
+                leading: Icon(
+                  Icons.delete_outline,
+                  color: Theme.of(context).colorScheme.error,
+                ),
+                title: Text(
+                  l.messageActionDelete,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+                onTap: () async {
+                  final navigator = Navigator.of(context);
+                  navigator.pop();
+                  await _handleDelete(context);
+                },
+              ),
+            ],
+            // **Внешняя пересылка (share наружу)** — системный share sheet
+            // (share_plus): текст / картинки в другие приложения. Visible для
+            // non-deleted.
+            if (!message.isDeleted)
+              ListTile(
+                leading: const Icon(Icons.ios_share),
+                title: Text(l.messageActionShare),
+                onTap: () async {
+                  final navigator = Navigator.of(context);
+                  final messenger = ScaffoldMessenger.maybeOf(context);
+                  navigator.pop();
+                  try {
+                    await MessageSharer(controller).share(message);
+                  } catch (e, st) {
+                    _reportActionFailed(e, st, 'share');
+                    messenger?.showSnackBar(
+                      SnackBar(
+                        content: Text(l.shareFailed),
+                        duration: const Duration(seconds: 3),
+                      ),
+                    );
+                  }
+                },
+              ),
+            // **TASK38**: создать задачу из сообщения. Visible только если
+            // tenant настроил task-интеграцию (controller.taskIntegrationEnabled
+            // — gated server-side, SDK общий со студенческими аппами) и есть
+            // stable matrixEventId (sent, non-tombstone).
+            if (controller.taskIntegrationEnabled &&
+                !message.isDeleted &&
+                message.matrixEventId != null)
+              ListTile(
+                leading: const Icon(Icons.add_task_outlined),
+                title: Text(l.messageActionCreateTask),
+                onTap: () async {
+                  final navigator = Navigator.of(context);
+                  final messenger = ScaffoldMessenger.maybeOf(context);
+                  final l = NsgL10n.of(context);
+                  final eventId = message.matrixEventId!;
+                  navigator.pop();
+                  await _handleCreateTask(messenger, l, eventId);
+                },
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -169,7 +444,8 @@ class _MessageActionSheetBody extends StatelessWidget {
     // server-side ArgumentError тоже бы упал — defense in depth (Q5).
     try {
       await controller.editMessage(matrixEventId: eventId, newBody: newBody);
-    } catch (_) {
+    } catch (e, st) {
+      _reportActionFailed(e, st, 'edit');
       messenger?.showSnackBar(
         SnackBar(
           content: Text(l.messageEditFailed),
@@ -189,7 +465,8 @@ class _MessageActionSheetBody extends StatelessWidget {
     if (confirmed != true) return;
     try {
       await controller.deleteMessage(matrixEventId: eventId);
-    } catch (_) {
+    } catch (e, st) {
+      _reportActionFailed(e, st, 'delete');
       messenger?.showSnackBar(
         SnackBar(
           content: Text(l.messageDeleteFailed),
@@ -198,6 +475,104 @@ class _MessageActionSheetBody extends StatelessWidget {
       );
     }
   }
+
+  /// **Issue #35**: закрепить/открепить (toggle). messenger + l захвачены ДО
+  /// `pop()`. Сервер — финальный guard прав: [InsufficientPowerException]
+  /// (напр. member в группе) → отдельный текст «только админы».
+  Future<void> _handlePinToggle(
+    ScaffoldMessengerState? messenger,
+    NsgL10n l,
+    String matrixEventId,
+    bool currentlyPinned,
+  ) async {
+    try {
+      if (currentlyPinned) {
+        await controller.unpinMessage(matrixEventId);
+        messenger?.showSnackBar(
+          SnackBar(
+            content: Text(l.messageUnpinnedSnack),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      } else {
+        await controller.pinMessage(matrixEventId);
+        messenger?.showSnackBar(
+          SnackBar(
+            content: Text(l.messagePinnedSnack),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } on InsufficientPowerException {
+      messenger?.showSnackBar(
+        SnackBar(
+          content: Text(l.pinNotAllowed),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } catch (e, st) {
+      _reportActionFailed(e, st, currentlyPinned ? 'unpin' : 'pin');
+      messenger?.showSnackBar(
+        SnackBar(
+          content: Text(
+            currentlyPinned ? l.unpinMessageFailed : l.pinMessageFailed,
+          ),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  /// **TASK38**: создать задачу во внешнем трекере из сообщения. messenger
+  /// и l захвачены ДО `pop()` (sheet-context уже defunct к моменту await).
+  /// Успех → snackbar с ключом задачи + кнопка скопировать URL. Нет
+  /// конфига → [TaskIntegrationNotConfiguredException] → отдельный текст.
+  Future<void> _handleCreateTask(
+    ScaffoldMessengerState? messenger,
+    NsgL10n l,
+    String matrixEventId,
+  ) async {
+    try {
+      final link = await controller.createTaskFromMessage(
+        matrixEventId: matrixEventId,
+        body: message.body,
+      );
+      messenger?.showSnackBar(
+        SnackBar(
+          content: Text(
+            l.taskCreatedSnack(link.externalTaskKey ?? link.externalTaskId),
+          ),
+          duration: const Duration(seconds: 5),
+          action: SnackBarAction(
+            label: l.messageActionCopy,
+            onPressed: () =>
+                Clipboard.setData(ClipboardData(text: link.externalTaskUrl)),
+          ),
+        ),
+      );
+    } on TaskIntegrationNotConfiguredException {
+      messenger?.showSnackBar(
+        SnackBar(
+          content: Text(l.taskIntegrationDisabled),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } catch (e, st) {
+      _reportActionFailed(e, st, 'createTask');
+      messenger?.showSnackBar(
+        SnackBar(
+          content: Text(l.taskCreateFailed),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+}
+
+/// Сообщение с картинкой-вложением (для пункта «Скопировать изображение»).
+bool _isImageAttachment(ChatMessage m) {
+  final a = m.attachment;
+  return a != null && a.mimeType.startsWith('image/');
 }
 
 /// Edit dialog — input field с current body prefilled. Save-button

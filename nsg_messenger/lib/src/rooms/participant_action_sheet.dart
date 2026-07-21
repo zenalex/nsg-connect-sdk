@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:nsg_connect_client/nsg_connect_client.dart';
 
 import '../i18n/generated/nsg_l10n.dart';
+import '../messenger_runtime.dart';
 import 'nsg_messenger_rooms.dart';
 
 /// **TASK29 Chunk 2**: bottom-sheet с per-participant admin actions
@@ -129,6 +130,7 @@ class _ParticipantActionSheetBody extends StatelessWidget {
                     : RoomMemberRole.owner;
                 final ok = await _runWithErrorReport(
                   context,
+                  'promote:${newRole.name}',
                   () => rooms.setRoomMemberRole(
                     roomId: room.id,
                     targetMessengerUserId: target.messengerUserId,
@@ -147,6 +149,7 @@ class _ParticipantActionSheetBody extends StatelessWidget {
                 navigator.pop();
                 final ok = await _runWithErrorReport(
                   context,
+                  'demote',
                   () => rooms.setRoomMemberRole(
                     roomId: room.id,
                     targetMessengerUserId: target.messengerUserId,
@@ -156,6 +159,61 @@ class _ParticipantActionSheetBody extends StatelessWidget {
                 if (ok) onChanged?.call();
               },
             ),
+          // **Write-ban (2026-07-13)**: запретить/разрешить писать —
+          // участник остаётся читателем (мягче kick/ban). Guard-ы те же,
+          // что kick/ban + owner-target отбивается сервером.
+          if (canKickBan && target.role != RoomMemberRole.owner)
+            target.writeBannedUntil == null
+                ? ListTile(
+                    leading: const Icon(Icons.speaker_notes_off_outlined),
+                    title: Text(l.roomAdminWriteBanAction),
+                    onTap: () async {
+                      final navigator = Navigator.of(context);
+                      // Длительность выбираем на живом контексте до pop.
+                      final seconds = await _pickWriteBanDuration(context);
+                      if (seconds == _durationCancelled) return;
+                      if (!context.mounted) return;
+                      navigator.pop();
+                      final ok = await _runWithErrorReport(
+                        context,
+                        'writeBan',
+                        () => rooms.setWriteBan(
+                          roomId: room.id,
+                          targetMessengerUserId: target.messengerUserId,
+                          banned: true,
+                          untilSeconds: seconds,
+                        ),
+                      );
+                      if (ok) onChanged?.call();
+                    },
+                  )
+                : ListTile(
+                    leading: const Icon(Icons.speaker_notes_outlined),
+                    title: Text(l.roomAdminWriteUnbanAction),
+                    subtitle: Text(
+                      target.writeBannedUntil!.year >= 9000
+                          ? l.roomAdminWriteBanForever
+                          : l.roomAdminWriteBannedUntil(
+                              formatWriteBanUntil(
+                                target.writeBannedUntil!.toLocal(),
+                              ),
+                            ),
+                    ),
+                    onTap: () async {
+                      final navigator = Navigator.of(context);
+                      navigator.pop();
+                      final ok = await _runWithErrorReport(
+                        context,
+                        'writeUnban',
+                        () => rooms.setWriteBan(
+                          roomId: room.id,
+                          targetMessengerUserId: target.messengerUserId,
+                          banned: false,
+                        ),
+                      );
+                      if (ok) onChanged?.call();
+                    },
+                  ),
           if (canKickBan)
             ListTile(
               leading: Icon(
@@ -185,6 +243,7 @@ class _ParticipantActionSheetBody extends StatelessWidget {
                 navigator.pop();
                 final ok = await _runWithErrorReport(
                   context,
+                  'kick',
                   () => rooms.kickUser(
                     roomId: room.id,
                     targetMessengerUserId: target.messengerUserId,
@@ -216,6 +275,7 @@ class _ParticipantActionSheetBody extends StatelessWidget {
                 navigator.pop();
                 final ok = await _runWithErrorReport(
                   context,
+                  'ban',
                   () => rooms.banUser(
                     roomId: room.id,
                     targetMessengerUserId: target.messengerUserId,
@@ -230,6 +290,51 @@ class _ParticipantActionSheetBody extends StatelessWidget {
   }
 }
 
+/// «до 13.07.2026 21:40» — компактный локальный формат для write-ban
+/// (без intl-скелетонов: RU/EN оба читают dd.MM.yyyy HH:mm однозначно).
+String formatWriteBanUntil(DateTime local) {
+  String two(int v) => v.toString().padLeft(2, '0');
+  return '${two(local.day)}.${two(local.month)}.${local.year} '
+      '${two(local.hour)}:${two(local.minute)}';
+}
+
+/// Сентинел «пользователь передумал» для [_pickWriteBanDuration]
+/// (null — валидный ответ «навсегда»).
+const int _durationCancelled = -1;
+
+/// Выбор длительности write-ban: 1 час / 1 день / 7 дней / навсегда.
+/// Возвращает секунды, null = навсегда, [_durationCancelled] = отмена.
+Future<int?> _pickWriteBanDuration(BuildContext context) async {
+  final l = NsgL10n.of(context);
+  final result = await showDialog<Object>(
+    context: context,
+    builder: (ctx) => SimpleDialog(
+      title: Text(l.roomAdminWriteBanDurationTitle),
+      children: [
+        SimpleDialogOption(
+          onPressed: () => Navigator.of(ctx).pop(3600),
+          child: Text(l.roomAdminWriteBanHour),
+        ),
+        SimpleDialogOption(
+          onPressed: () => Navigator.of(ctx).pop(86400),
+          child: Text(l.roomAdminWriteBanDay),
+        ),
+        SimpleDialogOption(
+          onPressed: () => Navigator.of(ctx).pop(7 * 86400),
+          child: Text(l.roomAdminWriteBanWeek),
+        ),
+        SimpleDialogOption(
+          onPressed: () => Navigator.of(ctx).pop('forever'),
+          child: Text(l.roomAdminWriteBanForever),
+        ),
+      ],
+    ),
+  );
+  if (result == null) return _durationCancelled;
+  if (result == 'forever') return null;
+  return result as int;
+}
+
 /// **TASK29 Chunk 2**: typed-exception mapping для admin RPC failures.
 /// Caller передаёт closure → если throw, делаем snackbar с specific i18n.
 /// Used от ParticipantActionSheet AND BannedUsersScreen unban path.
@@ -240,8 +345,13 @@ class _ParticipantActionSheetBody extends StatelessWidget {
 /// поэтому `context` может быть defunct. `ScaffoldMessenger.maybeOf` /
 /// `NsgL10n.of` резолвятся синхронно ДО `await action()` — захватываем
 /// messenger заранее, до того как RPC завершится и context устареет.
+///
+/// [actionName] — только для трекера: через этот хелпер проходят все шесть
+/// действий листа с одним общим снеком, и без тега отчёт сводится к
+/// «админ-действие упало».
 Future<bool> _runWithErrorReport(
   BuildContext context,
+  String actionName,
   Future<void> Function() action,
 ) async {
   final messenger = ScaffoldMessenger.maybeOf(context);
@@ -249,7 +359,17 @@ Future<bool> _runWithErrorReport(
   try {
     await action();
     return true;
-  } catch (e) {
+  } catch (e, st) {
+    // Репортим только немапнутое: «нет прав» и «последний владелец» —
+    // штатные отказы, mapAdminError объясняет их словами. Слать их в трекер
+    // = топить настоящие баги в шуме.
+    if (!isExpectedAdminError(e)) {
+      MessengerRuntime.instance.reportError(
+        e,
+        st,
+        tags: {'room.action': actionName},
+      );
+    }
     final msg = mapAdminError(e, l);
     messenger?.showSnackBar(
       SnackBar(content: Text(msg), duration: const Duration(seconds: 3)),
@@ -269,6 +389,17 @@ String mapAdminError(Object error, NsgL10n l) {
   }
   return l.roomAdminGenericError;
 }
+
+/// Известный админ-отказ, который [mapAdminError] умеет объяснить словами
+/// («нет прав», «последний владелец») — штатный ответ сервера, а не баг:
+/// в трекер такие не шлём, иначе он забьётся шумом. Репортить стоит только
+/// то, что упало в fallback `roomAdminGenericError`.
+///
+/// Живёт рядом с [mapAdminError] намеренно: добавляешь маппинг — добавь
+/// сюда, иначе новый понятный отказ поедет в трекер как «неизвестный».
+bool isExpectedAdminError(Object error) =>
+    error is LastOwnerCannotDemoteException ||
+    error is InsufficientPowerException;
 
 Future<bool?> _showConfirm(
   BuildContext context, {

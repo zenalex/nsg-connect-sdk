@@ -1,13 +1,22 @@
 import 'dart:async';
-import 'dart:io' show SocketException, HandshakeException, HttpException;
+import 'dart:io' show File;
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:nsg_connect_client/nsg_connect_client.dart';
+import 'package:path/path.dart' as p;
 
+import '../cache/messenger_cache_store.dart';
+import '../outbox/outbox_item.dart';
+import '../outbox/outbox_sender.dart';
+import '../share/share_limits.dart';
+import 'attachments/attachment_picker.dart';
 import 'chat_message.dart';
+import 'composer_album_edit.dart';
+import 'forward_source.dart';
 import 'messages_rpc.dart';
 import 'messages_state.dart';
+import 'send_error_classifier.dart';
 
 /// **B10 (см. docs/BACKLOG.md)**: default-расписание retry-ов для
 /// transient send-ошибок (network/timeout/5xx). 5 попыток с экспонентой
@@ -83,7 +92,11 @@ class MessagesController {
     int loadMorePageSize = kDefaultInitialPageSize,
     void Function(Object error, StackTrace stack)? onSendError,
     List<Duration>? sendRetrySchedule,
+    MessengerCacheStore? cache,
+    OutboxSender? outbox,
   }) : _sendRetrySchedule = sendRetrySchedule ?? kDefaultSendRetrySchedule,
+       _cache = cache,
+       _outbox = outbox,
        assert(
          pendingBufferCap > 0,
          'pendingBufferCap must be > 0; cap=0 даёт бесконечный '
@@ -114,9 +127,36 @@ class MessagesController {
   final void Function(Object error, StackTrace stack)? _onSendError;
   final List<Duration> _sendRetrySchedule;
 
+  /// **TASK47**: дисковый кэш (null → оффлайн-история выключена). init()
+  /// показывает кэш сразу, наполняет его свежей страницей и сбрасывает при
+  /// разрыве (gap §3 п.7). Realtime-мёрж в кэш делает NsgMessengerRooms.
+  final MessengerCacheStore? _cache;
+
+  /// **OUTBOX**: фоновый отправитель персистентной очереди. Null → outbox
+  /// выключен (кэш недоступен): контроллер работает как раньше, без
+  /// pending-бабблов из очереди. Используется для retry/discard из UI.
+  final OutboxSender? _outbox;
+
+  /// **OUTBOX**: подписка на изменения очереди для ЭТОЙ комнаты — новые
+  /// enqueue появляются pending-бабблами вживую, delete-на-успехе убирает их.
+  StreamSubscription<int>? _outboxSub;
+
+  /// **OUTBOX**: clientTxnId-ы, которые сейчас показаны как бабблы из очереди
+  /// (инъекция). На refresh снимаем исчезнувшие (discard / доставлено).
+  final Set<String> _outboxTxnIds = <String>{};
+
   final ValueNotifier<MessagesState> _state = ValueNotifier(
     const MessagesLoading(),
   );
+
+  /// **TASK38**: доступна ли task-интеграция в этой комнате — gating для
+  /// пункта «Создать задачу» в long-press меню. Грузится best-effort в
+  /// [init] (не блокирует загрузку сообщений); до ответа / при ошибке /
+  /// если интеграция не настроена — `false` (пункт скрыт). Action-sheet
+  /// читает значение при открытии (init к тому моменту уже отработал), так
+  /// что reactive-notify не нужен.
+  bool _taskIntegrationEnabled = false;
+  bool get taskIntegrationEnabled => _taskIntegrationEnabled;
 
   /// **B9 typing indicator**: set текущих печатающих peer-ов (matrix
   /// id-ы). Server-side фильтрует self, поэтому только peers.
@@ -163,6 +203,21 @@ class MessagesController {
   /// триггерит UI rebuild (паттерн `_readReceiptsVersion`).
   final ValueNotifier<int> _reactionsVersion = ValueNotifier(0);
   ValueListenable<int> get reactionsVersionListenable => _reactionsVersion;
+
+  /// **Issue #35 — закрепление сообщений**: закреплённые сообщения комнаты
+  /// (oldest-first, как в Matrix `m.room.pinned_events`). Плашка над чатом
+  /// слушает [pinnedListenable]. Наполняется [loadPinned] при открытии и на
+  /// realtime `pinnedMessagesChanged`. Источник правды — сервер; тут только
+  /// кэш для отрисовки.
+  final ValueNotifier<List<ChatMessage>> _pinned =
+      ValueNotifier<List<ChatMessage>>(const <ChatMessage>[]);
+  ValueListenable<List<ChatMessage>> get pinnedListenable => _pinned;
+  List<ChatMessage> get pinnedMessages => _pinned.value;
+
+  /// Быстрый lookup «закреплено ли сообщение» — derived из `_pinned` (для
+  /// пункта Pin/Unpin в action-sheet). Пустой до первого [loadPinned].
+  Set<String> _pinnedIds = const <String>{};
+  bool isPinned(String matrixEventId) => _pinnedIds.contains(matrixEventId);
 
   /// **Emoji reactions**: агрегированные группы реакций для сообщения
   /// `matrixEventId` (для рендеринга чипов под bubble). Пустой list —
@@ -439,13 +494,63 @@ class MessagesController {
     // в NsgMessengerRooms).
     _eventsSub ??= _events.where((e) => e.roomId == _roomId).listen(_onEvent);
 
+    // **OUTBOX**: подписка на изменения очереди этой комнаты (однократно) —
+    // enqueue/delete/mark отражаются в pending-бабблах вживую.
+    final outboxCache = _cache;
+    if (outboxCache != null) {
+      _outboxSub ??= outboxCache.outboxRoomChanges
+          .where((rid) => rid == _roomId)
+          .listen((_) => unawaited(_refreshOutbox()));
+    }
+
+    // **TASK38**: best-effort gating-чек (показывать ли «Создать задачу»).
+    // Параллельно с загрузкой сообщений; ошибка / нет интеграции → false.
+    unawaited(
+      _rpc
+          .isTaskIntegrationAvailable(roomId: _roomId)
+          .then((v) {
+            if (!_disposed && epoch == _initEpoch) _taskIntegrationEnabled = v;
+          })
+          .catchError((Object _) {}),
+    );
+
+    // **TASK47**: показать кэшированную историю СРАЗУ (до сети). Буфер
+    // применяем неразрушающе — серверный путь ниже применит его снова
+    // (dedup в _acceptIncomingInto идемпотентен, буфер обнуляется там).
+    final cache = _cache;
+    if (cache != null) {
+      try {
+        final cached = await cache.getMessages(
+          _roomId,
+          limit: _initialPageSize,
+        );
+        if (!_disposed && epoch == _initEpoch && cached.isNotEmpty) {
+          final cachedList = cached.map(ChatMessage.fromServer).toList();
+          for (final m in _initBuffer ?? const <MessengerMessage>[]) {
+            _acceptIncomingInto(cachedList, m);
+          }
+          _state.value = MessagesReady(
+            messages: cachedList,
+            hasMore: true,
+            paginating: false,
+          );
+        }
+      } catch (_) {
+        // best-effort — кэш не должен ломать открытие чата.
+      }
+    }
+
     final MessengerMessageListPage page;
     try {
       page = await _rpc.listMessages(roomId: _roomId, limit: _initialPageSize);
     } catch (e) {
       if (_disposed || epoch != _initEpoch) return;
       _initBuffer = null;
-      _state.value = MessagesError(error: e, lastKnown: null);
+      // **TASK47**: оффлайн — если кэш уже показан, оставляем историю из
+      // кэша; иначе (кэша нет / пуст) — ошибка.
+      if (_state.value is! MessagesReady) {
+        _state.value = MessagesError(error: e, lastKnown: null);
+      }
       return;
     }
 
@@ -467,6 +572,13 @@ class MessagesController {
       paginating: false,
     );
 
+    // **TASK47**: наполняем кэш свежей страницей; при разрыве между кэш-
+    // хвостом и новой «головой» — сбрасываем кэш комнаты (§3 п.7). Best-
+    // effort, unawaited — не блокирует рендер.
+    if (cache != null) {
+      unawaited(_reconcileCache(cache, page.messages));
+    }
+
     // **Reactions history (phase 2)**: подтянуть существующие реакции
     // для загруженной страницы, чтобы чипы были видны сразу при
     // открытии чата (а не только по realtime). Best-effort, unawaited —
@@ -478,6 +590,45 @@ class MessagesController {
     // (раньше `_peerLastReadAt` volatile терялся при пересоздании
     // контроллера). Best-effort, unawaited — не блокирует первый рендер.
     unawaited(_seedReadReceipts());
+
+    // **Issue #35 — закрепление сообщений**: подтянуть закреплённые для
+    // плашки над чатом при открытии (а не только по realtime). Best-effort,
+    // unawaited — не блокирует первый рендер.
+    unawaited(loadPinned());
+
+    // **OUTBOX**: отрисовать pending-бабблы из персистентной очереди (share и
+    // прочие фоновые отправки), пережившие рестарт. Best-effort, unawaited.
+    unawaited(_refreshOutbox());
+  }
+
+  /// **TASK47**: gap-детект + наполнение кэша свежей страницей. Если
+  /// новейшее КЭШированное сообщение старше самого старого в серверной
+  /// странице (за оффлайн пришло больше, чем помещается в страницу) —
+  /// сбрасываем кэш комнаты (наивный merge несмежных диапазонов запрещён,
+  /// §3 п.7), затем кладём свежую страницу.
+  Future<void> _reconcileCache(
+    MessengerCacheStore cache,
+    List<MessengerMessage> serverPage,
+  ) async {
+    try {
+      if (serverPage.isEmpty) return;
+      var serverOldest = serverPage.first.serverTimestamp;
+      for (final m in serverPage) {
+        if (m.serverTimestamp.isBefore(serverOldest)) {
+          serverOldest = m.serverTimestamp;
+        }
+      }
+      final cachedTail = await cache.getMessages(_roomId, limit: 1);
+      // getMessages возвращает по возрастанию → последний = новейший.
+      if (cachedTail.isNotEmpty &&
+          serverOldest.isAfter(cachedTail.last.serverTimestamp)) {
+        // Разрыв: серверная страница не смыкается с кэшем → сброс.
+        await cache.resetRoomMessages(_roomId);
+      }
+      await cache.putMessages(_roomId, serverPage);
+    } catch (_) {
+      // best-effort — кэш не должен ломать загрузку.
+    }
   }
 
   /// Подгрузить страницу OLDER messages. No-op если:
@@ -606,6 +757,61 @@ class MessagesController {
     }
   }
 
+  /// **Issue #35 — закрепление сообщений**: (пере)загрузить закреплённые
+  /// сообщения комнаты с сервера в плашку. Best-effort — ошибка (например,
+  /// нет сети) не мешает чату; плашка просто не обновится.
+  Future<void> loadPinned() async {
+    final List<MessengerMessage> msgs;
+    try {
+      msgs = await _rpc.listPinnedMessages(roomId: _roomId);
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint(
+          '[MessagesController.room=$_roomId] loadPinned failed: $e '
+          '(best-effort, ignored)',
+        );
+      }
+      return;
+    }
+    if (_disposed) return;
+    final list = msgs.map(ChatMessage.fromServer).toList(growable: false);
+    _pinnedIds = <String>{
+      for (final m in list)
+        if (m.matrixEventId != null) m.matrixEventId!,
+    };
+    _pinned.value = list;
+  }
+
+  /// **Issue #35**: закрепить сообщение [matrixEventId]. После успешного RPC
+  /// перечитывает плашку через [loadPinned] (закреплённое сообщение может
+  /// быть вне загруженного окна — нужен серверный резолв полного DTO).
+  /// Бросает наверх — UI (`showMessageActionSheet`) ловит и показывает
+  /// snackbar (напр. [InsufficientPowerException] в группе для member-а).
+  Future<void> pinMessage(String matrixEventId) async {
+    await _rpc.pinMessage(roomId: _roomId, matrixEventId: matrixEventId);
+    if (_disposed) return;
+    await loadPinned();
+  }
+
+  /// **Issue #35**: снять закрепление [matrixEventId]. Idempotent.
+  Future<void> unpinMessage(String matrixEventId) async {
+    await _rpc.unpinMessage(roomId: _roomId, matrixEventId: matrixEventId);
+    if (_disposed) return;
+    await loadPinned();
+  }
+
+  /// **Issue #35**: применить realtime `pinnedMessagesChanged`. Если набор
+  /// id совпадает с текущим (эхо собственного pin/unpin, который уже сделал
+  /// [loadPinned]) — no-op, лишний RPC не шлём. Иначе перечитываем плашку.
+  void _handlePinnedChanged(MessengerEvent event) {
+    final incoming = (event.pinnedEventIds ?? const <String>[]).toSet();
+    if (incoming.length == _pinnedIds.length &&
+        incoming.every(_pinnedIds.contains)) {
+      return;
+    }
+    unawaited(loadPinned());
+  }
+
   /// **B11/B22 read receipts**: применить один `readReceiptUpdated`-event
   /// к per-peer last-read marker. Общий путь для realtime ([_onEvent]) и
   /// seed ([_seedReadReceipts]).
@@ -682,6 +888,7 @@ class MessagesController {
     AttachmentRef? attachment,
     String? replyToMatrixEventId,
     List<int>? mentionedMessengerUserIds,
+    String? albumId,
   }) async {
     final txnId = _txnIdGenerator();
     if (_disposed) return txnId;
@@ -706,6 +913,7 @@ class MessagesController {
       attachment: attachment,
       replyToMessageId: replyToMatrixEventId,
       mentionedMessengerUserIds: mentionedMessengerUserIds,
+      albumId: albumId,
     );
     _insertLocalPending(optimistic);
 
@@ -724,6 +932,7 @@ class MessagesController {
       attachment: attachment,
       replyToMatrixEventId: replyToMatrixEventId,
       mentionedMessengerUserIds: mentionedMessengerUserIds,
+      albumId: albumId,
     );
     return txnId;
   }
@@ -737,6 +946,7 @@ class MessagesController {
     required String mimeType,
     required String originalFilename,
     String body = '',
+    String? albumId,
   }) async {
     if (_disposed) return '';
     final ref = await _rpc.uploadAttachment(
@@ -745,7 +955,405 @@ class MessagesController {
       originalFilename: originalFilename,
     );
     if (_disposed) return '';
-    return sendMessage(body: body, attachment: ref);
+    return sendMessage(body: body, attachment: ref, albumId: albumId);
+  }
+
+  /// **TASK49 (share-in)**: отправить вложение по ЛОКАЛЬНОМУ ПУТИ, без
+  /// интерактивного пикера (§2 «вход "отправить файл по локальному пути БЕЗ
+  /// пикера"»). Читает байты из [path], выводит MIME (аргумент → из имени/
+  /// пути) и имя (basename пути по умолчанию), делает клиентскую
+  /// pre-upload валидацию размера ([validateShareFileSize], §3.5), затем —
+  /// обычный [sendAttachment] (upload → sendMessage) в целевую комнату
+  /// контроллера.
+  ///
+  /// Бросает [SharedFileTooLargeException] при превышении лимита и
+  /// `FileSystemException` если файл не читается — оба ловит share-flow и
+  /// показывает дружелюбный snackbar. Возвращает `clientTxnId`.
+  Future<String> sendFileByPath({
+    required String path,
+    String? mimeType,
+    String? originalFilename,
+    String body = '',
+  }) async {
+    if (_disposed) return '';
+    final name = (originalFilename != null && originalFilename.isNotEmpty)
+        ? originalFilename
+        : p.basename(path);
+    final mime = (mimeType != null && mimeType.isNotEmpty)
+        ? mimeType
+        : guessMimeFromExtension(name);
+    final file = File(path);
+    final bytes = await file.readAsBytes();
+    validateShareFileSize(sizeBytes: bytes.length, mimeType: mime, name: name);
+    if (_disposed) return '';
+    return sendAttachment(
+      bytes: bytes,
+      mimeType: mime,
+      originalFilename: name,
+      body: body,
+    );
+  }
+
+  /// **Оптимистичный альбом**: отправить N картинок (+опц. подпись) одним
+  /// альбомом, который виден **мгновенно** мозаикой (грузящиеся плитки —
+  /// блюр + прогресс). Возвращается **сразу** (host-app / композер свободны,
+  /// можно печатать дальше), аплоад идёт фоном и переживает реконнект.
+  ///
+  /// Отличие от [sendAttachment]: там байты грузятся ДО создания пузыря
+  /// (поле заморожено). Здесь — пузырь из локальных байт создаётся сразу,
+  /// аплоад в фоне, затем плитка подменяется на mxc.
+  ///
+  /// Flow:
+  ///   1. один `albumId` (если >1 картинки или есть подпись); по одному
+  ///      `clientTxnId` на картинку;
+  ///   2. СРАЗУ вставляем все pending-пузыри (`attachment: null`,
+  ///      `localImageBytes: bytes`) → мозаика видна мгновенно;
+  ///   3. подпись — отдельным членом альбома через [sendMessage];
+  ///   4. `unawaited(_uploadAlbumInBackground(...))` — НЕ await.
+  ///
+  /// Возвращает `albumId` (или `null` для одиночной картинки без подписи).
+  String? sendAlbumOptimistic({
+    required List<PickedAttachment> images,
+    String caption = '',
+    List<int>? mentions,
+  }) {
+    if (_disposed) return null;
+    if (images.isEmpty) {
+      // Только подпись без картинок — обычное текстовое сообщение.
+      final text = caption.trim();
+      if (text.isNotEmpty) {
+        unawaited(sendMessage(body: text, mentionedMessengerUserIds: mentions));
+      }
+      return null;
+    }
+
+    final hasCaption = caption.trim().isNotEmpty;
+    // Альбом (общий id) только если это реально ≥2 плитки в мозаике: >1
+    // картинка ИЛИ картинка + подпись. Одиночная картинка без подписи —
+    // обычное сообщение (albumId=null), рендерится одиночным превью.
+    final albumId = (images.length > 1 || hasCaption)
+        ? _txnIdGenerator()
+        : null;
+
+    // Один clientTxnId на картинку — вставляем все pending-пузыри up front.
+    final entries = <_AlbumUploadEntry>[];
+    for (final img in images) {
+      final txn = _txnIdGenerator();
+      entries.add(_AlbumUploadEntry(txnId: txn, image: img));
+      final optimistic = ChatMessage.optimistic(
+        clientTxnId: txn,
+        senderMatrixUserId: _selfMatrixUserId,
+        senderMessengerUserId: _selfMessengerUserId,
+        // Body-плейсхолдер = filename (как серверный default); в bubble для
+        // картинок он не показывается (см. _shouldRenderBodyText).
+        body: img.originalFilename,
+        msgType: _msgTypeForMime(img.mimeType),
+        attachment: null,
+        localImageBytes: img.bytes,
+        albumId: albumId,
+      );
+      _insertLocalPending(optimistic);
+    }
+
+    // Подпись — отдельным членом альбома (текущая модель: caption = m.text
+    // с тем же albumId). Идёт своим optimistic-путём через sendMessage.
+    if (hasCaption && albumId != null) {
+      unawaited(
+        sendMessage(
+          body: caption.trim(),
+          mentionedMessengerUserIds: mentions,
+          albumId: albumId,
+        ),
+      );
+    }
+
+    unawaited(_uploadAlbumInBackground(entries, albumId));
+    return albumId;
+  }
+
+  /// **Оптимистичный альбом**: последовательный фоновый аплоад (порядок +
+  /// ограничение пика памяти). По каждой картинке: upload → `_patchUploaded`
+  /// (расблюр) → `unawaited(_shootSendRpc(...))` (send с тем же txnId).
+  /// Ошибка аплоада → `_markFailed` (UI покажет retry).
+  Future<void> _uploadAlbumInBackground(
+    List<_AlbumUploadEntry> entries,
+    String? albumId,
+  ) async {
+    for (final e in entries) {
+      if (_disposed) return;
+      final AttachmentRef ref;
+      try {
+        ref = await _rpc.uploadAttachment(
+          bytes: ByteData.sublistView(e.image.bytes),
+          mimeType: e.image.mimeType,
+          originalFilename: e.image.originalFilename,
+        );
+      } catch (err, st) {
+        if (_disposed) return;
+        _markFailed(clientTxnId: e.txnId, error: err);
+        _onSendError?.call(err, st);
+        continue;
+      }
+      if (_disposed) return;
+      _patchUploaded(e.txnId, ref);
+      // Send RPC в фоне — реконсиляция по clientTxnId (у каждого члена свой),
+      // как обычный optimistic-send. НЕ await, чтобы следующий аплоад
+      // стартовал сразу.
+      unawaited(
+        _shootSendRpc(
+          clientTxnId: e.txnId,
+          body: ref.originalFilename,
+          msgType: _msgTypeForMime(ref.mimeType),
+          attachment: ref,
+          albumId: albumId,
+        ),
+      );
+    }
+  }
+
+  /// **Оптимистичный альбом**: найти pending-пузырь по `clientTxnId` и
+  /// заменить на `withUploadedAttachment(ref)` (плитка расблюривается, байты
+  /// сохраняются до промоута в sent). No-op если пузырь уже promote-нулся
+  /// или помечен failed.
+  void _patchUploaded(String clientTxnId, AttachmentRef ref) {
+    if (_disposed) return;
+    final current = _state.value;
+    if (current is! MessagesReady) return;
+    final idx = current.messages.indexWhere(
+      (m) => m.clientTxnId == clientTxnId && m.isPending,
+    );
+    if (idx < 0) return;
+    final newMessages = List<ChatMessage>.of(current.messages);
+    newMessages[idx] = current.messages[idx].withUploadedAttachment(ref);
+    _state.value = current.copyWith(messages: newMessages);
+  }
+
+  /// **Редактирование альбома в композере**: применить дифф к существующему
+  /// альбому. Best-effort набор операций (НЕ атомарно — приемлемо для MVP,
+  /// каждая идемпотентна по-своему):
+  ///   1. Добавить новые картинки (`sendAttachment` с общим `albumId`).
+  ///   2. Удалить помеченные существующие картинки (`deleteMessage` = redact).
+  ///   3. Подпись:
+  ///      * есть подпись + новая непуста → `editMessage` (m.replace);
+  ///      * есть подпись + новая пуста → `deleteMessage` (убрать подпись);
+  ///      * нет подписи + новая непуста → `sendMessage` (m.text с albumId).
+  ///
+  /// **Порядок** (сначала добавляем, потом удаляем, потом подпись): пока
+  /// новые картинки долетают, альбом ещё «жив» на старых; удаление после —
+  /// не оставляет пустого окна.
+  ///
+  /// **Позиция в ленте**: удаление + добавление событий сдвигает альбом
+  /// к низу (новые события — newest), в отличие от m.replace. Для случая
+  /// «изменена только подпись» ([ComposerAlbumEditResult.onlyCaptionChanged])
+  /// делаем только правку подписи — позиция альбома сохраняется.
+  Future<void> editAlbum(ComposerAlbumEditResult r) async {
+    if (_disposed) return;
+
+    // 1. Новые картинки — upload + send с общим albumId (порядок сохраняем).
+    for (final picked in r.newAttachments) {
+      if (_disposed) return;
+      await sendAttachment(
+        bytes: picked.bytes,
+        mimeType: picked.mimeType,
+        originalFilename: picked.originalFilename,
+        albumId: r.albumId,
+      );
+    }
+
+    // 2. Удаляем помеченные существующие картинки (redact).
+    for (final eventId in r.removedImageEventIds) {
+      if (_disposed) return;
+      await deleteMessage(matrixEventId: eventId);
+    }
+
+    // 3. Подпись.
+    if (_disposed) return;
+    final caption = r.newCaption.trim();
+    final captionEventId = r.captionEventId;
+    if (captionEventId != null) {
+      if (caption.isEmpty) {
+        // Была подпись, стала пустой → убрать (redact).
+        await deleteMessage(matrixEventId: captionEventId);
+      } else {
+        // Правим только если реально изменилась (иначе лишний m.replace).
+        final existing = findByEventId(captionEventId);
+        if (existing == null || existing.body.trim() != caption) {
+          await editMessage(matrixEventId: captionEventId, newBody: caption);
+        }
+      }
+    } else if (caption.isNotEmpty) {
+      // Подписи не было, добавили новую → отдельное m.text с albumId.
+      await sendMessage(body: caption, albumId: r.albumId);
+    }
+  }
+
+  // ─── Пересылка (forward) ────────────────────────────────────────────
+
+  /// Члены альбома, к которому принадлежит [message] (включая само
+  /// сообщение), из текущей загруженной истории. Если [message] не в
+  /// альбоме — пустой список. Используется [forwardMessage] для переноса
+  /// альбома целиком.
+  List<ChatMessage> albumMembersOf(ChatMessage message) {
+    final aid = message.albumId;
+    if (aid == null || aid.isEmpty) return const <ChatMessage>[];
+    final current = _state.value;
+    if (current is! MessagesReady) return <ChatMessage>[message];
+    final members = current.messages
+        .where((m) => m.albumId == aid)
+        .toList(growable: false);
+    return members.isEmpty ? <ChatMessage>[message] : members;
+  }
+
+  /// **Пересылка (forward)** — переслать [message] (или весь его альбом,
+  /// если это член альбома) в комнату [targetRoomId]. Поведение «как в
+  /// Telegram»:
+  ///   * альбом переносится **целиком** (все картинки + подпись) под
+  ///     **новым** `albumId` — на целевой стороне это единая мозаика;
+  ///   * картинки **переиспользуют исходный `mxc`** (без скачивания/
+  ///     перезагрузки — сервер не привязывает media к комнате, mxc
+  ///     глобален для homeserver-а);
+  ///   * `reply`/`mentions` **сбрасываются** (ссылаются на исходную комнату);
+  ///   * атрибуция «Переслано от X» сохраняет **первого** автора при
+  ///     повторной пересылке (`forwardedFromName ?? senderDisplayName`).
+  ///
+  /// Оптимистичный bubble в **текущей** комнате не создаётся (target не
+  /// открыт) — realtime сам покажет сообщение, если целевая комната где-то
+  /// открыта. RPC-ошибку **пробрасывает** (host UI показывает snackbar).
+  /// Части отправляются последовательно, чтобы сохранить порядок картинок.
+  Future<void> forwardMessage({
+    required int targetRoomId,
+    required ChatMessage message,
+  }) async {
+    // Захватываем rpc локально — пересылка должна пережить возможный
+    // dispose исходного контроллера (юзер ушёл с экрана, пока летели RPC).
+    // На _disposed НЕ гейтим сами отправки.
+    await _forwardOne(_rpc, targetRoomId, message);
+  }
+
+  /// **Пересылка пачкой (мультивыбор)** — переслать список [messages]
+  /// (каждое — одиночное сообщение ИЛИ anchor-пузырь альбома) в комнату
+  /// [targetRoomId]. Поведение «как в Telegram»:
+  ///   * сообщения отправляются в порядке возрастания `serverTimestamp`
+  ///     (хронология исходного чата сохраняется на целевой стороне),
+  ///     **последовательно** (await по очереди) — иначе гонки RPC могли
+  ///     бы перемешать порядок;
+  ///   * каждый элемент разворачивается через [_forwardOne] (альбом →
+  ///     все части, атрибуция первого автора, новый albumId и т.д.).
+  ///
+  /// **Дедуп по `albumId`**: [_forwardOne] разворачивает альбом целиком из
+  /// ЛЮБОГО его члена, поэтому если в выборку случайно попали два члена
+  /// одного альбома (в UI выбираются только anchor-пузыри — скрытые члены
+  /// не тапабельны, но защищаемся), альбом пересылается один раз.
+  ///
+  /// RPC-ошибку любой части **пробрасывает** (host UI показывает snackbar);
+  /// уже отправленные ранее части остаются — как в Telegram при обрыве.
+  Future<void> forwardMessages({
+    required int targetRoomId,
+    required List<ChatMessage> messages,
+  }) async {
+    final rpc = _rpc;
+    final ordered = List<ChatMessage>.of(messages)
+      ..sort((a, b) => a.serverTimestamp.compareTo(b.serverTimestamp));
+    final seenAlbums = <String>{};
+    for (final message in ordered) {
+      final aid = message.albumId;
+      // add() == false ⇒ этот albumId уже переслан из другого члена.
+      if (aid != null && aid.isNotEmpty && !seenAlbums.add(aid)) {
+        continue;
+      }
+      await _forwardOne(rpc, targetRoomId, message);
+    }
+  }
+
+  /// **F1: пересылка нескольким получателям сразу** — переслать [messages]
+  /// (одиночные и/или альбомы) в КАЖДУЮ из комнат [targetRoomIds]. Внутри
+  /// одной комнаты порядок/дедуп альбомов — как в [forwardMessages];
+  /// комнаты обходятся последовательно. RPC-ошибку любой комнаты
+  /// **пробрасывает** — уже разосланные ранее остаются (как в Telegram при
+  /// обрыве). Дубликаты roomId схлопываются (на случай кривого выбора).
+  Future<void> forwardMessagesToRooms({
+    required List<int> targetRoomIds,
+    required List<ChatMessage> messages,
+  }) async {
+    final seenRooms = <int>{};
+    for (final roomId in targetRoomIds) {
+      if (!seenRooms.add(roomId)) continue;
+      await forwardMessages(targetRoomId: roomId, messages: messages);
+    }
+  }
+
+  /// Общее тело пересылки ОДНОГО сообщения (или его альбома). Выделено из
+  /// [forwardMessage], чтобы [forwardMessages] переиспользовало ту же логику
+  /// разворота/атрибуции/albumId без дублирования. [rpc] передаётся явно —
+  /// caller захватывает `_rpc` заранее (пересылка должна пережить dispose).
+  Future<void> _forwardOne(
+    MessagesRpc rpc,
+    int targetRoomId,
+    ChatMessage message,
+  ) async {
+    // Развернуть части: альбом → все члены; иначе — одиночное сообщение.
+    final aid = message.albumId;
+    final parts = (aid != null && aid.isNotEmpty)
+        ? albumMembersOf(message)
+        : <ChatMessage>[message];
+
+    // Картинки (attachment != null) — по возрастанию времени (порядок
+    // отправки в исходном альбоме); подпись(и) без вложения — после.
+    final images =
+        parts.where((p) => p.attachment != null).toList(growable: false)
+          ..sort((a, b) => a.serverTimestamp.compareTo(b.serverTimestamp));
+    final captions =
+        parts
+            .where((p) => p.attachment == null && p.body.trim().isNotEmpty)
+            .toList(growable: false)
+          ..sort((a, b) => a.serverTimestamp.compareTo(b.serverTimestamp));
+    final ordered = <ChatMessage>[...images, ...captions];
+    if (ordered.isEmpty) return; // нечего пересылать (напр. tombstone)
+
+    // Атрибуция: сохраняем ПЕРВОГО автора при re-forward.
+    final fwdName =
+        message.forwardedFromName ??
+        message.senderDisplayName ??
+        _matrixLocalpart(message.senderMatrixUserId);
+    final fwdUid =
+        message.forwardedFromMessengerUserId ?? message.senderMessengerUserId;
+
+    // Новый albumId только если целевое сообщение реально станет альбомом
+    // (≥2 части: рендер группирует в мозаику лишь при ≥2 членах одного id).
+    final newAlbumId = ordered.length >= 2 ? _txnIdGenerator() : null;
+
+    for (final part in ordered) {
+      // Issue #41: координаты первоисточника считаем ПО КАЖДОЙ ЧАСТИ, а не
+      // по anchor-у: у альбома каждая плитка — отдельное событие в исходной
+      // комнате, и тап должен вести на неё, а не на первую из мозаики.
+      // Правило первоисточника при re-forward — внутри resolveForwardSource.
+      final src = resolveForwardSource(message: part, currentRoomId: _roomId);
+      await rpc.sendMessage(
+        roomId: targetRoomId,
+        body: part.body,
+        msgType: part.attachment != null
+            ? _msgTypeForMime(part.attachment!.mimeType)
+            : 'm.text',
+        clientTxnId: _txnIdGenerator(),
+        attachment: part.attachment,
+        albumId: newAlbumId,
+        forwardedFromName: fwdName,
+        forwardedFromMessengerUserId: fwdUid,
+        forwardedFromRoomId: src?.roomId,
+        forwardedFromEventId: src?.eventId,
+      );
+    }
+  }
+
+  /// Локалпарт из Matrix id `@user:server` → `user`. Fallback на исходную
+  /// строку, если формат неожиданный. Используется как последний резерв для
+  /// «Переслано от X», когда `senderDisplayName` не резолвится.
+  static String _matrixLocalpart(String mxid) {
+    var s = mxid;
+    if (s.startsWith('@')) s = s.substring(1);
+    final colon = s.indexOf(':');
+    if (colon >= 0) s = s.substring(0, colon);
+    return s.isEmpty ? mxid : s;
   }
 
   /// Matrix msgType derived из MIME для optimistic bubble msgType.
@@ -805,6 +1413,24 @@ class MessagesController {
     newMessages[idx] = failedMsg.retrying();
     _state.value = current.copyWith(messages: newMessages);
 
+    // **Оптимистичный альбом**: член упал на АПЛОАДЕ (байты есть, mxc нет) —
+    // пере-загружаем тем же txnId (одноэлементный _uploadAlbumInBackground).
+    // Если упал ПОСЛЕ аплоада (attachment уже есть) — обычный re-send ниже.
+    final localBytes = failedMsg.localImageBytes;
+    if (failedMsg.attachment == null && localBytes != null) {
+      await _uploadAlbumInBackground([
+        _AlbumUploadEntry(
+          txnId: clientTxnId,
+          image: PickedAttachment(
+            bytes: localBytes,
+            mimeType: _mimeForMsgType(failedMsg.msgType),
+            originalFilename: failedMsg.body,
+          ),
+        ),
+      ], failedMsg.albumId);
+      return;
+    }
+
     await _shootSendRpc(
       clientTxnId: clientTxnId,
       body: failedMsg.body,
@@ -812,7 +1438,25 @@ class MessagesController {
       attachment: failedMsg.attachment,
       replyToMatrixEventId: failedMsg.replyToMessageId,
       mentionedMessengerUserIds: failedMsg.mentionedMessengerUserIds,
+      albumId: failedMsg.albumId,
     );
+  }
+
+  /// Обратный дериват mime из Matrix msgType — для реконструкции
+  /// `PickedAttachment` при re-upload упавшего члена альбома (точный
+  /// исходный MIME не сохранён, но серверу достаточно категории —
+  /// он валидирует байты сам). Fallback — image/jpeg (альбом = картинки).
+  static String _mimeForMsgType(String msgType) {
+    switch (msgType) {
+      case 'm.video':
+        return 'video/mp4';
+      case 'm.audio':
+        return 'audio/mp4';
+      case 'm.file':
+        return 'application/octet-stream';
+      default:
+        return 'image/jpeg';
+    }
   }
 
   /// **B10 (BACKLOG)**: повторить ВСЕ сообщения в `failed`-статусе. Зовётся
@@ -834,6 +1478,71 @@ class MessagesController {
     for (final txnId in failedTxnIds) {
       if (_disposed) return;
       await retry(txnId);
+    }
+  }
+
+  /// **Реконсиляция «пропущенных входящих»**. Зовётся ChatScreen-ом на
+  /// возврате сети (`connectionState → healthy`) и на `resumed` lifecycle.
+  ///
+  /// Проблема: сообщение, пришедшее пока app был в фоне / на cold-start-е
+  /// через push, могло проскочить мимо live-стрима (bus ещё не
+  /// синхронизирован) и мимо первичной `listMessages` (гонка) → его не
+  /// видно до ручного пере-входа в чат. Здесь до-тягиваем свежую страницу
+  /// и вставляем недостающие сообщения на ПРАВИЛЬНУЮ (по времени) позицию
+  /// — в отличие от live-мёржа [_acceptIncomingInto] (тот всегда вставляет
+  /// в topс как newest, что неверно для «старого» пропущенного).
+  ///
+  /// Best-effort + идемпотентно: дедуп по `matrixEventId`, promote
+  /// pending/failed по `clientTxnId`. На ошибке — тихо, следующий
+  /// reconnect/resume/пере-вход повторит.
+  Future<void> refreshLatest() async {
+    if (_disposed) return;
+    if (_state.value is! MessagesReady) return; // только когда уже загружено
+    MessengerMessageListPage page;
+    try {
+      page = await _rpc.listMessages(roomId: _roomId, limit: _initialPageSize);
+    } catch (_) {
+      return;
+    }
+    if (_disposed) return;
+    final cur = _state.value;
+    if (cur is! MessagesReady) return;
+
+    final merged = List<ChatMessage>.of(cur.messages);
+    final knownEventIds = <String>{
+      for (final c in merged)
+        if (c.matrixEventId != null) c.matrixEventId!,
+    };
+    var changed = false;
+    // page.messages — DESC (newest first). Идём с конца (oldest→newest),
+    // чтобы ordered-insert каждого не сдвигал позиции ещё не вставленных.
+    for (final m in page.messages.reversed) {
+      // Promote pending/failed по txnId (наш только что отправленный echo).
+      final txnId = m.clientTxnId;
+      if (txnId != null) {
+        final pIdx = merged.indexWhere(
+          (c) => c.clientTxnId == txnId && (c.isPending || c.isFailed),
+        );
+        if (pIdx >= 0) {
+          merged[pIdx] = ChatMessage.fromServer(m);
+          changed = true;
+          continue;
+        }
+      }
+      if (knownEventIds.contains(m.matrixEventId)) continue; // уже есть
+      // Вставка на позицию по времени (список DESC: newest→oldest).
+      final cm = ChatMessage.fromServer(m);
+      var insertAt = merged.indexWhere(
+        (c) => c.serverTimestamp.isBefore(cm.serverTimestamp),
+      );
+      if (insertAt < 0) insertAt = merged.length;
+      merged.insert(insertAt, cm);
+      knownEventIds.add(m.matrixEventId);
+      changed = true;
+    }
+    // Мёрж синхронный (без await) → `cur` всё ещё актуален.
+    if (changed && !_disposed) {
+      _state.value = cur.copyWith(messages: merged);
     }
   }
 
@@ -928,6 +1637,22 @@ class MessagesController {
       _onSendError?.call(e, st);
       rethrow;
     }
+  }
+
+  /// **TASK38**: создать задачу во внешнем таск-трекере из сообщения.
+  /// Тонкий pass-through к RPC — message-list не меняет (подтверждение
+  /// прилетает как `@nsg-system` сообщение через realtime, если интеграция
+  /// его постит). Бросает [TaskIntegrationNotConfiguredException] если
+  /// выключена; action-sheet показывает snackbar по результату/ошибке.
+  Future<TaskLink> createTaskFromMessage({
+    required String matrixEventId,
+    required String body,
+  }) {
+    return _rpc.createTaskFromMessage(
+      roomId: _roomId,
+      matrixEventId: matrixEventId,
+      body: body,
+    );
   }
 
   /// **TASK37**: handle realtime `messageUpdated` event.
@@ -1028,12 +1753,15 @@ class MessagesController {
     _disposed = true;
     await _eventsSub?.cancel();
     _eventsSub = null;
+    await _outboxSub?.cancel();
+    _outboxSub = null;
     _initBuffer = null;
     _state.dispose();
     _replyTarget.dispose();
     _typingPeers.dispose();
     _readReceiptsVersion.dispose();
     _reactionsVersion.dispose();
+    _pinned.dispose();
     _peerLastReadAt.clear();
     _reactionsByTarget.clear();
     _reactionRefById.clear();
@@ -1075,6 +1803,14 @@ class MessagesController {
     if (event.eventType == MessengerEventType.reactionChanged) {
       if (event.roomId != _roomId) return;
       _handleReactionChanged(event);
+      return;
+    }
+
+    // **Issue #35**: закрепление изменилось (this или другое устройство/
+    // участник). Payload — полный список pinnedEventIds. message=null.
+    if (event.eventType == MessengerEventType.pinnedMessagesChanged) {
+      if (event.roomId != _roomId) return;
+      _handlePinnedChanged(event);
       return;
     }
 
@@ -1151,7 +1887,15 @@ class MessagesController {
         (c) => c.clientTxnId == txnId && (c.isPending || c.isFailed),
       );
       if (pendingIdx >= 0) {
-        target[pendingIdx] = ChatMessage.fromServer(m);
+        // **Оптимистичный альбом**: если у promote-ящегося пузыря были
+        // локальные байты (грузящаяся картинка), пробрасываем их в
+        // fromServer — плитка не мигнёт «байты → пусто → сеть», пока
+        // подтягивается thumbnail из mxc.
+        final prevLocal = target[pendingIdx].localImageBytes;
+        target[pendingIdx] = ChatMessage.fromServer(
+          m,
+          overrideLocalImageBytes: prevLocal,
+        );
         return true;
       }
     }
@@ -1182,6 +1926,125 @@ class MessagesController {
     }
   }
 
+  // ─── OUTBOX: рендер + реконсиляция персистентной очереди ───────────
+
+  /// **OUTBOX**: перечитать очередь комнаты и синхронизировать pending-
+  /// бабблы. Зовётся в конце init() и на каждое `outboxRoomChanges` события
+  /// для этой комнаты. Best-effort — ошибки не ломают чат.
+  Future<void> _refreshOutbox() async {
+    final cache = _cache;
+    if (cache == null || _disposed) return;
+    List<OutboxItem> rows;
+    try {
+      rows = await cache.outboxForRoom(_roomId);
+    } catch (_) {
+      return;
+    }
+    if (_disposed) return;
+    // Для image-вложений подгружаем локальные байты (мозаика видна сразу).
+    final imageBytes = <String, Uint8List>{};
+    for (final item in rows) {
+      if (item.isAttachment &&
+          item.attachmentPath != null &&
+          (item.mimeType?.startsWith('image/') ?? false)) {
+        try {
+          imageBytes[item.clientTxnId] = await File(
+            item.attachmentPath!,
+          ).readAsBytes();
+        } catch (_) {
+          // файл мог быть удалён — покажем без превью.
+        }
+      }
+    }
+    if (_disposed) return;
+    _syncOutbox(rows, imageBytes);
+  }
+
+  /// **OUTBOX**: влить строки очереди в state как pending/failed бабблы.
+  ///
+  /// Дедуп по `clientTxnId`: если реальное (sent) сообщение с этим txnId уже
+  /// в ленте — НЕ дублируем (оно уже приехало через sync). Инъекции трекаем
+  /// в [_outboxTxnIds], чтобы снять исчезнувшие (discard / доставлено).
+  void _syncOutbox(List<OutboxItem> rows, Map<String, Uint8List> imageBytes) {
+    final current = _state.value;
+    if (current is! MessagesReady) return;
+    final newTxnIds = {for (final r in rows) r.clientTxnId};
+    final messages = List<ChatMessage>.of(current.messages);
+    var changed = false;
+
+    // 1. Снять ранее инъецированные бабблы, которых больше нет в очереди
+    //    (discard или доставлено-и-промоутнуто). Промоутнутые в sent НЕ
+    //    трогаем (isPending/isFailed-гард).
+    messages.removeWhere((m) {
+      final txn = m.clientTxnId;
+      if (txn == null) return false;
+      final gone = _outboxTxnIds.contains(txn) && !newTxnIds.contains(txn);
+      if (gone && (m.isPending || m.isFailed)) {
+        changed = true;
+        return true;
+      }
+      return false;
+    });
+
+    // 2. Влить/обновить строки очереди.
+    for (final item in rows) {
+      final idx = messages.indexWhere((m) => m.clientTxnId == item.clientTxnId);
+      if (idx >= 0) {
+        final existing = messages[idx];
+        // Реальное сообщение уже приехало (sent) — не трогаем, sync-путь
+        // сам его отрисовал; строка очереди вот-вот удалится sender-ом.
+        if (existing.isSent) continue;
+        // Обновляем статус (напр. pending → failed) из строки очереди.
+        final rebuilt = _outboxToBubble(item, imageBytes[item.clientTxnId]);
+        if (existing.status != rebuilt.status) {
+          messages[idx] = rebuilt;
+          changed = true;
+        }
+      } else {
+        messages.insert(0, _outboxToBubble(item, imageBytes[item.clientTxnId]));
+        changed = true;
+      }
+    }
+
+    _outboxTxnIds
+      ..clear()
+      ..addAll(newTxnIds);
+    if (changed) _state.value = current.copyWith(messages: messages);
+  }
+
+  /// **OUTBOX**: строка очереди → ChatMessage-баббл (pending либо failed).
+  ChatMessage _outboxToBubble(OutboxItem item, Uint8List? imageBytes) {
+    final base = ChatMessage.optimistic(
+      clientTxnId: item.clientTxnId,
+      senderMatrixUserId: _selfMatrixUserId,
+      senderMessengerUserId: _selfMessengerUserId,
+      body: item.body,
+      msgType: item.msgType,
+      serverTimestamp: DateTime.fromMillisecondsSinceEpoch(
+        item.createdAt,
+      ).toUtc(),
+      replyToMessageId: item.replyToMatrixEventId,
+      mentionedMessengerUserIds: item.mentionedMessengerUserIds,
+      albumId: item.albumId,
+      localImageBytes: imageBytes,
+    );
+    return item.isFailed ? base.failed(item.lastError ?? 'send failed') : base;
+  }
+
+  /// **OUTBOX**: повторить failed-строку очереди (сброс в pending + kick
+  /// дренажа). Баббл обновится через `outboxRoomChanges`.
+  Future<void> retryOutbox(String clientTxnId) async {
+    if (_disposed) return;
+    await _outbox?.retry(clientTxnId);
+  }
+
+  /// **OUTBOX**: отменить строку очереди (удалить файл + строку). Баббл
+  /// снимется через `outboxRoomChanges`.
+  Future<void> discardOutbox(String clientTxnId) async {
+    if (_disposed) return;
+    await _outbox?.discard(clientTxnId);
+  }
+
   Future<void> _shootSendRpc({
     required String clientTxnId,
     required String body,
@@ -1189,6 +2052,7 @@ class MessagesController {
     AttachmentRef? attachment,
     String? replyToMatrixEventId,
     List<int>? mentionedMessengerUserIds,
+    String? albumId,
   }) async {
     // **B10**: retry-loop с backoff для transient ошибок (network,
     // timeout, 5xx). Идемпотентность гарантирует server-side dedup по
@@ -1212,6 +2076,7 @@ class MessagesController {
           attachment: attachment,
           replyToMatrixEventId: replyToMatrixEventId,
           mentionedMessengerUserIds: mentionedMessengerUserIds,
+          albumId: albumId,
         );
         if (_disposed) return;
         // Layer-1 promote pending → sent. Use _acceptIncomingInto на
@@ -1231,6 +2096,41 @@ class MessagesController {
         if (!_isTransientSendError(e)) {
           // Permanent (4xx, auth, domain exception) — НЕ ретраим.
           break;
+        }
+        // **TASK47 (outbox для композера, 2026-07-12)**: ТЕКСТ при
+        // транзиентном (сетевом) сбое уходит в персистентную очередь
+        // сразу — она переживает kill приложения и длинный офлайн (in-
+        // memory retry жил ~1 мин и терял сообщение при закрытии).
+        // Баббл остаётся pending (тот же clientTxnId: _syncOutbox его
+        // не задублирует, доставку сделает OutboxSender, промоут в sent
+        // придёт через /sync). Вложения — прежний in-memory путь
+        // (AttachmentRef уже загружен, переупаковка в outbox — отдельно).
+        if (attachment == null && albumId == null && _outbox != null) {
+          try {
+            await _outbox.enqueueText(
+              roomId: _roomId,
+              clientTxnId: clientTxnId,
+              body: body,
+              msgType: msgType,
+              mentionedMessengerUserIds: mentionedMessengerUserIds,
+              replyToMatrixEventId: replyToMatrixEventId,
+            );
+            if (kDebugMode) {
+              debugPrint(
+                '[MessagesController.room=$_roomId] send transient → '
+                'персистентный outbox (txn=$clientTxnId): $e',
+              );
+            }
+            return; // очередь доставит; баббл ведёт _syncOutbox.
+          } catch (enqueueErr) {
+            // Кэш/БД недоступны — продолжаем прежний in-memory retry.
+            if (kDebugMode) {
+              debugPrint(
+                '[MessagesController.room=$_roomId] outbox enqueue failed '
+                '($enqueueErr) — fallback на in-memory retry',
+              );
+            }
+          }
         }
         if (i < _sendRetrySchedule.length) {
           // Поспать до следующей попытки. Bubble остаётся в pending.
@@ -1259,29 +2159,9 @@ class MessagesController {
   }
 
   /// **B10**: классификатор «transient vs permanent» для send-retry.
-  ///
-  /// **Transient** (ретраим): сетевые/IO ошибки, таймаут, generic
-  /// `ServerpodClientException` (5xx, parse error в ответе, dropped
-  /// connection). Эти обычно временные — сервер мог рестартануть,
-  /// connection упал, retry с тем же txnId безопасен (dedup).
-  ///
-  /// **Permanent** (НЕ ретраим): типизированные доменные exception-ы
-  /// (`MessengerNotAuthenticated`, `RoomNotFound`, `PeerUnavailable` и
-  /// т.д.), 401, 403 — ретрай тех же ошибок не поможет. Лучше сразу
-  /// показать пользователю failed-bubble с retry-button (он либо
-  /// поправит ситуацию, либо вручную retry-нет позже).
-  bool _isTransientSendError(Object error) {
-    if (error is TimeoutException) return true;
-    if (error is SocketException) return true;
-    if (error is HandshakeException) return true;
-    if (error is HttpException) return true;
-    // Generic Serverpod-client exception (5xx, parse fail, network).
-    // Типизированные доменные exception-ы наследуются от
-    // SerializableException, а НЕ от ServerpodClientException, поэтому
-    // этот match их не зацепит.
-    if (error is ServerpodClientException) return true;
-    return false;
-  }
+  /// Делегирует в общий [isTransientSendError] (тот же код используется
+  /// [OutboxSender] для персистентной очереди).
+  bool _isTransientSendError(Object error) => isTransientSendError(error);
 
   void _markFailed({required String clientTxnId, required Object error}) {
     final current = _state.value;
@@ -1294,6 +2174,16 @@ class MessagesController {
     newMessages[idx] = current.messages[idx].failed(error);
     _state.value = current.copyWith(messages: newMessages);
   }
+}
+
+/// **Оптимистичный альбом**: одна единица фонового аплоада — связка
+/// `clientTxnId` (id pending-пузыря) + исходные байты/MIME/имя для
+/// `uploadAttachment`. Хранится только на время последовательного
+/// аплоада, потом отбрасывается.
+class _AlbumUploadEntry {
+  const _AlbumUploadEntry({required this.txnId, required this.image});
+  final String txnId;
+  final PickedAttachment image;
 }
 
 /// **Emoji reactions**: reverse-индексная запись `reactionEventId →

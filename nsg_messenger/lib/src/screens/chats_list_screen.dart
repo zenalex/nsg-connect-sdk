@@ -5,12 +5,15 @@ import '../i18n/connection_lost_banner.dart';
 import '../i18n/generated/nsg_l10n.dart';
 import '../messenger_mode.dart';
 import '../messenger_runtime.dart';
+import '../rooms/chat_folder.dart';
 import '../rooms/chats_list_controller.dart';
 import '../rooms/chats_list_state.dart';
+import '../rooms/folder_row.dart';
 import '../rooms/room_action_sheet.dart';
 import '../rooms/room_summary_tile.dart';
 import 'chat_screen.dart';
 import 'create_chat_screen.dart';
+import 'folder_chats_screen.dart';
 
 /// Реальный список чатов (TASK14). Поверх [ChatsListController] —
 /// sealed [ChatsListState] с no-flicker `lastKnown` pattern; rebuild
@@ -80,18 +83,54 @@ class _ChatsListScreenState extends State<ChatsListScreen> {
           : _buildNormalAppBar(context),
       body: ListenableBuilder(
         listenable: _controller,
-        builder: (context, _) => _Body(
-          state: _controller.state,
-          searching: _searching,
-          onRefresh: () => _controller.refresh(force: true),
-          onTapRoom: (id) => Navigator.of(context).push(
-            MaterialPageRoute<void>(builder: (_) => ChatScreen(roomId: id)),
-          ),
-          onLongPressRoom: (room) => showRoomActionSheet(
-            context: context,
-            room: room,
-            controller: _controller,
-          ),
+        builder: (context, _) {
+          // TASK44 фаза 1.5: модель «папка-как-строка». В обычном режиме
+          // список — `_controller.rootRows` (чаты + строки-папки). В
+          // режиме поиска папки не заворачиваем — показываем плоский
+          // список отфильтрованных комнат.
+          final searchRooms = _searching
+              ? (switch (_controller.state) {
+                  ChatsListReady r => r.rooms,
+                  ChatsListError e => e.lastKnown ?? const <RoomSummary>[],
+                  _ => const <RoomSummary>[],
+                })
+              : const <RoomSummary>[];
+          return _Body(
+            state: _controller.state,
+            rootRows: _searching
+                ? [for (final r in searchRooms) ChatRoomRow(r)]
+                : _controller.rootRows,
+            searching: _searching,
+            onRefresh: () => _controller.refresh(force: true),
+            onTapRoom: (id) => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => ChatScreen(roomId: id)),
+            ),
+            onLongPressRoom: (room) => showRoomActionSheet(
+              context: context,
+              room: room,
+              controller: _controller,
+            ),
+            onTapFolder: _openFolder,
+          );
+        },
+      ),
+    );
+  }
+
+  /// Провалиться в drill-in экран папки продукта (push). Имя папки для
+  /// AppBar резолвим здесь (тот же fallback, что в строке-папке).
+  void _openFolder(ChatFolder folder) {
+    final l = NsgL10n.of(context);
+    final name =
+        folder.productDisplayName ??
+        folder.productKey ??
+        l.chatsListFolderProductFallback(folder.productId ?? 0);
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => FolderChatsScreen(
+          controller: _controller,
+          folderKey: folder.selectionKey,
+          folderName: name,
         ),
       ),
     );
@@ -251,41 +290,51 @@ class _FilterMenuButton extends StatelessWidget {
 class _Body extends StatelessWidget {
   const _Body({
     required this.state,
+    required this.rootRows,
     required this.searching,
     required this.onRefresh,
     required this.onTapRoom,
     required this.onLongPressRoom,
+    required this.onTapFolder,
   });
 
   final ChatsListState state;
+
+  /// TASK44 фаза 1.5: корневые строки (чаты + строки-папки) из
+  /// `ChatsListController.rootRows`. В режиме поиска — плоский список
+  /// комнат, обёрнутых в [ChatRoomRow].
+  final List<ChatRootRow> rootRows;
+
   final bool searching;
   final Future<void> Function() onRefresh;
   final void Function(int roomId) onTapRoom;
   final void Function(RoomSummary room) onLongPressRoom;
+  final void Function(ChatFolder folder) onTapFolder;
 
   @override
   Widget build(BuildContext context) {
     return switch (state) {
       ChatsListLoading() => const Center(child: CircularProgressIndicator()),
-      ChatsListReady(rooms: final rooms, refreshing: final refreshing) =>
-        _Loaded(
-          rooms: rooms,
-          refreshing: refreshing,
-          searching: searching,
-          onRefresh: onRefresh,
-          onTapRoom: onTapRoom,
-          onLongPressRoom: onLongPressRoom,
-        ),
+      ChatsListReady(refreshing: final refreshing) => _Loaded(
+        rows: rootRows,
+        refreshing: refreshing,
+        searching: searching,
+        onRefresh: onRefresh,
+        onTapRoom: onTapRoom,
+        onLongPressRoom: onLongPressRoom,
+        onTapFolder: onTapFolder,
+      ),
       ChatsListError(error: final e, lastKnown: final last) =>
         last == null
             ? _ErrorEmpty(error: e, onRetry: onRefresh)
             : _Loaded(
-                rooms: last,
+                rows: rootRows,
                 refreshing: false,
                 searching: searching,
                 onRefresh: onRefresh,
                 onTapRoom: onTapRoom,
                 onLongPressRoom: onLongPressRoom,
+                onTapFolder: onTapFolder,
                 errorBanner: e,
               ),
     };
@@ -294,21 +343,26 @@ class _Body extends StatelessWidget {
 
 class _Loaded extends StatelessWidget {
   const _Loaded({
-    required this.rooms,
+    required this.rows,
     required this.refreshing,
     required this.searching,
     required this.onRefresh,
     required this.onTapRoom,
     required this.onLongPressRoom,
+    required this.onTapFolder,
     this.errorBanner,
   });
 
-  final List<RoomSummary> rooms;
+  /// TASK44 фаза 1.5: корневые строки списка — [ChatRoomRow] (обычный чат)
+  /// или [ChatFolderRow] (строка-папка продукта).
+  final List<ChatRootRow> rows;
   final bool refreshing;
   final bool searching;
+
   final Future<void> Function() onRefresh;
   final void Function(int roomId) onTapRoom;
   final void Function(RoomSummary room) onLongPressRoom;
+  final void Function(ChatFolder folder) onTapFolder;
   final Object? errorBanner;
 
   @override
@@ -320,25 +374,30 @@ class _Loaded extends StatelessWidget {
           if (errorBanner != null) ConnectionLostBanner(error: errorBanner!),
           if (refreshing) const LinearProgressIndicator(minHeight: 2),
           Expanded(
-            child: rooms.isEmpty
+            child: rows.isEmpty
                 ? _EmptyState(searching: searching)
                 : ListView.builder(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    itemCount: rooms.length,
-                    itemBuilder: (_, i) {
-                      final r = rooms[i];
-                      return RoomSummaryTile(
-                        room: r,
-                        onTap: () => onTapRoom(r.id),
-                        onLongPress: () => onLongPressRoom(r),
-                      );
-                    },
+                    itemCount: rows.length,
+                    itemBuilder: (_, i) => _rowWidget(rows[i]),
                   ),
           ),
         ],
       ),
     );
   }
+
+  Widget _rowWidget(ChatRootRow row) => switch (row) {
+    ChatRoomRow(room: final r) => RoomSummaryTile(
+      room: r,
+      onTap: () => onTapRoom(r.id),
+      onLongPress: () => onLongPressRoom(r),
+    ),
+    ChatFolderRow(folder: final f) => FolderRow(
+      folder: f,
+      onTap: () => onTapFolder(f),
+    ),
+  };
 }
 
 class _EmptyState extends StatelessWidget {

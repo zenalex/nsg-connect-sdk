@@ -13,7 +13,8 @@
 import 'package:serverpod_client/serverpod_client.dart' as _i1;
 import 'enums/messenger_event_type.dart' as _i2;
 import 'messenger_message.dart' as _i3;
-import 'package:nsg_connect_client/src/protocol/protocol.dart' as _i4;
+import 'call_ice_candidate.dart' as _i4;
+import 'package:nsg_connect_client/src/protocol/protocol.dart' as _i5;
 
 /// Событие в realtime-стриме мессенджера. Tagged union через
 /// [MessengerEventType], плюс опциональные payload-поля для каждого
@@ -30,6 +31,9 @@ abstract class MessengerEvent implements _i1.SerializableModel {
     this.roomId,
     this.matrixRoomId,
     this.message,
+    this.presenceUserId,
+    this.presenceOnline,
+    this.presenceLastActiveAt,
     this.membershipMessengerUserId,
     this.membershipMatrixUserId,
     this.oldRole,
@@ -48,6 +52,17 @@ abstract class MessengerEvent implements _i1.SerializableModel {
     this.reactionReactorMatrixUserId,
     this.reactionEventId,
     this.reactionRedacted,
+    this.callId,
+    this.callPartyId,
+    this.callVersion,
+    this.callSenderMatrixUserId,
+    this.callSdp,
+    this.callCandidates,
+    this.callHangupReason,
+    this.callSelectedPartyId,
+    this.callLifetime,
+    this.callSdpType,
+    this.pinnedEventIds,
   });
 
   factory MessengerEvent({
@@ -56,6 +71,9 @@ abstract class MessengerEvent implements _i1.SerializableModel {
     int? roomId,
     String? matrixRoomId,
     _i3.MessengerMessage? message,
+    int? presenceUserId,
+    bool? presenceOnline,
+    DateTime? presenceLastActiveAt,
     int? membershipMessengerUserId,
     String? membershipMatrixUserId,
     String? oldRole,
@@ -74,6 +92,17 @@ abstract class MessengerEvent implements _i1.SerializableModel {
     String? reactionReactorMatrixUserId,
     String? reactionEventId,
     bool? reactionRedacted,
+    String? callId,
+    String? callPartyId,
+    String? callVersion,
+    String? callSenderMatrixUserId,
+    String? callSdp,
+    List<_i4.CallIceCandidate>? callCandidates,
+    String? callHangupReason,
+    String? callSelectedPartyId,
+    int? callLifetime,
+    String? callSdpType,
+    List<String>? pinnedEventIds,
   }) = _MessengerEventImpl;
 
   factory MessengerEvent.fromJson(Map<String, dynamic> jsonSerialization) {
@@ -88,8 +117,17 @@ abstract class MessengerEvent implements _i1.SerializableModel {
       matrixRoomId: jsonSerialization['matrixRoomId'] as String?,
       message: jsonSerialization['message'] == null
           ? null
-          : _i4.Protocol().deserialize<_i3.MessengerMessage>(
+          : _i5.Protocol().deserialize<_i3.MessengerMessage>(
               jsonSerialization['message'],
+            ),
+      presenceUserId: jsonSerialization['presenceUserId'] as int?,
+      presenceOnline: jsonSerialization['presenceOnline'] == null
+          ? null
+          : _i1.BoolJsonExtension.fromJson(jsonSerialization['presenceOnline']),
+      presenceLastActiveAt: jsonSerialization['presenceLastActiveAt'] == null
+          ? null
+          : _i1.DateTimeJsonExtension.fromJson(
+              jsonSerialization['presenceLastActiveAt'],
             ),
       membershipMessengerUserId:
           jsonSerialization['membershipMessengerUserId'] as int?,
@@ -105,12 +143,12 @@ abstract class MessengerEvent implements _i1.SerializableModel {
           jsonSerialization['readReceiptMatrixUserId'] as String?,
       typingMatrixUserIds: jsonSerialization['typingMatrixUserIds'] == null
           ? null
-          : _i4.Protocol().deserialize<List<String>>(
+          : _i5.Protocol().deserialize<List<String>>(
               jsonSerialization['typingMatrixUserIds'],
             ),
       typingDisplayNames: jsonSerialization['typingDisplayNames'] == null
           ? null
-          : _i4.Protocol().deserialize<List<String>>(
+          : _i5.Protocol().deserialize<List<String>>(
               jsonSerialization['typingDisplayNames'],
             ),
       unreadCount: jsonSerialization['unreadCount'] as int?,
@@ -126,6 +164,26 @@ abstract class MessengerEvent implements _i1.SerializableModel {
           ? null
           : _i1.BoolJsonExtension.fromJson(
               jsonSerialization['reactionRedacted'],
+            ),
+      callId: jsonSerialization['callId'] as String?,
+      callPartyId: jsonSerialization['callPartyId'] as String?,
+      callVersion: jsonSerialization['callVersion'] as String?,
+      callSenderMatrixUserId:
+          jsonSerialization['callSenderMatrixUserId'] as String?,
+      callSdp: jsonSerialization['callSdp'] as String?,
+      callCandidates: jsonSerialization['callCandidates'] == null
+          ? null
+          : _i5.Protocol().deserialize<List<_i4.CallIceCandidate>>(
+              jsonSerialization['callCandidates'],
+            ),
+      callHangupReason: jsonSerialization['callHangupReason'] as String?,
+      callSelectedPartyId: jsonSerialization['callSelectedPartyId'] as String?,
+      callLifetime: jsonSerialization['callLifetime'] as int?,
+      callSdpType: jsonSerialization['callSdpType'] as String?,
+      pinnedEventIds: jsonSerialization['pinnedEventIds'] == null
+          ? null
+          : _i5.Protocol().deserialize<List<String>>(
+              jsonSerialization['pinnedEventIds'],
             ),
     );
   }
@@ -153,6 +211,14 @@ abstract class MessengerEvent implements _i1.SerializableModel {
   /// `membershipMatrixUserId` — всегда задан (Matrix `state_key`).
   /// SDK display-сторона использует local id когда есть, иначе
   /// fallback на `@user-id:server` строку.
+  /// **TASK55 итер.2b**: payload presenceUpdated (аддитивно, nullable —
+  /// старые клиенты неизвестные ключи JSON просто игнорируют).
+  int? presenceUserId;
+
+  bool? presenceOnline;
+
+  DateTime? presenceLastActiveAt;
+
   int? membershipMessengerUserId;
 
   String? membershipMatrixUserId;
@@ -263,6 +329,62 @@ abstract class MessengerEvent implements _i1.SerializableModel {
 
   bool? reactionRedacted;
 
+  /// **TASK46** — 1:1 голосовой сигналинг (WebRTC поверх Matrix). Поля
+  /// для `call*` [MessengerEventType]. Заполняются `MatrixSyncDispatcher.
+  /// _processCallEvent` при маппинге входящего Matrix `m.call.*` event-а.
+  /// Все nullable — прочие типы событий их не несут (backward compat).
+  ///
+  ///   * `callId` — UUID звонка (генерит caller). Группирует
+  ///     invite/answer/candidates/hangup одного звонка. Задан для всех
+  ///     call-событий.
+  ///   * `callPartyId` — идентификатор устройства-участника (Matrix
+  ///     `party_id`). Важен для multi-device (у юзера B может быть N
+  ///     устройств, оба получат invite и оба могут ответить).
+  ///   * `callVersion` — версия протокола Matrix VoIP (`version`). MVP — 1.
+  ///   * `callSenderMatrixUserId` — кто прислал событие (Matrix `sender`).
+  ///     SDK различает свой/чужой звонок + резолвит peer.
+  ///   * `callSdp` — SDP offer (callInvite) / answer (callAnswer). null
+  ///     для candidates/hangup/select.
+  ///   * `callCandidates` — trickle ICE-кандидаты (callCandidates event).
+  ///   * `callHangupReason` — причина завершения (callHangup): напр.
+  ///     `user_hangup`, `ice_failed`, `invite_timeout` (по spec).
+  ///   * `callSelectedPartyId` — выбранный party (callSelectAnswer, glare).
+  ///   * `callLifetime` — TTL invite-а в мс (callInvite `lifetime`), после
+  ///     которого клиент гасит «звоним…» если нет answer.
+  ///   * `callSdpType` — роль SDP в `callSdp` для callNegotiate: `offer`
+  ///     (перезаключение инициировал caller при ICE restart) или `answer`
+  ///     (callee ответил на negotiate-offer). Для invite/answer не
+  ///     используется (там роль однозначна по типу события).
+  String? callId;
+
+  String? callPartyId;
+
+  String? callVersion;
+
+  String? callSenderMatrixUserId;
+
+  String? callSdp;
+
+  List<_i4.CallIceCandidate>? callCandidates;
+
+  String? callHangupReason;
+
+  String? callSelectedPartyId;
+
+  int? callLifetime;
+
+  String? callSdpType;
+
+  /// **Issue #35 — закрепление сообщений**: для `pinnedMessagesChanged`.
+  /// Полный НОВЫЙ список закреплённых `matrixEventId` комнаты (в порядке
+  /// закрепления, oldest-first) — override, не diff, как `typingMatrixUserIds`.
+  /// Пустой список = все сообщения откреплены (плашка скрывается). Читается
+  /// из Matrix state event `m.room.pinned_events` (`content.pinned`). SDK по
+  /// списку решает, какие сообщения дочитать через `listPinnedMessages`.
+  /// `roomId` обязательно задан для этих событий. Nullable — прочие типы
+  /// событий его не несут (backward compat).
+  List<String>? pinnedEventIds;
+
   /// Returns a shallow copy of this [MessengerEvent]
   /// with some or all fields replaced by the given arguments.
   @_i1.useResult
@@ -272,6 +394,9 @@ abstract class MessengerEvent implements _i1.SerializableModel {
     int? roomId,
     String? matrixRoomId,
     _i3.MessengerMessage? message,
+    int? presenceUserId,
+    bool? presenceOnline,
+    DateTime? presenceLastActiveAt,
     int? membershipMessengerUserId,
     String? membershipMatrixUserId,
     String? oldRole,
@@ -290,6 +415,17 @@ abstract class MessengerEvent implements _i1.SerializableModel {
     String? reactionReactorMatrixUserId,
     String? reactionEventId,
     bool? reactionRedacted,
+    String? callId,
+    String? callPartyId,
+    String? callVersion,
+    String? callSenderMatrixUserId,
+    String? callSdp,
+    List<_i4.CallIceCandidate>? callCandidates,
+    String? callHangupReason,
+    String? callSelectedPartyId,
+    int? callLifetime,
+    String? callSdpType,
+    List<String>? pinnedEventIds,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -300,6 +436,10 @@ abstract class MessengerEvent implements _i1.SerializableModel {
       if (roomId != null) 'roomId': roomId,
       if (matrixRoomId != null) 'matrixRoomId': matrixRoomId,
       if (message != null) 'message': message?.toJson(),
+      if (presenceUserId != null) 'presenceUserId': presenceUserId,
+      if (presenceOnline != null) 'presenceOnline': presenceOnline,
+      if (presenceLastActiveAt != null)
+        'presenceLastActiveAt': presenceLastActiveAt?.toJson(),
       if (membershipMessengerUserId != null)
         'membershipMessengerUserId': membershipMessengerUserId,
       if (membershipMatrixUserId != null)
@@ -326,6 +466,22 @@ abstract class MessengerEvent implements _i1.SerializableModel {
         'reactionReactorMatrixUserId': reactionReactorMatrixUserId,
       if (reactionEventId != null) 'reactionEventId': reactionEventId,
       if (reactionRedacted != null) 'reactionRedacted': reactionRedacted,
+      if (callId != null) 'callId': callId,
+      if (callPartyId != null) 'callPartyId': callPartyId,
+      if (callVersion != null) 'callVersion': callVersion,
+      if (callSenderMatrixUserId != null)
+        'callSenderMatrixUserId': callSenderMatrixUserId,
+      if (callSdp != null) 'callSdp': callSdp,
+      if (callCandidates != null)
+        'callCandidates': callCandidates?.toJson(
+          valueToJson: (v) => v.toJson(),
+        ),
+      if (callHangupReason != null) 'callHangupReason': callHangupReason,
+      if (callSelectedPartyId != null)
+        'callSelectedPartyId': callSelectedPartyId,
+      if (callLifetime != null) 'callLifetime': callLifetime,
+      if (callSdpType != null) 'callSdpType': callSdpType,
+      if (pinnedEventIds != null) 'pinnedEventIds': pinnedEventIds?.toJson(),
     };
   }
 
@@ -344,6 +500,9 @@ class _MessengerEventImpl extends MessengerEvent {
     int? roomId,
     String? matrixRoomId,
     _i3.MessengerMessage? message,
+    int? presenceUserId,
+    bool? presenceOnline,
+    DateTime? presenceLastActiveAt,
     int? membershipMessengerUserId,
     String? membershipMatrixUserId,
     String? oldRole,
@@ -362,12 +521,26 @@ class _MessengerEventImpl extends MessengerEvent {
     String? reactionReactorMatrixUserId,
     String? reactionEventId,
     bool? reactionRedacted,
+    String? callId,
+    String? callPartyId,
+    String? callVersion,
+    String? callSenderMatrixUserId,
+    String? callSdp,
+    List<_i4.CallIceCandidate>? callCandidates,
+    String? callHangupReason,
+    String? callSelectedPartyId,
+    int? callLifetime,
+    String? callSdpType,
+    List<String>? pinnedEventIds,
   }) : super._(
          eventType: eventType,
          serverTimestamp: serverTimestamp,
          roomId: roomId,
          matrixRoomId: matrixRoomId,
          message: message,
+         presenceUserId: presenceUserId,
+         presenceOnline: presenceOnline,
+         presenceLastActiveAt: presenceLastActiveAt,
          membershipMessengerUserId: membershipMessengerUserId,
          membershipMatrixUserId: membershipMatrixUserId,
          oldRole: oldRole,
@@ -386,6 +559,17 @@ class _MessengerEventImpl extends MessengerEvent {
          reactionReactorMatrixUserId: reactionReactorMatrixUserId,
          reactionEventId: reactionEventId,
          reactionRedacted: reactionRedacted,
+         callId: callId,
+         callPartyId: callPartyId,
+         callVersion: callVersion,
+         callSenderMatrixUserId: callSenderMatrixUserId,
+         callSdp: callSdp,
+         callCandidates: callCandidates,
+         callHangupReason: callHangupReason,
+         callSelectedPartyId: callSelectedPartyId,
+         callLifetime: callLifetime,
+         callSdpType: callSdpType,
+         pinnedEventIds: pinnedEventIds,
        );
 
   /// Returns a shallow copy of this [MessengerEvent]
@@ -398,6 +582,9 @@ class _MessengerEventImpl extends MessengerEvent {
     Object? roomId = _Undefined,
     Object? matrixRoomId = _Undefined,
     Object? message = _Undefined,
+    Object? presenceUserId = _Undefined,
+    Object? presenceOnline = _Undefined,
+    Object? presenceLastActiveAt = _Undefined,
     Object? membershipMessengerUserId = _Undefined,
     Object? membershipMatrixUserId = _Undefined,
     Object? oldRole = _Undefined,
@@ -416,6 +603,17 @@ class _MessengerEventImpl extends MessengerEvent {
     Object? reactionReactorMatrixUserId = _Undefined,
     Object? reactionEventId = _Undefined,
     Object? reactionRedacted = _Undefined,
+    Object? callId = _Undefined,
+    Object? callPartyId = _Undefined,
+    Object? callVersion = _Undefined,
+    Object? callSenderMatrixUserId = _Undefined,
+    Object? callSdp = _Undefined,
+    Object? callCandidates = _Undefined,
+    Object? callHangupReason = _Undefined,
+    Object? callSelectedPartyId = _Undefined,
+    Object? callLifetime = _Undefined,
+    Object? callSdpType = _Undefined,
+    Object? pinnedEventIds = _Undefined,
   }) {
     return MessengerEvent(
       eventType: eventType ?? this.eventType,
@@ -425,6 +623,15 @@ class _MessengerEventImpl extends MessengerEvent {
       message: message is _i3.MessengerMessage?
           ? message
           : this.message?.copyWith(),
+      presenceUserId: presenceUserId is int?
+          ? presenceUserId
+          : this.presenceUserId,
+      presenceOnline: presenceOnline is bool?
+          ? presenceOnline
+          : this.presenceOnline,
+      presenceLastActiveAt: presenceLastActiveAt is DateTime?
+          ? presenceLastActiveAt
+          : this.presenceLastActiveAt,
       membershipMessengerUserId: membershipMessengerUserId is int?
           ? membershipMessengerUserId
           : this.membershipMessengerUserId,
@@ -471,6 +678,27 @@ class _MessengerEventImpl extends MessengerEvent {
       reactionRedacted: reactionRedacted is bool?
           ? reactionRedacted
           : this.reactionRedacted,
+      callId: callId is String? ? callId : this.callId,
+      callPartyId: callPartyId is String? ? callPartyId : this.callPartyId,
+      callVersion: callVersion is String? ? callVersion : this.callVersion,
+      callSenderMatrixUserId: callSenderMatrixUserId is String?
+          ? callSenderMatrixUserId
+          : this.callSenderMatrixUserId,
+      callSdp: callSdp is String? ? callSdp : this.callSdp,
+      callCandidates: callCandidates is List<_i4.CallIceCandidate>?
+          ? callCandidates
+          : this.callCandidates?.map((e0) => e0.copyWith()).toList(),
+      callHangupReason: callHangupReason is String?
+          ? callHangupReason
+          : this.callHangupReason,
+      callSelectedPartyId: callSelectedPartyId is String?
+          ? callSelectedPartyId
+          : this.callSelectedPartyId,
+      callLifetime: callLifetime is int? ? callLifetime : this.callLifetime,
+      callSdpType: callSdpType is String? ? callSdpType : this.callSdpType,
+      pinnedEventIds: pinnedEventIds is List<String>?
+          ? pinnedEventIds
+          : this.pinnedEventIds?.map((e0) => e0).toList(),
     );
   }
 }

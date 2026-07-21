@@ -167,7 +167,15 @@ class _AddMembersToGroupScreenState extends State<AddMembersToGroupScreen> {
           targetMessengerUserId: user.messengerUserId,
         );
         added++;
-      } catch (e) {
+      } catch (e, st) {
+        // Репортим на КАЖДОМ падении, а не один lastError в конце: приглашая
+        // пятерых, можно упасть пятью разными способами, а до пользователя
+        // (и в debugPrint, который в release молчит) дойдёт только последний.
+        MessengerRuntime.instance.reportError(
+          e,
+          st,
+          tags: {'room.action': 'inviteToRoom'},
+        );
         lastError = '$e';
         if (kDebugMode) {
           debugPrint(

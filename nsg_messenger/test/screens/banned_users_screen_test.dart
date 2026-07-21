@@ -23,6 +23,7 @@ void main() {
     participants: const [],
     totalParticipants: 0,
     viewerRole: RoomMemberRole.owner,
+    canEscalateSupport: false,
   );
 
   RoomParticipant banned(int id, String name) => RoomParticipant(

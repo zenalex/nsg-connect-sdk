@@ -110,6 +110,47 @@ void main() {
       expect(style?.decoration, TextDecoration.underline);
     });
 
+    group('issue #34 — голый URL кликабелен', () {
+      test('простой URL в тексте → отдельный tappable-leaf', () {
+        final spans = parse('пиши на https://chatista.me завтра');
+        expect(leaves(spans), ['пиши на ', 'https://chatista.me', ' завтра']);
+        final style = styleOfLeaf(spans, 'https://chatista.me');
+        expect(style?.color, accent);
+        expect(style?.decoration, TextDecoration.underline);
+      });
+
+      test('концевая точка НЕ входит в ссылку', () {
+        final spans = parse('см. https://example.com.');
+        expect(leaves(spans), ['см. ', 'https://example.com', '.']);
+      });
+
+      test('URL в скобках — скобка снаружи ссылки', () {
+        final spans = parse('(https://example.com)');
+        expect(leaves(spans), ['(', 'https://example.com', ')']);
+      });
+
+      test('URL с путём и query сохраняется целиком', () {
+        final spans = parse('открой https://a.io/p?x=1&y=2#top тут');
+        expect(leaves(spans), contains('https://a.io/p?x=1&y=2#top'));
+      });
+
+      test('markdown-ссылка имеет приоритет над голым URL (не двоится)', () {
+        final spans = parse('[док](https://example.com)');
+        // Один leaf «док», а не голый url поверх — start у link меньше.
+        expect(leaves(spans), ['док']);
+      });
+
+      test('http и https оба ловятся', () {
+        expect(leaves(parse('x http://a.co y')), ['x ', 'http://a.co', ' y']);
+      });
+
+      test('голый URL внутри code-спана НЕ трогаем', () {
+        final spans = parse('`https://x.com`');
+        expect(leaves(spans), ['https://x.com']);
+        expect(styleOfLeaf(spans, 'https://x.com')?.fontFamily, 'monospace');
+      });
+    });
+
     test('math 2*3=6 НЕ парсится как italic (word-boundary)', () {
       final spans = parse('result is 2*3=6');
       // Должен остаться plain: либо весь текст одним leaf, либо несколько

@@ -22,9 +22,13 @@ abstract class Tenant implements _i1.SerializableModel {
     required this.name,
     required this.hostingMode,
     required this.localpartSecretEncrypted,
+    this.connectServiceSecretHash,
+    bool? connectIssuedTokenEnabled,
+    this.connectServiceSecretHashPrev,
+    this.connectServiceSecretPrevExpiresAt,
     required this.createdAt,
     required this.updatedAt,
-  });
+  }) : connectIssuedTokenEnabled = connectIssuedTokenEnabled ?? false;
 
   factory Tenant({
     int? id,
@@ -32,6 +36,10 @@ abstract class Tenant implements _i1.SerializableModel {
     required String name,
     required _i2.TenantHostingMode hostingMode,
     required String localpartSecretEncrypted,
+    String? connectServiceSecretHash,
+    bool? connectIssuedTokenEnabled,
+    String? connectServiceSecretHashPrev,
+    DateTime? connectServiceSecretPrevExpiresAt,
     required DateTime createdAt,
     required DateTime updatedAt,
   }) = _TenantImpl;
@@ -46,6 +54,22 @@ abstract class Tenant implements _i1.SerializableModel {
       ),
       localpartSecretEncrypted:
           jsonSerialization['localpartSecretEncrypted'] as String,
+      connectServiceSecretHash:
+          jsonSerialization['connectServiceSecretHash'] as String?,
+      connectIssuedTokenEnabled:
+          jsonSerialization['connectIssuedTokenEnabled'] == null
+          ? null
+          : _i1.BoolJsonExtension.fromJson(
+              jsonSerialization['connectIssuedTokenEnabled'],
+            ),
+      connectServiceSecretHashPrev:
+          jsonSerialization['connectServiceSecretHashPrev'] as String?,
+      connectServiceSecretPrevExpiresAt:
+          jsonSerialization['connectServiceSecretPrevExpiresAt'] == null
+          ? null
+          : _i1.DateTimeJsonExtension.fromJson(
+              jsonSerialization['connectServiceSecretPrevExpiresAt'],
+            ),
       createdAt: _i1.DateTimeJsonExtension.fromJson(
         jsonSerialization['createdAt'],
       ),
@@ -78,6 +102,35 @@ abstract class Tenant implements _i1.SerializableModel {
   /// TenantSecretService.getOrInit() с SELECT FOR UPDATE.
   String localpartSecretEncrypted;
 
+  /// **Вариант C** (DESIGN_CONNECT_ISSUED_TOKENS.md): sha256-hex от
+  /// per-tenant serviceSecret для S2S-выдачи connect-токенов
+  /// (ConnectTokenEndpoint.issueToken). NULL = issued-token-режим для
+  /// tenant-а выключен на стороне выдачи. Хранится ТОЛЬКО хэш —
+  /// плейнтекст секрета живёт в конфиге продукт-сервера; сравнение
+  /// constant-time (ConnectIssuedTokenService.verifySecret).
+  String? connectServiceSecretHash;
+
+  /// **TASK78 п.1**: issued-token-режим включён для этого tenant-а.
+  /// Читается СВЕЖИМ на каждой аутентификации (`_authenticate` и так
+  /// грузит tenant перед резолвом адаптера), поэтому включение/отзыв
+  /// действуют БЕЗ рестарта и без кэша реестра — флаг и есть источник
+  /// правды. Раньше режим задавался env `CONNECT_ISSUED_TOKEN_TENANTS`
+  /// (тот остаётся legacy-оверрайдом для обратной совместимости).
+  /// `enabled == false` → динамический адаптер не резолвится, tenant
+  /// получает прежний AdapterNotConfiguredException.
+  bool connectIssuedTokenEnabled;
+
+  /// **TASK78 п.2 (ротация без простоя)**: предыдущий sha256-хэш секрета,
+  /// принимается наравне с текущим до [connectServiceSecretPrevExpiresAt].
+  /// Даёт продукту grace-окно на выкатку нового секрета: ротировали →
+  /// старый ещё работает N минут → продукт обновил конфиг → старый
+  /// протух. NULL — grace не активен.
+  String? connectServiceSecretHashPrev;
+
+  /// Момент, после которого [connectServiceSecretHashPrev] перестаёт
+  /// приниматься. NULL когда prev не задан.
+  DateTime? connectServiceSecretPrevExpiresAt;
+
   DateTime createdAt;
 
   DateTime updatedAt;
@@ -91,6 +144,10 @@ abstract class Tenant implements _i1.SerializableModel {
     String? name,
     _i2.TenantHostingMode? hostingMode,
     String? localpartSecretEncrypted,
+    String? connectServiceSecretHash,
+    bool? connectIssuedTokenEnabled,
+    String? connectServiceSecretHashPrev,
+    DateTime? connectServiceSecretPrevExpiresAt,
     DateTime? createdAt,
     DateTime? updatedAt,
   });
@@ -103,6 +160,14 @@ abstract class Tenant implements _i1.SerializableModel {
       'name': name,
       'hostingMode': hostingMode.toJson(),
       'localpartSecretEncrypted': localpartSecretEncrypted,
+      if (connectServiceSecretHash != null)
+        'connectServiceSecretHash': connectServiceSecretHash,
+      'connectIssuedTokenEnabled': connectIssuedTokenEnabled,
+      if (connectServiceSecretHashPrev != null)
+        'connectServiceSecretHashPrev': connectServiceSecretHashPrev,
+      if (connectServiceSecretPrevExpiresAt != null)
+        'connectServiceSecretPrevExpiresAt': connectServiceSecretPrevExpiresAt
+            ?.toJson(),
       'createdAt': createdAt.toJson(),
       'updatedAt': updatedAt.toJson(),
     };
@@ -123,6 +188,10 @@ class _TenantImpl extends Tenant {
     required String name,
     required _i2.TenantHostingMode hostingMode,
     required String localpartSecretEncrypted,
+    String? connectServiceSecretHash,
+    bool? connectIssuedTokenEnabled,
+    String? connectServiceSecretHashPrev,
+    DateTime? connectServiceSecretPrevExpiresAt,
     required DateTime createdAt,
     required DateTime updatedAt,
   }) : super._(
@@ -131,6 +200,10 @@ class _TenantImpl extends Tenant {
          name: name,
          hostingMode: hostingMode,
          localpartSecretEncrypted: localpartSecretEncrypted,
+         connectServiceSecretHash: connectServiceSecretHash,
+         connectIssuedTokenEnabled: connectIssuedTokenEnabled,
+         connectServiceSecretHashPrev: connectServiceSecretHashPrev,
+         connectServiceSecretPrevExpiresAt: connectServiceSecretPrevExpiresAt,
          createdAt: createdAt,
          updatedAt: updatedAt,
        );
@@ -145,6 +218,10 @@ class _TenantImpl extends Tenant {
     String? name,
     _i2.TenantHostingMode? hostingMode,
     String? localpartSecretEncrypted,
+    Object? connectServiceSecretHash = _Undefined,
+    bool? connectIssuedTokenEnabled,
+    Object? connectServiceSecretHashPrev = _Undefined,
+    Object? connectServiceSecretPrevExpiresAt = _Undefined,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -155,6 +232,18 @@ class _TenantImpl extends Tenant {
       hostingMode: hostingMode ?? this.hostingMode,
       localpartSecretEncrypted:
           localpartSecretEncrypted ?? this.localpartSecretEncrypted,
+      connectServiceSecretHash: connectServiceSecretHash is String?
+          ? connectServiceSecretHash
+          : this.connectServiceSecretHash,
+      connectIssuedTokenEnabled:
+          connectIssuedTokenEnabled ?? this.connectIssuedTokenEnabled,
+      connectServiceSecretHashPrev: connectServiceSecretHashPrev is String?
+          ? connectServiceSecretHashPrev
+          : this.connectServiceSecretHashPrev,
+      connectServiceSecretPrevExpiresAt:
+          connectServiceSecretPrevExpiresAt is DateTime?
+          ? connectServiceSecretPrevExpiresAt
+          : this.connectServiceSecretPrevExpiresAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

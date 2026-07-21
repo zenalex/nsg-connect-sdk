@@ -70,28 +70,31 @@ void main() {
     ),
   );
 
-  testWidgets('image/* + thumbnailMxcUrl != null → AspectRatio image preview', (
+  testWidgets('image/* + thumbnailMxcUrl != null → bounded inline preview', (
     tester,
   ) async {
     await tester.pumpWidget(pumpBubble(ref(width: 1920, height: 1080)));
     // Single-frame pump БЕЗ pumpAndSettle — Image widget kicks off
-    // async decode, mock PNG bytes могут не быть полностью valid;
-    // нам важно только AspectRatio в widget tree, не bytes-decode.
+    // async decode; нам важен только layout-размер, не bytes-decode.
     // Decode-exception swallow через `takeException`.
     // ignore: unused_local_variable
     final _ = tester.takeException();
-    expect(find.byType(AspectRatio), findsOneWidget);
-    // Aspect 1920/1080 ≈ 1.777
-    final aspectWidget = tester.widget<AspectRatio>(find.byType(AspectRatio));
-    expect(aspectWidget.aspectRatio, closeTo(1920 / 1080, 0.001));
+    // ClipRRect оборачивает SizedBox с вычисленным inline-размером.
+    final size = tester.getSize(find.byType(ClipRRect).first);
+    // Aspect сохранён (1920/1080 ≈ 1.777)…
+    expect(size.width / size.height, closeTo(1920 / 1080, 0.02));
+    // …и картинка ограничена потолками, а не на всю ширину чата (800px).
+    expect(size.width, lessThanOrEqualTo(260.5));
+    expect(size.height, lessThanOrEqualTo(320.5));
   });
 
   testWidgets('image/* без width/height → fallback aspect 4/3', (tester) async {
     await tester.pumpWidget(pumpBubble(ref(width: null, height: null)));
     // ignore: unused_local_variable
     final _ = tester.takeException();
-    final aspectWidget = tester.widget<AspectRatio>(find.byType(AspectRatio));
-    expect(aspectWidget.aspectRatio, closeTo(4 / 3, 0.001));
+    final size = tester.getSize(find.byType(ClipRRect).first);
+    expect(size.width / size.height, closeTo(4 / 3, 0.02));
+    expect(size.width, lessThanOrEqualTo(260.5));
   });
 
   testWidgets(

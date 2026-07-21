@@ -1,6 +1,8 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 /// **CHATista Glass design (Claude Design handoff 2026-05-24)**:
 /// vivid multi-blob radial-gradient wallpaper that sells the "glass"
@@ -24,18 +26,148 @@ import 'package:flutter/material.dart';
 ///   ],
 /// );
 /// ```
-class GlassBackground extends StatelessWidget {
+/// **Производительность (issue #26).** Фон лежит `Positioned.fill` в корневом
+/// `Stack` под ВСЕМ приложением (`main.dart`), а рисование тут дорогое:
+/// полноэкранный `saveLayer` + 4 радиальных градиента радиусом ~0.4 диагонали
+/// с `BlendMode.screen`. Пока это исполнялось на каждый кадр, скролл на слабом
+/// Android держал 8–9 fps.
+///
+/// **Почему одного `RepaintBoundary` не хватило.** Он создаёт отдельный слой,
+/// но НЕ гарантирует его растеризацию в переиспользуемую текстуру: решение
+/// кэшировать принимает raster cache движка по своим порогам, и полноэкранный
+/// слой с `saveLayer` внутри — плохой кандидат. Замер на HONOR VNE-LX1
+/// (Android 14, PowerVR GE8320, 60 Гц), сценарий «скролл чата», одни и те же
+/// жесты:
+///
+/// | сборка | raster avg |
+/// |---|---|
+/// | без `RepaintBoundary` | 113.82 мс |
+/// | с `RepaintBoundary` | 113.54 / 113.97 мс (два прогона) |
+/// | фон не рисуется вовсе | 5.35 мс |
+///
+/// То есть слой создавался, а работа выполнялась ровно та же.
+///
+/// **Что сделано.** Обои растеризуются ОДИН раз в [ui.Image] и дальше
+/// блитятся готовой текстурой. `saveLayer` и градиенты уходят с горячего
+/// пути гарантированно, а не на усмотрение эвристики. Пересборка картинки —
+/// только при смене палитры или размера холста.
+///
+/// Математика блендинга при этом не меняется: `BlendMode.screen` считается
+/// внутри offscreen-картинки ровно так же, как считался внутри `saveLayer`
+/// на экране — тот же порядок операций, тот же результат.
+class GlassBackground extends StatefulWidget {
   const GlassBackground({super.key, this.palette = GlassPalette.sunset});
 
   final GlassPalette palette;
 
   @override
+  State<GlassBackground> createState() => _GlassBackgroundState();
+}
+
+class _GlassBackgroundState extends State<GlassBackground> {
+  ui.Image? _image;
+  Size? _imageSize;
+  double? _imageDpr;
+  GlassPalette? _imagePalette;
+
+  @override
+  void dispose() {
+    _image?.dispose();
+    super.dispose();
+  }
+
+  /// Растеризует обои в [ui.Image], если кэш пуст или его ключ устарел.
+  ///
+  /// Вызывается из `build` и намеренно не дёргает `setState`: результат
+  /// используется тут же, в этом же кадре, а лишний перестроечный цикл
+  /// только добавил бы работы.
+  void _ensureImage(_GlassPaletteSpec spec, Size size, double dpr) {
+    if (size.isEmpty || !size.isFinite) return;
+    final fresh =
+        _image != null &&
+        _imagePalette == widget.palette &&
+        _imageSize == size &&
+        _imageDpr == dpr;
+    if (fresh) return;
+
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    // Пишем в физических пикселях, иначе на HiDPI картинка размылится.
+    canvas.scale(dpr);
+    _WallpaperPainter(spec: spec).paint(canvas, size);
+    final picture = recorder.endRecording();
+    try {
+      final image = picture.toImageSync(
+        (size.width * dpr).ceil(),
+        (size.height * dpr).ceil(),
+      );
+      _retire(_image);
+      _image = image;
+      _imageSize = size;
+      _imageDpr = dpr;
+      _imagePalette = widget.palette;
+    } catch (_) {
+      // Растеризация недоступна (например, в widget-тестах без GPU) —
+      // рисуем напрямую. Медленнее, но корректно.
+      _retire(_image);
+      _image = null;
+    } finally {
+      picture.dispose();
+    }
+  }
+
+  /// Освобождает старую текстуру ПОСЛЕ кадра: на неё ещё может ссылаться
+  /// уже собранный слой, и `dispose` прямо в `build` уронил бы отрисовку.
+  void _retire(ui.Image? old) {
+    if (old == null) return;
+    SchedulerBinding.instance.addPostFrameCallback((_) => old.dispose());
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final spec = _GlassPaletteSpec.forPalette(palette);
-    return CustomPaint(
-      size: Size.infinite,
-      painter: _WallpaperPainter(spec: spec),
+    final spec = _GlassPaletteSpec.forPalette(widget.palette);
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    return RepaintBoundary(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final size = constraints.biggest;
+          _ensureImage(spec, size, dpr);
+          final image = _image;
+          return CustomPaint(
+            size: size.isFinite ? size : Size.infinite,
+            painter: image == null
+                ? _WallpaperPainter(spec: spec)
+                : _CachedWallpaperPainter(image: image, spec: spec),
+          );
+        },
+      ),
     );
+  }
+}
+
+/// Блитит уже растеризованные обои. Вся стоимость кадра — одна текстура.
+class _CachedWallpaperPainter extends CustomPainter {
+  _CachedWallpaperPainter({required this.image, required this.spec});
+
+  final ui.Image image;
+  final _GlassPaletteSpec spec;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.drawImageRect(
+      image,
+      Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
+      Offset.zero & size,
+      Paint()..filterQuality = FilterQuality.low,
+    );
+  }
+
+  @override
+  bool shouldRepaint(CustomPainter old) {
+    // Тип может смениться при переходе кэш ↔ прямая отрисовка — тогда
+    // перерисовать обязаны.
+    if (old is! _CachedWallpaperPainter) return true;
+    return !identical(old.image, image) || old.spec.base != spec.base;
   }
 }
 
@@ -215,7 +347,17 @@ class _WallpaperPainter extends CustomPainter {
     canvas.restore();
   }
 
+  /// Перерисовываем только при смене палитры.
+  ///
+  /// Сравниваем `base` + `accent`, а не один `base`: сейчас у всех четырёх
+  /// палитр базовые цвета различаются, и проверки по `base` формально хватает,
+  /// но это держится на совпадении — палитра с тем же `base` и другими блобами
+  /// молча не применилась бы. Цена ошибки выросла: с `RepaintBoundary` (см.
+  /// [GlassBackground.build]) слой кэшируется агрессивнее, и промах здесь
+  /// означал бы «тема не сменилась до перестроения виджета».
   @override
   bool shouldRepaint(covariant _WallpaperPainter old) =>
-      old.spec.base != spec.base || old.spec.blobs.length != spec.blobs.length;
+      old.spec.base != spec.base ||
+      old.spec.accent != spec.accent ||
+      old.spec.blobs.length != spec.blobs.length;
 }

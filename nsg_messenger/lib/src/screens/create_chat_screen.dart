@@ -54,8 +54,15 @@ class _CreateChatScreenState extends State<CreateChatScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(NsgL10n.of(context).createChatPeerUnavailable)),
       );
-    } catch (e) {
+    } catch (e, st) {
       if (!mounted) return;
+      // Гейт приватности ловится веткой выше — сюда долетает только
+      // неожиданное, а пользователь при этом видит сырой текст исключения.
+      MessengerRuntime.instance.reportError(
+        e,
+        st,
+        tags: {'chat.action': 'createDirect'},
+      );
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
     } finally {
       if (mounted) setState(() => _busy = false);

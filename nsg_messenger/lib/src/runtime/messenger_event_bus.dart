@@ -7,6 +7,7 @@ import 'package:flutter/widgets.dart' show AppLifecycleState;
 import 'package:nsg_connect_client/nsg_connect_client.dart';
 
 import '../messenger_session_state.dart';
+import '../session/auth_retry.dart' show isAuthInvalidation;
 import 'messenger_connection_state.dart';
 
 /// Сигнатура для `client.messenger.userEventStream` — позволяет тестам
@@ -74,6 +75,20 @@ class MessengerEventBus {
   final Stream<MessengerSessionState> _sessionStateStream;
   final SetPresenceFn? _setPresence;
   final void Function(Object error, StackTrace stack)? _onError;
+
+  /// **Session-recovery fix (a1)**: колбэк, вызываемый когда underlying
+  /// `userEventStream` упал с ТИПИЗИРОВАННЫМ auth-invalidation
+  /// ([isAuthInvalidation] == true — `MessengerNotAuthenticatedException` /
+  /// `InvalidTokenException` / `ServerpodClientUnauthorized`). Такое падение
+  /// — НЕ transport-blip: reconnect с тем же протухшим токеном будет
+  /// крутиться вечно («нет соединения», dead wall). Вместо reconnect-а мы
+  /// один раз дёргаем этот колбэк — runtime маршрутит его в
+  /// `MessengerSessionManager.selfHealStaleToken()`, который либо обновит
+  /// токен (→ session-state `active` → [_listenToSessionState]
+  /// переподпишет underlying с новым токеном), либо решит что сессия мертва
+  /// (→ `expired` → host уводит в login). Транспортный retry-таймер при этом
+  /// НЕ запускается.
+  final Future<void> Function()? _onStreamAuthError;
   final List<Duration> _reconnectBackoff;
   final int _disconnectedAfterFailures;
   final Random _jitterRng;
@@ -94,6 +109,22 @@ class MessengerEventBus {
   /// sub is currently active). Cancelled on dispose / on explicit
   /// `forceReconnect` / on session-state-driven stop.
   Timer? _retryTimer;
+
+  /// **Reconnect-баннер (desktop idle)**: таймер подтверждения, что
+  /// пере-подписка реально «схватилась». `connectionState` возвращается в
+  /// [MessengerConnectionState.healthy] ТОЛЬКО в onData (первый event) — на
+  /// тихом аккаунте после blip-а событий нет, и баннер «Соединение потеряно»
+  /// висел вечно, хотя сокет уже переподключился (наблюдали на Windows:
+  /// помогал только рестарт). Если sub прожил [_reconnectConfirmDelay] без
+  /// onError/onDone — считаем transport восстановленным и эмитим healthy.
+  Timer? _reconnectConfirmTimer;
+
+  /// Дефолтная задержка подтверждения reconnect-а.
+  static const Duration defaultReconnectConfirmDelay = Duration(seconds: 2);
+
+  /// Фактическая задержка (visible-for-testing knob через [attachWithFactory]:
+  /// тест ставит мс, чтобы не ждать реальные 2с).
+  final Duration _reconnectConfirmDelay;
 
   MessengerConnectionState _connectionState = MessengerConnectionState.healthy;
   final StreamController<MessengerConnectionState> _connectionStateCtl =
@@ -132,16 +163,21 @@ class MessengerEventBus {
     required Stream<MessengerSessionState> sessionStateStream,
     SetPresenceFn? setPresence,
     void Function(Object error, StackTrace stack)? onError,
+    Future<void> Function()? onStreamAuthError,
     List<Duration>? reconnectBackoff,
     int? disconnectedAfterFailures,
+    Duration? reconnectConfirmDelay,
     Random? jitterRng,
   }) : _streamFactory = streamFactory,
        _sessionStateStream = sessionStateStream,
        _setPresence = setPresence,
        _onError = onError,
+       _onStreamAuthError = onStreamAuthError,
        _reconnectBackoff = reconnectBackoff ?? defaultReconnectBackoff,
        _disconnectedAfterFailures =
            disconnectedAfterFailures ?? defaultDisconnectedAfterFailures,
+       _reconnectConfirmDelay =
+           reconnectConfirmDelay ?? defaultReconnectConfirmDelay,
        _jitterRng = jitterRng ?? Random();
 
   /// Production-фабрика. Привязывается к `client.messenger.userEventStream`
@@ -150,11 +186,29 @@ class MessengerEventBus {
     required Client client,
     required Stream<MessengerSessionState> sessionStateStream,
     void Function(Object error, StackTrace stack)? onError,
+    Future<void> Function()? onStreamAuthError,
   }) => attachWithFactory(
-    streamFactory: client.messenger.userEventStream,
+    // **TASK46 fix#3**: объявляем capability `call-negotiate` при подписке —
+    // сервер шлёт `callNegotiate` только объявившим её стримам. Старый SDK
+    // (без этого аргумента) negotiate не получает и не роняет стрим на
+    // неизвестном enum-значении. Значение продублировано строкой (а не
+    // импортом серверной константы) — SDK не зависит от server-пакета.
+    streamFactory: () => client.messenger.userEventStream(
+      // **TASK55 итер.2b**: presence — новый гейтящийся тип событий.
+      // **Issue #35**: pinned-messages — гейт закрепления для старого
+      // сервера (legacy-путь). capabilities остаются для совместимости.
+      capabilities: const ['call-negotiate', 'presence', 'pinned-messages'],
+      // **Forward-compat**: объявляем серверу ВСЕ известные этой сборке
+      // типы событий — новые серверные типы автоматически вырезаются на
+      // сервере и не роняют стрим десериализацией неизвестного enum.
+      knownEventTypes: [
+        for (final t in MessengerEventType.values) t.name,
+      ],
+    ),
     setPresence: client.messenger.setPresence,
     sessionStateStream: sessionStateStream,
     onError: onError,
+    onStreamAuthError: onStreamAuthError,
   );
 
   /// Test-фабрика. Принимает [UserEventStreamFactory] напрямую,
@@ -170,8 +224,10 @@ class MessengerEventBus {
     required Stream<MessengerSessionState> sessionStateStream,
     SetPresenceFn? setPresence,
     void Function(Object error, StackTrace stack)? onError,
+    Future<void> Function()? onStreamAuthError,
     List<Duration>? reconnectBackoff,
     int? disconnectedAfterFailures,
+    Duration? reconnectConfirmDelay,
     Random? jitterRng,
   }) {
     final bus = MessengerEventBus._(
@@ -179,8 +235,10 @@ class MessengerEventBus {
       sessionStateStream: sessionStateStream,
       setPresence: setPresence,
       onError: onError,
+      onStreamAuthError: onStreamAuthError,
       reconnectBackoff: reconnectBackoff,
       disconnectedAfterFailures: disconnectedAfterFailures,
+      reconnectConfirmDelay: reconnectConfirmDelay,
       jitterRng: jitterRng,
     );
     bus._listenToSessionState();
@@ -407,6 +465,7 @@ class MessengerEventBus {
     _disposed = true;
     _retryTimer?.cancel();
     _retryTimer = null;
+    _cancelReconnectConfirm();
     await _stateSub?.cancel();
     _stateSub = null;
     await _stopUnderlyingSubscription();
@@ -542,15 +601,19 @@ class MessengerEventBus {
           // (rooms, controllers) не должны видеть transient errors —
           // они появляются в TASK20-followup-c onError handlers, но
           // те — strictly defensive (логирование + preserve UI).
-          //
-          // **CRITICAL**: token / auth cache НЕ trogаем. Auth invalidation
-          // — отдельный axis (`MessengerSessionManager` ловит 401
-          // отдельно через retry-interceptor).
           if (kDebugMode) {
             debugPrint(
               '[MessengerEventBus] underlying stream onError: ${e.runtimeType}: $e',
             );
           }
+          // **Session-recovery fix (a1)**: типизированный auth-invalidation
+          // (`MessengerNotAuthenticatedException` и пр.) приезжает как
+          // сериализованный exception в stream `onError`, а НЕ как transport
+          // blip. Reconnect с тем же протухшим токеном крутился бы вечно
+          // (dead wall «нет соединения»). Маршрутим в self-heal вместо
+          // transport-reconnect. Token / auth cache НЕ trogаем здесь —
+          // это делает ТОЛЬКО session manager внутри selfHeal (red line).
+          if (_handleStreamAuthError(e)) return;
           _onError?.call(e, st);
           _scheduleReconnect(reason: 'onError');
         },
@@ -571,6 +634,9 @@ class MessengerEventBus {
           '[MessengerEventBus] _startUnderlyingSubscription DONE (sub installed)',
         );
       }
+      // Подтверждаем восстановление transport-а для «тихого» аккаунта:
+      // healthy без ожидания первого event-а (см. [_armReconnectConfirm]).
+      _armReconnectConfirm();
     } catch (e, st) {
       // Subscription factory сама бросила (auth не готов / network) —
       // считаем как failed-attempt и schedule retry.
@@ -579,9 +645,48 @@ class MessengerEventBus {
           '[MessengerEventBus] _streamFactory() THREW synchronously: ${e.runtimeType}: $e',
         );
       }
+      // **Session-recovery fix (a1)**: как и в stream `onError` — если
+      // фабрика бросила ТИПИЗИРОВАННЫЙ auth-invalidation, self-heal вместо
+      // transport-reconnect (иначе бесконечный reconnect на протухшем токене).
+      if (_handleStreamAuthError(e)) return;
       _onError?.call(e, st);
       _scheduleReconnect(reason: 'factory threw');
     }
+  }
+
+  /// **Session-recovery fix (a1)**: если [error] — типизированный
+  /// auth-invalidation ([isAuthInvalidation]), обработать его как auth-ошибку
+  /// (self-heal), а НЕ как transport-blip. Возвращает `true`, если ошибка
+  /// была auth-invalidation и обработана (caller должен `return` без
+  /// планирования reconnect-а); `false` — обычная transport-ошибка, caller
+  /// продолжает свой transport-путь ([_scheduleReconnect]).
+  ///
+  /// При auth-invalidation:
+  ///   * cancel/null-им underlying sub (переиспользуем [_stopUnderlyingSubscription]
+  ///     для полной cleanup — он же cancel-ит pending retry timer), но НЕ
+  ///     запускаем retry-таймер, НЕ инкрементим `_consecutiveFailures`, НЕ
+  ///     эмитим `reconnecting`/`disconnected` — transport здесь ни при чём;
+  ///   * fire-and-forget [_onStreamAuthError] — runtime дёрнет
+  ///     `selfHealStaleToken()`. Успех → session-state `active` →
+  ///     [_listenToSessionState] переподпишет underlying с новым токеном.
+  ///     Смерть → `expired` → underlying остаётся закрытым, host уводит в
+  ///     login. Network-fail внутри selfHeal → `error` (sub остаётся закрыт,
+  ///     без spin) — proactive refresh timer / app-resume `forceReconnect`
+  ///     восстановят позже. **Никакого собственного retry-loop тут нет.**
+  bool _handleStreamAuthError(Object error) {
+    if (!isAuthInvalidation(error)) return false;
+    if (kDebugMode) {
+      debugPrint(
+        '[MessengerEventBus] stream auth-invalidation → self-heal '
+        '(no transport reconnect)',
+      );
+    }
+    // Полная cleanup underlying sub без transport-семантики. Не трогаем
+    // `_consecutiveFailures` / connectionState — это НЕ transport failure.
+    unawaited(_stopUnderlyingSubscription());
+    final cb = _onStreamAuthError;
+    if (cb != null) unawaited(cb());
+    return true;
   }
 
   /// **TASK20 followup (a)**: запланировать reconnect после transport
@@ -589,6 +694,8 @@ class MessengerEventBus {
   /// schedule retry с jittered backoff.
   void _scheduleReconnect({required String reason}) {
     if (_disposed) return;
+    // Transport упал — отменяем pending confirm (подтверждать нечего).
+    _cancelReconnectConfirm();
     // Sub уже мёртв (onError может прилететь, потом onDone), но
     // защищённо cancel-ним предыдущую — иначе stale sub держит ref на
     // старый Stream и в broadcast-сценариях получает duplicate events.
@@ -644,6 +751,45 @@ class MessengerEventBus {
     });
   }
 
+  /// **Reconnect-баннер (desktop idle)**: ставит [_reconnectConfirmTimer].
+  /// Если через [_reconnectConfirmDelay] underlying sub всё ещё жив
+  /// (onError/onDone/stop его не обнулили) — эмитит healthy, не дожидаясь
+  /// первого event-а. Нужно для тихих аккаунтов, где после blip-а сокет
+  /// переподключился, но событий нет → баннер иначе висит до рестарта.
+  void _armReconnectConfirm() {
+    _reconnectConfirmTimer?.cancel();
+    // Уже healthy без «долгов» — подтверждать нечего.
+    if (_connectionState == MessengerConnectionState.healthy &&
+        _consecutiveFailures == 0) {
+      _reconnectConfirmTimer = null;
+      return;
+    }
+    _reconnectConfirmTimer = Timer(_reconnectConfirmDelay, () {
+      _reconnectConfirmTimer = null;
+      if (_disposed || _stopping) return;
+      if (!hasListeners || _backgrounded) return;
+      // Sub мёртв (onError/onDone/_scheduleReconnect обнулили бы его) —
+      // подтверждать нечего, пусть отрабатывает retry-loop.
+      if (_underlyingSub == null) return;
+      if (_consecutiveFailures != 0 ||
+          _connectionState != MessengerConnectionState.healthy) {
+        if (kDebugMode) {
+          debugPrint(
+            '[MessengerEventBus] reconnect confirmed (sub alive '
+            '${_reconnectConfirmDelay.inSeconds}s) → healthy',
+          );
+        }
+        _consecutiveFailures = 0;
+        _setConnectionState(MessengerConnectionState.healthy);
+      }
+    });
+  }
+
+  void _cancelReconnectConfirm() {
+    _reconnectConfirmTimer?.cancel();
+    _reconnectConfirmTimer = null;
+  }
+
   /// Возвращает следующую задержку из [_reconnectBackoff] с ±20% jitter.
   /// Если `attempt` превышает длину массива — используется последний
   /// элемент (cap).
@@ -683,6 +829,7 @@ class MessengerEventBus {
     // в неподходящий момент.
     _retryTimer?.cancel();
     _retryTimer = null;
+    _cancelReconnectConfirm();
     final sub = _underlyingSub;
     if (sub == null) return;
     // НЕ нулим _underlyingSub до завершения cancel — иначе concurrent

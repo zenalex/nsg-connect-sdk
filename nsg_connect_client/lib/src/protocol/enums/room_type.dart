@@ -24,7 +24,19 @@ enum RoomType implements _i1.SerializableModel {
   internal,
   system,
   productRoom,
-  customerRoom;
+  customerRoom,
+
+  /// **TASK68 «Избранное»**: self-чат — комната с ЕДИНСТВЕННЫМ участником
+  /// (самим владельцем). Аналог Telegram Saved Messages, только их можно
+  /// завести несколько именованных («заметки», «файлообмен», ...) и
+  /// разложить по папкам TASK62. Синхронизация между устройствами
+  /// бесплатна — это обычная Matrix-комната, её гоняет `/sync`.
+  ///
+  /// UI по этому типу прячет presence/«печатает»/звонки/«добавить
+  /// участника» (сам с собой — бессмысленно), push не шлётся
+  /// (`PushRoutingService` фильтр 0), гейты `createDirect` /
+  /// `whoCanMessageMe` не применяются.
+  saved;
 
   static RoomType fromJson(String name) {
     switch (name) {
@@ -46,6 +58,8 @@ enum RoomType implements _i1.SerializableModel {
         return RoomType.productRoom;
       case 'customerRoom':
         return RoomType.customerRoom;
+      case 'saved':
+        return RoomType.saved;
       default:
         throw ArgumentError('Value "$name" cannot be converted to "RoomType"');
     }

@@ -27,5 +27,15 @@
 /// embed-mode без push не depend-ит от этого package.
 library;
 
+export 'src/call_push.dart' show CallPushData;
+export 'src/call_push_presenter.dart' show CallPushPresenter;
 export 'src/firebase_push_token_provider.dart'
     show FirebasePushTokenProvider, nsgMessengerBackgroundHandler;
+// TASK61: RuStore Push (Android без Google Play Services) + выбор
+// провайдера на старте (GMS → fcm, иначе RuStore).
+export 'src/push_provider_resolver.dart'
+    show ResolvedPushService, resolvePushService;
+// Issue #33 (TASK67 часть B): тихий read-sync-пуш — снятие уведомлений
+// прочитанной комнаты на устройствах вне realtime-стрима.
+export 'src/read_sync_push.dart' show ReadSyncPushData, readSyncPushType;
+export 'src/rustore_push_token_provider.dart' show RuStorePushTokenProvider;

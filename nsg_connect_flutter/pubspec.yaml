@@ -29,8 +29,8 @@ dependencies:
     sdk: flutter
   nsg_connect_client:
     path: ../nsg_connect_client
-  serverpod_auth_idp_flutter: 3.4.8
-  serverpod_flutter: 3.4.8
+  serverpod_auth_idp_flutter: 3.4.11
+  serverpod_flutter: 3.4.11
 
 dev_dependencies:
   flutter_lints: '>=3.0.0 <7.0.0'

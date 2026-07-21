@@ -28,12 +28,18 @@ abstract class NotificationSettings implements _i1.SerializableModel {
     required this.showMessagePreview,
     this.sendReadReceipts,
     this.discoverable,
+    this.whoCanMessageMe,
+    this.showCardsOnCall,
+    this.presenceHidden,
   });
 
   factory NotificationSettings({
     required bool showMessagePreview,
     bool? sendReadReceipts,
     bool? discoverable,
+    String? whoCanMessageMe,
+    bool? showCardsOnCall,
+    bool? presenceHidden,
   }) = _NotificationSettingsImpl;
 
   factory NotificationSettings.fromJson(
@@ -51,6 +57,15 @@ abstract class NotificationSettings implements _i1.SerializableModel {
       discoverable: jsonSerialization['discoverable'] == null
           ? null
           : _i1.BoolJsonExtension.fromJson(jsonSerialization['discoverable']),
+      whoCanMessageMe: jsonSerialization['whoCanMessageMe'] as String?,
+      showCardsOnCall: jsonSerialization['showCardsOnCall'] == null
+          ? null
+          : _i1.BoolJsonExtension.fromJson(
+              jsonSerialization['showCardsOnCall'],
+            ),
+      presenceHidden: jsonSerialization['presenceHidden'] == null
+          ? null
+          : _i1.BoolJsonExtension.fromJson(jsonSerialization['presenceHidden']),
     );
   }
 
@@ -68,6 +83,22 @@ abstract class NotificationSettings implements _i1.SerializableModel {
   /// семантики (null на set = «не менять»).
   bool? discoverable;
 
+  /// **TASK52 итер.1**: см. doc у `MessengerUser.whoCanMessageMe`
+  /// ('everyone' | 'contacts'). Nullable — null на set = «не менять»,
+  /// старые клиенты не присылают поле и ничего не ломают.
+  String? whoCanMessageMe;
+
+  /// **TASK52 итер.1**: см. doc у `MessengerUser.showCardsOnCall`.
+  /// Nullable — те же семантики.
+  bool? showCardsOnCall;
+
+  /// **TASK55 итер.3**: см. doc у `MessengerUser.presenceHidden`
+  /// (скрыть свой last seen/online; взаимность). Nullable — null на
+  /// set = «не менять». Спека называла отдельный `setPresencePrivacy` —
+  /// сделано через общий settings-канал (консистентно с остальными
+  /// privacy-toggle-ами, меньше поверхности API).
+  bool? presenceHidden;
+
   /// Returns a shallow copy of this [NotificationSettings]
   /// with some or all fields replaced by the given arguments.
   @_i1.useResult
@@ -75,6 +106,9 @@ abstract class NotificationSettings implements _i1.SerializableModel {
     bool? showMessagePreview,
     bool? sendReadReceipts,
     bool? discoverable,
+    String? whoCanMessageMe,
+    bool? showCardsOnCall,
+    bool? presenceHidden,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -83,6 +117,9 @@ abstract class NotificationSettings implements _i1.SerializableModel {
       'showMessagePreview': showMessagePreview,
       if (sendReadReceipts != null) 'sendReadReceipts': sendReadReceipts,
       if (discoverable != null) 'discoverable': discoverable,
+      if (whoCanMessageMe != null) 'whoCanMessageMe': whoCanMessageMe,
+      if (showCardsOnCall != null) 'showCardsOnCall': showCardsOnCall,
+      if (presenceHidden != null) 'presenceHidden': presenceHidden,
     };
   }
 
@@ -99,10 +136,16 @@ class _NotificationSettingsImpl extends NotificationSettings {
     required bool showMessagePreview,
     bool? sendReadReceipts,
     bool? discoverable,
+    String? whoCanMessageMe,
+    bool? showCardsOnCall,
+    bool? presenceHidden,
   }) : super._(
          showMessagePreview: showMessagePreview,
          sendReadReceipts: sendReadReceipts,
          discoverable: discoverable,
+         whoCanMessageMe: whoCanMessageMe,
+         showCardsOnCall: showCardsOnCall,
+         presenceHidden: presenceHidden,
        );
 
   /// Returns a shallow copy of this [NotificationSettings]
@@ -113,6 +156,9 @@ class _NotificationSettingsImpl extends NotificationSettings {
     bool? showMessagePreview,
     Object? sendReadReceipts = _Undefined,
     Object? discoverable = _Undefined,
+    Object? whoCanMessageMe = _Undefined,
+    Object? showCardsOnCall = _Undefined,
+    Object? presenceHidden = _Undefined,
   }) {
     return NotificationSettings(
       showMessagePreview: showMessagePreview ?? this.showMessagePreview,
@@ -120,6 +166,15 @@ class _NotificationSettingsImpl extends NotificationSettings {
           ? sendReadReceipts
           : this.sendReadReceipts,
       discoverable: discoverable is bool? ? discoverable : this.discoverable,
+      whoCanMessageMe: whoCanMessageMe is String?
+          ? whoCanMessageMe
+          : this.whoCanMessageMe,
+      showCardsOnCall: showCardsOnCall is bool?
+          ? showCardsOnCall
+          : this.showCardsOnCall,
+      presenceHidden: presenceHidden is bool?
+          ? presenceHidden
+          : this.presenceHidden,
     );
   }
 }

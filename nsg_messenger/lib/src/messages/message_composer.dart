@@ -1,18 +1,27 @@
 import 'dart:async';
 import 'dart:io' show File, Platform;
 
-import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
+import 'package:flutter/foundation.dart' show Uint8List, kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:nsg_connect_client/nsg_connect_client.dart'
     show RoomParticipant;
+import 'package:pasteboard/pasteboard.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
+// ignore: unnecessary_import
+import 'package:uuid/uuid.dart';
 
 import '../i18n/generated/nsg_l10n.dart';
+import '../messenger_runtime.dart';
 import '../theme/nsg_messenger_theme.dart';
+import '../theme/overlay_surface.dart';
+import '../widgets/nsg_avatar_image.dart';
 import 'attachments/attachment_picker.dart';
+import 'attachments/clipboard_image.dart';
+import 'attachments/mxc_image_provider.dart';
 import 'chat_message.dart';
+import 'composer_album_edit.dart';
 
 /// True на mobile-платформах (iOS/Android). На desktop / web Enter
 /// обрабатываем через `HardwareKeyboard.addHandler` + Shortcuts, и
@@ -30,6 +39,14 @@ final bool _kIsMobile = !kIsWeb && (Platform.isIOS || Platform.isAndroid);
 /// Сервер тоже валидирует и кидает `MessageBodyTooLargeException`
 /// (anti-abuse + защита от malformed клиентов).
 const int kMessageBodyMaxChars = 4096;
+
+/// Ключ подложки попапа @-подсказок (issue #43).
+///
+/// Попап живёт в `Overlay`, а не в поддереве композера, поэтому добраться
+/// до него в тесте «через родителя» нельзя — нужен якорь. Держим его
+/// рядом с виджетом, чтобы регрессия «фон снова прозрачный» ловилась
+/// тестом, а не глазами на скриншоте.
+const Key kMentionTypeaheadPopupKey = ValueKey('mention-typeahead-popup');
 
 /// Bottom-bar композер для ChatScreen (TASK15 Chunk 2).
 ///
@@ -64,7 +81,9 @@ class MessageComposer extends StatefulWidget {
     super.key,
     required this.onSend,
     this.enabled = true,
+    this.initialText,
     this.onSendAttachment,
+    this.onSendAlbum,
     this.replyTarget,
     this.onCancelReply,
     this.participants,
@@ -75,6 +94,12 @@ class MessageComposer extends StatefulWidget {
     this.onCancelEdit,
     this.onRequestEditLast,
     this.onTyping,
+    this.albumEdit,
+    this.onEditAlbum,
+    this.onCancelAlbumEdit,
+    this.albumThumbnailRpc,
+    this.albumFullSizeRpc,
+    this.mentionInsertRequests,
   });
 
   /// **TASK16-A**: signature расширена `mentionedMessengerUserIds`.
@@ -83,16 +108,36 @@ class MessageComposer extends StatefulWidget {
   final Future<void> Function(
     String body, {
     List<int>? mentionedMessengerUserIds,
+    String? albumId,
   })
   onSend;
   final bool enabled;
+
+  /// **TASK57 фаза 0**: начальный текст (шаблон обращения в поддержку).
+  /// Сидируется в поле ввода ОДНОКРАТНО в `initState`; далее это обычный
+  /// редактируемый draft. `null`/пусто → поле стартует пустым (дефолт).
+  final String? initialText;
 
   /// **TASK19 Chunk 3**: attachment send. Если null — paperclip скрыт
   /// (host-app не интегрировал media flow). Future должен complete
   /// после server-confirm-а; spinner крутится до тех пор. Errors
   /// внутрь composer не пробрасываются — host-app показывает snackbar
   /// на свой стороне.
-  final Future<void> Function(PickedAttachment picked)? onSendAttachment;
+  final Future<void> Function(PickedAttachment picked, {String? albumId})?
+  onSendAttachment;
+
+  /// **Оптимистичный альбом**: отправить пачку картинок (+опц. подпись)
+  /// одним альбомом с мгновенной мозаикой и фоновым аплоадом. В отличие
+  /// от [onSendAttachment] — НЕ awaited и НЕ морозит поле: композер
+  /// освобождается сразу, аплоад идёт фоном в контроллере. Если null —
+  /// fallback на последовательный [onSendAttachment] (старое поведение).
+  /// Голос/одиночное/вставка по-прежнему идут через [onSendAttachment].
+  final void Function(
+    List<PickedAttachment> images, {
+    String caption,
+    List<int>? mentions,
+  })?
+  onSendAlbum;
 
   /// **TASK16-A**: reply target — non-null рендерит quote chip над
   /// TextField. ChatScreen passes `MessagesController.replyTarget`
@@ -160,6 +205,36 @@ class MessageComposer extends StatefulWidget {
   /// disabled (например, embedded read-only режим).
   final Future<void> Function(bool typing)? onTyping;
 
+  /// **Редактирование альбома**: non-null переключает composer в album-edit-
+  /// mode. Композер показывает существующие картинки альбома (миниатюрами
+  /// из mxc), даёт удалить/добавить картинки и правит подпись; на сохранении
+  /// собирает дифф и вызывает [onEditAlbum]. Взаимоисключающе с [editTarget]
+  /// (host-app не активирует оба одновременно).
+  final ComposerAlbumEdit? albumEdit;
+
+  /// **Редактирование альбома**: commit диффа альбома. Если null И
+  /// [albumEdit] non-null — save-кнопка no-op (host-app не прокинул).
+  final Future<void> Function(ComposerAlbumEditResult result)? onEditAlbum;
+
+  /// **Редактирование альбома**: tap close-X в album-edit-indicator. Также Esc.
+  final VoidCallback? onCancelAlbumEdit;
+
+  /// **Редактирование альбома**: RPC для рендера миниатюр существующих
+  /// картинок из `mxc://` (см. [MxcImageProvider]). Обязателен при
+  /// [albumEdit] != null (иначе миниатюры не отрисуются).
+  final DownloadAttachmentThumbnailRpc? albumThumbnailRpc;
+
+  /// **Редактирование альбома**: RPC для full-size (fallback у
+  /// [MxcImageProvider], если thumbnail недоступен).
+  final DownloadAttachmentRpc? albumFullSizeRpc;
+
+  /// **TASK69 2C**: внешний источник «упоминаний из контекста». Каждое
+  /// событие — участник, которого надо упомянуть: композер вставляет
+  /// `@имя ` в позицию курсора и добавляет его messengerUserId в
+  /// mention-flow. ChatScreen эмитит сюда на «Ответить с упоминанием»
+  /// (action-sheet) и на тап по аватару собеседника. `null` → фича off.
+  final Stream<RoomParticipant>? mentionInsertRequests;
+
   @override
   State<MessageComposer> createState() => _MessageComposerState();
 }
@@ -172,6 +247,49 @@ class _MessageComposerState extends State<MessageComposer> {
   Timer? _typeaheadDebounce;
   bool _uploading = false;
   OverlayEntry? _typeaheadOverlay;
+
+  /// **Issue #54 п.3**: идёт чтение картинки из системного буфера (Ctrl+V).
+  /// Чтение и декод крупного скриншота заметно долгие, а до появления
+  /// миниатюры в ленте не рисовалось НИЧЕГО — выглядело как зависание.
+  /// Показываем ту же индикацию, что и у `_uploading` (спиннер вместо
+  /// скрепки), чтобы не изобретать второй вид «идёт работа».
+  bool _pasting = false;
+
+  /// Таймер отложенного показа [_pasting]. ПОЧЕМУ отложенно: если в буфере
+  /// текст (или буфер пуст), `Pasteboard.image` возвращает null почти
+  /// мгновенно — мгновенный показ-скрытие спиннера дал бы мигание на
+  /// каждом Ctrl+V. Индикацию зажигаем, только если чтение реально
+  /// затянулось дольше [_pasteIndicatorDelay].
+  Timer? _pasteIndicatorTimer;
+
+  /// Порог «пользователь заметил задержку». 150 мс — обычная граница,
+  /// ниже которой отклик воспринимается как мгновенный.
+  static const Duration _pasteIndicatorDelay = Duration(milliseconds: 150);
+
+  /// **TASK69 2C**: подписка на внешние «упоминания из контекста»
+  /// ([MessageComposer.mentionInsertRequests]).
+  StreamSubscription<RoomParticipant>? _mentionInsertSub;
+
+  /// **Отложенная отправка вложений**: pick/paste складывает картинки сюда
+  /// (миниатюры над полем ввода), а не отправляет сразу. Пользователь может
+  /// добавить ещё и/или написать текст; всё уходит по кнопке «Отправить».
+  /// Голос (long-press mic) в этот буфер НЕ попадает — он отправляется сразу.
+  final List<PickedAttachment> _pending = <PickedAttachment>[];
+
+  /// **Редактирование альбома**: оставшиеся существующие картинки альбома
+  /// (изначально = `albumEdit.images`, минус помеченные на удаление). Рисуются
+  /// миниатюрами из mxc ПЕРЕД `_pending`. Пусто вне album-edit-mode.
+  final List<ComposerAlbumImage> _existingImages = <ComposerAlbumImage>[];
+
+  /// **Редактирование альбома**: `matrixEventId` существующих картинок,
+  /// помеченных на удаление (крестик на миниатюре). Уходит в дифф.
+  final List<String> _removedExistingIds = <String>[];
+
+  /// Мягкий потолок числа вложений в одном черновике (anti-abuse / UI).
+  static const int _maxPending = 10;
+
+  /// Web: вставка картинки из буфера (Ctrl+V). На не-web — no-op заглушка.
+  final ClipboardImageListener _clipboardPaste = ClipboardImageListener();
 
   /// **B12**: текущий отфильтрованный список mention-typeahead. Хранится на
   /// уровне state, чтобы `_globalKeyHandler` (Tab-autocomplete) мог выбрать
@@ -217,6 +335,25 @@ class _MessageComposerState extends State<MessageComposer> {
   @override
   void initState() {
     super.initState();
+    // **TASK57**: сидируем draft-шаблоном однократно. Notifier выставляем
+    // напрямую (НЕ через _syncHasText — тот дёрнул бы typing-нотификацию до
+    // ввода пользователя).
+    final seed = widget.initialText;
+    if (seed != null && seed.isNotEmpty) {
+      _ctl.text = seed;
+      _hasTextVN.value = true;
+    }
+    // **Редактирование альбома**: если композер смонтирован сразу в album-
+    // edit-mode (без транзиции null→value через didUpdateWidget) — сидируем
+    // существующие картинки + подпись здесь же.
+    final album = widget.albumEdit;
+    if (album != null) {
+      _existingImages.addAll(album.images);
+      if (album.captionBody.isNotEmpty) {
+        _ctl.text = album.captionBody;
+        _hasTextVN.value = true;
+      }
+    }
     _ctl.addListener(_syncHasText);
     _ctl.addListener(_syncTypeahead);
     _focus.addListener(_syncTypeahead);
@@ -226,11 +363,58 @@ class _MessageComposerState extends State<MessageComposer> {
     // встроенным Shortcuts-ам EditableText-а, который находится ближе
     // к primaryFocus. См. doc у `_globalKeyHandler`.
     HardwareKeyboard.instance.addHandler(_globalKeyHandler);
+    // Web: paste картинки из буфера прямо в чат (на mobile/desktop no-op).
+    _clipboardPaste.start(_onPastedImage);
+    // **TASK69 2C**: слушаем «упоминания из контекста» от ChatScreen.
+    _mentionInsertSub = widget.mentionInsertRequests?.listen(
+      _insertContextMention,
+    );
   }
 
   @override
   void didUpdateWidget(covariant MessageComposer oldWidget) {
     super.didUpdateWidget(oldWidget);
+
+    // **TASK69 2C**: источник упоминаний мог смениться (host пересоздал
+    // Stream) — переподписываемся.
+    if (!identical(
+      widget.mentionInsertRequests,
+      oldWidget.mentionInsertRequests,
+    )) {
+      _mentionInsertSub?.cancel();
+      _mentionInsertSub = widget.mentionInsertRequests?.listen(
+        _insertContextMention,
+      );
+    }
+
+    // **Редактирование альбома**: transition в album-edit-mode.
+    final newAlbum = widget.albumEdit;
+    final oldAlbum = oldWidget.albumEdit;
+    if (newAlbum != null && newAlbum.albumId != oldAlbum?.albumId) {
+      // Entering album-edit OR switching to another album — загружаем
+      // существующие картинки, чистим накопленные удаления/черновик,
+      // префилим подпись, фокус.
+      _existingImages
+        ..clear()
+        ..addAll(newAlbum.images);
+      _removedExistingIds.clear();
+      setState(() => _pending.clear());
+      _ctl.text = newAlbum.captionBody;
+      _ctl.selection = TextSelection.collapsed(offset: _ctl.text.length);
+      _hasTextVN.value = _ctl.text.trim().isNotEmpty;
+      if (!_focus.hasFocus) {
+        _focus.requestFocus();
+      }
+    } else if (oldAlbum != null && newAlbum == null) {
+      // Exiting album-edit — очистка (double-clear безопасен, save тоже
+      // чистит).
+      _existingImages.clear();
+      _removedExistingIds.clear();
+      setState(() => _pending.clear());
+      _ctl.clear();
+      _hasTextVN.value = false;
+    }
+
     // **B12**: transition в edit-mode — pre-populate body и focus поля.
     final newTarget = widget.editTarget;
     final oldTarget = oldWidget.editTarget;
@@ -253,11 +437,35 @@ class _MessageComposerState extends State<MessageComposer> {
       _ctl.clear();
       _pendingMentions.clear();
     }
+
+    // **Issue #21**: вход в reply-режим — сразу фокус в поле ввода, чтобы
+    // пользователь печатал ответ без дополнительного тапа (в т.ч. на
+    // desktop). Раньше фокус ставился только для album-edit/edit (блоки
+    // выше) и для «Ответить с упоминанием» (_insertContextMention), а
+    // обычное «Ответить» лишь выставляло replyTarget — фокус не запрашивался.
+    // Album-edit/edit/reply взаимоисключающи, поэтому блоки не конфликтуют;
+    // повторный requestFocus защищён проверкой hasFocus (идемпотентно с
+    // mention-путём).
+    final newReply = widget.replyTarget;
+    final oldReply = oldWidget.replyTarget;
+    // Идентичность цели — matrixEventId (sent) / clientTxnId (optimistic);
+    // по инварианту ChatMessage хотя бы один заполнен.
+    final newReplyId = newReply?.matrixEventId ?? newReply?.clientTxnId;
+    final oldReplyId = oldReply?.matrixEventId ?? oldReply?.clientTxnId;
+    if (newReply != null && newReplyId != oldReplyId) {
+      if (!_focus.hasFocus) _focus.requestFocus();
+    }
   }
 
   @override
   void dispose() {
     HardwareKeyboard.instance.removeHandler(_globalKeyHandler);
+    _mentionInsertSub?.cancel();
+    _clipboardPaste.stop();
+    // Issue #54 п.3: отложенный показ индикации вставки мог не успеть
+    // сработать — иначе setState после dispose.
+    _pasteIndicatorTimer?.cancel();
+    _pasteIndicatorTimer = null;
     // B-voice: abort любую активную запись (без upload) + cleanup.
     _recordTickTimer?.cancel();
     _recordTickTimer = null;
@@ -428,7 +636,13 @@ class _MessageComposerState extends State<MessageComposer> {
     final filtered = participants.where((p) {
       final dn = (p.displayName ?? '').toLowerCase();
       final lp = _matrixLocalpart(p.matrixUserId)?.toLowerCase() ?? '';
-      return ql.isEmpty || dn.contains(ql) || lp.contains(ql);
+      // **TASK69 2A**: фильтруем и по публичному @username — раз мы его
+      // показываем, набор `@handle` должен находить участника.
+      final un = (p.username ?? '').toLowerCase();
+      return ql.isEmpty ||
+          dn.contains(ql) ||
+          lp.contains(ql) ||
+          un.contains(ql);
     }).toList();
     _typeaheadFiltered = filtered;
 
@@ -442,8 +656,18 @@ class _MessageComposerState extends State<MessageComposer> {
           showWhenUnlinked: false,
           targetAnchor: Alignment.topLeft,
           followerAnchor: Alignment.bottomLeft,
+          // **issue #43**: фон задаём ЯВНО. Без `color` Material берёт
+          // `colorScheme.surface`, а в Glass-темах он прозрачный — попап
+          // всплывал над лентой, и сквозь список подсказок читались
+          // сообщения. Скругление + тень довершают отрыв от фона: попап
+          // должен выглядеть как всплывшая карточка, а не как текст,
+          // напечатанный поверх чата.
           child: Material(
+            key: kMentionTypeaheadPopupKey,
+            color: kOverlaySurface,
             elevation: 8,
+            borderRadius: const BorderRadius.all(Radius.circular(12)),
+            clipBehavior: Clip.antiAlias,
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 240),
               child: _TypeaheadList(
@@ -487,6 +711,34 @@ class _MessageComposerState extends State<MessageComposer> {
     _hideTypeahead();
     // Вернуть фокус в поле — пользователь продолжает ввод сразу после выбора
     // упоминания (на web тап по оверлею мог его кратко увести).
+    if (!_focus.hasFocus) _focus.requestFocus();
+  }
+
+  /// **TASK69 2C**: вставить упоминание участника «из контекста» (не через
+  /// набор `@`): по «Ответить с упоминанием» или тапу по аватару. В отличие
+  /// от [_onPickMention] здесь НЕТ `@<query>`-токена для замены — вставляем
+  /// `@имя ` в позицию курсора (или в конец), добавляя ведущий пробел, если
+  /// перед курсором уже есть непробельный символ.
+  void _insertContextMention(RoomParticipant p) {
+    if (!mounted) return;
+    final name =
+        p.displayName ?? _matrixLocalpart(p.matrixUserId) ?? p.matrixUserId;
+    final text = _ctl.text;
+    final sel = _ctl.selection;
+    final caret = (sel.isValid && sel.isCollapsed) ? sel.start : text.length;
+    final before = text.substring(0, caret);
+    final after = text.substring(caret);
+    // Ведущий пробел — только если слева есть непробельный символ.
+    final needsLeadingSpace = before.isNotEmpty && !before.endsWith(' ');
+    final insert = '${needsLeadingSpace ? ' ' : ''}@$name ';
+    final newText = '$before$insert$after';
+    final newCaret = caret + insert.length;
+    _ctl.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: newCaret),
+    );
+    _pendingMentions.add(p.messengerUserId);
+    _hasTextVN.value = newText.trim().isNotEmpty;
     if (!_focus.hasFocus) _focus.requestFocus();
   }
 
@@ -556,12 +808,27 @@ class _MessageComposerState extends State<MessageComposer> {
         _wrapSelection('_');
         return true;
       }
+      // **Desktop paste картинки (2026-07-13)**: Ctrl/Cmd+V — если в
+      // системном буфере картинка (скриншот/копия из проводника), кладём
+      // её во вложения. НЕ перехватываем событие (return false ниже):
+      // текстовую вставку делает сам EditableText — когда в буфере
+      // картинка, текст-вставка обычно no-op, конфликтов нет. Web
+      // покрыт отдельным listener-ом (`ClipboardImageListener`).
+      if (key == LogicalKeyboardKey.keyV && !isShift) {
+        unawaited(_tryPasteImageDesktop());
+      }
     }
 
     final isEnter =
         key == LogicalKeyboardKey.enter ||
         key == LogicalKeyboardKey.numpadEnter;
-    if (isEnter && !isShift && !isCtrl && !isMeta && !isAlt) {
+    // **Enter = отправка — только на DESKTOP** (issue #27). На мобильном
+    // Enter обязан давать ПЕРЕВОД СТРОКИ: многострочное сообщение иначе не
+    // набрать (поле `maxLines: 5`, но вставить \n было нечем). Отправка там
+    // — кнопкой (`Icons.send` рядом с полем), как в Telegram/WhatsApp.
+    // Гард нужен именно здесь: часть Android-IME шлёт hardware-Enter, и без
+    // него этот handler съедал бы \n даже при `TextInputAction.newline`.
+    if (isEnter && !_kIsMobile && !isShift && !isCtrl && !isMeta && !isAlt) {
       // Submit нужно отложить на следующий frame — текущий handler
       // выполняется в Flutter's keyboard-pipeline microtask, и
       // setState/text-controller операции в нём могут конфликтовать
@@ -575,8 +842,12 @@ class _MessageComposerState extends State<MessageComposer> {
     }
 
     if (key == LogicalKeyboardKey.escape) {
-      // Edit-mode имеет приоритет над reply (они не должны быть
-      // одновременно активны, но защищаемся).
+      // Album-edit имеет приоритет (тоже edit-режим). Затем edit-mode,
+      // затем reply (все взаимоисключающи, но защищаемся порядком).
+      if (widget.albumEdit != null && widget.onCancelAlbumEdit != null) {
+        widget.onCancelAlbumEdit!();
+        return true;
+      }
       if (widget.editTarget != null && widget.onCancelEdit != null) {
         widget.onCancelEdit!();
         return true;
@@ -629,9 +900,18 @@ class _MessageComposerState extends State<MessageComposer> {
   }
 
   void _submit() {
-    if (!widget.enabled) return;
+    if (!widget.enabled || _uploading) return;
+
+    // **Редактирование альбома**: save диффа — приоритет над обычным edit/send.
+    final albumEdit = widget.albumEdit;
+    if (albumEdit != null) {
+      _submitAlbumEdit(albumEdit);
+      return;
+    }
+
     final trimmed = _ctl.text.trim();
-    if (trimmed.isEmpty) return;
+    // Отправлять нечего только если и текст пуст, и вложений нет.
+    if (trimmed.isEmpty && _pending.isEmpty) return;
     // Defensive clamp: TextField.maxLength=enforced уже не даёт превысить
     // лимит, но платформенные edge-case-ы (web IME, программная вставка
     // мимо formatter-а) теоретически могут просочиться. Гарантируем, что
@@ -659,6 +939,28 @@ class _MessageComposerState extends State<MessageComposer> {
       onEdit(eventId, body, mentionedMessengerUserIds: mentions);
       return;
     }
+    // Есть отложенные вложения → отправляем альбомом. Снимаем снапшот
+    // pending+text+mentions, синхронно чистим черновик, и:
+    //   * если host подключил onSendAlbum (оптимистичный путь) — зовём его
+    //     БЕЗ await и БЕЗ `_uploading=true`: мозаика появляется мгновенно,
+    //     поле свободно сразу, аплоад идёт фоном в контроллере;
+    //   * иначе fallback на старый последовательный _sendPendingThenText
+    //     (со спиннером).
+    if (_pending.isNotEmpty) {
+      final pending = List<PickedAttachment>.of(_pending);
+      _ctl.clear();
+      _pendingMentions.clear();
+      _hideTypeahead();
+      _hasTextVN.value = false;
+      setState(() => _pending.clear());
+      final onSendAlbum = widget.onSendAlbum;
+      if (onSendAlbum != null) {
+        onSendAlbum(pending, caption: body, mentions: mentions);
+      } else {
+        unawaited(_sendPendingThenText(pending, body, mentions));
+      }
+      return;
+    }
     _ctl.clear();
     _pendingMentions.clear();
     _hideTypeahead();
@@ -666,18 +968,173 @@ class _MessageComposerState extends State<MessageComposer> {
     widget.onSend(body, mentionedMessengerUserIds: mentions);
   }
 
+  /// **Редактирование альбома**: собрать дифф и отдать хосту через
+  /// [MessageComposer.onEditAlbum]. Guard: если ничего не изменилось
+  /// (нет удалённых/добавленных картинок И подпись та же) — просто выходим
+  /// из режима без RPC. Deletion всех картинок альбома блокируется в UI
+  /// (нельзя убрать последнюю картинку крестиком).
+  void _submitAlbumEdit(ComposerAlbumEdit albumEdit) {
+    final onEditAlbum = widget.onEditAlbum;
+    final newCaption = _ctl.text.trim();
+    final captionChanged = newCaption != albumEdit.captionBody.trim();
+    final nothingChanged =
+        _removedExistingIds.isEmpty && _pending.isEmpty && !captionChanged;
+
+    // Ничего не поменяли ИЛИ host не прокинул callback → тихо выходим из
+    // режима (composer сброс — через host-app обнуление albumEdit).
+    if (nothingChanged || onEditAlbum == null) {
+      widget.onCancelAlbumEdit?.call();
+      return;
+    }
+
+    final result = ComposerAlbumEditResult(
+      albumId: albumEdit.albumId,
+      removedImageEventIds: List<String>.of(_removedExistingIds),
+      newAttachments: List<PickedAttachment>.of(_pending),
+      newCaption: newCaption,
+      captionEventId: albumEdit.captionEventId,
+    );
+
+    // Оптимистично чистим локальное состояние (host обнулит albumEdit →
+    // didUpdateWidget тоже подчистит; double-clear безопасен).
+    _hideTypeahead();
+    setState(() {
+      _pending.clear();
+      _existingImages.clear();
+      _removedExistingIds.clear();
+    });
+    _ctl.clear();
+    _hasTextVN.value = false;
+
+    unawaited(onEditAlbum(result));
+  }
+
+  /// **Редактирование альбома**: убрать существующую картинку (крестик на
+  /// миниатюре) — из ленты уходит, её eventId копится в `_removedExistingIds`
+  /// для redact на сохранении. Нельзя убрать последнюю картинку — альбом без
+  /// картинок не имеет смысла (осталась бы одна подпись); крестик у последней
+  /// не показывается, но защищаемся и здесь.
+  void _removeExistingImage(int index) {
+    if (!mounted || index < 0 || index >= _existingImages.length) return;
+    if (_existingImages.length + _pending.length <= 1) return;
+    final removed = _existingImages[index];
+    setState(() {
+      _existingImages.removeAt(index);
+      _removedExistingIds.add(removed.matrixEventId);
+    });
+  }
+
   Future<void> _attach() async {
     if (!widget.enabled || _uploading) return;
+    if (widget.onSendAttachment == null) return;
+    // Ограничиваем мультивыбор оставшимся местом в черновике (кап
+    // _maxPending). limit<=0 (буфер уже полон) — не открываем пикер.
+    final remaining = _maxPending - _pending.length;
+    if (remaining <= 0) return;
+    final picked = await showAttachmentPicker(
+      context: context,
+      galleryLimit: remaining,
+    );
+    if (picked.isEmpty) return;
+    // Добавляем все выбранные (с учётом кап-а в _addPending).
+    for (final p in picked) {
+      _addPending(p);
+    }
+  }
+
+  /// **Desktop (2026-07-13)**: прочитать картинку из системного буфера
+  /// (pasteboard: Windows/macOS/Linux) и добавить во вложения. Web — не
+  /// здесь (там paste-событие браузера, см. [ClipboardImageListener]);
+  /// mobile — физического Ctrl+V нет. Пустой буфер/не картинка — no-op.
+  Future<void> _tryPasteImageDesktop() async {
+    if (kIsWeb) return;
+    if (!(Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
+      return;
+    }
+    if (!widget.enabled || _uploading || _pasting) return;
+    if (widget.onSendAttachment == null) return;
+    Uint8List? bytes;
+    // Индикация (issue #54 п.3) — с задержкой, чтобы не мигать, когда
+    // в буфере не картинка и чтение возвращается сразу.
+    _pasteIndicatorTimer?.cancel();
+    _pasteIndicatorTimer = Timer(_pasteIndicatorDelay, () {
+      if (mounted) setState(() => _pasting = true);
+    });
+    try {
+      bytes = await Pasteboard.image;
+    } catch (_) {
+      return; // нет нативной реализации/ошибка платформы — молчим
+    } finally {
+      // Снимаем индикацию на ЛЮБОМ исходе, в т.ч. когда картинки не было:
+      // тогда таймер ещё не сработал и спиннер не покажется вовсе.
+      _pasteIndicatorTimer?.cancel();
+      _pasteIndicatorTimer = null;
+      if (mounted && _pasting) setState(() => _pasting = false);
+    }
+    if (bytes == null || bytes.isEmpty || !mounted) return;
+    _onPastedImage(
+      PickedAttachment(
+        bytes: bytes,
+        mimeType: 'image/png',
+        originalFilename:
+            'clipboard-${DateTime.now().millisecondsSinceEpoch}.png',
+      ),
+    );
+  }
+
+  /// Картинка вставлена из буфера (Ctrl+V, web). Игнорируем, если composer
+  /// выключен/занят загрузкой или host-app не подключил media-flow.
+  void _onPastedImage(PickedAttachment picked) {
+    if (!mounted || !widget.enabled || _uploading) return;
+    if (widget.onSendAttachment == null) return;
+    _addPending(picked);
+  }
+
+  /// Добавить вложение в буфер черновика (миниатюра над полем). Отправка —
+  /// отложенная, по кнопке «Отправить» (см. [_submit]).
+  void _addPending(PickedAttachment picked) {
+    if (!mounted) return;
+    // Мягкий потолок — сверх лимита просто не добавляем (edge-case, без
+    // отдельного l10n-текста).
+    if (_pending.length >= _maxPending) return;
+    setState(() => _pending.add(picked));
+  }
+
+  void _removePending(int index) {
+    if (!mounted || index < 0 || index >= _pending.length) return;
+    setState(() => _pending.removeAt(index));
+  }
+
+  /// Отправка черновика с вложениями: сперва каждое вложение отдельным
+  /// сообщением (в порядке добавления), затем текст (если есть) — отдельным
+  /// сообщением с mentions. Ошибки глотаем (host сам покажет snackbar).
+  Future<void> _sendPendingThenText(
+    List<PickedAttachment> pending,
+    String text,
+    List<int>? mentions,
+  ) async {
     final onSendAttachment = widget.onSendAttachment;
     if (onSendAttachment == null) return;
-    final picked = await showAttachmentPicker(context: context);
-    if (picked == null) return;
-    if (!mounted) return;
-    setState(() => _uploading = true);
+    // Альбом: несколько картинок (или картинки + подпись) уходят одним
+    // логическим сообщением-мозаикой — общий albumId на всю пачку. Одна
+    // картинка без подписи — обычное сообщение (albumId=null).
+    final albumId = (pending.length > 1 || text.isNotEmpty)
+        ? const Uuid().v4()
+        : null;
+    if (mounted) setState(() => _uploading = true);
     try {
-      await onSendAttachment(picked);
+      for (final p in pending) {
+        await onSendAttachment(p, albumId: albumId);
+      }
+      if (text.isNotEmpty) {
+        await widget.onSend(
+          text,
+          mentionedMessengerUserIds: mentions,
+          albumId: albumId,
+        );
+      }
     } catch (_) {
-      // Host-app сам показывает snackbar; composer просто un-spinner.
+      // Host-app показывает snackbar; composer просто un-spinner.
     } finally {
       if (mounted) setState(() => _uploading = false);
     }
@@ -730,7 +1187,17 @@ class _MessageComposerState extends State<MessageComposer> {
         if (!mounted) return;
         setState(() {}); // trigger rebuild для timer display
       });
-    } catch (e) {
+    } catch (e, st) {
+      // debugPrint ниже в release не выводится — до сих пор здесь не
+      // оставалось вообще никаких следов (та же дыра, что стоила нам
+      // несоединяющихся звонков в 805d0a1). Снек voiceRecordError общий с
+      // отправкой (_stopRecording), поэтому тег разделяет «не начали
+      // запись» и «не отправили записанное».
+      MessengerRuntime.instance.reportError(
+        e,
+        st,
+        tags: {'voice.action': 'startRecording'},
+      );
       if (kDebugMode) {
         debugPrint('[MessageComposer] _startRecording failed: $e');
       }
@@ -817,7 +1284,16 @@ class _MessageComposerState extends State<MessageComposer> {
         if (mounted) setState(() => _uploading = false);
         await f.delete().catchError((_) => f);
       }
-    } catch (e) {
+    } catch (e, st) {
+      // Голосовое не ушло, а в release-сборке следов не оставалось вообще:
+      // debugPrint молчит, снек пользователь закрыл — и всё. Ошибки самой
+      // отправки сюда не долетают (их глотает inner-catch выше, снек делает
+      // host-app), так что это локальный сбой: чтение файла/tmp-каталог.
+      MessengerRuntime.instance.reportError(
+        e,
+        st,
+        tags: {'voice.action': 'send'},
+      );
       if (kDebugMode) {
         debugPrint('[MessageComposer] voice send failed: $e');
       }
@@ -839,7 +1315,10 @@ class _MessageComposerState extends State<MessageComposer> {
         theme.extension<NsgMessageBubbleTokens>() ??
         NsgMessageBubbleTokens.fallback;
     final canAttach =
-        widget.enabled && !_uploading && widget.onSendAttachment != null;
+        widget.enabled &&
+        !_uploading &&
+        !_pasting &&
+        widget.onSendAttachment != null;
     return Material(
       color: theme.colorScheme.surface,
       elevation: 8,
@@ -848,11 +1327,11 @@ class _MessageComposerState extends State<MessageComposer> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // **B12**: edit-indicator имеет приоритет над reply-chip.
-            // В UI они не сосуществуют — если editTarget non-null,
-            // reply chip не рендерится (host-app должен убедиться что
-            // оба не активны одновременно; defensive хвост в UI).
-            if (widget.editTarget != null)
+            // Индикатор-чип над полем. Приоритет: album-edit > edit > reply
+            // (все взаимоисключающи; defensive порядок в UI).
+            if (widget.albumEdit != null)
+              _AlbumEditDraftChip(onCancel: widget.onCancelAlbumEdit)
+            else if (widget.editTarget != null)
               _EditDraftChip(
                 target: widget.editTarget!,
                 onCancel: widget.onCancelEdit,
@@ -865,6 +1344,27 @@ class _MessageComposerState extends State<MessageComposer> {
                     widget.replyTarget!.senderMatrixUserId,
                 onCancel: widget.onCancelReply,
               ),
+            // Миниатюры над полем ввода (Telegram-style).
+            //   * album-edit: СНАЧАЛА существующие картинки (из mxc), потом
+            //     добавленные (bytes); у каждой крестик удаления;
+            //   * обычный черновик: только отложенные `_pending`.
+            if (widget.albumEdit != null)
+              _AlbumEditAttachmentsStrip(
+                existing: _existingImages,
+                pending: _pending,
+                thumbnailRpc: widget.albumThumbnailRpc,
+                fullSizeRpc: widget.albumFullSizeRpc,
+                // Крестик на существующей картинке блокируется, если она
+                // последняя оставшаяся (нельзя удалить все картинки альбома).
+                canRemove: (_existingImages.length + _pending.length) > 1,
+                onRemoveExisting: _uploading ? null : _removeExistingImage,
+                onRemovePending: _uploading ? null : _removePending,
+              )
+            else if (_pending.isNotEmpty)
+              _PendingAttachmentsStrip(
+                pending: _pending,
+                onRemove: _uploading ? null : _removePending,
+              ),
             Padding(
               padding: bubbleTokens.composerPadding,
               child: Row(
@@ -872,7 +1372,9 @@ class _MessageComposerState extends State<MessageComposer> {
                 children: [
                   if (widget.onSendAttachment != null)
                     IconButton(
-                      icon: _uploading
+                      // Спиннер и на upload-е, и на чтении буфера
+                      // (issue #54 п.3) — один язык индикации «занято».
+                      icon: (_uploading || _pasting)
                           ? const SizedBox(
                               width: 20,
                               height: 20,
@@ -904,10 +1406,12 @@ class _MessageComposerState extends State<MessageComposer> {
                                 maxLines: 5,
                                 // Telegram-style лимит. `maxLengthEnforcement`
                                 // truncated → typing/paste выше лимита просто
-                                // обрезается (без error-dialog-а; counter под
-                                // полем визуально подсказывает оставшийся
-                                // объём). Сервер тоже валидирует
-                                // (MessageBodyTooLargeException) — anti-abuse.
+                                // обрезается (без error-dialog-а). Визуальный
+                                // «0/4096» counter скрыт (см. decoration ниже,
+                                // counterText: '') — он ел строку и ломал
+                                // выравнивание строки composer-а. Сервер тоже
+                                // валидирует (MessageBodyTooLargeException) —
+                                // anti-abuse.
                                 //
                                 // `enforced` (не `truncateAfterCompositionEnds`):
                                 // последний обрезал только ПОСЛЕ завершения IME-
@@ -923,22 +1427,25 @@ class _MessageComposerState extends State<MessageComposer> {
                                 maxLength: kMessageBodyMaxChars,
                                 maxLengthEnforcement:
                                     MaxLengthEnforcement.enforced,
-                                // textInputAction.send только на mobile —
-                                // на desktop macOS этот input action заставляет
-                                // платформу вызывать performAction(send) на
-                                // Enter ЛЮБОГО типа (включая Shift+Enter),
-                                // минуя HardwareKeyboard handler и Shortcuts;
-                                // ломает desktop UX «Shift+Enter = newline».
-                                textInputAction: _kIsMobile
-                                    ? TextInputAction.send
-                                    : TextInputAction.newline,
-                                // onSubmitted — только на mobile (кнопка Send
-                                // на soft-keyboard). На desktop callback
-                                // триггерится и на Shift+Enter (см. выше),
-                                // что вызывает преждевременный submit.
-                                onSubmitted: _kIsMobile
-                                    ? (_) => _submit()
-                                    : null,
+                                // **newline ВЕЗДЕ** (issue #27). Раньше на
+                                // mobile стоял `TextInputAction.send`:
+                                // soft-клавиатура показывала «Отправить»
+                                // вместо Enter, и перевод строки было НЕЧЕМ
+                                // поставить — многострочное сообщение не
+                                // набрать. Отправка на mobile — кнопкой
+                                // (`Icons.send`), как в Telegram/WhatsApp.
+                                // На desktop `send` нельзя и по другой
+                                // причине: macOS вызывает performAction(send)
+                                // на Enter ЛЮБОГО типа (включая Shift+Enter),
+                                // минуя HardwareKeyboard handler → ломает
+                                // «Shift+Enter = newline». Enter=отправка на
+                                // desktop живёт в _globalKeyHandler.
+                                textInputAction: TextInputAction.newline,
+                                // onSubmitted не нужен ни на одной платформе:
+                                // mobile отправляет кнопкой, desktop — через
+                                // _globalKeyHandler. На desktop этот callback
+                                // ещё и триггерился на Shift+Enter (см. выше).
+                                onSubmitted: null,
                                 // #12: пока открыт typeahead упоминаний, тап (в
                                 // т.ч. по самому оверлею) не должен уводить фокус
                                 // из поля — иначе focus-listener убирает оверлей
@@ -986,6 +1493,12 @@ class _MessageComposerState extends State<MessageComposer> {
                                 decoration: InputDecoration(
                                   hintText: l.chatScreenSendHint,
                                   border: InputBorder.none,
+                                  // `maxLength` включён (обрезка на 4096
+                                  // сохраняется), но встроенный «0/4096»
+                                  // counter скрыт: он занимал строку под
+                                  // полем и ломал вертикальное выравнивание
+                                  // скрепки/микрофона в однострочном режиме.
+                                  counterText: '',
                                   contentPadding: const EdgeInsets.symmetric(
                                     horizontal: 12,
                                     vertical: 12,
@@ -1001,10 +1514,15 @@ class _MessageComposerState extends State<MessageComposer> {
                   // короткий tap (< 1s) → snackbar "too short".
                   ValueListenableBuilder<bool>(
                     valueListenable: _hasTextVN,
-                    builder: (_, hasText, __) {
+                    builder: (_, hasText, _) {
+                      final albumEditing = widget.albumEdit != null;
+                      // Есть вложения в черновике / album-edit → показываем
+                      // «Отправить»/«Сохранить», не mic (даже при пустом тексте).
                       final showMic =
                           !hasText &&
+                          _pending.isEmpty &&
                           widget.editTarget == null &&
+                          !albumEditing &&
                           widget.onSendAttachment != null &&
                           widget.enabled &&
                           !_uploading;
@@ -1018,10 +1536,6 @@ class _MessageComposerState extends State<MessageComposer> {
                             onPressed: () {},
                           ),
                         );
-                        // **B-voice**: показываем mic IconButton с GestureDetector
-                        // для long-press вместо обычного send когда composer
-                        // empty. Long-press start → запись; release → stop+send;
-                        // короткий tap (< 1s) → snackbar "too short".
                       } else if (_recording) {
                         return IconButton(
                           icon: Icon(
@@ -1032,15 +1546,18 @@ class _MessageComposerState extends State<MessageComposer> {
                           onPressed: () => _stopRecording(),
                         );
                       } else {
+                        final isEditMode =
+                            widget.editTarget != null || albumEditing;
+                        // Album-edit: сохранение доступно всегда (пустой дифф →
+                        // просто выход из режима). Обычный edit/send — нужен
+                        // текст либо вложения.
                         final canSend =
-                            widget.enabled && hasText && !_uploading;
+                            widget.enabled &&
+                            !_uploading &&
+                            (albumEditing || hasText || _pending.isNotEmpty);
                         return IconButton(
-                          icon: Icon(
-                            widget.editTarget != null
-                                ? Icons.check
-                                : Icons.send,
-                          ),
-                          tooltip: widget.editTarget != null
+                          icon: Icon(isEditMode ? Icons.check : Icons.send),
+                          tooltip: isEditMode
                               ? l.messageComposerSaveTooltip
                               : l.chatScreenSendTooltip,
                           onPressed: canSend ? _submit : null,
@@ -1053,6 +1570,241 @@ class _MessageComposerState extends State<MessageComposer> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Горизонтальная лента миниатюр отложенных вложений над полем ввода.
+/// Каждая — с крестиком удаления (пока не идёт отправка).
+class _PendingAttachmentsStrip extends StatelessWidget {
+  const _PendingAttachmentsStrip({required this.pending, this.onRemove});
+
+  final List<PickedAttachment> pending;
+  final void Function(int index)? onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SizedBox(
+      height: 76,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(12, 6, 12, 2),
+        itemCount: pending.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, i) {
+          final p = pending[i];
+          final isImage = p.mimeType.startsWith('image/');
+          return Stack(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: SizedBox(
+                  width: 64,
+                  height: 64,
+                  child: isImage
+                      ? Image.memory(
+                          p.bytes,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => _fallback(theme),
+                        )
+                      : _fallback(theme),
+                ),
+              ),
+              if (onRemove != null)
+                Positioned(
+                  top: 2,
+                  right: 2,
+                  child: GestureDetector(
+                    onTap: () => onRemove!(i),
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        color: Colors.black54,
+                        shape: BoxShape.circle,
+                      ),
+                      padding: const EdgeInsets.all(2),
+                      child: const Icon(
+                        Icons.close,
+                        size: 15,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _fallback(ThemeData theme) => Container(
+    color: theme.colorScheme.surfaceContainerHighest,
+    alignment: Alignment.center,
+    child: Icon(
+      Icons.insert_drive_file_outlined,
+      color: theme.colorScheme.onSurfaceVariant,
+    ),
+  );
+}
+
+/// **Редактирование альбома**: лента миниатюр в album-edit-mode — сначала
+/// существующие картинки альбома (рендер из `mxc://` через [MxcImageProvider]),
+/// потом добавленные картинки-черновики (`bytes`). У каждой крестик удаления;
+/// у существующих удаление копит eventId для redact, у новых — убирает из
+/// черновика. Последнюю картинку удалить нельзя ([canRemove] == false).
+class _AlbumEditAttachmentsStrip extends StatelessWidget {
+  const _AlbumEditAttachmentsStrip({
+    required this.existing,
+    required this.pending,
+    required this.thumbnailRpc,
+    required this.fullSizeRpc,
+    required this.canRemove,
+    required this.onRemoveExisting,
+    required this.onRemovePending,
+  });
+
+  final List<ComposerAlbumImage> existing;
+  final List<PickedAttachment> pending;
+  final DownloadAttachmentThumbnailRpc? thumbnailRpc;
+  final DownloadAttachmentRpc? fullSizeRpc;
+  final bool canRemove;
+  final void Function(int index)? onRemoveExisting;
+  final void Function(int index)? onRemovePending;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SizedBox(
+      height: 76,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(12, 6, 12, 2),
+        itemCount: existing.length + pending.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, i) {
+          final isExisting = i < existing.length;
+          final Widget thumb;
+          final void Function()? onRemove;
+          if (isExisting) {
+            final img = existing[i];
+            final tRpc = thumbnailRpc;
+            final fRpc = fullSizeRpc;
+            // RPC обязательны для рендера mxc; без них — file-иконка fallback.
+            if (tRpc != null && fRpc != null) {
+              thumb = Image(
+                image: MxcImageProvider(
+                  mxcUrl:
+                      img.attachment.thumbnailMxcUrl ?? img.attachment.mxcUrl,
+                  thumbnailRpc: tRpc,
+                  fullSizeRpc: fRpc,
+                ),
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => _fallback(theme),
+              );
+            } else {
+              thumb = _fallback(theme);
+            }
+            final cb = onRemoveExisting;
+            onRemove = (canRemove && cb != null) ? () => cb(i) : null;
+          } else {
+            final p = pending[i - existing.length];
+            final pendingIdx = i - existing.length;
+            thumb = p.mimeType.startsWith('image/')
+                ? Image.memory(
+                    p.bytes,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => _fallback(theme),
+                  )
+                : _fallback(theme);
+            final cb = onRemovePending;
+            onRemove = (canRemove && cb != null) ? () => cb(pendingIdx) : null;
+          }
+          return Stack(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: SizedBox(width: 64, height: 64, child: thumb),
+              ),
+              if (onRemove != null)
+                Positioned(
+                  top: 2,
+                  right: 2,
+                  child: GestureDetector(
+                    onTap: onRemove,
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        color: Colors.black54,
+                        shape: BoxShape.circle,
+                      ),
+                      padding: const EdgeInsets.all(2),
+                      child: const Icon(
+                        Icons.close,
+                        size: 15,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _fallback(ThemeData theme) => Container(
+    color: theme.colorScheme.surfaceContainerHighest,
+    alignment: Alignment.center,
+    child: Icon(
+      Icons.insert_drive_file_outlined,
+      color: theme.colorScheme.onSurfaceVariant,
+    ),
+  );
+}
+
+/// **Редактирование альбома**: индикатор-чип над полем (аналог
+/// [_EditDraftChip], но с иконкой мозаики и текстом «Редактирование альбома»).
+class _AlbumEditDraftChip extends StatelessWidget {
+  const _AlbumEditDraftChip({required this.onCancel});
+
+  final VoidCallback? onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l = NsgL10n.of(context);
+    final accent = Colors.orange.shade700;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        border: Border(left: BorderSide(color: accent, width: 3)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.photo_library_outlined, size: 16, color: accent),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              l.composerEditingAlbum,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: accent,
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+              ),
+            ),
+          ),
+          if (onCancel != null)
+            IconButton(
+              icon: const Icon(Icons.close, size: 18),
+              tooltip: l.composerCancelEdit,
+              onPressed: onCancel,
+            ),
+        ],
       ),
     );
   }
@@ -1244,16 +1996,22 @@ class _TypeaheadList extends StatelessWidget {
         for (final p in filtered)
           ListTile(
             dense: true,
-            leading: const Icon(Icons.person_outline, size: 20),
+            // **TASK69 2A**: аватар вместо обезличенной иконки — участник
+            // узнаётся визуально мгновенно (как в Telegram/Slack).
+            leading: NsgAvatarImage(
+              mxcUrl: p.avatarUrl,
+              fallbackName: _participantName(p),
+              size: 32,
+            ),
             title: Text(
-              p.displayName ??
-                  _matrixLocalpart(p.matrixUserId) ??
-                  p.matrixUserId,
+              _participantName(p),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
+            // **TASK69 2A**: `@username` (публичный handle) вместо полного
+            // matrix-id — короче и совпадает с тем, что подставится в текст.
             subtitle: Text(
-              p.matrixUserId,
+              _participantHandle(p),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 11),
@@ -1262,6 +2020,20 @@ class _TypeaheadList extends StatelessWidget {
           ),
       ],
     );
+  }
+
+  /// Отображаемое имя участника: displayName → matrix-localpart → matrixId.
+  static String _participantName(RoomParticipant p) =>
+      p.displayName ?? _matrixLocalpart(p.matrixUserId) ?? p.matrixUserId;
+
+  /// Второй ряд: публичный `@username` (Вариант B); при отсутствии —
+  /// matrix-localpart с `@`; иначе полный matrixId.
+  static String _participantHandle(RoomParticipant p) {
+    final u = p.username;
+    if (u != null && u.isNotEmpty) return '@$u';
+    final lp = _matrixLocalpart(p.matrixUserId);
+    if (lp != null && lp.isNotEmpty) return '@$lp';
+    return p.matrixUserId;
   }
 }
 

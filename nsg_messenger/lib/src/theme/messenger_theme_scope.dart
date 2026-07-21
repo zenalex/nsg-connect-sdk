@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
+import '../i18n/generated/nsg_l10n.dart';
+import '../messenger_runtime.dart';
 import 'nsg_messenger_theme.dart';
 
 /// Wrap-widget для injection [NsgMessengerTheme] в SDK widgets
@@ -36,10 +39,40 @@ class MessengerThemeScope extends StatelessWidget {
   final NsgMessengerTheme theme;
   final Widget child;
 
+  /// Оборачивает [child] в scope с ТЕКУЩЕЙ темой из [MessengerRuntime].
+  /// Удобно для внутренних `Navigator.push` SDK: pushed-роут создаётся в
+  /// host-Navigator и НЕ наследует scope родителя, поэтому каждый
+  /// SDK-экран, открываемый push-ем, надо обернуть заново — иначе он
+  /// возьмёт host-локаль (en) вместо SDK-локали.
+  static Widget wrap(Widget child) =>
+      MessengerThemeScope(theme: MessengerRuntime.instance.theme, child: child);
+
   @override
   Widget build(BuildContext context) {
-    if (theme.isEmpty) return child;
-    final parent = Theme.of(context);
-    return Theme(data: theme.applyTo(parent), child: child);
+    Widget result = child;
+    if (!theme.isEmpty) {
+      result = Theme(data: theme.applyTo(Theme.of(context)), child: result);
+    }
+    // Локаль SDK применяется НЕЗАВИСИМО от host-app: `NsgMessenger.init(
+    // locale: ru)` должен давать русский интерфейс мессенджера даже когда
+    // хост-приложение резолвит системную/браузерную локаль в en (частый
+    // случай на web/desktop). Раньше SDK только ХРАНИЛ locale, но экраны
+    // читали `NsgL10n.of(context)` из host-Localizations → английский
+    // фолбэк. Оборачиваем поддерево SDK в Localizations.override со своей
+    // локалью + всеми нужными делегатами (NsgL10n + Global* для Material/
+    // Cupertino/Widgets — даты, тултипы, стандартные кнопки).
+    final locale = MessengerRuntime.instance.locale.locale;
+    result = Localizations.override(
+      context: context,
+      locale: locale,
+      delegates: const [
+        NsgL10n.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      child: result,
+    );
+    return result;
   }
 }

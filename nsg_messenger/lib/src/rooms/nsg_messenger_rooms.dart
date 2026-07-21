@@ -4,6 +4,7 @@ import 'dart:collection';
 import 'package:flutter/foundation.dart';
 import 'package:nsg_connect_client/nsg_connect_client.dart';
 
+import '../cache/messenger_cache_store.dart';
 import '../messenger_runtime.dart';
 import '../runtime/messenger_event_bus.dart';
 import '../session/auth_retry.dart';
@@ -41,6 +42,18 @@ final DateTime kMuteForever = DateTime.utc(9999, 1, 1);
 // не видит default-ы. Если расходиться — рантайм-несовместимость.
 typedef ListRoomsRpc =
     Future<List<RoomSummary>> Function({
+      int? productId,
+      RoomState? state,
+      String? search,
+      bool? includeArchived,
+      required int limit,
+      String? cursor,
+    });
+/// **issue #46** — постраничный `listRooms` ВМЕСТЕ с курсором. Отличие
+/// от [ListRoomsRpc] ровно одно: ответ говорит, есть ли ещё комнаты, —
+/// без этого клиент не мог уйти дальше первой страницы.
+typedef ListRoomsPageRpc =
+    Future<RoomListPage> Function({
       int? productId,
       RoomState? state,
       String? search,
@@ -151,6 +164,34 @@ typedef DissolveRoomRpc = Future<void> Function({required int roomId});
 /// add member) ДО любого ввода в поиск.
 typedef ListKnownContactsRpc = Future<List<RoomParticipant>> Function();
 
+// **TASK62**: пользовательские папки чатов (server-side, many-to-many).
+typedef ListChatFoldersRpc = Future<List<ChatFolderView>> Function();
+typedef CreateChatFolderRpc =
+    Future<ChatFolderView> Function({required String name});
+typedef RenameChatFolderRpc =
+    Future<ChatFolderView> Function({
+      required int folderId,
+      required String name,
+    });
+typedef DeleteChatFolderRpc = Future<void> Function({required int folderId});
+typedef SetChatFolderRoomRpc =
+    Future<void> Function({
+      required int folderId,
+      required int roomId,
+      required bool inFolder,
+    });
+
+// **TASK68**: «Избранное» — self-чаты (RoomType.saved) + TTL автоочистки.
+// Сигнатуры зеркалят сгенерированный Serverpod-клиент 1:1 (см. коммент к
+// блоку typedef-ов выше: Serverpod помечает все именованные параметры
+// `required` даже там, где в Dart есть дефолт).
+typedef GetOrCreateSelfRoomRpc = Future<RoomDetails> Function();
+typedef CreateSavedChatRpc =
+    Future<RoomDetails> Function({required String name});
+typedef ListSavedChatsRpc = Future<List<RoomSummary>> Function();
+typedef SetRoomAutoCleanupTtlRpc =
+    Future<RoomDetails> Function({required int roomId, int? ttlSeconds});
+
 /// **B16-ext (group avatar)**: загрузка/смена аватара group/team/
 /// productRoom. Принимает image bytes + MIME, возвращает mxcUrl.
 /// Direct chats отклоняются.
@@ -212,6 +253,34 @@ class NsgMessengerRooms {
   final SetRoomAvatarRpc _setRoomAvatarRpc;
   final MessengerEventBus _eventBus;
 
+  // **TASK62**: RPC пользовательских папок. Nullable — подключаются
+  // через [wireChatFolders] в attach() (тестовые attachWithRpcs без
+  // wiring просто не имеют фичи: [chatFoldersAvailable] == false).
+  ListChatFoldersRpc? _listChatFoldersRpc;
+  CreateChatFolderRpc? _createChatFolderRpc;
+  RenameChatFolderRpc? _renameChatFolderRpc;
+  DeleteChatFolderRpc? _deleteChatFolderRpc;
+  SetChatFolderRoomRpc? _setChatFolderRoomRpc;
+
+  /// **TASK62**: single-entry кэш `listChatFolders` (TTL 30с, как list()).
+  List<ChatFolderView>? _chatFoldersCache;
+  DateTime? _chatFoldersFetchedAt;
+
+  // **TASK68**: RPC «Избранного». Nullable по той же причине, что и папки
+  // — подключаются через [wireSavedChats] в attach(), чтобы не ломать 14
+  // существующих call-site-ов `attachWithRpcs` новым required-параметром.
+  GetOrCreateSelfRoomRpc? _getOrCreateSelfRoomRpc;
+  CreateSavedChatRpc? _createSavedChatRpc;
+  ListSavedChatsRpc? _listSavedChatsRpc;
+  SetRoomAutoCleanupTtlRpc? _setRoomAutoCleanupTtlRpc;
+
+  // **issue #46**: постраничный list с курсором. Nullable по той же
+  // причине, что папки и «Избранное» — подключается через
+  // [wireRoomsFullSync], чтобы не ломать существующие call-site-ы
+  // `attachWithRpcs`. Если не подключён (старый сервер) — [listAll]
+  // честно откатывается на одностраничный [list].
+  ListRoomsPageRpc? _listRoomsPageRpc;
+
   StreamSubscription<MessengerEvent>? _eventsSub;
 
   /// Single-entry cache для `list()`. Кэшируется последний результат
@@ -219,6 +288,56 @@ class NsgMessengerRooms {
   /// cache miss и обновление. Большинство host-app вызывают с одинаковыми
   /// (один продукт, один limit), поэтому single-entry достаточно.
   _ListCacheEntry? _listEntry;
+
+  /// **TASK47**: дисковый оффлайн-кэш (null → выключен: web / host не
+  /// включил / ошибка открытия). Устанавливается runtime-ом ПОСЛЕ сессии
+  /// (когда известен userId). При его наличии `list()` наполняет диск на
+  /// успехе и отдаёт диск при сетевой ошибке, а realtime-события мёржатся
+  /// в кэш (см. `_mergeEventToCache`).
+  MessengerCacheStore? _cache;
+
+  /// **TASK47**: подключить дисковый кэш (idempotent).
+  void attachCache(MessengerCacheStore cache) => _cache = cache;
+
+  /// **TASK47**: мёрж realtime-события в дисковый кэш (§5). Best-effort:
+  /// любые ошибки БД глушим — доставка событий важнее консистентности
+  /// диска (следующий `list()` всё равно перезальёт список с сервера).
+  ///   * `messageCreated` → кладём сообщение + двигаем превью/время (с
+  ///     guard-ом по timestamp внутри store);
+  ///   * `messageDeleted` → убираем сообщение + пересчитываем превью;
+  ///   * `membershipLeft/Removed` СВОЁ → удаляем комнату из кэша.
+  Future<void> _mergeEventToCache(MessengerEvent event) async {
+    final cache = _cache;
+    if (cache == null) return;
+    try {
+      final roomId = event.roomId;
+      switch (event.eventType) {
+        case MessengerEventType.messageCreated:
+          final m = event.message;
+          if (m != null) await cache.applyMessageCreated(m);
+        case MessengerEventType.messageUpdated:
+          // TASK47 gap-фикс: правка тела → обновить кэш-строку + превью
+          // (только UPDATE существующей, см. applyMessageUpdated).
+          final m = event.message;
+          if (m != null) await cache.applyMessageUpdated(m);
+        case MessengerEventType.messageDeleted:
+          final evtId = event.message?.matrixEventId;
+          if (roomId != null && evtId != null) {
+            await cache.applyMessageDeleted(roomId, evtId);
+          }
+        case MessengerEventType.membershipLeft:
+        case MessengerEventType.membershipRemoved:
+          if (roomId != null &&
+              event.membershipMessengerUserId == cache.userId) {
+            await cache.removeRoom(roomId);
+          }
+        default:
+          break;
+      }
+    } catch (_) {
+      // best-effort — диск не должен ломать обработку событий.
+    }
+  }
 
   /// LRU-кэш `get(roomId)`. `LinkedHashMap` сохраняет порядок вставки;
   /// move-to-end pattern: при чтении — `remove` + `[]=` чтобы пометить
@@ -337,7 +456,7 @@ class NsgMessengerRooms {
   }) {
     MessengerSessionManager session() =>
         MessengerRuntime.instance.sessionManager;
-    return attachWithRpcs(
+    final rooms = attachWithRpcs(
       listRpc:
           ({
             int? productId,
@@ -545,6 +664,83 @@ class NsgMessengerRooms {
           ),
       eventBus: eventBus,
     );
+    // **TASK62**: пользовательские папки чатов.
+    rooms.wireChatFolders(
+      list: () =>
+          withAuthRetry(() => client.messenger.listChatFolders(), session()),
+      create: ({required String name}) => withAuthRetry(
+        () => client.messenger.createChatFolder(name: name),
+        session(),
+      ),
+      rename: ({required int folderId, required String name}) => withAuthRetry(
+        () => client.messenger.renameChatFolder(folderId: folderId, name: name),
+        session(),
+      ),
+      delete: ({required int folderId}) => withAuthRetry(
+        () => client.messenger.deleteChatFolder(folderId: folderId),
+        session(),
+      ),
+      setRoom:
+          ({
+            required int folderId,
+            required int roomId,
+            required bool inFolder,
+          }) => withAuthRetry(
+            () => inFolder
+                ? client.messenger.addRoomToChatFolder(
+                    folderId: folderId,
+                    roomId: roomId,
+                  )
+                : client.messenger.removeRoomFromChatFolder(
+                    folderId: folderId,
+                    roomId: roomId,
+                  ),
+            session(),
+          ),
+    );
+    // **TASK68**: «Избранное» — self-чаты + TTL автоочистки.
+    rooms.wireSavedChats(
+      getOrCreateDefault: () => withAuthRetry(
+        () => client.messenger.getOrCreateSelfRoom(),
+        session(),
+      ),
+      create: ({required String name}) => withAuthRetry(
+        () => client.messenger.createSavedChat(name: name),
+        session(),
+      ),
+      list: () =>
+          withAuthRetry(() => client.messenger.listSavedChats(), session()),
+      setTtl: ({required int roomId, int? ttlSeconds}) => withAuthRetry(
+        () => client.messenger.setRoomAutoCleanupTtl(
+          roomId: roomId,
+          ttlSeconds: ttlSeconds,
+        ),
+        session(),
+      ),
+    );
+    // **issue #46**: полный синк списка комнат (страницы + курсор).
+    rooms.wireRoomsFullSync(
+      listPage:
+          ({
+            int? productId,
+            RoomState? state,
+            String? search,
+            bool? includeArchived,
+            required int limit,
+            String? cursor,
+          }) => withAuthRetry(
+            () => client.messenger.listRoomsPage(
+              productId: productId,
+              state: state,
+              search: search,
+              includeArchived: includeArchived,
+              limit: limit,
+              cursor: cursor,
+            ),
+            session(),
+          ),
+    );
+    return rooms;
   }
 
   /// Test-фабрика. Тесты подменяют RPC и event-bus на in-memory fake-и.
@@ -644,6 +840,294 @@ class NsgMessengerRooms {
   // Public API
   // ───────────────────────────────────────────────────────────────────
 
+  // ─── TASK62: пользовательские папки чатов ──────────────────────────
+
+  /// **TASK62**: подключить RPC пользовательских папок. Вызывается из
+  /// [attach]; тесты могут подключить fake-и (или не подключать вовсе).
+  void wireChatFolders({
+    required ListChatFoldersRpc list,
+    required CreateChatFolderRpc create,
+    required RenameChatFolderRpc rename,
+    required DeleteChatFolderRpc delete,
+    required SetChatFolderRoomRpc setRoom,
+  }) {
+    _listChatFoldersRpc = list;
+    _createChatFolderRpc = create;
+    _renameChatFolderRpc = rename;
+    _deleteChatFolderRpc = delete;
+    _setChatFolderRoomRpc = setRoom;
+  }
+
+  /// **TASK62**: доступна ли фича пользовательских папок (wiring сделан).
+  bool get chatFoldersAvailable => _listChatFoldersRpc != null;
+
+  /// **TASK62**: пользовательские папки (с roomIds), кэш TTL 30с.
+  /// Пустой список, если фича не подключена.
+  Future<List<ChatFolderView>> listChatFolders({bool force = false}) async {
+    final rpc = _listChatFoldersRpc;
+    if (rpc == null) return const [];
+    final cached = _chatFoldersCache;
+    final at = _chatFoldersFetchedAt;
+    if (!force &&
+        cached != null &&
+        at != null &&
+        DateTime.now().difference(at) < kRoomsCacheTtl) {
+      return cached;
+    }
+    final fresh = await rpc();
+    _chatFoldersCache = fresh;
+    _chatFoldersFetchedAt = DateTime.now();
+    return fresh;
+  }
+
+  /// **TASK62**: сбросить кэш папок (после мутаций / pull-to-refresh).
+  void invalidateChatFolders() {
+    _chatFoldersCache = null;
+    _chatFoldersFetchedAt = null;
+  }
+
+  /// **TASK62**: создать папку. Кэш инвалидируется.
+  Future<ChatFolderView> createChatFolder(String name) async {
+    final rpc = _createChatFolderRpc;
+    if (rpc == null) throw StateError('chat folders не подключены');
+    final created = await rpc(name: name);
+    invalidateChatFolders();
+    return created;
+  }
+
+  /// **TASK62**: переименовать папку. Кэш инвалидируется.
+  Future<ChatFolderView> renameChatFolder(int folderId, String name) async {
+    final rpc = _renameChatFolderRpc;
+    if (rpc == null) throw StateError('chat folders не подключены');
+    final renamed = await rpc(folderId: folderId, name: name);
+    invalidateChatFolders();
+    return renamed;
+  }
+
+  /// **TASK62**: удалить папку (комнаты не затрагиваются).
+  Future<void> deleteChatFolder(int folderId) async {
+    final rpc = _deleteChatFolderRpc;
+    if (rpc == null) throw StateError('chat folders не подключены');
+    await rpc(folderId: folderId);
+    invalidateChatFolders();
+  }
+
+  /// **TASK62**: положить/убрать комнату в/из папки (идемпотентно).
+  Future<void> setRoomInChatFolder({
+    required int folderId,
+    required int roomId,
+    required bool inFolder,
+  }) async {
+    final rpc = _setChatFolderRoomRpc;
+    if (rpc == null) throw StateError('chat folders не подключены');
+    await rpc(folderId: folderId, roomId: roomId, inFolder: inFolder);
+    invalidateChatFolders();
+  }
+
+  // ─── TASK68: «Избранное» (self-чаты) ───────────────────────────────
+
+  /// **TASK68**: подключить RPC «Избранного». Вызывается из [attach];
+  /// тесты могут подключить fake-и (или не подключать вовсе — тогда
+  /// [savedChatsAvailable] == false и UI прячет раздел).
+  void wireSavedChats({
+    required GetOrCreateSelfRoomRpc getOrCreateDefault,
+    required CreateSavedChatRpc create,
+    required ListSavedChatsRpc list,
+    required SetRoomAutoCleanupTtlRpc setTtl,
+  }) {
+    _getOrCreateSelfRoomRpc = getOrCreateDefault;
+    _createSavedChatRpc = create;
+    _listSavedChatsRpc = list;
+    _setRoomAutoCleanupTtlRpc = setTtl;
+  }
+
+  /// **TASK68**: доступна ли фича «Избранного» (wiring сделан). Экраны
+  /// гейтятся по ней — на старом сервере раздел просто не показывается.
+  bool get savedChatsAvailable => _listSavedChatsRpc != null;
+
+  /// **issue #46**: подключить постраничный `listRoomsPage` (полный синк).
+  void wireRoomsFullSync({required ListRoomsPageRpc listPage}) {
+    _listRoomsPageRpc = listPage;
+  }
+
+  /// **issue #46**: умеет ли сервер отдавать курсор (метод появился в
+  /// этой версии). На старом сервере [listAll] откатывается на одну
+  /// страницу — как было до задачи.
+  bool get fullSyncAvailable => _listRoomsPageRpc != null;
+
+  /// Потолок числа страниц в [listAll]. 50 страниц × 200 комнат = 10 000 —
+  /// заведомо выше любого реального аккаунта. Это не «разумный лимит
+  /// выдачи», а предохранитель от бесконечного цикла, если сервер вдруг
+  /// начнёт возвращать курсор, не двигаясь вперёд. Упереться в него —
+  /// аномалия, поэтому она репортится, а не проглатывается.
+  static const int maxFullSyncPages = 50;
+
+  /// Размер страницы полного синка. 200 — потолок сервера
+  /// (`RoomService.listRoomsPage` клампит), берём его целиком: список
+  /// комнат лёгкий, а каждая лишняя страница — лишний round-trip.
+  static const int fullSyncPageSize = 200;
+
+  /// **issue #46** — ПОЛНЫЙ список комнат: страницами по курсору до конца.
+  ///
+  /// Раньше UI звал [list] без курсора и получал первые 50 комнат, считая
+  /// их всем списком. С 51-й комнаты чаты для пользователя переставали
+  /// существовать — молча: ни ошибки, ни признака неполноты. Папки и
+  /// бейджи считаются по загруженному набору, поэтому врали вместе с ним.
+  ///
+  /// Почему полный синк, а не догрузка по мере скролла: список комнат —
+  /// это сотни лёгких `RoomSummary`, а любое производное представление
+  /// (папки, бейджи, счётчики непрочитанного) обязано видеть набор
+  /// целиком, иначе считает по половине данных. Пагинация остаётся там,
+  /// где она уместна, — в истории сообщений.
+  ///
+  /// Ошибка на середине пути ПРОБРАСЫВАЕТСЯ, а не возвращает то, что
+  /// успели набрать: неполный список, поданный как полный, — ровно тот
+  /// баг, который здесь и чинится. Вызывающий (`ChatsListController`)
+  /// покажет ошибку поверх прошлого известного списка.
+  Future<List<RoomSummary>> listAll({
+    int? productId,
+    bool? includeArchived,
+    String? search,
+  }) async {
+    final rpc = _listRoomsPageRpc;
+    if (rpc == null) {
+      // Старый сервер — ведём себя как раньше (одна страница). Лучше
+      // урезанный список, чем неработающий экран.
+      return list(
+        productId: productId,
+        includeArchived: includeArchived,
+        search: search,
+      );
+    }
+
+    // TTL-кэш, как у [list] — иначе каждый event-driven refresh стоил бы
+    // N round-trip-ов вместо одного. Ключ помечен `full`, чтобы полный
+    // набор не выдавался за ответ постраничного [list] и наоборот.
+    final key =
+        '${_listKey(productId: productId, includeArchived: includeArchived, search: search, limit: fullSyncPageSize, cursor: null)}|full';
+    final cachedEntry = _listEntry;
+    if (cachedEntry != null &&
+        cachedEntry.key == key &&
+        !cachedEntry.isExpired) {
+      return cachedEntry.summaries;
+    }
+
+    final all = <RoomSummary>[];
+    String? cursor;
+    var pages = 0;
+    while (true) {
+      final page = await rpc(
+        productId: productId,
+        state: null,
+        search: search,
+        includeArchived: includeArchived,
+        limit: fullSyncPageSize,
+        cursor: cursor,
+      ).timeout(const Duration(seconds: 10));
+      all.addAll(page.rooms);
+      pages++;
+      cursor = page.nextCursor;
+      if (cursor == null) break;
+      if (pages >= maxFullSyncPages) {
+        // Не молчим: усечение списка — это ровно тот класс бага, который
+        // задача и закрывает. Уходит и в лог, и в трекер.
+        final err = StateError(
+          'listAll: упёрлись в потолок $maxFullSyncPages страниц '
+          '(${all.length} комнат), список может быть неполным',
+        );
+        debugPrint('[NsgMessengerRooms] $err');
+        MessengerRuntime.instance.reportError(
+          err,
+          StackTrace.current,
+          tags: {'rooms.full_sync': 'page_cap_hit'},
+        );
+        break;
+      }
+    }
+
+    final fresh = List<RoomSummary>.unmodifiable(all);
+    _listEntry = _ListCacheEntry(
+      key: key,
+      summaries: fresh,
+      fetchedAt: DateTime.now(),
+    );
+
+    final cache = _cache;
+    if (cache != null) {
+      unawaited(cache.putRooms(fresh).catchError((Object _) {}));
+      // **TASK47 §3 п.6** — вычистить из кэша «комнаты-призраки» (нас
+      // удалили из комнаты, пока мы были оффлайн).
+      //
+      // У [list] эта реконсиляция запускалась только когда ответ
+      // «уместился в limit», то есть у пользователя с 50+ комнатами она
+      // не срабатывала НИКОГДА. Полному синку такое условие не нужно:
+      // набор полный по построению — кроме случая, когда мы упёрлись в
+      // потолок страниц (тогда реконсиляция удалила бы живые комнаты).
+      final q = search?.trim() ?? '';
+      if (q.isEmpty && pages < maxFullSyncPages) {
+        unawaited(
+          cache
+              .reconcileRooms(
+                fresh: fresh,
+                productId: productId,
+                includeArchived: includeArchived ?? false,
+              )
+              .catchError((Object _) {}),
+        );
+      }
+    }
+    return fresh;
+  }
+
+  /// **TASK68**: дефолтный чат «Избранное» (создаётся при первом вызове).
+  /// Инвалидирует кэш списка комнат — новая комната должна появиться в
+  /// ленте без ручного pull-to-refresh.
+  Future<RoomDetails> getOrCreateSelfRoom() async {
+    final rpc = _getOrCreateSelfRoomRpc;
+    if (rpc == null) throw StateError('saved chats не подключены');
+    final details = await rpc();
+    invalidate();
+    return details;
+  }
+
+  /// **TASK68**: создать новый именованный раздел «Избранного».
+  ///
+  /// Сервер отказывает при пустом/длинном имени, дубле и на потолке в 20
+  /// разделов — текст ошибки несёт код (`saved_chat_limit` и т.п.).
+  Future<RoomDetails> createSavedChat(String name) async {
+    final rpc = _createSavedChatRpc;
+    if (rpc == null) throw StateError('saved chats не подключены');
+    final created = await rpc(name: name);
+    invalidate();
+    return created;
+  }
+
+  /// **TASK68**: все self-чаты пользователя. Пустой список, если фича не
+  /// подключена (старый сервер) — вызывающий код не обязан это проверять.
+  ///
+  /// Кэша нет намеренно: раздел «Избранное» открывается редко, а его
+  /// содержимое обязано быть свежим (с другого устройства мог появиться
+  /// новый раздел — это и есть сценарий фичи).
+  Future<List<RoomSummary>> listSavedChats() async {
+    final rpc = _listSavedChatsRpc;
+    if (rpc == null) return const [];
+    return rpc();
+  }
+
+  /// **TASK68**: задать TTL автоочистки комнаты; `null` — выключить.
+  /// Инвалидирует кэш деталей комнаты, чтобы экран настроек перечитал
+  /// актуальное значение.
+  Future<RoomDetails> setRoomAutoCleanupTtl({
+    required int roomId,
+    Duration? ttl,
+  }) async {
+    final rpc = _setRoomAutoCleanupTtlRpc;
+    if (rpc == null) throw StateError('saved chats не подключены');
+    final details = await rpc(roomId: roomId, ttlSeconds: ttl?.inSeconds);
+    invalidate();
+    return details;
+  }
+
   /// Возвращает список комнат пользователя с in-memory cache (TTL 30s).
   ///
   /// `includeArchived` (TASK42 Chunk 2): `null/false` — server фильтрует
@@ -672,20 +1156,89 @@ class NsgMessengerRooms {
     if (cached != null && cached.key == key && !cached.isExpired) {
       return cached.summaries;
     }
-    final fresh = await _listRpc(
-      productId: productId,
-      state: null,
-      search: search,
-      includeArchived: includeArchived,
-      limit: limit,
-      cursor: cursor,
-    );
+    final List<RoomSummary> fresh;
+    try {
+      // TASK47: жёсткий таймаут на сетевой вызов. Оффлайн RPC может
+      // висеть бесконечно (транспорт не бросает сразу) — тогда
+      // catch→дисковый кэш ниже никогда бы не сработал, а UI застрял бы
+      // на «connecting». Таймаут бросает TimeoutException → fallback.
+      fresh = await _listRpc(
+        productId: productId,
+        state: null,
+        search: search,
+        includeArchived: includeArchived,
+        limit: limit,
+        cursor: cursor,
+      ).timeout(const Duration(seconds: 6));
+    } catch (e) {
+      // **TASK47**: оффлайн/сетевая ошибка → отдаём дисковый кэш (если
+      // есть). Пагинация (cursor) оффлайн не поддерживается — только
+      // первая страница; при cursor != null пробрасываем ошибку.
+      final cache = _cache;
+      if (cache != null && cursor == null) {
+        final disk = await cache.getRooms(
+          productId: productId,
+          includeArchived: includeArchived ?? false,
+          search: search,
+          limit: limit,
+        );
+        if (disk.isNotEmpty) return disk;
+      }
+      rethrow;
+    }
     _listEntry = _ListCacheEntry(
       key: key,
       summaries: fresh,
       fetchedAt: DateTime.now(),
     );
+    // **TASK47**: наполняем дисковый кэш (best-effort, не блокируем ответ).
+    final cache = _cache;
+    if (cache != null) {
+      unawaited(cache.putRooms(fresh).catchError((Object _) {}));
+      // **TASK47 §3 п.6 (gap-фикс)**: если ответ покрывает ВЕСЬ скоуп
+      // (первая страница, без search, уместилось в limit) — реконсиляция
+      // «комнат-призраков»: удаляем из кэша комнаты, которых больше нет
+      // на сервере (удалили из комнаты, пока были оффлайн). putRooms и
+      // reconcile работают с непересекающимися roomId — порядок не важен.
+      final q = search?.trim() ?? '';
+      if (cursor == null && q.isEmpty && fresh.length < limit) {
+        unawaited(
+          cache
+              .reconcileRooms(
+                fresh: fresh,
+                productId: productId,
+                includeArchived: includeArchived ?? false,
+              )
+              .catchError((Object _) {}),
+        );
+      }
+    }
     return fresh;
+  }
+
+  /// **TASK47**: прочитать список комнат ТОЛЬКО из дискового кэша, без
+  /// сетевого вызова. Возвращает пустой список, если кэш не подключён,
+  /// пуст или чтение упало. Используется UI (ChatsListController) для
+  /// cache-first первого рендера: оффлайн чаты показываются мгновенно,
+  /// пока (или если) сетевой `list()` подтянет свежее.
+  Future<List<RoomSummary>> cachedRoomsOrEmpty({
+    int? productId,
+    bool? includeArchived,
+    String? search,
+    int limit = 50,
+  }) async {
+    final c = _cache;
+    if (c == null) return const [];
+    try {
+      return await c.getRooms(
+        productId: productId,
+        includeArchived: includeArchived ?? false,
+        search: search,
+        limit: limit,
+      );
+    } catch (_) {
+      return const [];
+    }
   }
 
   Future<RoomDetails> get(int roomId) async {
@@ -696,8 +1249,31 @@ class NsgMessengerRooms {
       _detailsCache[roomId] = cached;
       return cached.details;
     }
-    final fresh = await _getRpc(roomId: roomId);
+    final RoomDetails fresh;
+    try {
+      // **TASK47-i2**: жёсткий таймаут на сетевой `get`. Оффлайн RPC может
+      // висеть бесконечно (транспорт не бросает сразу) — тогда catch→
+      // дисковый кэш ниже не сработал бы, а ChatScreen застрял бы на
+      // «connecting». Таймаут → TimeoutException → fallback.
+      fresh = await _getRpc(roomId: roomId).timeout(const Duration(seconds: 6));
+    } catch (e) {
+      // **TASK47-i2**: оффлайн/сеть/таймаут → дисковый кэш деталей (если
+      // есть), чтобы чат открывался оффлайн. Нет кэша → пробрасываем (в т.ч.
+      // доменные RoomUnavailable/NotFound — их маскировать stale-деталями
+      // нельзя; на leave/kick кэш деталей чистится removeRoom-ом).
+      final disk = await _cache?.getRoomDetails(roomId);
+      if (disk != null) {
+        _putDetails(disk);
+        return disk;
+      }
+      rethrow;
+    }
     _putDetails(fresh);
+    // **TASK47-i2**: наполняем дисковый кэш деталей (best-effort, не блокируем).
+    final cache = _cache;
+    if (cache != null) {
+      unawaited(cache.putRoomDetails(roomId, fresh).catchError((Object _) {}));
+    }
     return fresh;
   }
 
@@ -794,6 +1370,45 @@ class NsgMessengerRooms {
     _detailsCache.remove(roomId);
   }
 
+  /// **2026-07-13**: персональное имя комнаты — видит только текущий
+  /// пользователь (высший приоритет имени в списке/заголовке). Пустая
+  /// строка = сброс к обычному имени.
+  Future<void> setRoomCustomName({
+    required int roomId,
+    required String customName,
+  }) async {
+    await withAuthRetry(
+      () => MessengerRuntime.instance.client.messenger.setRoomCustomName(
+        roomId: roomId,
+        customName: customName,
+      ),
+      MessengerRuntime.instance.sessionManager,
+    );
+    _listEntry = null;
+    _detailsCache.remove(roomId);
+  }
+
+  /// **2026-07-13**: запретить/разрешить участнику писать в комнату
+  /// (админ/владелец; участник остаётся читателем). [untilSeconds] —
+  /// длительность; null при [banned]=true — навсегда.
+  Future<void> setWriteBan({
+    required int roomId,
+    required int targetMessengerUserId,
+    required bool banned,
+    int? untilSeconds,
+  }) async {
+    await withAuthRetry(
+      () => MessengerRuntime.instance.client.messenger.setWriteBan(
+        roomId: roomId,
+        targetMessengerUserId: targetMessengerUserId,
+        banned: banned,
+        untilSeconds: untilSeconds,
+      ),
+      MessengerRuntime.instance.sessionManager,
+    );
+    _detailsCache.remove(roomId);
+  }
+
   Future<void> archiveRoom(int roomId) async {
     await _archiveRoomRpc(roomId: roomId);
     _listEntry = null;
@@ -802,6 +1417,23 @@ class NsgMessengerRooms {
 
   Future<void> unarchiveRoom(int roomId) async {
     await _unarchiveRoomRpc(roomId: roomId);
+    _listEntry = null;
+    _detailsCache.remove(roomId);
+  }
+
+  /// **TASK75 §3**: «закрыть» support-чат у текущего оператора — скрыть до
+  /// следующего сообщения заявителя (per-user `dismissedUntilMessage`).
+  /// Тикет/комната не закрываются. Возврат — реактивно: сервер на
+  /// сообщение заявителя сбрасывает флаг и эмитит `roomMembershipUpdated`,
+  /// что через [_onEvent] инвалидирует list-кэш → чат появляется снова.
+  /// list invalidate сразу (для immediate hide после server-confirm).
+  Future<void> dismissRoom(int roomId) async {
+    await withAuthRetry(
+      () => MessengerRuntime.instance.client.messenger.dismissRoom(
+        roomId: roomId,
+      ),
+      MessengerRuntime.instance.sessionManager,
+    );
     _listEntry = null;
     _detailsCache.remove(roomId);
   }
@@ -1104,6 +1736,9 @@ class NsgMessengerRooms {
   }
 
   void _onEvent(MessengerEvent event) {
+    // **TASK47**: параллельно мёржим событие в дисковый кэш (best-effort,
+    // fire-and-forget — не блокирует in-memory инвалидацию ниже).
+    if (_cache != null) unawaited(_mergeEventToCache(event));
     final roomId = event.roomId;
     switch (event.eventType) {
       case MessengerEventType.messageCreated:
@@ -1229,6 +1864,10 @@ class NsgMessengerRooms {
         }
         return;
 
+      case MessengerEventType.contactRequestChanged:
+        // Контакт-реквесты (nsg-connect) не относятся к кэшу комнат — skip.
+        return;
+
       case MessengerEventType.messageDeleted:
         // **B23**: redaction может изменить превью списка чатов — если
         // удалено было последнее сообщение комнаты, сервер
@@ -1251,9 +1890,39 @@ class NsgMessengerRooms {
       case MessengerEventType.membershipRoleChanged:
       case MessengerEventType.readReceiptUpdated:
       case MessengerEventType.reactionChanged:
+      // **Issue #35**: закрепление сообщений — метаданные комнаты в списке
+      // не меняются; обрабатывается в MessagesController открытого чата
+      // (плашка закреплённых).
+      case MessengerEventType.pinnedMessagesChanged:
         // Эти events НЕ влияют на rooms-list (room metadata не
         // меняется); SDK обработают на уровне MessagesController
         // (reactionChanged → reaction aggregation в открытом чате).
+        return;
+
+      case MessengerEventType.callInvite:
+      case MessengerEventType.callAnswer:
+      case MessengerEventType.callCandidates:
+      case MessengerEventType.callHangup:
+      case MessengerEventType.callSelectAnswer:
+      case MessengerEventType.callReject:
+      case MessengerEventType.callNegotiate:
+        // **TASK46 (SDK)**: эфемерный call-сигналинг — rooms-list он не
+        // касается (метаданные комнаты не меняются). Обрабатывается в
+        // CallController (подписан на тот же bus).
+        return;
+      case MessengerEventType.presenceUpdated:
+        // **TASK55 итер.2b**: presence эфемерен, rooms-list не трогает;
+        // обрабатывается подписчиком в ChatScreen.
+        return;
+      case MessengerEventType.chatFoldersChanged:
+        // **Realtime-синк**: другое устройство изменило папки — сброс
+        // TTL-кэша; controller перечитает по этому же событию.
+        invalidateChatFolders();
+        return;
+      case MessengerEventType.contactMetaChanged:
+        // **Realtime-синк**: alias мог смениться — имена direct-комнат
+        // в списке устарели; кэш меток сбрасывает runtime-листенер.
+        invalidate();
         return;
     }
   }

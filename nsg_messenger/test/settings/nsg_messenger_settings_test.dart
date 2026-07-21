@@ -18,6 +18,9 @@ void main() {
               required bool showMessagePreview,
               bool? sendReadReceipts,
               bool? discoverable,
+              String? whoCanMessageMe,
+              bool? showCardsOnCall,
+              bool? presenceHidden,
             }) async {},
       );
       final first = await settings.get();
@@ -38,6 +41,9 @@ void main() {
               required bool showMessagePreview,
               bool? sendReadReceipts,
               bool? discoverable,
+              String? whoCanMessageMe,
+              bool? showCardsOnCall,
+              bool? presenceHidden,
             }) async {
               setRpcCalls++;
               setValue = showMessagePreview;
@@ -64,6 +70,9 @@ void main() {
               required bool showMessagePreview,
               bool? sendReadReceipts,
               bool? discoverable,
+              String? whoCanMessageMe,
+              bool? showCardsOnCall,
+              bool? presenceHidden,
             }) async {
               setShow = showMessagePreview;
               setReceipts = sendReadReceipts;
@@ -80,15 +89,16 @@ void main() {
       bool? setShow;
       bool? setDiscoverable;
       final settings = NsgMessengerSettings.attachWithRpcs(
-        getRpc: () async => NotificationSettings(
-          showMessagePreview: true,
-          discoverable: true,
-        ),
+        getRpc: () async =>
+            NotificationSettings(showMessagePreview: true, discoverable: true),
         setRpc:
             ({
               required bool showMessagePreview,
               bool? sendReadReceipts,
               bool? discoverable,
+              String? whoCanMessageMe,
+              bool? showCardsOnCall,
+              bool? presenceHidden,
             }) async {
               setShow = showMessagePreview;
               setDiscoverable = discoverable;
@@ -113,6 +123,9 @@ void main() {
               required bool showMessagePreview,
               bool? sendReadReceipts,
               bool? discoverable,
+              String? whoCanMessageMe,
+              bool? showCardsOnCall,
+              bool? presenceHidden,
             }) async {},
       );
       await settings.get();
@@ -131,6 +144,9 @@ void main() {
               required bool showMessagePreview,
               bool? sendReadReceipts,
               bool? discoverable,
+              String? whoCanMessageMe,
+              bool? showCardsOnCall,
+              bool? presenceHidden,
             }) async => throw StateError('network down'),
       );
       await settings.get(); // populate cache

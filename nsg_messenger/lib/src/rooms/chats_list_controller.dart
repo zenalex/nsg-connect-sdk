@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:nsg_connect_client/nsg_connect_client.dart';
 
 import '../messenger_session_state.dart';
+import 'chat_folder.dart';
 import 'chats_list_state.dart';
 import 'nsg_messenger_rooms.dart';
 
@@ -135,6 +136,166 @@ class ChatsListController extends ChangeNotifier {
   /// чтобы решить рендерить dropdown или нет.
   List<Product>? get availableProducts => _availableProducts;
 
+  // ─── TASK44 фаза 1.5: папка-как-строка ──────────────────────────────
+  //
+  // Папки — производная величина: вычисляются из ТЕКУЩЕГО списка комнат
+  // (`ChatsListReady.rooms`, уже отфильтрованного по archived/search/
+  // product) + кэша `availableProducts` (для человекочитаемых имён).
+  // Никакого отдельного стораджа: любой realtime-refresh → новый Ready →
+  // `folders` / `rootRows` пересчитываются на лету, бейджи и состав папок
+  // обновляются реактивно (UI ребилдится по тому же `notifyListeners`).
+
+  /// Комнаты текущего [ChatsListReady] (или `lastKnown` при ошибке);
+  /// `null` если ещё Loading / Error без кэша. Основа для папок и
+  /// [rootRows].
+  List<RoomSummary>? get _currentRooms => switch (_state) {
+    ChatsListReady r => r.rooms,
+    ChatsListError e => e.lastKnown,
+    _ => null,
+  };
+
+  /// Авто-папки + пользовательские (TASK62), вычисленные из текущего
+  /// списка комнат. Пустой список пока комнат нет (Loading). «Все» всегда
+  /// первой (см. [buildFolders]). Несут агрегаты (unread / превью-время
+  /// самого свежего чата) для строк-папок.
+  List<ChatFolder> get folders {
+    final rooms = _currentRooms;
+    if (rooms == null) return const <ChatFolder>[];
+    return buildFolders(
+      rooms,
+      products: _availableProducts,
+      customFolders: _customFolders,
+    );
+  }
+
+  // ─── TASK62: пользовательские папки ─────────────────────────────────
+
+  /// Кэш пользовательских папок (null пока не загружены / фича выключена).
+  List<ChatFolderView>? _customFolders;
+
+  /// **TASK62**: пользовательские папки (для пикера «Добавить в папку»).
+  List<ChatFolderView> get customFolders =>
+      _customFolders ?? const <ChatFolderView>[];
+
+  /// **TASK62**: best-effort подгрузка пользовательских папок. Зовётся из
+  /// [_runRefresh] (каждый refresh соблюдает TTL-кэш в rooms) — сбой не
+  /// ломает список чатов, папки просто не появятся до следующего refresh.
+  Future<void> _loadCustomFolders({bool force = false}) async {
+    if (!_rooms.chatFoldersAvailable) return;
+    try {
+      final fresh = await _rooms.listChatFolders(force: force);
+      if (_disposed) return;
+      _customFolders = fresh;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[ChatsListController] loadCustomFolders failed: $e');
+      }
+    }
+  }
+
+  /// **TASK62**: создать папку и обновить список. Пробрасывает ошибку
+  /// (UI показывает снекбар).
+  Future<ChatFolderView> createChatFolder(String name) async {
+    final created = await _rooms.createChatFolder(name);
+    await _loadCustomFolders(force: true);
+    notifyListeners();
+    return created;
+  }
+
+  /// **TASK62**: переименовать папку.
+  Future<void> renameChatFolder(int folderId, String name) async {
+    await _rooms.renameChatFolder(folderId, name);
+    await _loadCustomFolders(force: true);
+    notifyListeners();
+  }
+
+  /// **TASK62**: удалить папку.
+  Future<void> deleteChatFolder(int folderId) async {
+    await _rooms.deleteChatFolder(folderId);
+    await _loadCustomFolders(force: true);
+    notifyListeners();
+  }
+
+  /// **TASK62**: положить/убрать комнату в/из папки.
+  Future<void> setRoomInChatFolder({
+    required int folderId,
+    required int roomId,
+    required bool inFolder,
+  }) async {
+    await _rooms.setRoomInChatFolder(
+      folderId: folderId,
+      roomId: roomId,
+      inFolder: inFolder,
+    );
+    await _loadCustomFolders(force: true);
+    notifyListeners();
+  }
+
+  // ─── TASK68: «Избранное» (self-чаты) ────────────────────────────────
+
+  /// **TASK68**: доступна ли фича «Избранного» (сервер её поддерживает).
+  /// UI по ней решает, показывать ли кнопку «новый раздел».
+  bool get savedChatsAvailable => _rooms.savedChatsAvailable;
+
+  /// **TASK68**: разделы «Избранного» из текущего списка комнат —
+  /// реактивно, без отдельного RPC (self-чаты приходят обычным
+  /// `listRooms`). Свежие сверху, как и в остальном списке.
+  List<RoomSummary> get savedChats =>
+      roomsInFolder(ChatFolder.savedSelectionKey);
+
+  /// **TASK68**: гарантировать дефолтный чат «Избранное». Идемпотентно —
+  /// сервер вернёт существующий, если он уже есть. Вызывается при входе
+  /// в раздел, чтобы там всегда было куда написать.
+  Future<RoomDetails> ensureDefaultSavedChat() async {
+    final details = await _rooms.getOrCreateSelfRoom();
+    await refresh(force: true);
+    return details;
+  }
+
+  /// **TASK68**: создать новый именованный раздел «Избранного». Ошибку
+  /// (лимит / дубль имени) пробрасываем — UI показывает снекбар.
+  Future<RoomDetails> createSavedChat(String name) async {
+    final created = await _rooms.createSavedChat(name);
+    await refresh(force: true);
+    return created;
+  }
+
+  /// **TASK68**: задать/снять TTL автоочистки раздела.
+  Future<RoomDetails> setSavedChatAutoCleanup({
+    required int roomId,
+    Duration? ttl,
+  }) async {
+    final details = await _rooms.setRoomAutoCleanupTtl(
+      roomId: roomId,
+      ttl: ttl,
+    );
+    await refresh(force: true);
+    return details;
+  }
+
+  /// **Фаза 1.5:** корневой список чат-листа в модели «папка-как-строка»:
+  /// личные/безпродуктовые чаты как [ChatRoomRow] + по одной [ChatFolderRow]
+  /// на каждый продуктовый [ChatFolder], отсортированные по времени
+  /// последней активности. Если групп ≤ 1 (`!foldersVisible`) — все чаты
+  /// идут плоско, без строк-папок. Пустой пока комнат нет (Loading).
+  List<ChatRootRow> get rootRows {
+    final rooms = _currentRooms;
+    if (rooms == null) return const <ChatRootRow>[];
+    return buildRootRows(rooms, folders);
+  }
+
+  /// Комнаты внутри продуктовой папки [folderKey] ([ChatFolder.selectionKey],
+  /// напр. `product:10`) — для drill-in экрана папки. Реактивно берёт
+  /// текущий список комнат, поэтому realtime-refresh обновляет и содержимое
+  /// открытого экрана папки. Если папка исчезла — пустой список.
+  List<RoomSummary> roomsInFolder(String folderKey) {
+    final rooms = _currentRooms ?? const <RoomSummary>[];
+    final match = folders.where((f) => f.selectionKey == folderKey);
+    if (match.isEmpty) return const <RoomSummary>[];
+    final folder = match.first;
+    return rooms.where(folder.matches).toList(growable: false);
+  }
+
   /// Установить search query с 300ms debounce. Каждый вызов сбрасывает
   /// предыдущий timer. Пустая строка (после trim) → `null` (UI clear
   /// button). Same-value не триггерит refresh (idempotent typeahead-
@@ -252,10 +413,19 @@ class ChatsListController extends ChangeNotifier {
     await _waitForIdle();
   }
 
-  /// **TASK42**: подгрузка следующей страницы через
-  /// `NsgMessengerRooms.list(cursor: _nextCursor)`. На TASK14 — no-op.
-  /// UI может звать безопасно (silent return); закладывает API контракт
-  /// чтобы TASK42 не менял интерфейс контроллера.
+  /// Подгрузка «следующей страницы» — **больше не нужна и ничего не
+  /// делает** (issue #46).
+  ///
+  /// Была заглушкой с TASK14 и осталась ей: курсор наружу не отдавался,
+  /// поэтому реализовать её было нечем. Теперь [refresh] тянет СВЕСЬ
+  /// список комнат целиком (`NsgMessengerRooms.listAll`), так что
+  /// догружать нечего — в памяти всегда полный набор.
+  ///
+  /// Метод оставлен, чтобы не ломать host-app, которые зовут его из
+  /// on-scroll обработчиков.
+  @Deprecated(
+    'Список комнат синхронизируется целиком (issue #46) — вызов не нужен',
+  )
   Future<void> loadMore() async {
     return;
   }
@@ -313,6 +483,16 @@ class ChatsListController extends ChangeNotifier {
     roomId: roomId,
     removeFromList: true,
     rpc: () => _rooms.leaveRoom(roomId),
+  );
+
+  /// **TASK75 §3**: «закрыть» support-чат у оператора — optimistic скрыть
+  /// из списка (removeFromList) + RPC `dismissRoom`. Возврат чата —
+  /// реактивно при сообщении заявителя (сервер эмитит
+  /// `roomMembershipUpdated` → refresh → dismissedUntilMessage=false).
+  Future<void> dismissRoom(int roomId) => _withOptimistic(
+    roomId: roomId,
+    removeFromList: true,
+    rpc: () => _rooms.dismissRoom(roomId),
   );
 
   /// Общий помощник для optimistic update + revert. Передайте либо
@@ -432,12 +612,58 @@ class ChatsListController extends ChangeNotifier {
       _emit(ChatsListReady(rooms: lastKnown, refreshing: true));
     }
 
+    final includeArchived = _filter != ChatsListFilter.active;
+
+    // **TASK62**: пользовательские папки — best-effort параллельно
+    // основному list() (TTL-кэш в rooms бережёт сервер; сбой не ломает
+    // список — папки просто не обновятся до следующего refresh).
+    unawaited(
+      _loadCustomFolders().then((_) {
+        if (!_disposed) notifyListeners();
+      }),
+    );
+
+    // **TASK47 cache-first**: если ещё ни разу не показали список
+    // (state == Loading), читаем дисковый кэш ДО сетевого `list()` и
+    // эмитим его мгновенно. Оффлайн (network зависает/таймаутит) юзер
+    // видит кэшированные чаты сразу, а не бесконечный «connecting»
+    // спиннер. Как только сеть ответит — свежий список заменит кэш.
+    // Guard: эмитим кэш только пока всё ещё Loading (не перезатираем
+    // более свежий сетевой результат, если он успел прийти).
+    if (_state is ChatsListLoading) {
+      try {
+        final cached = await _rooms.cachedRoomsOrEmpty(
+          includeArchived: includeArchived,
+          search: _search,
+          productId: _productFilter,
+        );
+        if (_disposed) return;
+        if (cached.isNotEmpty && _state is ChatsListLoading) {
+          final fresh = switch (_filter) {
+            ChatsListFilter.active => cached,
+            ChatsListFilter.archived =>
+              cached.where((r) => r.archived).toList(growable: false),
+            ChatsListFilter.all => cached,
+          };
+          // refreshing=true — сетевой запрос ещё в полёте (баннер/спиннер
+          // покажет, что идёт обновление поверх кэша).
+          _emit(ChatsListReady(rooms: fresh, refreshing: true));
+        }
+      } catch (_) {
+        // Кэш недоступен — не страшно, идём на сеть как обычно.
+      }
+    }
+
+    // TASK42: server включает archived только если filter != active.
+    // Для `archived` tab делаем post-filter `r.archived` локально —
+    // server не имеет «archivedOnly» режима, только всё-или-нет
+    // (см. `includeArchived` выше).
     try {
-      // TASK42: server включает archived только если filter != active.
-      // Для `archived` tab делаем post-filter `r.archived` локально —
-      // server не имеет «archivedOnly» режима, только всё-или-нет.
-      final includeArchived = _filter != ChatsListFilter.active;
-      final raw = await _rooms.list(
+      // **issue #46**: тянем список ЦЕЛИКОМ, а не первую страницу.
+      // Папки, бейджи и счётчики строятся по `_currentRooms`, то есть по
+      // тому, что лежит в памяти, — на неполном наборе они молча врут.
+      // На старом сервере `listAll` сам откатится на одну страницу.
+      final raw = await _rooms.listAll(
         includeArchived: includeArchived,
         search: _search,
         productId: _productFilter,

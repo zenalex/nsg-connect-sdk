@@ -353,6 +353,99 @@ void main() {
     }
     await stateCtl.close();
   });
+
+  test('reconnect confirm: успешная пере-подписка БЕЗ event → healthy после '
+      'confirm-delay (тихий аккаунт, desktop-фикс баннера)', () async {
+    final stateCtl = StreamController<MessengerSessionState>.broadcast();
+    final q = makeQueueFactory(3);
+    final transitions = <MessengerConnectionState>[];
+    final bus = MessengerEventBus.attachWithFactory(
+      streamFactory: q.factory,
+      sessionStateStream: stateCtl.stream,
+      reconnectBackoff: const [Duration(milliseconds: 1)],
+      // Короткая задержка подтверждения, чтобы не ждать реальные 2с.
+      reconnectConfirmDelay: const Duration(milliseconds: 40),
+      jitterRng: Random(0),
+    );
+    final sub2 = bus.connectionStateStream.listen(transitions.add);
+    final sub = bus.events.listen((_) {});
+    await pumpAsync();
+
+    // Blip → reconnecting; retry (1ms) → пере-подписка на controllers[1].
+    // НИ ОДНОГО event-а (тихий аккаунт) — раньше баннер висел бы вечно.
+    // Ждём > confirm-delay: sub жив → transport восстановлен → healthy.
+    q.controllers[0].addError(StateError('blip'));
+    await pumpAsync(120);
+    expect(
+      bus.connectionState,
+      MessengerConnectionState.healthy,
+      reason: 'sub прожил confirm-delay без ошибок → healthy без event-а',
+    );
+    expect(
+      transitions,
+      contains(MessengerConnectionState.reconnecting),
+      reason: 'прошли через reconnecting (blip), потом confirm → healthy',
+    );
+    expect(transitions.last, MessengerConnectionState.healthy);
+
+    // Counter сброшен confirm-ом: новый одиночный error → reconnecting.
+    q.controllers[1].addError(StateError('again'));
+    await pumpAsync();
+    expect(
+      bus.connectionState,
+      MessengerConnectionState.reconnecting,
+      reason: 'confirm сбросил _consecutiveFailures → следующий failure == #1',
+    );
+
+    await sub.cancel();
+    await sub2.cancel();
+    await bus.dispose();
+    for (final c in q.controllers) {
+      await c.close();
+    }
+    await stateCtl.close();
+  });
+
+  test('reconnect confirm: повторный failure ДО confirm-delay не даёт '
+      'ложный healthy (confirm отменяется)', () async {
+    final stateCtl = StreamController<MessengerSessionState>.broadcast();
+    final q = makeQueueFactory(4);
+    final transitions = <MessengerConnectionState>[];
+    final bus = MessengerEventBus.attachWithFactory(
+      streamFactory: q.factory,
+      sessionStateStream: stateCtl.stream,
+      reconnectBackoff: const [Duration(milliseconds: 1)],
+      // Длинная задержка: failure #2 придёт РАНЬШЕ подтверждения.
+      reconnectConfirmDelay: const Duration(seconds: 5),
+      disconnectedAfterFailures: 2,
+      jitterRng: Random(0),
+    );
+    final sub2 = bus.connectionStateStream.listen(transitions.add);
+    final sub = bus.events.listen((_) {});
+    await pumpAsync();
+
+    // Ошибка 1 → reconnecting → пере-подписка controllers[1] + arm confirm(5s).
+    q.controllers[0].addError(StateError('e1'));
+    await pumpAsync();
+    // Ошибка 2 задолго до 5с → confirm ПЕРВОЙ пере-подписки отменён,
+    // counter дорос до 2 → disconnected (а не ложный healthy).
+    q.controllers[1].addError(StateError('e2'));
+    await pumpAsync();
+    expect(bus.connectionState, MessengerConnectionState.disconnected);
+    expect(
+      transitions,
+      isNot(contains(MessengerConnectionState.healthy)),
+      reason: 'confirm первой пере-подписки не выстрелил раньше failure #2',
+    );
+
+    await sub.cancel();
+    await sub2.cancel();
+    await bus.dispose();
+    for (final c in q.controllers) {
+      await c.close();
+    }
+    await stateCtl.close();
+  });
 }
 
 typedef StreamFactory = Stream<MessengerEvent> Function();

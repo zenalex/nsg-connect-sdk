@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:nsg_connect_client/nsg_connect_client.dart'
-    show RoomParticipant;
+    show AttachmentRef, ParticipantKind, RoomParticipant;
+import 'package:url_launcher/url_launcher.dart';
 
 import '../i18n/generated/nsg_l10n.dart';
 import '../theme/nsg_messenger_theme.dart';
@@ -9,7 +10,9 @@ import 'attachments/attachment_bubble.dart';
 import 'attachments/mxc_image_provider.dart';
 import '../widgets/nsg_avatar_image.dart';
 import 'chat_message.dart';
+import 'forward_source.dart';
 import 'markdown_spans.dart';
+import 'status_card_data.dart';
 
 /// Рендер одного [ChatMessage] в чате (TASK15 Chunk 2).
 ///
@@ -36,6 +39,7 @@ class MessageBubble extends StatelessWidget {
     this.onLongPress,
     this.findReplyTarget,
     this.onReplyChipTap,
+    this.onForwardedHeaderTap,
     this.participantsByMessengerId,
     this.participantsByMatrixId,
     this.readByPeerCount = 0,
@@ -44,10 +48,49 @@ class MessageBubble extends StatelessWidget {
     this.reactions = const <ReactionGroup>[],
     this.onToggleReaction,
     this.showSenderAvatar = false,
+    this.showSenderName = false,
+    this.onOpenImage,
+    this.albumTiles,
+    this.albumCaption,
+    this.selectionMode = false,
+    this.selected = false,
+    this.onToggleSelect,
+    this.onSenderAvatarTap,
   });
 
   final ChatMessage message;
   final bool isOwn;
+
+  /// **Пересылка (мультивыбор)**: режим выбора сообщений (Telegram-style).
+  /// Когда `true` — тап по пузырю ТОГГЛИТ выбор ([onToggleSelect]) вместо
+  /// обычных действий (открыть картинку / retry), long-press подавлен, а
+  /// слева от строки рисуется чекбокс-кружок. Вне режима (`false`) —
+  /// поведение без изменений.
+  final bool selectionMode;
+
+  /// **Пересылка (мультивыбор)**: выбран ли этот пузырь. Влияет на
+  /// подсветку фона строки и иконку чекбокса (галочка ↔ пустой кружок).
+  /// Игнорируется вне [selectionMode].
+  final bool selected;
+
+  /// **Пересылка (мультивыбор)**: тап по пузырю в [selectionMode] — тоггл
+  /// выбора. `null` → строка невыбираема (пузырь всё равно перехватывает
+  /// тапы в режиме, но no-op).
+  final VoidCallback? onToggleSelect;
+
+  /// **Альбом**: если задано (≥2 плиток), bubble рисует мозаику этих
+  /// плиток вместо одиночного [AttachmentBubble], а [albumCaption] —
+  /// как единственную подпись. Плитки смешанные: загруженные
+  /// ([UploadedTile]) и грузящиеся ([UploadingTile], блюр + прогресс).
+  /// ChatScreen собирает их из подряд идущих сообщений с одним `albumId`
+  /// и рендерит на одном (anchor) bubble, остальные члены альбома в
+  /// списке скрывает. Null → обычное сообщение.
+  final List<AlbumTile>? albumTiles;
+  final String? albumCaption;
+
+  /// Tap по картинке-вложению → host открывает галерею всех картинок чата
+  /// с листанием (ChatScreen). Null → одиночный полноэкранный просмотр.
+  final void Function(AttachmentRef tapped)? onOpenImage;
 
   /// Зовётся при тапе по retry-button у failed bubble. На sent/pending —
   /// not invoked. ChatScreen перенаправляет в `controller.retry(txnId)`.
@@ -64,6 +107,9 @@ class MessageBubble extends StatelessWidget {
   /// Copy). Tombstone (`isDeleted`) — long-press disabled (no actions
   /// available). Пендинг/failed — long-press disabled (нет stable
   /// matrixEventId-а до RPC return).
+  ///
+  /// **Issue #6**: на desktop/web тот же колбэк вызывается правым кликом
+  /// мыши (secondary tap) — с теми же гардами.
   final void Function(ChatMessage)? onLongPress;
 
   /// **TASK16-A**: lookup для reply chip rendering.
@@ -78,6 +124,14 @@ class MessageBubble extends StatelessWidget {
   /// closure, который пробует найти original в текущем listview-е и
   /// scroll-ится к его позиции; если не виден — silent no-op (MVP).
   final void Function(String matrixEventId)? onReplyChipTap;
+
+  /// **Issue #41**: тап по шапке «Переслано от X» → открыть первоисточник.
+  /// Если null ИЛИ у сообщения нет [ChatMessage.forwardedSource] — шапка
+  /// рисуется как раньше, БЕЗ признаков кликабельности (тот же принцип, что
+  /// у reply-chip: `tappable = target != null && onTap != null`). Обещать
+  /// переход, которого не будет, хуже, чем не обещать вовсе — а координат
+  /// нет у всех сообщений, пересланных до issue #41.
+  final void Function(ForwardSource source)? onForwardedHeaderTap;
 
   /// **TASK16-A**: participants комнаты, indexed by `messengerUserId` —
   /// нужен для:
@@ -126,6 +180,22 @@ class MessageBubble extends StatelessWidget {
   /// spacer той же ширины — для выравнивания. Для own/direct — игнор.
   final bool showSenderAvatar;
 
+  /// **Issue #39**: подпись отправителя ПЕРВОЙ строкой внутри peer-пузыря
+  /// (Telegram-style: accent-имя над телом сообщения). Ставится на верхнем
+  /// сообщении серии одного отправителя — ChatScreen считает признак и
+  /// включает его везде, где собеседников может быть больше одного
+  /// (группа/команда/support/бот), а не только в `RoomType.group`.
+  ///
+  /// Если участник помечен `ParticipantKind.bot` — рядом с именем
+  /// рисуется иконка робота и бейдж «Бот», чтобы в поддержке было видно,
+  /// где автоответ, а где живой оператор. Для own-пузырей игнорируется.
+  final bool showSenderName;
+
+  /// **TASK69 2C**: тап по аватару отправителя (group peer-bubble) → передаёт
+  /// `senderMatrixUserId` наверх. ChatScreen резолвит участника и предлагает
+  /// «Упомянуть». `null` → аватар не кликабелен (прежнее поведение).
+  final void Function(String senderMatrixUserId)? onSenderAvatarTap;
+
   /// Ширина левого gutter-а под аватар (avatar + gap). Держим в одном
   /// месте, чтобы avatar и spacer совпадали.
   static const double _kAvatarSize = 28;
@@ -133,22 +203,55 @@ class MessageBubble extends StatelessWidget {
 
   /// Левый gutter peer-bubble в group-чате: аватар отправителя на нижнем
   /// сообщении серии (`showSenderAvatar`), иначе spacer той же ширины.
+  ///
+  /// **TASK69 2C**: если задан [onSenderAvatarTap] — аватар кликабелен (тап →
+  /// «Упомянуть» этого участника, гейт/меню — на стороне ChatScreen). В режиме
+  /// выбора ([selectionMode]) тап по аватару не перехватываем.
+  /// Человекочитаемое имя отправителя: displayName участника → matrix
+  /// localpart (`@bob:home` → `bob`) → сырой mxid. Общий резолвер для
+  /// аватара и подписи (issue #39), чтобы они не расходились.
+  String _resolveSenderName() {
+    final p = participantsByMatrixId?[message.senderMatrixUserId];
+    final dn = p?.displayName;
+    if (dn != null && dn.isNotEmpty) return dn;
+    return _matrixLocalpart(message.senderMatrixUserId) ??
+        message.senderMatrixUserId;
+  }
+
+  /// **Issue #39**: отправитель — бот/интеграция/системный аккаунт, а не
+  /// живой человек. Признак приходит с сервера в
+  /// `RoomParticipant.participantKind`; `null` (старый сервер / участник
+  /// не в комнатном контексте) трактуем как обычного пользователя.
+  bool get _senderIsBot {
+    final kind = participantsByMatrixId?[message.senderMatrixUserId]
+        ?.participantKind;
+    return kind == ParticipantKind.bot ||
+        kind == ParticipantKind.integration ||
+        kind == ParticipantKind.aiAgent;
+  }
+
   Widget _buildLeadingAvatar() {
     if (!showSenderAvatar) {
       return const SizedBox(width: _kAvatarSize + _kAvatarGap);
     }
     final p = participantsByMatrixId?[message.senderMatrixUserId];
-    final name =
-        p?.displayName ??
-        _matrixLocalpart(message.senderMatrixUserId) ??
-        message.senderMatrixUserId;
+    final name = _resolveSenderName();
+    Widget avatar = NsgAvatarImage(
+      mxcUrl: p?.avatarUrl,
+      fallbackName: name,
+      size: _kAvatarSize,
+    );
+    final tap = onSenderAvatarTap;
+    if (tap != null && !selectionMode) {
+      avatar = GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => tap(message.senderMatrixUserId),
+        child: avatar,
+      );
+    }
     return Padding(
       padding: const EdgeInsets.only(right: _kAvatarGap),
-      child: NsgAvatarImage(
-        mxcUrl: p?.avatarUrl,
-        fallbackName: name,
-        size: _kAvatarSize,
-      ),
+      child: avatar,
     );
   }
 
@@ -185,12 +288,13 @@ class MessageBubble extends StatelessWidget {
     // (sent) И callback задан И не tombstone. Pending/failed — нет
     // stable id; tombstone — нет actions (Edit/Delete already-deleted).
     final canLongPress =
+        !selectionMode &&
         onLongPress != null &&
         message.isSent &&
         !isTombstone &&
         message.matrixEventId != null;
 
-    return Padding(
+    final Widget content = Padding(
       // TASK22 Phase2 Chunk 1: vertical = interBubbleSpacing / 2 — соседние
       // bubble-ы дают суммарный gap == full interBubbleSpacing. Horizontal
       // остаётся hardcoded — TODO(task22-phase3): tokenize bubble-row margin.
@@ -214,6 +318,14 @@ class MessageBubble extends StatelessWidget {
                   onLongPress: canLongPress
                       ? () => onLongPress!(message)
                       : null,
+                  // Issue #6: правый клик мыши (desktop/web) открывает то же
+                  // меню действий, что и long-press. Гард ОБЩИЙ
+                  // (canLongPress): sent + не-tombstone + вне selectionMode.
+                  // На touch-платформах secondary tap не случается, поэтому
+                  // обработчик безопасен без платформенных if-ов.
+                  onSecondaryTapUp: canLongPress
+                      ? (_) => onLongPress!(message)
+                      : null,
                   child: Container(
                     constraints: BoxConstraints(
                       maxWidth:
@@ -231,6 +343,17 @@ class MessageBubble extends StatelessWidget {
                       crossAxisAlignment: align,
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        // **Issue #39**: «кто написал» — самой первой строкой
+                        // пузыря, ДО forwarded/reply-шапок. Раньше подпись
+                        // не рисовалась нигде (в группах был только аватар),
+                        // из-за чего support-лента читалась как монолог.
+                        if (!isOwn && showSenderName)
+                          _SenderNameLabel(
+                            name: _resolveSenderName(),
+                            isBot: _senderIsBot,
+                            botLabel: l.supportTeamBotBadge,
+                            accentColor: colors.primary,
+                          ),
                         if (isTombstone)
                           Text(
                             l.messageDeletedPlaceholder,
@@ -240,6 +363,17 @@ class MessageBubble extends StatelessWidget {
                             ),
                           )
                         else ...[
+                          // **Пересылка (forward)**: шапка «Переслано от X»
+                          // самой первой в bubble (как в Telegram).
+                          if (message.isForwarded)
+                            _ForwardedHeader(
+                              name: message.forwardedFromName!,
+                              // Issue #41: кликабельна только когда есть И
+                              // координаты первоисточника, И обработчик.
+                              source: message.forwardedSource,
+                              onTap: onForwardedHeaderTap,
+                              accentColor: theme.colorScheme.primary,
+                            ),
                           // TASK16-A: reply chip ПЕРЕД attachment/body.
                           if (message.replyToMessageId != null)
                             _ReplyChip(
@@ -250,36 +384,78 @@ class MessageBubble extends StatelessWidget {
                               textColor: textColor,
                               accentColor: theme.colorScheme.primary,
                             ),
+                          // **TASK58 (автопост статусов)**: сообщение с
+                          // msgType `nsg.status_card` И распарсенной карточкой
+                          // рендерится как card-виджет (цветная рамка по level,
+                          // заголовок, текст, поля, ссылка). Если карточки нет
+                          // (битый content / старый сервер) — падаем в обычный
+                          // body-fallback ниже (unknown msgType уже так делает).
+                          if (message.msgType == 'nsg.status_card' &&
+                              message.statusCard != null)
+                            _StatusCardBubble(
+                              card: message.statusCard!,
+                              baseTextColor: textColor,
+                            )
                           // TASK19 Chunk 3: render attachment ПЕРЕД body — UI
                           // convention (image/file сверху, text comment снизу).
                           // Если RPC не передан (text-only screen / test без
                           // mock) — пропускаем attachment, body остаётся.
-                          if (message.attachment != null &&
+                          // **Альбом**: мозаика вложений + единственная
+                          // подпись. Иначе — обычный путь (одиночное
+                          // вложение + body).
+                          else if (albumTiles != null &&
+                              albumTiles!.isNotEmpty &&
                               thumbnailRpc != null &&
-                              fullSizeRpc != null)
-                            AttachmentBubble(
-                              attachment: message.attachment!,
+                              fullSizeRpc != null) ...[
+                            AlbumMosaic(
+                              tiles: albumTiles!,
                               thumbnailRpc: thumbnailRpc!,
                               fullSizeRpc: fullSizeRpc!,
                               textColor: textColor,
+                              onOpenImage: onOpenImage,
                             ),
-                          // Body fallback — для media-сообщения это часто
-                          // filename / generic «image» (см. server-side
-                          // `defaultAttachmentBody`). Hide-аем если body
-                          // совпадает с filename — UI уже показал filename
-                          // в `_FileRow`. Для image — body почти всегда
-                          // filename, рендерим только если non-empty и не
-                          // равно filename.
-                          if (_shouldRenderBodyText(message))
-                            _BodyText(
-                              body: message.body,
-                              mentionedMessengerUserIds:
-                                  message.mentionedMessengerUserIds,
-                              participantsByMessengerId:
-                                  participantsByMessengerId,
-                              textColor: textColor,
-                              mentionColor: theme.colorScheme.primary,
-                            ),
+                            if ((albumCaption ?? '').trim().isNotEmpty)
+                              _BodyText(
+                                body: albumCaption!.trim(),
+                                mentionedMessengerUserIds: null,
+                                participantsByMessengerId:
+                                    participantsByMessengerId,
+                                textColor: textColor,
+                                mentionColor: theme.colorScheme.primary,
+                              ),
+                          ] else ...[
+                            // **Оптимистичный альбом**: одиночное грузящееся
+                            // фото (attachment ещё null, есть локальные байты)
+                            // — блюр + прогресс.
+                            if (message.isUploadingImage)
+                              UploadingImagePreview(
+                                bytes: message.localImageBytes!,
+                                textColor: textColor,
+                              )
+                            else if (message.attachment != null &&
+                                thumbnailRpc != null &&
+                                fullSizeRpc != null)
+                              AttachmentBubble(
+                                attachment: message.attachment!,
+                                thumbnailRpc: thumbnailRpc!,
+                                fullSizeRpc: fullSizeRpc!,
+                                textColor: textColor,
+                                onOpenImage: onOpenImage,
+                              ),
+                            // Body fallback — для media часто filename
+                            // (server-side `defaultAttachmentBody`); скрываем
+                            // если body == filename (уже показан в _FileRow).
+                            if (_shouldRenderBodyText(message))
+                              _BodyText(
+                                body: message.body,
+                                mentionedMessengerUserIds:
+                                    message.mentionedMessengerUserIds,
+                                participantsByMessengerId:
+                                    participantsByMessengerId,
+                                textColor: textColor,
+                                mentionColor: theme.colorScheme.primary,
+                              ),
+                          ],
                         ],
                         const SizedBox(height: 4),
                         Row(
@@ -341,6 +517,37 @@ class MessageBubble extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+
+    // **Пересылка (мультивыбор)**: вне режима — пузырь как есть. В режиме —
+    // строка становится единой selection-мишенью: слева чекбокс-кружок,
+    // подсветка фона у выбранных, тап по всей строке тогглит выбор. Внутренние
+    // жесты (открыть картинку / retry / реакции / long-press) подавляем через
+    // AbsorbPointer, чтобы тап всегда означал «выбрать», а не действие.
+    if (!selectionMode) return content;
+    final selectFill = selected
+        ? colors.primary.withValues(alpha: 0.12)
+        : Colors.transparent;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onToggleSelect,
+      child: Container(
+        color: selectFill,
+        child: Row(
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(left: 8),
+              child: Icon(
+                selected ? Icons.check_circle : Icons.radio_button_unchecked,
+                color: selected
+                    ? colors.primary
+                    : colors.onSurfaceVariant.withValues(alpha: 0.7),
+              ),
+            ),
+            Expanded(child: AbsorbPointer(child: content)),
+          ],
+        ),
       ),
     );
   }
@@ -568,7 +775,145 @@ class _StatusIcon extends StatelessWidget {
   }
 }
 
+/// **Issue #39**: подпись «кто написал» первой строкой peer-пузыря.
+///
+/// До этого имя отправителя не показывалось нигде — в группах был только
+/// аватар слева, а в support-комнате и его нет, поэтому лента бота,
+/// операторов и самого пользователя читалась как сплошной монолог.
+///
+/// Ботам ([isBot]) рисуем иконку робота + бейдж «Бот» — в поддержке важно
+/// с первого взгляда отличить автоответ от живого оператора.
+class _SenderNameLabel extends StatelessWidget {
+  const _SenderNameLabel({
+    required this.name,
+    required this.isBot,
+    required this.botLabel,
+    required this.accentColor,
+  });
+
+  final String name;
+  final bool isBot;
+
+  /// Локализованное «Бот» (переиспользуем `supportTeamBotBadge` — тот же
+  /// смысл, что и в экране команды поддержки).
+  final String botLabel;
+  final Color accentColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (isBot) ...[
+            Icon(Icons.smart_toy_outlined, size: 13, color: accentColor),
+            const SizedBox(width: 4),
+          ],
+          Flexible(
+            child: Text(
+              name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: accentColor,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          if (isBot) ...[
+            const SizedBox(width: 4),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: accentColor.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Text(
+                  botLabel,
+                  style: TextStyle(
+                    color: accentColor,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 /// **TASK16-A**: chip над body bubble, показывающий original message
+/// **Пересылка (forward)**: шапка «Переслано от X» в bubble пересланного
+/// сообщения (как в Telegram). Icon + accent-italic имя первого автора.
+///
+/// **Issue #41**: если известны координаты первоисточника ([source]) и хост
+/// дал обработчик ([onTap]) — шапка становится кнопкой перехода к исходному
+/// сообщению (подчёркивание + курсор-рука). Иначе рисуется ровно как раньше:
+/// у сообщений, пересланных ДО issue #41, координат в content-е нет, и
+/// кликабельный вид обещал бы переход, которого не произойдёт.
+class _ForwardedHeader extends StatelessWidget {
+  const _ForwardedHeader({
+    required this.name,
+    required this.accentColor,
+    this.source,
+    this.onTap,
+  });
+
+  final String name;
+  final Color accentColor;
+  final ForwardSource? source;
+  final void Function(ForwardSource source)? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = NsgL10n.of(context);
+    // Тот же гейт, что у `_ReplyChip`: нет цели ИЛИ нет обработчика —
+    // не притворяемся кликабельными.
+    final src = source;
+    final tappable = src != null && onTap != null;
+    final label = Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.forward, size: 13, color: accentColor),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              l.messageForwardedFrom(name),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: accentColor,
+                fontSize: 12,
+                fontStyle: FontStyle.italic,
+                fontWeight: FontWeight.w600,
+                // Единственное визуальное отличие кликабельной шапки —
+                // подчёркивание: «здесь можно нажать».
+                decoration: tappable ? TextDecoration.underline : null,
+                decorationColor: accentColor,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (!tappable) return label;
+    return InkWell(
+      onTap: () => onTap!(src),
+      borderRadius: BorderRadius.circular(4),
+      child: label,
+    );
+  }
+}
+
 /// для reply. Lookup через `findReplyTarget(replyToMessageId)`:
 ///   * found → header `<senderDisplayName>`, preview body (1 line, эллипсис).
 ///   * miss → italic placeholder «Original message unavailable» (per Q1
@@ -917,6 +1262,141 @@ class _BodyTextState extends State<_BodyText> {
       out.add(TextSpan(text: text.substring(cursor), style: baseStyle));
     }
     return out;
+  }
+}
+
+/// **TASK58 (автопост статусов)**: рендер структурированной статус-карточки
+/// (`msgType == 'nsg.status_card'`). Левая цветная рамка по [StatusCardLevel]
+/// (info=primary, success=green, warn=orange, error=colorScheme.error);
+/// заголовок bold в цвет level; текст; поля label/value; ссылка «Открыть».
+///
+/// Ссылка открывается через url_launcher (SDK уже зависит от него — см.
+/// markdown-link tap). Если запуск не удался — тихий no-op (URL берётся из
+/// внешнего процесса, не гарантированно валиден; краш недопустим).
+class _StatusCardBubble extends StatelessWidget {
+  const _StatusCardBubble({required this.card, required this.baseTextColor});
+
+  final StatusCardData card;
+  final Color baseTextColor;
+
+  Color _levelColor(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    switch (card.level) {
+      case StatusCardLevel.info:
+        return colors.primary;
+      case StatusCardLevel.success:
+        return const Color(0xFF2E7D32); // green 800
+      case StatusCardLevel.warn:
+        return const Color(0xFFE65100); // orange 900
+      case StatusCardLevel.error:
+        return colors.error;
+    }
+  }
+
+  Future<void> _openLink(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      // best-effort — внешний URL может быть невалиден/без хендлера.
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = NsgL10n.of(context);
+    final accent = _levelColor(context);
+    final labelColor = baseTextColor.withValues(alpha: 0.6);
+    final link = card.link;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 2),
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+      decoration: BoxDecoration(
+        border: Border(left: BorderSide(color: accent, width: 3)),
+        color: accent.withValues(alpha: 0.06),
+        borderRadius: const BorderRadius.only(
+          topRight: Radius.circular(6),
+          bottomRight: Radius.circular(6),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (card.title != null && card.title!.isNotEmpty)
+            Text(
+              card.title!,
+              style: TextStyle(
+                color: accent,
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
+              ),
+            ),
+          if (card.text != null && card.text!.isNotEmpty) ...[
+            if (card.title != null && card.title!.isNotEmpty)
+              const SizedBox(height: 4),
+            Text(card.text!, style: TextStyle(color: baseTextColor)),
+          ],
+          if (card.fields.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            for (final f in card.fields)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 2),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${f.name}: ',
+                      style: TextStyle(
+                        color: labelColor,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        f.value,
+                        style: TextStyle(color: baseTextColor, fontSize: 13),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+          if (link != null) ...[
+            const SizedBox(height: 6),
+            InkWell(
+              onTap: () => _openLink(link.url),
+              borderRadius: BorderRadius.circular(4),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.open_in_new, size: 15, color: accent),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        link.label ?? l.statusCardOpenLink,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: accent,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 }
 

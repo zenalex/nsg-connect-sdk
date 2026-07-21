@@ -18,6 +18,9 @@ void main() {
             required bool showMessagePreview,
             bool? sendReadReceipts,
             bool? discoverable,
+            String? whoCanMessageMe,
+            bool? showCardsOnCall,
+            bool? presenceHidden,
           }) async {},
     );
     await tester.pumpWidget(
@@ -39,6 +42,9 @@ void main() {
             required bool showMessagePreview,
             bool? sendReadReceipts,
             bool? discoverable,
+            String? whoCanMessageMe,
+            bool? showCardsOnCall,
+            bool? presenceHidden,
           }) async {
             calls.add(showMessagePreview);
           },
@@ -56,6 +62,47 @@ void main() {
     expect(tile.value, isFalse);
   });
 
+  testWidgets(
+    'TASK55 итер.3: toggle «показывать, когда я в сети» шлёт '
+    'presenceHidden с инверсией',
+    (tester) async {
+      final sent = <bool?>[];
+      final settings = NsgMessengerSettings.attachWithRpcs(
+        // presenceHidden=false на сервере → toggle включён.
+        getRpc: () async => NotificationSettings(
+          showMessagePreview: true,
+          presenceHidden: false,
+        ),
+        setRpc:
+            ({
+              required bool showMessagePreview,
+              bool? sendReadReceipts,
+              bool? discoverable,
+              String? whoCanMessageMe,
+              bool? showCardsOnCall,
+              bool? presenceHidden,
+            }) async {
+              sent.add(presenceHidden);
+            },
+      );
+      await tester.pumpWidget(
+        wrapL10n(NotificationSettingsScreen(settingsOverride: settings)),
+      );
+      await tester.pumpAndSettle();
+      final toggle = find.byKey(const Key('presenceVisibleToggle'));
+      await tester.scrollUntilVisible(toggle, 200);
+      expect(
+        tester.widget<SwitchListTile>(toggle).value,
+        isTrue,
+        reason: 'hidden=false → «показывать» включён',
+      );
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+      expect(sent, [true], reason: 'выключил показ → hidden=true');
+      expect(tester.widget<SwitchListTile>(toggle).value, isFalse);
+    },
+  );
+
   testWidgets('toggle RPC fail → revert + snackbar', (tester) async {
     final settings = NsgMessengerSettings.attachWithRpcs(
       getRpc: () async => NotificationSettings(showMessagePreview: true),
@@ -64,8 +111,10 @@ void main() {
             required bool showMessagePreview,
             bool? sendReadReceipts,
             bool? discoverable,
-          }) async =>
-              throw StateError('network'),
+            String? whoCanMessageMe,
+            bool? showCardsOnCall,
+            bool? presenceHidden,
+          }) async => throw StateError('network'),
     );
     await tester.pumpWidget(
       wrapL10n(NotificationSettingsScreen(settingsOverride: settings)),

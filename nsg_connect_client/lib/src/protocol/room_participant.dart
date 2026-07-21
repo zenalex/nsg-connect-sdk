@@ -12,6 +12,7 @@
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod_client/serverpod_client.dart' as _i1;
 import 'enums/room_member_role.dart' as _i2;
+import 'enums/participant_kind.dart' as _i3;
 
 /// Один участник комнаты в DTO `RoomDetails.participants`. Возвращает
 /// display-уровень: SDK показывает рядом с именем role-badge и аватарку.
@@ -25,6 +26,8 @@ abstract class RoomParticipant implements _i1.SerializableModel {
     this.avatarUrl,
     required this.role,
     this.username,
+    this.writeBannedUntil,
+    this.participantKind,
   });
 
   factory RoomParticipant({
@@ -34,6 +37,8 @@ abstract class RoomParticipant implements _i1.SerializableModel {
     String? avatarUrl,
     required _i2.RoomMemberRole role,
     String? username,
+    DateTime? writeBannedUntil,
+    _i3.ParticipantKind? participantKind,
   }) = _RoomParticipantImpl;
 
   factory RoomParticipant.fromJson(Map<String, dynamic> jsonSerialization) {
@@ -44,6 +49,16 @@ abstract class RoomParticipant implements _i1.SerializableModel {
       avatarUrl: jsonSerialization['avatarUrl'] as String?,
       role: _i2.RoomMemberRole.fromJson((jsonSerialization['role'] as String)),
       username: jsonSerialization['username'] as String?,
+      writeBannedUntil: jsonSerialization['writeBannedUntil'] == null
+          ? null
+          : _i1.DateTimeJsonExtension.fromJson(
+              jsonSerialization['writeBannedUntil'],
+            ),
+      participantKind: jsonSerialization['participantKind'] == null
+          ? null
+          : _i3.ParticipantKind.fromJson(
+              (jsonSerialization['participantKind'] as String),
+            ),
     );
   }
 
@@ -63,6 +78,20 @@ abstract class RoomParticipant implements _i1.SerializableModel {
   /// `@username` рядом с displayName в результатах поиска.
   String? username;
 
+  /// **Write-ban (2026-07-13)**: активный запрет писать в ЭТУ комнату
+  /// (для шита участника: показать «Разрешить писать» и бейдж).
+  /// Заполняется только в RoomDetails.participants; в поиске/директории
+  /// null (нет комнатного контекста).
+  DateTime? writeBannedUntil;
+
+  /// **Issue #39**: тип участника (`RoomMembership.participantKind`) —
+  /// чтобы SDK отличал бота/систему от живого оператора в ленте чата
+  /// (подпись отправителя + бейдж «Бот» в support-комнатах).
+  /// Nullable: заполняется только в RoomDetails.participants; в поиске/
+  /// директории нет комнатного контекста, а старый сервер поля не пришлёт
+  /// — клиент трактует null как обычного пользователя.
+  _i3.ParticipantKind? participantKind;
+
   /// Returns a shallow copy of this [RoomParticipant]
   /// with some or all fields replaced by the given arguments.
   @_i1.useResult
@@ -73,6 +102,8 @@ abstract class RoomParticipant implements _i1.SerializableModel {
     String? avatarUrl,
     _i2.RoomMemberRole? role,
     String? username,
+    DateTime? writeBannedUntil,
+    _i3.ParticipantKind? participantKind,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -84,6 +115,9 @@ abstract class RoomParticipant implements _i1.SerializableModel {
       if (avatarUrl != null) 'avatarUrl': avatarUrl,
       'role': role.toJson(),
       if (username != null) 'username': username,
+      if (writeBannedUntil != null)
+        'writeBannedUntil': writeBannedUntil?.toJson(),
+      if (participantKind != null) 'participantKind': participantKind?.toJson(),
     };
   }
 
@@ -103,6 +137,8 @@ class _RoomParticipantImpl extends RoomParticipant {
     String? avatarUrl,
     required _i2.RoomMemberRole role,
     String? username,
+    DateTime? writeBannedUntil,
+    _i3.ParticipantKind? participantKind,
   }) : super._(
          messengerUserId: messengerUserId,
          matrixUserId: matrixUserId,
@@ -110,6 +146,8 @@ class _RoomParticipantImpl extends RoomParticipant {
          avatarUrl: avatarUrl,
          role: role,
          username: username,
+         writeBannedUntil: writeBannedUntil,
+         participantKind: participantKind,
        );
 
   /// Returns a shallow copy of this [RoomParticipant]
@@ -123,6 +161,8 @@ class _RoomParticipantImpl extends RoomParticipant {
     Object? avatarUrl = _Undefined,
     _i2.RoomMemberRole? role,
     Object? username = _Undefined,
+    Object? writeBannedUntil = _Undefined,
+    Object? participantKind = _Undefined,
   }) {
     return RoomParticipant(
       messengerUserId: messengerUserId ?? this.messengerUserId,
@@ -131,6 +171,12 @@ class _RoomParticipantImpl extends RoomParticipant {
       avatarUrl: avatarUrl is String? ? avatarUrl : this.avatarUrl,
       role: role ?? this.role,
       username: username is String? ? username : this.username,
+      writeBannedUntil: writeBannedUntil is DateTime?
+          ? writeBannedUntil
+          : this.writeBannedUntil,
+      participantKind: participantKind is _i3.ParticipantKind?
+          ? participantKind
+          : this.participantKind,
     );
   }
 }

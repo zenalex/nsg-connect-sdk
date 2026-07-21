@@ -1,3 +1,3 @@
-/// Build-метка SDK Chatista — АВТО-генерируется tool/sync_intern_sdk.ps1.
+/// Build-метка SDK Chatista — АВТО-генерируется tool/sync_public_sdk.ps1.
 /// Не редактировать вручную: при следующем синке значение перезапишется.
-const String kNsgSdkBuild = '2026-06-22+c126571';
+const String kNsgSdkBuild = '2026-07-21+d4ce198';

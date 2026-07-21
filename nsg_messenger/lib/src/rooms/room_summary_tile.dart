@@ -13,6 +13,9 @@ import '../utils/relative_time.dart';
 /// `onLongPress` (TASK42 Chunk 2): вызывается на long-press для
 /// открытия `showRoomActionSheet` (mute/archive/leave). Tile сам
 /// stateless — sheet строится parent-ом, тут только callback.
+///
+/// Issue #6: на desktop/web тот же callback вызывается правым кликом
+/// мыши (secondary tap) — long-press на мобиле остаётся как был.
 class RoomSummaryTile extends StatelessWidget {
   const RoomSummaryTile({
     super.key,
@@ -32,36 +35,44 @@ class RoomSummaryTile extends StatelessWidget {
     final tileTokens =
         Theme.of(context).extension<NsgRoomTileTokens>() ??
         NsgRoomTileTokens.fallback;
-    return ListTile(
-      onTap: onTap,
-      onLongPress: onLongPress,
-      contentPadding: tileTokens.contentPadding,
-      leading: _Avatar(
-        name: room.name,
-        url: room.avatarUrl,
-        size: tileTokens.avatarSize,
-      ),
-      title: Text(
-        room.name ?? NsgL10n.of(context).roomSummaryNoName,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      subtitle: Padding(
-        // TASK22 Phase2 Chunk 1: title→subtitle spacing через top-padding
-        // subtitle-а (ListTile сам управляет вертикалями между title/
-        // leading/trailing, явный SizedBox внутрь title не вставить).
-        padding: EdgeInsets.only(top: tileTokens.titleSubtitleSpacing),
-        child: Text(
-          // Material 3 ListTile сам приглушает subtitle через
-          // bodyMedium/onSurfaceVariant; ручной override стиля убрали,
-          // чтобы host-app `ListTileTheme.subtitleTextStyle` не
-          // игнорировался (см. ревью 29ebbdf #3).
-          room.lastMessagePreview ?? NsgL10n.of(context).roomSummaryNoMessages,
+    // Issue #6: у ListTile нет secondary-жеста, поэтому оборачиваем в
+    // GestureDetector только ради правого клика. Primary-тапы детектор
+    // не перехватывает (в gesture arena участвует лишь secondary),
+    // так что ripple и семантика ListTile не меняются.
+    return GestureDetector(
+      onSecondaryTap: onLongPress,
+      child: ListTile(
+        onTap: onTap,
+        onLongPress: onLongPress,
+        contentPadding: tileTokens.contentPadding,
+        leading: _Avatar(
+          name: room.name,
+          url: room.avatarUrl,
+          size: tileTokens.avatarSize,
+        ),
+        title: Text(
+          room.name ?? NsgL10n.of(context).roomSummaryNoName,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
+        subtitle: Padding(
+          // TASK22 Phase2 Chunk 1: title→subtitle spacing через top-padding
+          // subtitle-а (ListTile сам управляет вертикалями между title/
+          // leading/trailing, явный SizedBox внутрь title не вставить).
+          padding: EdgeInsets.only(top: tileTokens.titleSubtitleSpacing),
+          child: Text(
+            // Material 3 ListTile сам приглушает subtitle через
+            // bodyMedium/onSurfaceVariant; ручной override стиля убрали,
+            // чтобы host-app `ListTileTheme.subtitleTextStyle` не
+            // игнорировался (см. ревью 29ebbdf #3).
+            room.lastMessagePreview ??
+                NsgL10n.of(context).roomSummaryNoMessages,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        trailing: _TrailingMeta(room: room, tokens: tileTokens),
       ),
-      trailing: _TrailingMeta(room: room, tokens: tileTokens),
     );
   }
 }

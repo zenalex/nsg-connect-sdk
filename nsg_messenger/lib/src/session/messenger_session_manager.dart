@@ -15,6 +15,16 @@ import 'messenger_auth_key_provider.dart';
 typedef MessengerSessionRpc =
     Future<MessengerSession> Function(MessengerAuthContext ctx);
 
+/// RPC обновления сессии. Отдельный тип от [MessengerSessionRpc]: refresh
+/// сообщает серверу, КАКОЙ токен он заменяет, — сервер отзовёт только его.
+/// Без этого сервер (до 2026-07-17) отзывал все токены юзера и устройства
+/// разлогинивали друг друга по кругу — см. `MessengerEndpoint.refresh`.
+typedef MessengerRefreshRpc =
+    Future<MessengerSession> Function(
+      MessengerAuthContext ctx, {
+      String? previousToken,
+    });
+
 /// Время ДО `expiresAt`, за которое SDK запускает proactive refresh.
 /// 5 минут даёт запас на сетевую задержку и retry, не приближая частоту
 /// refresh к границе rate-лимитов backend-а.
@@ -47,7 +57,7 @@ const Duration _minRefreshDelay = Duration(milliseconds: 100);
 /// stream-обёртки вместо raw client.messenger.roomStream).
 class MessengerSessionManager {
   final MessengerSessionRpc _sessionRpc;
-  final MessengerSessionRpc _refreshRpc;
+  final MessengerRefreshRpc _refreshRpc;
   final AuthTokenProvider _authTokenProvider;
   final AuthTokenStore _store;
   final ErrorReporter? _errorReporter;
@@ -86,7 +96,7 @@ class MessengerSessionManager {
 
   MessengerSessionManager._({
     required MessengerSessionRpc sessionRpc,
-    required MessengerSessionRpc refreshRpc,
+    required MessengerRefreshRpc refreshRpc,
     required AuthTokenProvider authTokenProvider,
     required AuthTokenStore store,
     required ErrorReporter? errorReporter,
@@ -132,7 +142,7 @@ class MessengerSessionManager {
   @visibleForTesting
   static MessengerSessionManager attachWithRpcs({
     required MessengerSessionRpc sessionRpc,
-    required MessengerSessionRpc refreshRpc,
+    required MessengerRefreshRpc refreshRpc,
     required AuthTokenProvider authTokenProvider,
     required AuthTokenStore store,
     required ErrorReporter? errorReporter,
@@ -182,6 +192,10 @@ class MessengerSessionManager {
   Future<void> init() async {
     if (kDebugMode) debugPrint('[SessionManager.init] enter');
     final initCompleter = Completer<void>();
+    // Ошибка init доставляется вызывающему rethrow-ом; completer — только
+    // для параллельного _refreshAuthKey (может и не ждать). Без ignore()
+    // completeError без слушателя превращается в unhandled async error.
+    initCompleter.future.ignore();
     _initInProgress = initCompleter;
     _emitState(MessengerSessionState.refreshing);
     try {
@@ -218,8 +232,52 @@ class MessengerSessionManager {
       if (kDebugMode) {
         debugPrint('[SessionManager.init] _createNewSession (RPC)...');
       }
-      await _createNewSession(ctx, fp);
-      if (kDebugMode) debugPrint('[SessionManager.init] _createNewSession OK');
+      // **TASK47 (офлайн-boot, 2026-07-12)**: наличие кэшированной сессии
+      // ТОГО ЖЕ юзера (fingerprint совпал, но протухла по lead-time) —
+      // страховка: сетевой сбой session() деградирует на stale-сессию
+      // вместо провала всего init (раньше офлайн-запуск падал в
+      // error-экран «повторите соединение», и дисковый кэш чатов был
+      // недостижим). С фолбэком под рукой ждём RPC меньше (6с вместо
+      // 15с) — офлайн-boot быстрее доходит до чатов.
+      final staleFallback = (cached != null && cached.fingerprint == fp)
+          ? cached
+          : null;
+      try {
+        await _createNewSession(
+          ctx,
+          fp,
+          timeout: staleFallback != null
+              ? const Duration(seconds: 6)
+              : const Duration(seconds: 15),
+        );
+        if (kDebugMode) {
+          debugPrint('[SessionManager.init] _createNewSession OK');
+        }
+      } on InvalidTokenException {
+        rethrow; // типизированный auth — сессия мертва, деградация запрещена
+      } on MessengerNotAuthenticatedException {
+        rethrow; // то же: сервер ЯВНО отверг, не сеть
+      } catch (e) {
+        if (staleFallback == null) rethrow;
+        // Сеть/таймаут/5xx → офлайн-boot на stale-сессии. Токен может
+        // быть уже истёкшим — офлайн его всё равно некому отвергнуть, а
+        // при возврате сети: (а) _scheduleRefresh (истёкший expiresAt →
+        // сработает через _minRefreshDelay) обновит проактивно, (б)
+        // типизированный 401 на первом RPC запустит reactive self-heal.
+        // Красная линия сохранена: чистка сессии — только на
+        // типизированном auth (ветки rethrow выше).
+        if (kDebugMode) {
+          debugPrint(
+            '[SessionManager.init] session RPC failed ($e) — офлайн-boot '
+            'на stale-сессии (expiresAt=${staleFallback.session.expiresAt})',
+          );
+        }
+        _session = staleFallback.session;
+        _authKeyProvider.setToken(staleFallback.session.sessionToken);
+        _scheduleRefresh(staleFallback.session.expiresAt);
+        _emitState(MessengerSessionState.active);
+        return;
+      }
     } catch (e, st) {
       if (kDebugMode) debugPrint('[SessionManager.init] FAILED: $e');
       _errorReporter?.reportError(e, st, tags: {'phase': 'session.init'});
@@ -277,20 +335,30 @@ class MessengerSessionManager {
   // Private
   // ───────────────────────────────────────────────────────────────────
 
-  Future<void> _createNewSession(MessengerAuthContext ctx, String fp) async {
+  /// [timeout] — сколько ждать session() RPC. Дефолт 15с; init с
+  /// доступным stale-фолбэком передаёт 6с (TASK47 офлайн-boot — быстрее
+  /// деградируем на кэш; медленная сеть догонит фоновым refresh-ем).
+  Future<void> _createNewSession(
+    MessengerAuthContext ctx,
+    String fp, {
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
     if (kDebugMode) {
       debugPrint('[SessionManager._createNewSession] calling _sessionRpc...');
     }
     final session = await _sessionRpc(ctx).timeout(
-      const Duration(seconds: 15),
+      timeout,
       onTimeout: () {
         if (kDebugMode) {
           debugPrint(
-            '[SessionManager._createNewSession] _sessionRpc TIMEOUT after 15s — '
-            'server unreachable или RPC висит. Проверь network/firewall.',
+            '[SessionManager._createNewSession] _sessionRpc TIMEOUT after '
+            '${timeout.inSeconds}s — server unreachable или RPC висит. '
+            'Проверь network/firewall.',
           );
         }
-        throw TimeoutException('messenger.session RPC timeout (15s)');
+        throw TimeoutException(
+          'messenger.session RPC timeout (${timeout.inSeconds}s)',
+        );
       },
     );
     if (kDebugMode) {
@@ -393,7 +461,13 @@ class MessengerSessionManager {
       }
       _activeFingerprint = fp;
 
-      final refreshed = await _refreshRpc(ctx);
+      // Говорим серверу, какой именно токен заменяем — он отзовёт только
+      // его. Токены других устройств этого же юзера трогать нельзя: иначе
+      // они ловят 401, рефрешатся, убивают нас — и так по кругу.
+      final refreshed = await _refreshRpc(
+        ctx,
+        previousToken: _session?.sessionToken,
+      );
       if (_disposed) return RefreshAuthKeyResult.failedOther;
       _session = refreshed;
       _authKeyProvider.setToken(refreshed.sessionToken);

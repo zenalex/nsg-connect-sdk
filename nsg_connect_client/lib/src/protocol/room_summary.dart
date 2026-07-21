@@ -32,6 +32,13 @@ abstract class RoomSummary implements _i1.SerializableModel {
     this.productEntityType,
     this.productEntityId,
     required this.roomType,
+    this.directPeerMessengerUserId,
+    this.supportRequesterName,
+    this.productKey,
+    this.productName,
+    this.supportAwaitingSince,
+    this.dismissedUntilMessage,
+    this.autoCleanupTtlSeconds,
   });
 
   factory RoomSummary({
@@ -47,6 +54,13 @@ abstract class RoomSummary implements _i1.SerializableModel {
     String? productEntityType,
     String? productEntityId,
     required _i2.RoomType roomType,
+    int? directPeerMessengerUserId,
+    String? supportRequesterName,
+    String? productKey,
+    String? productName,
+    DateTime? supportAwaitingSince,
+    bool? dismissedUntilMessage,
+    int? autoCleanupTtlSeconds,
   }) = _RoomSummaryImpl;
 
   factory RoomSummary.fromJson(Map<String, dynamic> jsonSerialization) {
@@ -69,6 +83,23 @@ abstract class RoomSummary implements _i1.SerializableModel {
       roomType: _i2.RoomType.fromJson(
         (jsonSerialization['roomType'] as String),
       ),
+      directPeerMessengerUserId:
+          jsonSerialization['directPeerMessengerUserId'] as int?,
+      supportRequesterName:
+          jsonSerialization['supportRequesterName'] as String?,
+      productKey: jsonSerialization['productKey'] as String?,
+      productName: jsonSerialization['productName'] as String?,
+      supportAwaitingSince: jsonSerialization['supportAwaitingSince'] == null
+          ? null
+          : _i1.DateTimeJsonExtension.fromJson(
+              jsonSerialization['supportAwaitingSince'],
+            ),
+      dismissedUntilMessage: jsonSerialization['dismissedUntilMessage'] == null
+          ? null
+          : _i1.BoolJsonExtension.fromJson(
+              jsonSerialization['dismissedUntilMessage'],
+            ),
+      autoCleanupTtlSeconds: jsonSerialization['autoCleanupTtlSeconds'] as int?,
     );
   }
 
@@ -108,6 +139,47 @@ abstract class RoomSummary implements _i1.SerializableModel {
 
   _i2.RoomType roomType;
 
+  /// **TASK63**: id собеседника для direct-комнат (null для остальных
+  /// типов). Клиенту нужен для входа в «профиль контакта» (alias /
+  /// заметка / метки) прямо из списка чатов или шапки диалога.
+  int? directPeerMessengerUserId;
+
+  /// **TASK75 — support-инбокс.** Ниже поля значимы ТОЛЬКО для
+  /// support-комнат (roomType == support); у прочих типов остаются
+  /// null / default. Server резолвит их в `RoomService._toSummary`,
+  /// чтобы оператор не парсил строку «Поддержка — <ФИО>».
+  ///
+  /// ФИО заявителя (создателя обращения — owner-membership.displayName).
+  /// Primary-строка кастомного рендера support-строки. null, если owner
+  /// не резолвится — клиент откатывается на `name`.
+  String? supportRequesterName;
+
+  /// `Product.externalKey` продукта комнаты (резолв productId→Product).
+  /// Fallback-подпись проекта в support-строке.
+  String? productKey;
+
+  /// `Product.displayName` продукта комнаты. Вторичная (мелкая) подпись
+  /// проекта в support-строке.
+  String? productName;
+
+  /// `Room.awaitingOperatorSince` — момент, с которого support-чат ждёт
+  /// ответа человека-оператора (null = никто не ждёт / оператор ответил).
+  /// Клиент рисует «светофор»-маркер по давности ожидания (SLA).
+  DateTime? supportAwaitingSince;
+
+  /// **TASK75** per-operator «закрыть до ответа»: viewer скрыл этот
+  /// support-чат у себя до следующего сообщения заявителя
+  /// (`RoomMembership.dismissedUntilMessage`). Клиент прячет dismissed
+  /// из support-списка; авто-сброс на сервере при сообщении заявителя.
+  /// Nullable (не required в конструкторе) — старый сервер/клиент-скью
+  /// трактует null как false; сервер всегда проставляет реальное значение.
+  bool? dismissedUntilMessage;
+
+  /// **TASK68**: TTL автоочистки в секундах (`Room.autoCleanupTtlSeconds`).
+  /// null = выключено. В списке чатов SDK рисует по нему бейдж «⏱ неделя»
+  /// на строках self-чатов, не дёргая getRoom за каждой комнатой.
+  int? autoCleanupTtlSeconds;
+
   /// Returns a shallow copy of this [RoomSummary]
   /// with some or all fields replaced by the given arguments.
   @_i1.useResult
@@ -124,6 +196,13 @@ abstract class RoomSummary implements _i1.SerializableModel {
     String? productEntityType,
     String? productEntityId,
     _i2.RoomType? roomType,
+    int? directPeerMessengerUserId,
+    String? supportRequesterName,
+    String? productKey,
+    String? productName,
+    DateTime? supportAwaitingSince,
+    bool? dismissedUntilMessage,
+    int? autoCleanupTtlSeconds,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -141,6 +220,18 @@ abstract class RoomSummary implements _i1.SerializableModel {
       if (productEntityType != null) 'productEntityType': productEntityType,
       if (productEntityId != null) 'productEntityId': productEntityId,
       'roomType': roomType.toJson(),
+      if (directPeerMessengerUserId != null)
+        'directPeerMessengerUserId': directPeerMessengerUserId,
+      if (supportRequesterName != null)
+        'supportRequesterName': supportRequesterName,
+      if (productKey != null) 'productKey': productKey,
+      if (productName != null) 'productName': productName,
+      if (supportAwaitingSince != null)
+        'supportAwaitingSince': supportAwaitingSince?.toJson(),
+      if (dismissedUntilMessage != null)
+        'dismissedUntilMessage': dismissedUntilMessage,
+      if (autoCleanupTtlSeconds != null)
+        'autoCleanupTtlSeconds': autoCleanupTtlSeconds,
     };
   }
 
@@ -166,6 +257,13 @@ class _RoomSummaryImpl extends RoomSummary {
     String? productEntityType,
     String? productEntityId,
     required _i2.RoomType roomType,
+    int? directPeerMessengerUserId,
+    String? supportRequesterName,
+    String? productKey,
+    String? productName,
+    DateTime? supportAwaitingSince,
+    bool? dismissedUntilMessage,
+    int? autoCleanupTtlSeconds,
   }) : super._(
          id: id,
          name: name,
@@ -179,6 +277,13 @@ class _RoomSummaryImpl extends RoomSummary {
          productEntityType: productEntityType,
          productEntityId: productEntityId,
          roomType: roomType,
+         directPeerMessengerUserId: directPeerMessengerUserId,
+         supportRequesterName: supportRequesterName,
+         productKey: productKey,
+         productName: productName,
+         supportAwaitingSince: supportAwaitingSince,
+         dismissedUntilMessage: dismissedUntilMessage,
+         autoCleanupTtlSeconds: autoCleanupTtlSeconds,
        );
 
   /// Returns a shallow copy of this [RoomSummary]
@@ -198,6 +303,13 @@ class _RoomSummaryImpl extends RoomSummary {
     Object? productEntityType = _Undefined,
     Object? productEntityId = _Undefined,
     _i2.RoomType? roomType,
+    Object? directPeerMessengerUserId = _Undefined,
+    Object? supportRequesterName = _Undefined,
+    Object? productKey = _Undefined,
+    Object? productName = _Undefined,
+    Object? supportAwaitingSince = _Undefined,
+    Object? dismissedUntilMessage = _Undefined,
+    Object? autoCleanupTtlSeconds = _Undefined,
   }) {
     return RoomSummary(
       id: id ?? this.id,
@@ -220,6 +332,23 @@ class _RoomSummaryImpl extends RoomSummary {
           ? productEntityId
           : this.productEntityId,
       roomType: roomType ?? this.roomType,
+      directPeerMessengerUserId: directPeerMessengerUserId is int?
+          ? directPeerMessengerUserId
+          : this.directPeerMessengerUserId,
+      supportRequesterName: supportRequesterName is String?
+          ? supportRequesterName
+          : this.supportRequesterName,
+      productKey: productKey is String? ? productKey : this.productKey,
+      productName: productName is String? ? productName : this.productName,
+      supportAwaitingSince: supportAwaitingSince is DateTime?
+          ? supportAwaitingSince
+          : this.supportAwaitingSince,
+      dismissedUntilMessage: dismissedUntilMessage is bool?
+          ? dismissedUntilMessage
+          : this.dismissedUntilMessage,
+      autoCleanupTtlSeconds: autoCleanupTtlSeconds is int?
+          ? autoCleanupTtlSeconds
+          : this.autoCleanupTtlSeconds,
     );
   }
 }

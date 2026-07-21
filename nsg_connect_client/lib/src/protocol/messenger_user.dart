@@ -25,12 +25,21 @@ abstract class MessengerUser implements _i1.SerializableModel {
     this.displayName,
     this.avatarUrl,
     bool? showMessagePreview,
+    this.lastActiveAt,
     bool? sendReadReceipts,
     bool? discoverable,
+    String? whoCanMessageMe,
+    bool? showCardsOnCall,
+    bool? presenceHidden,
+    this.profileLocale,
+    this.uiLocale,
     required this.createdAt,
   }) : showMessagePreview = showMessagePreview ?? true,
        sendReadReceipts = sendReadReceipts ?? true,
-       discoverable = discoverable ?? true;
+       discoverable = discoverable ?? true,
+       whoCanMessageMe = whoCanMessageMe ?? 'everyone',
+       showCardsOnCall = showCardsOnCall ?? true,
+       presenceHidden = presenceHidden ?? false;
 
   factory MessengerUser({
     int? id,
@@ -40,8 +49,14 @@ abstract class MessengerUser implements _i1.SerializableModel {
     String? displayName,
     String? avatarUrl,
     bool? showMessagePreview,
+    DateTime? lastActiveAt,
     bool? sendReadReceipts,
     bool? discoverable,
+    String? whoCanMessageMe,
+    bool? showCardsOnCall,
+    bool? presenceHidden,
+    String? profileLocale,
+    String? uiLocale,
     required DateTime createdAt,
   }) = _MessengerUserImpl;
 
@@ -59,6 +74,11 @@ abstract class MessengerUser implements _i1.SerializableModel {
           : _i1.BoolJsonExtension.fromJson(
               jsonSerialization['showMessagePreview'],
             ),
+      lastActiveAt: jsonSerialization['lastActiveAt'] == null
+          ? null
+          : _i1.DateTimeJsonExtension.fromJson(
+              jsonSerialization['lastActiveAt'],
+            ),
       sendReadReceipts: jsonSerialization['sendReadReceipts'] == null
           ? null
           : _i1.BoolJsonExtension.fromJson(
@@ -67,6 +87,17 @@ abstract class MessengerUser implements _i1.SerializableModel {
       discoverable: jsonSerialization['discoverable'] == null
           ? null
           : _i1.BoolJsonExtension.fromJson(jsonSerialization['discoverable']),
+      whoCanMessageMe: jsonSerialization['whoCanMessageMe'] as String?,
+      showCardsOnCall: jsonSerialization['showCardsOnCall'] == null
+          ? null
+          : _i1.BoolJsonExtension.fromJson(
+              jsonSerialization['showCardsOnCall'],
+            ),
+      presenceHidden: jsonSerialization['presenceHidden'] == null
+          ? null
+          : _i1.BoolJsonExtension.fromJson(jsonSerialization['presenceHidden']),
+      profileLocale: jsonSerialization['profileLocale'] as String?,
+      uiLocale: jsonSerialization['uiLocale'] as String?,
       createdAt: _i1.DateTimeJsonExtension.fromJson(
         jsonSerialization['createdAt'],
       ),
@@ -105,6 +136,11 @@ abstract class MessengerUser implements _i1.SerializableModel {
   /// overhead, отдельная таблица — overengineering.
   bool showMessagePreview;
 
+  /// **TASK55 итер.1**: момент последней активности (heartbeat SDK /
+  /// открытие стрима). Источник «был(а) в сети…» в 1:1. Пишется с
+  /// троттлом (не чаще раза в минуту), наружу отдаётся с огрублением.
+  DateTime? lastActiveAt;
+
   /// **B11**: отправлять ли read-receipts (m.read) другим участникам.
   /// false = «инкогнито-чтение»: markRead шлёт m.read.private (свой unread
   /// чистится, но peer НЕ видит ✓✓). default=true (как было).
@@ -117,6 +153,39 @@ abstract class MessengerUser implements _i1.SerializableModel {
   /// найти меня по имени/@username/email». Default true = backward-compat
   /// (существующие строки остаются находимыми).
   bool discoverable;
+
+  /// **TASK52 итер.1**: кто может создать со мной direct: 'everyone'
+  /// (default, текущее поведение) | 'contacts' (только те, с кем есть
+  /// trust-связь; итер.1 — общая комната, итер.2 мигрирует на
+  /// ContactLink). Enforcement server-side в RoomService.createDirect;
+  /// отказ неотличим от «пользователь не найден» (PeerUnavailable,
+  /// §3B.8). Боты/support-флоу создают комнаты другими путями — гейт
+  /// не про них.
+  String whoCanMessageMe;
+
+  /// **TASK52 итер.1 (§3A.5, контроль у смотрящего)**: показывать
+  /// визитки звонящих фуллскрином на экране входящего звонка.
+  /// default=true; false → обычный вид (имя + аватар).
+  bool showCardsOnCall;
+
+  /// **TASK55 итер.3**: скрыть свой last seen/online. Взаимность
+  /// (Telegram-правило): скрывший НЕ видит чужой presence. Enforcement
+  /// в PresenceService.getPresence (+guard в notifyTransition — watcher,
+  /// подписавшийся до скрытия, событий больше не получает). heartbeat
+  /// и lastActiveAt продолжают писаться — данные не отдаются наружу.
+  /// Default false = «показывать» (пилот-семантика, §8 спеки; для
+  /// публичного B2C дефолт пересмотреть).
+  bool presenceHidden;
+
+  /// **TASK64**: локаль БАЗОВОГО профиля (на каком языке заполнены
+  /// displayName и базовые поля визитки). null = не указано. Меняется
+  /// через setDefaultProfileLocale (копирует перевод в базу).
+  String? profileLocale;
+
+  /// **TASK64**: локаль интерфейса пользователя — SDK сообщает при
+  /// старте (setUiLocale). По ней сервер выбирает языковую версию
+  /// ЧУЖИХ профилей для этого смотрящего.
+  String? uiLocale;
 
   DateTime createdAt;
 
@@ -131,8 +200,14 @@ abstract class MessengerUser implements _i1.SerializableModel {
     String? displayName,
     String? avatarUrl,
     bool? showMessagePreview,
+    DateTime? lastActiveAt,
     bool? sendReadReceipts,
     bool? discoverable,
+    String? whoCanMessageMe,
+    bool? showCardsOnCall,
+    bool? presenceHidden,
+    String? profileLocale,
+    String? uiLocale,
     DateTime? createdAt,
   });
   @override
@@ -147,8 +222,14 @@ abstract class MessengerUser implements _i1.SerializableModel {
       if (displayName != null) 'displayName': displayName,
       if (avatarUrl != null) 'avatarUrl': avatarUrl,
       'showMessagePreview': showMessagePreview,
+      if (lastActiveAt != null) 'lastActiveAt': lastActiveAt?.toJson(),
       'sendReadReceipts': sendReadReceipts,
       'discoverable': discoverable,
+      'whoCanMessageMe': whoCanMessageMe,
+      'showCardsOnCall': showCardsOnCall,
+      'presenceHidden': presenceHidden,
+      if (profileLocale != null) 'profileLocale': profileLocale,
+      if (uiLocale != null) 'uiLocale': uiLocale,
       'createdAt': createdAt.toJson(),
     };
   }
@@ -170,8 +251,14 @@ class _MessengerUserImpl extends MessengerUser {
     String? displayName,
     String? avatarUrl,
     bool? showMessagePreview,
+    DateTime? lastActiveAt,
     bool? sendReadReceipts,
     bool? discoverable,
+    String? whoCanMessageMe,
+    bool? showCardsOnCall,
+    bool? presenceHidden,
+    String? profileLocale,
+    String? uiLocale,
     required DateTime createdAt,
   }) : super._(
          id: id,
@@ -181,8 +268,14 @@ class _MessengerUserImpl extends MessengerUser {
          displayName: displayName,
          avatarUrl: avatarUrl,
          showMessagePreview: showMessagePreview,
+         lastActiveAt: lastActiveAt,
          sendReadReceipts: sendReadReceipts,
          discoverable: discoverable,
+         whoCanMessageMe: whoCanMessageMe,
+         showCardsOnCall: showCardsOnCall,
+         presenceHidden: presenceHidden,
+         profileLocale: profileLocale,
+         uiLocale: uiLocale,
          createdAt: createdAt,
        );
 
@@ -198,8 +291,14 @@ class _MessengerUserImpl extends MessengerUser {
     Object? displayName = _Undefined,
     Object? avatarUrl = _Undefined,
     bool? showMessagePreview,
+    Object? lastActiveAt = _Undefined,
     bool? sendReadReceipts,
     bool? discoverable,
+    String? whoCanMessageMe,
+    bool? showCardsOnCall,
+    bool? presenceHidden,
+    Object? profileLocale = _Undefined,
+    Object? uiLocale = _Undefined,
     DateTime? createdAt,
   }) {
     return MessengerUser(
@@ -212,8 +311,18 @@ class _MessengerUserImpl extends MessengerUser {
       displayName: displayName is String? ? displayName : this.displayName,
       avatarUrl: avatarUrl is String? ? avatarUrl : this.avatarUrl,
       showMessagePreview: showMessagePreview ?? this.showMessagePreview,
+      lastActiveAt: lastActiveAt is DateTime?
+          ? lastActiveAt
+          : this.lastActiveAt,
       sendReadReceipts: sendReadReceipts ?? this.sendReadReceipts,
       discoverable: discoverable ?? this.discoverable,
+      whoCanMessageMe: whoCanMessageMe ?? this.whoCanMessageMe,
+      showCardsOnCall: showCardsOnCall ?? this.showCardsOnCall,
+      presenceHidden: presenceHidden ?? this.presenceHidden,
+      profileLocale: profileLocale is String?
+          ? profileLocale
+          : this.profileLocale,
+      uiLocale: uiLocale is String? ? uiLocale : this.uiLocale,
       createdAt: createdAt ?? this.createdAt,
     );
   }

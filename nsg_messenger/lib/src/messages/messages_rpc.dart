@@ -39,6 +39,15 @@ abstract class MessagesRpc {
     AttachmentRef? attachment,
     String? replyToMatrixEventId,
     List<int>? mentionedMessengerUserIds,
+    String? albumId,
+    String? forwardedFromName,
+    int? forwardedFromMessengerUserId,
+    // Issue #41: координаты первоисточника пересланного сообщения. Скаляры,
+    // а не `ForwardSource` — сигнатура намеренно зеркалит serverpod-овскую
+    // (см. doc класса): поменяется серверный API — сломается компиляция
+    // production-wiring-а, а не тесты с fake-ами.
+    int? forwardedFromRoomId,
+    String? forwardedFromEventId,
   });
 
   /// **TASK19 Chunk 3**: upload media bytes в Matrix media repo через
@@ -129,6 +138,26 @@ abstract class MessagesRpc {
   /// сразу (раньше терялись до первого realtime receipt-а).
   Future<List<MessengerEvent>> listReadReceipts({required int roomId});
 
+  /// **Issue #35 — закрепление сообщений**: закрепить сообщение
+  /// [matrixEventId]. Возвращает новый полный список закреплённых
+  /// matrixEventId (oldest-first) — controller сразу обновляет плашку.
+  /// Права проверяются сервером ([InsufficientPowerException] если нельзя).
+  Future<List<String>> pinMessage({
+    required int roomId,
+    required String matrixEventId,
+  });
+
+  /// **Issue #35**: снять закрепление [matrixEventId]. Возвращает новый
+  /// список закреплённых id. Idempotent.
+  Future<List<String>> unpinMessage({
+    required int roomId,
+    required String matrixEventId,
+  });
+
+  /// **Issue #35**: список закреплённых сообщений комнаты (для плашки).
+  /// Порядок — oldest-first. Пустой список — если ничего не закреплено.
+  Future<List<MessengerMessage>> listPinnedMessages({required int roomId});
+
   /// **B17 search in messages**: keyword-поиск через Matrix `/search`.
   /// Empty/short query (< 2 chars) → пустой list. Server-side limit
   /// clamp 1..200. Result отсортирован `recent` (newest first).
@@ -137,6 +166,20 @@ abstract class MessagesRpc {
     required String query,
     int limit,
   });
+
+  /// **TASK38**: создать задачу во внешнем таск-трекере из сообщения.
+  /// Возвращает [TaskLink] (`externalTaskKey`/`externalTaskUrl`). Бросает
+  /// [TaskIntegrationNotConfiguredException] если интеграция не настроена.
+  Future<TaskLink> createTaskFromMessage({
+    required int roomId,
+    required String matrixEventId,
+    required String body,
+  });
+
+  /// **TASK38 UI-gating**: доступна ли task-интеграция для комнаты —
+  /// показывать ли пункт «Создать задачу» в long-press меню. `false`
+  /// если нет enabled-конфига (SDK общий — у части продуктов её нет).
+  Future<bool> isTaskIntegrationAvailable({required int roomId});
 }
 
 /// Production-wrapper над `Client.messenger.*`.
@@ -177,6 +220,11 @@ class ClientMessagesRpc implements MessagesRpc {
     AttachmentRef? attachment,
     String? replyToMatrixEventId,
     List<int>? mentionedMessengerUserIds,
+    String? albumId,
+    String? forwardedFromName,
+    int? forwardedFromMessengerUserId,
+    int? forwardedFromRoomId,
+    String? forwardedFromEventId,
   }) => withAuthRetry(
     () => _client.messenger.sendMessage(
       roomId: roomId,
@@ -186,6 +234,11 @@ class ClientMessagesRpc implements MessagesRpc {
       attachment: attachment,
       replyToMatrixEventId: replyToMatrixEventId,
       mentionedMessengerUserIds: mentionedMessengerUserIds,
+      albumId: albumId,
+      forwardedFromName: forwardedFromName,
+      forwardedFromMessengerUserId: forwardedFromMessengerUserId,
+      forwardedFromRoomId: forwardedFromRoomId,
+      forwardedFromEventId: forwardedFromEventId,
     ),
     _session,
   );
@@ -323,6 +376,58 @@ class ClientMessagesRpc implements MessagesRpc {
   Future<List<MessengerEvent>> listReadReceipts({required int roomId}) =>
       withAuthRetry(
         () => _client.messenger.listReadReceipts(roomId: roomId),
+        _session,
+      );
+
+  @override
+  Future<List<String>> pinMessage({
+    required int roomId,
+    required String matrixEventId,
+  }) => withAuthRetry(
+    () => _client.messenger.pinMessage(
+      roomId: roomId,
+      matrixEventId: matrixEventId,
+    ),
+    _session,
+  );
+
+  @override
+  Future<List<String>> unpinMessage({
+    required int roomId,
+    required String matrixEventId,
+  }) => withAuthRetry(
+    () => _client.messenger.unpinMessage(
+      roomId: roomId,
+      matrixEventId: matrixEventId,
+    ),
+    _session,
+  );
+
+  @override
+  Future<List<MessengerMessage>> listPinnedMessages({required int roomId}) =>
+      withAuthRetry(
+        () => _client.messenger.listPinnedMessages(roomId: roomId),
+        _session,
+      );
+
+  @override
+  Future<TaskLink> createTaskFromMessage({
+    required int roomId,
+    required String matrixEventId,
+    required String body,
+  }) => withAuthRetry(
+    () => _client.messenger.createTaskFromMessage(
+      roomId: roomId,
+      matrixEventId: matrixEventId,
+      body: body,
+    ),
+    _session,
+  );
+
+  @override
+  Future<bool> isTaskIntegrationAvailable({required int roomId}) =>
+      withAuthRetry(
+        () => _client.messenger.isTaskIntegrationAvailable(roomId: roomId),
         _session,
       );
 }

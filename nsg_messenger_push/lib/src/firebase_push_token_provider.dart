@@ -8,6 +8,9 @@ import 'package:flutter/widgets.dart';
 import 'package:nsg_messenger/nsg_messenger.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import 'call_push.dart';
+import 'call_push_presenter.dart';
+
 /// **TASK20-Phase2 Chunk 5**: production [PushTokenProvider] поверх
 /// `firebase_messaging` (variant (a) — Firebase wraps APNs on iOS).
 ///
@@ -61,8 +64,9 @@ class FirebasePushTokenProvider implements PushTokenProvider {
         if (!provider._disposed) provider._tokenController.add(token);
       },
       onError: (Object e, StackTrace st) {
-        if (kDebugMode)
+        if (kDebugMode) {
           debugPrint('[FirebasePushTokenProvider] onTokenRefresh error: $e');
+        }
       },
     );
 
@@ -161,8 +165,9 @@ class FirebasePushTokenProvider implements PushTokenProvider {
         },
       );
     } catch (e) {
-      if (kDebugMode)
+      if (kDebugMode) {
         debugPrint('[FirebasePushTokenProvider] getCurrentToken failed: $e');
+      }
       return null;
     }
   }
@@ -229,25 +234,51 @@ class FirebasePushTokenProvider implements PushTokenProvider {
   }
 }
 
-/// **TASK20-Phase2 Chunk 5**: top-level background message handler.
-/// Flutter requires top-level (не closure) function for FCM bg
-/// dispatch (isolate boundary).
+/// **TASK20-Phase2 Chunk 5 / TASK46 (звонки в фоне)**: top-level
+/// background message handler. Flutter требует top-level (не closure)
+/// функцию для FCM bg-dispatch (граница isolate).
 ///
 /// **Использование**: host-app в `main()`:
 /// ```dart
 /// FirebaseMessaging.onBackgroundMessage(nsgMessengerBackgroundHandler);
 /// ```
 ///
-/// На MVP — no-op (notification UI Firebase сам показывает via OS).
-/// Phase3 E2EE: расшифровать payload + show local notification.
+/// **Важно**: этот handler исполняется в ОТДЕЛЬНОМ isolate (в т.ч. когда
+/// приложение убито) — у него НЕТ доступа к app-синглтонам
+/// (`NsgMessenger`, `MessengerRuntime`, `CallController`). Поэтому call-
+/// побудка полностью self-contained: разбираем data-payload
+/// ([CallPushData]) и поднимаем нативный полноэкранный входящий через
+/// `flutter_callkit_incoming` ([CallPushPresenter]). Реальный WebRTC-
+/// звонок стартует уже в главном isolate: при accept host-app выводит app
+/// на передний план, дожидается `m.call.invite` из /sync (коррелирует по
+/// callId) и зовёт `NsgMessenger.callController.accept()`.
+///
+/// Для НЕ-call сообщений — поведение как раньше (no-op; обычную
+/// notification система показывает сама, если в payload есть
+/// `notification`-блок). Phase3 E2EE: расшифровать payload + local
+/// notification.
 @pragma('vm:entry-point')
 Future<void> nsgMessengerBackgroundHandler(RemoteMessage message) async {
-  // No-op MVP. Phase3: decrypt E2EE payload + show local notification.
-  // Без этого handler-а Firebase всё равно показывает notification
-  // (если payload содержит `notification` field, который мы send-аем
-  // в FcmPushAdapter._buildFcmMessage).
-  if (kDebugMode)
+  final call = CallPushData.tryParse(message.data);
+  if (call != null) {
+    // Call-побудка: поднять полноэкранный входящий (Android full-screen-
+    // intent / iOS CallKit). Self-contained — не трогаем app-синглтоны.
+    if (kDebugMode) {
+      debugPrint(
+        '[nsgMessengerBackgroundHandler] call-push: ${call.callId} '
+        'from ${call.callerName}',
+      );
+    }
+    await CallPushPresenter.showIncoming(call);
+    return;
+  }
+
+  // No-op MVP для обычных сообщений. Phase3: decrypt E2EE payload + show
+  // local notification. Без этого handler-а Firebase всё равно показывает
+  // notification (если payload содержит `notification` field).
+  if (kDebugMode) {
     debugPrint(
       '[nsgMessengerBackgroundHandler] received: ${message.messageId}',
     );
+  }
 }

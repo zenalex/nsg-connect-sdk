@@ -11,6 +11,7 @@
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod_client/serverpod_client.dart' as _i1;
+import 'enums/device_platform.dart' as _i2;
 
 /// EmailSession — issued session token для [EmailAccount]. Используется
 /// как `MessengerAuthContext.accessToken` клиентом; verify-ится
@@ -25,8 +26,12 @@ abstract class EmailSession implements _i1.SerializableModel {
     required this.emailAccountId,
     required this.sessionToken,
     this.deviceId,
+    this.platform,
+    this.deviceName,
+    this.appVersion,
     required this.createdAt,
     required this.expiresAt,
+    this.lastSeenAt,
     this.revokedAt,
   });
 
@@ -35,8 +40,12 @@ abstract class EmailSession implements _i1.SerializableModel {
     required int emailAccountId,
     required String sessionToken,
     String? deviceId,
+    _i2.DevicePlatform? platform,
+    String? deviceName,
+    String? appVersion,
     required DateTime createdAt,
     required DateTime expiresAt,
+    DateTime? lastSeenAt,
     DateTime? revokedAt,
   }) = _EmailSessionImpl;
 
@@ -46,12 +55,22 @@ abstract class EmailSession implements _i1.SerializableModel {
       emailAccountId: jsonSerialization['emailAccountId'] as int,
       sessionToken: jsonSerialization['sessionToken'] as String,
       deviceId: jsonSerialization['deviceId'] as String?,
+      platform: jsonSerialization['platform'] == null
+          ? null
+          : _i2.DevicePlatform.fromJson(
+              (jsonSerialization['platform'] as String),
+            ),
+      deviceName: jsonSerialization['deviceName'] as String?,
+      appVersion: jsonSerialization['appVersion'] as String?,
       createdAt: _i1.DateTimeJsonExtension.fromJson(
         jsonSerialization['createdAt'],
       ),
       expiresAt: _i1.DateTimeJsonExtension.fromJson(
         jsonSerialization['expiresAt'],
       ),
+      lastSeenAt: jsonSerialization['lastSeenAt'] == null
+          ? null
+          : _i1.DateTimeJsonExtension.fromJson(jsonSerialization['lastSeenAt']),
       revokedAt: jsonSerialization['revokedAt'] == null
           ? null
           : _i1.DateTimeJsonExtension.fromJson(jsonSerialization['revokedAt']),
@@ -73,11 +92,31 @@ abstract class EmailSession implements _i1.SerializableModel {
   /// Полезна для управления sessions ("выйти на других устройствах").
   String? deviceId;
 
+  /// Платформа устройства, с которого создана сессия (issue #23 — экран
+  /// «Устройства»). Nullable — сессии, выпущенные до фичи, платформы не
+  /// знают; клиент присылает при signIn/signUp.
+  _i2.DevicePlatform? platform;
+
+  /// Человекочитаемое имя устройства для списка сессий (issue #23):
+  /// hostname / модель («Alex-iPhone», «DESKTOP-ABC», «iPhone»). Best-
+  /// effort — может быть null (UI fallback на платформу).
+  String? deviceName;
+
+  /// Версия приложения на момент входа ('1.0.57+58'). Помогает отличить
+  /// устройства в списке и триаге. Nullable по тем же причинам.
+  String? appVersion;
+
   DateTime createdAt;
 
   /// Server-side expiry (на MVP — 90 дней). Client SDK сам не следит
   /// за expiry; expired-сессия даст InvalidTokenException на verify.
   DateTime expiresAt;
+
+  /// Последняя активность сессии (issue #23 — «последнее использование»).
+  /// Обновляется в `EmailAuthAdapter.verify` (throttled) при обмене
+  /// email-токена на messenger-сессию (cold-start / refresh). Nullable —
+  /// legacy-строки без активности; UI показывает createdAt как fallback.
+  DateTime? lastSeenAt;
 
   /// Явный revoke (logout / admin force-logout). Истечение через expiresAt
   /// менее explicit; revokedAt = stamped sign-off.
@@ -91,8 +130,12 @@ abstract class EmailSession implements _i1.SerializableModel {
     int? emailAccountId,
     String? sessionToken,
     String? deviceId,
+    _i2.DevicePlatform? platform,
+    String? deviceName,
+    String? appVersion,
     DateTime? createdAt,
     DateTime? expiresAt,
+    DateTime? lastSeenAt,
     DateTime? revokedAt,
   });
   @override
@@ -103,8 +146,12 @@ abstract class EmailSession implements _i1.SerializableModel {
       'emailAccountId': emailAccountId,
       'sessionToken': sessionToken,
       if (deviceId != null) 'deviceId': deviceId,
+      if (platform != null) 'platform': platform?.toJson(),
+      if (deviceName != null) 'deviceName': deviceName,
+      if (appVersion != null) 'appVersion': appVersion,
       'createdAt': createdAt.toJson(),
       'expiresAt': expiresAt.toJson(),
+      if (lastSeenAt != null) 'lastSeenAt': lastSeenAt?.toJson(),
       if (revokedAt != null) 'revokedAt': revokedAt?.toJson(),
     };
   }
@@ -123,16 +170,24 @@ class _EmailSessionImpl extends EmailSession {
     required int emailAccountId,
     required String sessionToken,
     String? deviceId,
+    _i2.DevicePlatform? platform,
+    String? deviceName,
+    String? appVersion,
     required DateTime createdAt,
     required DateTime expiresAt,
+    DateTime? lastSeenAt,
     DateTime? revokedAt,
   }) : super._(
          id: id,
          emailAccountId: emailAccountId,
          sessionToken: sessionToken,
          deviceId: deviceId,
+         platform: platform,
+         deviceName: deviceName,
+         appVersion: appVersion,
          createdAt: createdAt,
          expiresAt: expiresAt,
+         lastSeenAt: lastSeenAt,
          revokedAt: revokedAt,
        );
 
@@ -145,8 +200,12 @@ class _EmailSessionImpl extends EmailSession {
     int? emailAccountId,
     String? sessionToken,
     Object? deviceId = _Undefined,
+    Object? platform = _Undefined,
+    Object? deviceName = _Undefined,
+    Object? appVersion = _Undefined,
     DateTime? createdAt,
     DateTime? expiresAt,
+    Object? lastSeenAt = _Undefined,
     Object? revokedAt = _Undefined,
   }) {
     return EmailSession(
@@ -154,8 +213,12 @@ class _EmailSessionImpl extends EmailSession {
       emailAccountId: emailAccountId ?? this.emailAccountId,
       sessionToken: sessionToken ?? this.sessionToken,
       deviceId: deviceId is String? ? deviceId : this.deviceId,
+      platform: platform is _i2.DevicePlatform? ? platform : this.platform,
+      deviceName: deviceName is String? ? deviceName : this.deviceName,
+      appVersion: appVersion is String? ? appVersion : this.appVersion,
       createdAt: createdAt ?? this.createdAt,
       expiresAt: expiresAt ?? this.expiresAt,
+      lastSeenAt: lastSeenAt is DateTime? ? lastSeenAt : this.lastSeenAt,
       revokedAt: revokedAt is DateTime? ? revokedAt : this.revokedAt,
     );
   }

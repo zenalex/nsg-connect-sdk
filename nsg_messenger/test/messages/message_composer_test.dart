@@ -19,13 +19,40 @@ void main() {
     await tester.pumpWidget(
       wrap(
         MessageComposer(
-          onSend: (b, {mentionedMessengerUserIds}) async => sent.add(b),
+          onSend: (b, {mentionedMessengerUserIds, albumId}) async =>
+              sent.add(b),
         ),
       ),
     );
     final btn = tester.widget<IconButton>(find.byType(IconButton));
     expect(btn.onPressed, isNull);
   });
+
+  testWidgets(
+    'TASK57: initialText сидирует поле → текст виден + send enabled',
+    (tester) async {
+      final sent = <String>[];
+      await tester.pumpWidget(
+        wrap(
+          MessageComposer(
+            initialText: '🐛 Сообщение об ошибке',
+            onSend: (b, {mentionedMessengerUserIds, albumId}) async =>
+                sent.add(b),
+          ),
+        ),
+      );
+      await tester.pump();
+      // Шаблон виден в поле, кнопка «отправить» активна без ручного ввода.
+      expect(find.text('🐛 Сообщение об ошибке'), findsOneWidget);
+      final btn = tester.widget<IconButton>(
+        find.ancestor(
+          of: find.byIcon(Icons.send),
+          matching: find.byType(IconButton),
+        ),
+      );
+      expect(btn.onPressed, isNotNull);
+    },
+  );
 
   testWidgets('text → send-button enabled; tap отправляет + clears field', (
     tester,
@@ -34,7 +61,8 @@ void main() {
     await tester.pumpWidget(
       wrap(
         MessageComposer(
-          onSend: (b, {mentionedMessengerUserIds}) async => sent.add(b),
+          onSend: (b, {mentionedMessengerUserIds, albumId}) async =>
+              sent.add(b),
         ),
       ),
     );
@@ -56,7 +84,8 @@ void main() {
       await tester.pumpWidget(
         wrap(
           MessageComposer(
-            onSend: (b, {mentionedMessengerUserIds}) async => sent.add(b),
+            onSend: (b, {mentionedMessengerUserIds, albumId}) async =>
+                sent.add(b),
           ),
         ),
       );
@@ -76,12 +105,42 @@ void main() {
     },
   );
 
+  testWidgets(
+    'счётчик «0/4096» скрыт (counterText пустой), но лимит сохранён',
+    (tester) async {
+      await tester.pumpWidget(
+        wrap(
+          MessageComposer(
+            onSend: (b, {mentionedMessengerUserIds, albumId}) async {},
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Пустое поле: раньше показывался «0/4096».
+      expect(find.text('0/4096'), findsNothing);
+
+      // Ввод текста: counter «N/4096» тоже не должен появляться.
+      await tester.enterText(find.byType(TextField), 'привет');
+      await tester.pump();
+      expect(find.textContaining('/4096'), findsNothing);
+
+      // Лимит/enforcement сохранены на самом TextField.
+      final field = tester.widget<TextField>(find.byType(TextField));
+      expect(field.maxLength, 4096);
+      expect(field.maxLengthEnforcement, MaxLengthEnforcement.enforced);
+      // counterText пустой → встроенный счётчик не рендерится.
+      expect(field.decoration?.counterText, '');
+    },
+  );
+
   testWidgets('hardware Enter submits (desktop) without Shift', (tester) async {
     final sent = <String>[];
     await tester.pumpWidget(
       wrap(
         MessageComposer(
-          onSend: (b, {mentionedMessengerUserIds}) async => sent.add(b),
+          onSend: (b, {mentionedMessengerUserIds, albumId}) async =>
+              sent.add(b),
         ),
       ),
     );
@@ -105,7 +164,8 @@ void main() {
     await tester.pumpWidget(
       wrap(
         MessageComposer(
-          onSend: (b, {mentionedMessengerUserIds}) async => sent.add(b),
+          onSend: (b, {mentionedMessengerUserIds, albumId}) async =>
+              sent.add(b),
         ),
       ),
     );
@@ -126,7 +186,8 @@ void main() {
     await tester.pumpWidget(
       wrap(
         MessageComposer(
-          onSend: (b, {mentionedMessengerUserIds}) async => sent.add(b),
+          onSend: (b, {mentionedMessengerUserIds, albumId}) async =>
+              sent.add(b),
         ),
       ),
     );
@@ -143,7 +204,8 @@ void main() {
     await tester.pumpWidget(
       wrap(
         MessageComposer(
-          onSend: (b, {mentionedMessengerUserIds}) async => sent.add(b),
+          onSend: (b, {mentionedMessengerUserIds, albumId}) async =>
+              sent.add(b),
           enabled: false,
         ),
       ),
@@ -160,7 +222,11 @@ void main() {
     // flutter_localizations dep не доступно. RU-pattern проверен в
     // message_bubble_test (там TextField нет).
     await tester.pumpWidget(
-      wrap(MessageComposer(onSend: (_, {mentionedMessengerUserIds}) async {})),
+      wrap(
+        MessageComposer(
+          onSend: (_, {mentionedMessengerUserIds, albumId}) async {},
+        ),
+      ),
     );
     expect(find.text('Message…'), findsOneWidget);
     final tooltips = tester.widgetList<Tooltip>(find.byType(Tooltip));
@@ -185,7 +251,7 @@ void main() {
     await tester.pumpWidget(
       wrap(
         MessageComposer(
-          onSend: (_, {mentionedMessengerUserIds}) async {},
+          onSend: (_, {mentionedMessengerUserIds, albumId}) async {},
           onRequestEditLast: () => requested++,
         ),
       ),
@@ -205,7 +271,7 @@ void main() {
     await tester.pumpWidget(
       wrap(
         MessageComposer(
-          onSend: (_, {mentionedMessengerUserIds}) async {},
+          onSend: (_, {mentionedMessengerUserIds, albumId}) async {},
           onRequestEditLast: () => requested++,
         ),
       ),
@@ -224,9 +290,10 @@ void main() {
       final edits = <List<dynamic>>[];
       Widget build(ChatMessage? target) => wrap(
         MessageComposer(
-          onSend: (b, {mentionedMessengerUserIds}) async => sent.add(b),
+          onSend: (b, {mentionedMessengerUserIds, albumId}) async =>
+              sent.add(b),
           editTarget: target,
-          onEdit: (id, body, {mentionedMessengerUserIds}) async {
+          onEdit: (id, body, {mentionedMessengerUserIds, albumId}) async {
             edits.add([id, body]);
           },
           onCancelEdit: () {},
@@ -262,10 +329,10 @@ void main() {
     await tester.pumpWidget(
       wrap(
         MessageComposer(
-          onSend: (_, {mentionedMessengerUserIds}) async {},
+          onSend: (_, {mentionedMessengerUserIds, albumId}) async {},
           editTarget: edit,
           replyTarget: reply,
-          onEdit: (_, _, {mentionedMessengerUserIds}) async {},
+          onEdit: (_, _, {mentionedMessengerUserIds, albumId}) async {},
           onCancelEdit: () => cancelEdit++,
           onCancelReply: () => cancelReply++,
         ),
@@ -284,9 +351,9 @@ void main() {
   ) async {
     Widget build(ChatMessage? target) => wrap(
       MessageComposer(
-        onSend: (_, {mentionedMessengerUserIds}) async {},
+        onSend: (_, {mentionedMessengerUserIds, albumId}) async {},
         editTarget: target,
-        onEdit: (_, _, {mentionedMessengerUserIds}) async {},
+        onEdit: (_, _, {mentionedMessengerUserIds, albumId}) async {},
         onCancelEdit: () {},
       ),
     );
@@ -321,7 +388,7 @@ void main() {
     await tester.pumpWidget(
       wrap(
         MessageComposer(
-          onSend: (_, {mentionedMessengerUserIds}) async {},
+          onSend: (_, {mentionedMessengerUserIds, albumId}) async {},
           participants: [
             participant(id: 1, matrix: '@bob:localhost', name: 'Bob'),
             participant(id: 2, matrix: '@bill:localhost', name: 'Bill'),
@@ -345,7 +412,7 @@ void main() {
     await tester.pumpWidget(
       wrap(
         MessageComposer(
-          onSend: (_, {mentionedMessengerUserIds}) async {},
+          onSend: (_, {mentionedMessengerUserIds, albumId}) async {},
           participants: [
             participant(id: 1, matrix: '@bob:localhost', name: 'Bob'),
           ],
@@ -362,7 +429,11 @@ void main() {
 
   testWidgets('B12: Ctrl+B оборачивает выделение в **bold**', (tester) async {
     await tester.pumpWidget(
-      wrap(MessageComposer(onSend: (_, {mentionedMessengerUserIds}) async {})),
+      wrap(
+        MessageComposer(
+          onSend: (_, {mentionedMessengerUserIds, albumId}) async {},
+        ),
+      ),
     );
     await tester.enterText(find.byType(TextField), 'hello world');
     await tester.pump();
@@ -379,7 +450,11 @@ void main() {
 
   testWidgets('B12: Ctrl+I оборачивает выделение в _italic_', (tester) async {
     await tester.pumpWidget(
-      wrap(MessageComposer(onSend: (_, {mentionedMessengerUserIds}) async {})),
+      wrap(
+        MessageComposer(
+          onSend: (_, {mentionedMessengerUserIds, albumId}) async {},
+        ),
+      ),
     );
     await tester.enterText(find.byType(TextField), 'hello world');
     await tester.pump();
@@ -398,7 +473,11 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      wrap(MessageComposer(onSend: (_, {mentionedMessengerUserIds}) async {})),
+      wrap(
+        MessageComposer(
+          onSend: (_, {mentionedMessengerUserIds, albumId}) async {},
+        ),
+      ),
     );
     await tester.enterText(find.byType(TextField), 'hi');
     await tester.pump();

@@ -157,6 +157,8 @@ class DemoRuntimeData {
       archived: r.archived,
       muted: r.mutedUntil != null && r.mutedUntil!.isAfter(DateTime.now()),
       roomType: _roomTypeFromString(r.roomType),
+      // TASK48: в демо эскалация в поддержку доступна (для показа функции).
+      canEscalateSupport: true,
       participants: participants,
       totalParticipants: participants.length,
       viewerRole: RoomMemberRole.owner,
@@ -297,6 +299,9 @@ Future<void> installDemoRuntime({
           required bool showMessagePreview,
           bool? sendReadReceipts,
           bool? discoverable,
+          String? whoCanMessageMe,
+          bool? showCardsOnCall,
+          bool? presenceHidden,
         }) async {},
   );
 
@@ -327,6 +332,18 @@ class _DemoMessagesRpc implements MessagesRpc {
   final DemoRuntimeData _data;
 
   @override
+  Future<TaskLink> createTaskFromMessage({
+    required int roomId,
+    required String matrixEventId,
+    required String body,
+  }) => throw UnsupportedError(
+    'NsgMessenger.initDemo: createTaskFromMessage is disabled in demo mode.',
+  );
+
+  @override
+  Future<bool> isTaskIntegrationAvailable({required int roomId}) async => false;
+
+  @override
   Future<MessengerMessageListPage> listMessages({
     required int roomId,
     String? fromToken,
@@ -350,6 +367,11 @@ class _DemoMessagesRpc implements MessagesRpc {
     AttachmentRef? attachment,
     String? replyToMatrixEventId,
     List<int>? mentionedMessengerUserIds,
+    String? albumId,
+    String? forwardedFromName,
+    int? forwardedFromMessengerUserId,
+    int? forwardedFromRoomId,
+    String? forwardedFromEventId,
   }) {
     throw UnimplementedError(
       'NsgMessenger.initDemo: sendMessage is disabled in demo mode.',
@@ -464,6 +486,29 @@ class _DemoMessagesRpc implements MessagesRpc {
   Future<List<MessengerEvent>> listReadReceipts({required int roomId}) async {
     // Demo: нет persisted read-receipts в fixtures.
     return const <MessengerEvent>[];
+  }
+
+  @override
+  Future<List<String>> pinMessage({
+    required int roomId,
+    required String matrixEventId,
+  }) async {
+    // Demo: закрепление недоступно (нет серверного Matrix state).
+    return const <String>[];
+  }
+
+  @override
+  Future<List<String>> unpinMessage({
+    required int roomId,
+    required String matrixEventId,
+  }) async => const <String>[];
+
+  @override
+  Future<List<MessengerMessage>> listPinnedMessages({
+    required int roomId,
+  }) async {
+    // Demo: нет закреплённых в fixtures.
+    return const <MessengerMessage>[];
   }
 }
 

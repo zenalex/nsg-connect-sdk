@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:nsg_connect_client/nsg_connect_client.dart';
 
 import '../i18n/generated/nsg_l10n.dart';
+import '../messenger_runtime.dart';
 import 'chats_list_controller.dart';
 
 /// Описание дополнительного host-app action-а для [showRoomActionSheet].
@@ -100,8 +101,11 @@ class _RoomActionSheetBody extends StatelessWidget {
             ListTile(
               leading: const Icon(Icons.notifications_active),
               title: Text(l.roomActionUnmute),
-              onTap: () =>
-                  _runOptimistic(context, () => controller.unmuteRoom(room.id)),
+              onTap: () => _runOptimistic(
+                context,
+                'unmute',
+                () => controller.unmuteRoom(room.id),
+              ),
             )
           else
             ListTile(
@@ -115,7 +119,11 @@ class _RoomActionSheetBody extends StatelessWidget {
                 // showModalBottomSheet падал на мёртвом контексте), и нет «панели
                 // поверх панели» (фикс регрессии #28: main sheet уже закрыт).
                 navigator.pop();
-                await _showMuteDurationSheet(navigator.context, room, controller);
+                await _showMuteDurationSheet(
+                  navigator.context,
+                  room,
+                  controller,
+                );
               },
             ),
           if (room.archived)
@@ -124,6 +132,7 @@ class _RoomActionSheetBody extends StatelessWidget {
               title: Text(l.roomActionUnarchive),
               onTap: () => _runOptimistic(
                 context,
+                'unarchive',
                 () => controller.unarchiveRoom(room.id),
               ),
             )
@@ -133,7 +142,20 @@ class _RoomActionSheetBody extends StatelessWidget {
               title: Text(l.roomActionArchive),
               onTap: () => _runOptimistic(
                 context,
+                'archive',
                 () => controller.archiveRoom(room.id),
+              ),
+            ),
+          // **TASK75 §3**: «закрыть» support-чат у оператора — скрыть до
+          // следующего сообщения заявителя. Только для support-комнат.
+          if (room.roomType == RoomType.support)
+            ListTile(
+              leading: const Icon(Icons.check_circle_outline),
+              title: Text(l.roomActionDismissSupport),
+              onTap: () => _runOptimistic(
+                context,
+                'dismissSupport',
+                () => controller.dismissRoom(room.id),
               ),
             ),
           for (final entry in extraActions)
@@ -167,6 +189,7 @@ class _RoomActionSheetBody extends StatelessWidget {
               navigator.pop();
               await _runOptimisticDirect(
                 context,
+                'leave',
                 () => controller.leaveRoom(room.id),
               );
             },
@@ -180,26 +203,40 @@ class _RoomActionSheetBody extends StatelessWidget {
   /// Используется для actions, которые НЕ открывают secondary UI.
   Future<void> _runOptimistic(
     BuildContext context,
+    String actionName,
     Future<void> Function() action,
   ) async {
     final navigator = Navigator.of(context);
     navigator.pop();
-    await _runOptimisticDirect(context, action);
+    await _runOptimisticDirect(context, actionName, action);
   }
 
   /// Без закрытия sheet (assume already closed). Чисто RPC + error
   /// snackbar. `ScaffoldMessenger` выловлен ДО async gap (sheet
   /// сейчас pop-нется, но root-scaffold messenger жив весь lifetime
   /// `ChatsListScreen`).
+  ///
+  /// [actionName] — только для трекера: через этот хелпер проходят все шесть
+  /// действий sheet-а с ОДНИМ снеком `roomActionFailedSnack`, и без тега
+  /// отчёт сводится к «что-то в action-sheet упало».
   static Future<void> _runOptimisticDirect(
     BuildContext context,
+    String actionName,
     Future<void> Function() action,
   ) async {
     final messenger = ScaffoldMessenger.maybeOf(context);
     final l = NsgL10n.of(context);
     try {
       await action();
-    } catch (_) {
+    } catch (e, st) {
+      // Пользователь видит ошибку — трекер обязан видеть причину. Тут это
+      // особенно дёшево потерять: update оптимистичный, local state уже
+      // откатан, и внешне «просто не сработало».
+      MessengerRuntime.instance.reportError(
+        e,
+        st,
+        tags: {'room.action': actionName},
+      );
       messenger?.showSnackBar(
         SnackBar(
           content: Text(l.roomActionFailedSnack),
@@ -228,6 +265,7 @@ Future<void> _showMuteDurationSheet(
         Navigator.of(ctx).pop();
         await _RoomActionSheetBody._runOptimisticDirect(
           context,
+          'mute',
           () => controller.muteRoom(room.id, duration: duration),
         );
       }
