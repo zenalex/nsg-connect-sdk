@@ -23,37 +23,124 @@ class CallPushPresenter {
   /// message-канала — с высокой важностью и full-screen-intent.
   static const String androidChannelName = 'Входящие звонки';
 
+  /// **TASK51 чанк 4**: заголовок входящего для группового звонка. Звонит
+  /// не человек, а комната, поэтому имя одного из участников на экране
+  /// вводило бы в заблуждение.
+  static const String conferenceTitle = 'Групповой звонок';
+
+  /// Окно защиты от повторного показа ОДНОГО И ТОГО ЖЕ CallKit-id.
+  /// Совпадает с `duration` входящего (60с): пока «входящий» на экране,
+  /// второй show — всегда дубль.
+  static const Duration duplicateShowWindow = Duration(seconds: 60);
+
+  /// Последний показанный CallKit-id и когда (см. [shouldSkipDuplicateShow]).
+  static String? _lastShownId;
+  static DateTime? _lastShownAt;
+
+  /// **Гард от повторного «входящего»** — чистая логика (без плагина).
+  ///
+  /// Сервер уже дедуплицирует побудки конференции по (confId, получатель),
+  /// но это ВТОРОЙ рубеж — на случай доставки в обход него (ретрай FCM,
+  /// побудка от другого инстанса, окно дедупа истекло на границе). Плагин
+  /// `flutter_callkit_incoming` идемпотентным по id НЕ является: на Android
+  /// повторный `showCallkitIncoming` заново заводит рингтон и
+  /// full-screen-intent, то есть звонит второй раз.
+  ///
+  /// Best-effort: состояние статическое, а показ происходит в FCM
+  /// background isolate — при его пересоздании гард обнуляется. Главный
+  /// механизм схлопывания — общий [CallPushData.callKitId], этот лишь
+  /// гасит хвосты.
+  @visibleForTesting
+  static bool shouldSkipDuplicateShow({
+    required String callKitId,
+    required String? lastShownId,
+    required DateTime? lastShownAt,
+    required DateTime now,
+    Duration window = duplicateShowWindow,
+  }) {
+    if (lastShownId == null || lastShownAt == null) return false;
+    if (lastShownId != callKitId) return false;
+    return now.difference(lastShownAt) < window;
+  }
+
+  /// **Tests only**: сбросить гард повторного показа.
+  @visibleForTesting
+  static void resetDuplicateShowGuard() {
+    _lastShownId = null;
+    _lastShownAt = null;
+  }
+
   /// Показать полноэкранный входящий звонок для данного [data].
   ///
-  /// [callId] используется как id CallKit-сессии — тот же, что придёт в
-  /// `m.call.invite`, поэтому host-app сможет закрыть UI (`endCall`) и
-  /// сматчить accept с `CallController`. Idempotent на уровне плагина:
-  /// повторный show с тем же id обновляет существующую сессию.
+  /// Id CallKit-сессии — [CallPushData.callKitId]:
+  ///   * 1:1 — сам callId (тот же, что придёт в `m.call.invite`), поэтому
+  ///     host-app закрывает UI (`endCall`) и матчит accept с
+  ///     `CallController`;
+  ///   * **TASK51 чанк 4**: конференция — id, посчитанный из confId, ОДИН
+  ///     на всю конференцию. Пачка pairwise-побудок схлопывается в один
+  ///     «входящий» вместо N штук (на iOS каждая побудка ОБЯЗАНА
+  ///     отрепортить звонок в CallKit — иначе система убьёт приложение, —
+  ///     так что «просто не показывать лишние» там не вариант).
   static Future<void> showIncoming(CallPushData data) async {
+    final callKitId = data.callKitId;
+    final now = DateTime.now();
+    if (shouldSkipDuplicateShow(
+      callKitId: callKitId,
+      lastShownId: _lastShownId,
+      lastShownAt: _lastShownAt,
+      now: now,
+    )) {
+      if (kDebugMode) {
+        debugPrint('[CallPushPresenter] повторный show $callKitId — пропуск');
+      }
+      return;
+    }
+    _lastShownId = callKitId;
+    _lastShownAt = now;
+
+    final isConf = data.isConference;
+    // Групповой: «Групповой звонок · Команда». Одной строкой, потому что
+    // на Android при `isShowCallID: false` виден только nameCaller.
+    final nameCaller = isConf
+        ? (data.roomName.isNotEmpty
+              ? '$conferenceTitle · ${data.roomName}'
+              : conferenceTitle)
+        : (data.callerName.isNotEmpty ? data.callerName : 'Входящий');
+    final handle = isConf
+        ? (data.roomName.isNotEmpty ? data.roomName : conferenceTitle)
+        : data.callerName;
+
     final params = CallKitParams(
-      id: data.callId,
-      nameCaller: data.callerName.isNotEmpty ? data.callerName : 'Входящий',
+      id: callKitId,
+      nameCaller: nameCaller,
       appName: 'Chatista',
-      handle: data.callerName,
+      handle: handle,
       // 0 — аудио-звонок (голосовой 1:1, video пока нет).
       type: 0,
       textAccept: 'Ответить',
       textDecline: 'Отклонить',
       // Держим UI до 60с — совпадает с invite-lifetime CallController-а;
       // дальше система сама снимет нотификацию (missed).
-      missedCallNotification: const NotificationParams(
+      missedCallNotification: NotificationParams(
         showNotification: true,
-        subtitle: 'Пропущенный звонок',
+        subtitle: isConf ? 'Пропущенный групповой звонок' : 'Пропущенный звонок',
       ),
       duration: 60000,
       // Прокидываем контекст в extra — host-app восстановит из
-      // CallEvent.body при accept/decline (корреляция по callId).
+      // CallEvent.body при accept/decline (корреляция по callId, а для
+      // конференции — по confId: callId у каждой пары свой).
       extra: <String, dynamic>{
         'callId': data.callId,
         'roomId': data.roomId.toString(),
         'matrixRoomId': data.matrixRoomId,
         'callerId': data.callerId.toString(),
         'callerName': data.callerName,
+        if (data.roomName.isNotEmpty) 'roomName': data.roomName,
+        if (isConf) ...<String, dynamic>{
+          'callKind': 'conference',
+          'confId': data.confId,
+          'callKitId': callKitId,
+        },
       },
       android: const AndroidParams(
         // false → стандартная call-нотификация с явными кнопками
@@ -94,10 +181,17 @@ class CallPushPresenter {
     }
   }
 
-  /// Снять входящий/активный CallKit-UI по [callId]. Best-effort —
-  /// вызывается когда звонок завершился/соединился (host-app хук на
-  /// `CallController`) или при foreground-дедупликации.
+  /// Снять входящий/активный CallKit-UI по [callId] (для конференции —
+  /// по её [CallPushData.callKitId]). Best-effort — вызывается когда
+  /// звонок завершился/соединился (host-app хук на `CallController` /
+  /// `ConferenceCallController`) или при foreground-дедупликации.
   static Future<void> end(String callId) async {
+    // «Входящего» больше нет — снимаем и гард, иначе повторный звонок с тем
+    // же id (перезаход в ту же конференцию) молча не показался бы.
+    if (_lastShownId == callId) {
+      _lastShownId = null;
+      _lastShownAt = null;
+    }
     try {
       await FlutterCallkitIncoming.endCall(callId);
     } catch (e) {
@@ -107,6 +201,8 @@ class CallPushPresenter {
 
   /// Снять все CallKit-сессии (teardown / logout).
   static Future<void> endAll() async {
+    _lastShownId = null;
+    _lastShownAt = null;
     try {
       await FlutterCallkitIncoming.endAllCalls();
     } catch (e) {

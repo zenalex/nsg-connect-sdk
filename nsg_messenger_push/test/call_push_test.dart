@@ -110,5 +110,108 @@ void main() {
       expect(a, equals(b));
       expect(a.hashCode, equals(b.hashCode));
     });
+
+    // **TASK51 чанк 4**: 1:1-побудка старого сервера не должна
+    // притвориться конференцией.
+    test('1:1: isConference=false, callKitId = callId', () {
+      final data = CallPushData.tryParse(fullPayload())!;
+      expect(data.isConference, isFalse);
+      expect(data.confId, isNull);
+      expect(data.callKitId, 'call-abc-123');
+      expect(data.roomName, '');
+    });
+  });
+
+  // **TASK51 чанк 4 (CallKit-коллапс)**: побудка на mesh-конференцию.
+  group('CallPushData.tryParse — конференция (TASK51 чанк 4)', () {
+    const confId = 'conf_0123456789abcdef0123456789abcdef';
+
+    Map<String, dynamic> conferencePayload() => <String, dynamic>{
+      'type': 'call',
+      'callKind': 'conference',
+      'confId': confId,
+      'callKitId': '01234567-89ab-cdef-0123-456789abcdef',
+      'callId': 'conf:$confId:42:pair-1',
+      'roomId': '7',
+      'matrixRoomId': '!room:matrix.example',
+      'callerId': '13',
+      'callerName': 'Иван Петров',
+      'roomName': 'Команда',
+    };
+
+    test('парсит конференц-поля', () {
+      final data = CallPushData.tryParse(conferencePayload())!;
+      expect(data.isConference, isTrue);
+      expect(data.confId, confId);
+      expect(data.roomName, 'Команда');
+      // callId ПАРЫ сохраняется — по нему коррелируется pairwise-invite.
+      expect(data.callId, 'conf:$confId:42:pair-1');
+    });
+
+    // Главное свойство чанка: разные пары одной конференции дают ОДИН
+    // CallKit-id → повторные побудки схлопываются в один «входящий».
+    test('callKitId одинаков для разных пар одной конференции', () {
+      final a = CallPushData.tryParse(conferencePayload())!;
+      final b = CallPushData.tryParse(
+        conferencePayload()..['callId'] = 'conf:$confId:42:pair-2',
+      )!;
+      expect(a.callKitId, b.callKitId);
+      expect(a.callKitId, '01234567-89ab-cdef-0123-456789abcdef');
+    });
+
+    test('без callKitId в payload — считаем сами из confId', () {
+      final data = CallPushData.tryParse(
+        conferencePayload()..remove('callKitId'),
+      )!;
+      expect(data.callKitId, '01234567-89ab-cdef-0123-456789abcdef');
+    });
+
+    test('callKind без confId → трактуем как 1:1 (битый payload)', () {
+      // Без confId в конференцию не войти — нечего сопоставлять с
+      // состоянием контроллера.
+      final data = CallPushData.tryParse(
+        conferencePayload()..remove('confId'),
+      )!;
+      expect(data.isConference, isFalse);
+      expect(data.callKitId, data.callId);
+    });
+
+    test('confId без callKind → 1:1 (маркер семейства обязателен)', () {
+      final data = CallPushData.tryParse(
+        conferencePayload()..remove('callKind'),
+      )!;
+      expect(data.isConference, isFalse);
+    });
+  });
+
+  // Дублируется на сервере (`PushPayloadBuilder.conferenceCallKitId`) —
+  // значения обязаны совпадать, иначе «входящий», показанный из пуша, и
+  // тот, что гасит клиент по событию шины, окажутся разными сессиями.
+  group('CallPushData.conferenceCallKitId', () {
+    test('conf_<32hex> → UUID 8-4-4-4-12', () {
+      expect(
+        CallPushData.conferenceCallKitId(
+          'conf_0123456789abcdef0123456789abcdef',
+        ),
+        '01234567-89ab-cdef-0123-456789abcdef',
+      );
+    });
+
+    test('детерминирован', () {
+      const confId = 'conf_ffffffffffffffffffffffffffffffff';
+      expect(
+        CallPushData.conferenceCallKitId(confId),
+        CallPushData.conferenceCallKitId(confId),
+      );
+      expect(
+        CallPushData.conferenceCallKitId(confId),
+        'ffffffff-ffff-ffff-ffff-ffffffffffff',
+      );
+    });
+
+    test('не-каноничный confId возвращается как есть', () {
+      expect(CallPushData.conferenceCallKitId('conf_short'), 'conf_short');
+      expect(CallPushData.conferenceCallKitId('whatever'), 'whatever');
+    });
   });
 }
