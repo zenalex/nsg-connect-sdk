@@ -1038,6 +1038,59 @@ void main() {
     });
   });
 
+  group('CallController — guard конференц-сигналинга (TASK51)', () {
+    test('invite с conf:-callId игнорируется — 1:1-контроллер не звонит',
+        () async {
+      // Pairwise-invite mesh-конференции ходит той же шиной (m.call.*).
+      // Без guard-а он зазвонил бы здесь как обычный входящий 1:1.
+      final harness = _Harness(idSeq: ['party-self']);
+      harness.emit(
+        _callEvent(
+          MessengerEventType.callInvite,
+          roomId: kRoomId,
+          callId: 'conf:conf_ab12cd:42:pair-uuid-1',
+          sdp: 'offer-remote',
+          partyId: 'party-peer',
+        ),
+      );
+      await pump();
+      expect(harness.controller.state, isA<CallIdle>());
+      // И ничего не отправили (в т.ч. busy-reject).
+      expect(harness.rpc.sent, isEmpty);
+      await harness.dispose();
+    });
+
+    test('conf:-invite при нашем активном исходящем в той же комнате '
+        'НЕ запускает glare и не сворачивает 1:1-звонок', () async {
+      // Без guard-а conf:-invite с лексикографически меньшим callId
+      // («conf:...» < «zzz») уронил бы живой исходящий в glareLost.
+      final harness = _Harness(idSeq: ['party-self', 'zzz']);
+      await harness.controller.startCall(roomId: kRoomId);
+      await pump();
+      expect(harness.controller.state, isA<CallOutgoingRinging>());
+
+      harness.emit(
+        _callEvent(
+          MessengerEventType.callInvite,
+          roomId: kRoomId,
+          callId: 'conf:conf_ab12cd:42:pair-uuid-1',
+          sdp: 'offer-remote',
+          partyId: 'party-peer',
+        ),
+      );
+      await pump();
+
+      expect(harness.controller.state, isA<CallOutgoingRinging>());
+      expect((harness.controller.state as CallOutgoingRinging).callId, 'zzz');
+      // reject на конференц-invite тоже не ушёл (это не «busy»).
+      expect(
+        harness.rpc.sent.any((e) => e.eventType == CallEventType.reject),
+        isFalse,
+      );
+      await harness.dispose();
+    });
+  });
+
   group('CallController — glare', () {
     test(
       'наш callId меньше → игнорируем входящий invite, держим свой',

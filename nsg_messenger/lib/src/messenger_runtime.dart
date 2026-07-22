@@ -13,6 +13,8 @@ import 'auth_token_provider.dart';
 import 'cache/messenger_cache_store.dart';
 import 'calls/call_controller.dart';
 import 'calls/call_rpc.dart';
+import 'calls/conference_call_controller.dart';
+import 'calls/conference_rpc.dart';
 import 'calls/webrtc_adapter.dart';
 import 'calls/webrtc_adapter_real.dart';
 import 'contact_card/nsg_messenger_contact_cards.dart';
@@ -115,6 +117,10 @@ class MessengerRuntime with WidgetsBindingObserver {
   // **TASK46 (SDK)**: контроллер голосовых звонков 1:1. Подписан на
   // event bus всегда (входящий invite ловится на любом экране).
   CallController? _calls;
+
+  /// **TASK51 итерация 1**: контроллер групповых (mesh) звонков. Живёт
+  /// параллельно [_calls]; трафик разведён префиксом callId `conf:`.
+  ConferenceCallController? _conferenceCalls;
   // Позволяет тестам runtime подменить WebRtcAdapter на fake без
   // нативного плагина. В production — RealWebRtcAdapter.
   WebRtcAdapter? _webRtcAdapterOverride;
@@ -426,6 +432,26 @@ class MessengerRuntime with WidgetsBindingObserver {
     return c;
   }
 
+  /// **TASK51 итерация 1**: контроллер групповых (mesh) аудиозвонков.
+  /// Доступен глобально (`NsgMessenger.conferenceCalls`), подписан на
+  /// event bus с момента [init] — входящая конференция ловится на любом
+  /// экране. UI биндится как к `ChangeNotifier`
+  /// (`ConferenceCallState`: idle/incomingRinging/joining/active/ended).
+  ConferenceCallController get conferenceCalls {
+    final c = _conferenceCalls;
+    if (c == null) {
+      throw StateError(
+        'ConferenceCallController отсутствует. NsgMessenger.init() не '
+        'вызван или dispose() уже отработал.',
+      );
+    }
+    return c;
+  }
+
+  /// Nullable-вариант [conferenceCalls] — для UI, живущего дольше
+  /// рантайма (та же мотивация, что [callsOrNull], issue #47).
+  ConferenceCallController? get conferenceCallsOrNull => _conferenceCalls;
+
   /// **issue #47**: nullable-вариант [calls] для UI, живущего ДОЛЬШЕ
   /// рантайма (например `CallOverlayHost` в корне навигации host-app-а).
   ///
@@ -732,16 +758,34 @@ class MessengerRuntime with WidgetsBindingObserver {
     // (входящий invite ловится на любом экране). Подписка на
     // `_eventBus.events` держит underlying sync-worker живым — что и так
     // уже происходит из-за NsgMessengerRooms (см. MessengerEventBus doc).
+    // **TASK51**: адаптер WebRTC один на оба контроллера (1:1 и
+    // конференции) — это фабрика pc/media без own-state, второй инстанс
+    // лишь дублировал бы native-обвязку.
+    final webrtcAdapter =
+        _webRtcAdapterOverride ?? RealWebRtcAdapter(reporter: errorReporter);
     _calls = CallController(
       rpc: ClientCallRpc(_client!),
       // errorReporter пробрасываем в адаптер: на состоявшийся звонок уходит
       // один отчёт диагностики медиа («звука нет») в трекер host-app-а
       // (chatista → GlitchTip). Отключить: --dart-define=CALL_DIAG=false.
-      webrtc:
-          _webRtcAdapterOverride ?? RealWebRtcAdapter(reporter: errorReporter),
+      webrtc: webrtcAdapter,
       events: _eventBus!.events,
       // ...и в сам контроллер: он репортит потерю TURN-кредов (звонок без
       // relay). Раньше это молчало и стоило нам несоединяющихся звонков.
+      reporter: errorReporter,
+    );
+    // **TASK51 итерация 1**: контроллер mesh-конференций — рядом с 1:1,
+    // тот же lifecycle (attach на init, dispose на dispose). Трафик двух
+    // контроллеров разведён префиксом callId `conf:` (см.
+    // ConferenceCallController doc).
+    _conferenceCalls = ConferenceCallController(
+      conferenceRpc: ClientConferenceRpc(_client!),
+      callRpc: ClientCallRpc(_client!),
+      webrtc: webrtcAdapter,
+      events: _eventBus!.events,
+      // Лениво: на момент init сессии ещё нет; к моменту join/событий —
+      // есть (иначе бросит, контроллер трактует как «сессии нет»).
+      selfMessengerUserId: () => session.messengerUserId,
       reporter: errorReporter,
     );
     if (kDebugMode) {
@@ -1286,6 +1330,11 @@ class MessengerRuntime with WidgetsBindingObserver {
     // Порядок: calls → rooms → eventBus → sessionManager → client.
     // calls/rooms подписаны на eventBus.events, eventBus на
     // sessionStateStream.
+    // **TASK51**: конференция первой — её dispose ещё шлёт best-effort
+    // leaveConference/hangup-ы через живой client (спека: dispose рантайма
+    // = наш выход из конференции).
+    _conferenceCalls?.dispose();
+    _conferenceCalls = null;
     // **TASK46 (SDK)**: CallController — ChangeNotifier + подписка на
     // event bus + возможный активный pc; dispose закрывает всё.
     _calls?.dispose();

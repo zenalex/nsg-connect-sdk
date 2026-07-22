@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:nsg_connect_client/nsg_connect_client.dart';
 
 import '../contact_card/contact_card_view.dart';
@@ -11,6 +10,7 @@ import '../messenger_session_state.dart';
 import 'call_controller.dart';
 import 'call_ringback_player.dart';
 import 'call_state.dart';
+import 'incoming_ringtone.dart';
 
 /// **TASK46 (UI)**: глобальный хост оверлеев голосового звонка 1:1.
 ///
@@ -130,9 +130,10 @@ class _CallOverlayHostState extends State<CallOverlayHost> {
   Timer? _endedHideTimer;
   bool _endedHidden = false;
 
-  /// Таймер рингтона: пока состояние — [CallIncomingRinging], периодически
-  /// проигрываем alert-тон + вибро (простой MVP-рингтон без аудио-файла).
-  Timer? _ringtoneTimer;
+  /// Рингтон входящего: пока состояние — [CallIncomingRinging], периодически
+  /// проигрываем alert-тон + вибро (общий с групповым оверлеем хелпер —
+  /// TASK51 вынес механику в [IncomingRingtone]).
+  final IncomingRingtone _ringtone = IncomingRingtone();
 
   /// **Ringback**: плеер обратного сигнала исходящего звонка. Лениво
   /// создаётся при первом тоне (или инжектится [CallOverlayHost.ringbackPlayer]).
@@ -214,23 +215,10 @@ class _CallOverlayHostState extends State<CallOverlayHost> {
   void _syncRingtone(CallState? s) {
     if (!widget.enableRingtone) return;
     if (s is CallIncomingRinging) {
-      if (_ringtoneTimer != null) return; // уже играет
-      _playRingtoneTick();
-      _ringtoneTimer = Timer.periodic(
-        const Duration(seconds: 2),
-        (_) => _playRingtoneTick(),
-      );
+      _ringtone.start(); // идемпотентно — повторный вызов не перезапускает
     } else {
-      _ringtoneTimer?.cancel();
-      _ringtoneTimer = null;
+      _ringtone.stop();
     }
-  }
-
-  void _playRingtoneTick() {
-    // Best-effort: платформенные каналы могут быть недоступны (тесты /
-    // headless) — не роняем UI звонка из-за звука.
-    unawaited(SystemSound.play(SystemSoundType.alert).catchError((_) {}));
-    unawaited(HapticFeedback.mediumImpact().catchError((_) {}));
   }
 
   /// **Ringback (обратный сигнал каллеру)**: по [CallOutgoingRinging]
@@ -332,7 +320,7 @@ class _CallOverlayHostState extends State<CallOverlayHost> {
     unawaited(_runtimeStateSub?.cancel());
     _runtimeStateSub = null;
     _endedHideTimer?.cancel();
-    _ringtoneTimer?.cancel();
+    _ringtone.stop();
     // Освобождаем плеер ringback только если сами его создали (инжектнутый
     // fake освобождает тот, кто передал).
     if (_ownsRingback) unawaited(_ringback?.dispose());

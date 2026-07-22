@@ -1018,6 +1018,59 @@
     "description": "TASK46 (UI): toast/status when the call failed (ICE/DTLS failure or setup error)."
   },
 
+  "conferenceStartTooltip": "Group call",
+  "@conferenceStartTooltip": {
+    "description": "TASK51 (UI): tooltip on the group-call IconButton in the group chat app-bar that starts/joins a mesh conference (call everyone)."
+  },
+  "conferenceTitle": "Group call",
+  "@conferenceTitle": {
+    "description": "TASK51 (UI): generic heading of the group-call overlay (active screen; incoming fallback when the room name is unknown)."
+  },
+  "conferenceIncomingTitle": "Group call in {room}",
+  "@conferenceIncomingTitle": {
+    "description": "TASK51 (UI): incoming group-call overlay heading. {room} is the room display name.",
+    "placeholders": {
+      "room": { "type": "String", "example": "Team chat" }
+    }
+  },
+  "conferenceIncomingCaller": "{caller} is inviting you",
+  "@conferenceIncomingCaller": {
+    "description": "TASK51 (UI): incoming group-call overlay subtitle naming the de-facto initiator (earliest participant).",
+    "placeholders": {
+      "caller": { "type": "String", "example": "Bob" }
+    }
+  },
+  "conferenceMemberCount": "{count, plural, one{{count} participant} other{{count} participants}}",
+  "@conferenceMemberCount": {
+    "description": "TASK51 (UI): participant counter shown on the incoming overlay and the ongoing-conference banner.",
+    "placeholders": {
+      "count": { "type": "int", "example": "3" }
+    }
+  },
+  "conferenceOngoingBannerTitle": "Group call in progress",
+  "@conferenceOngoingBannerTitle": {
+    "description": "TASK51 (UI): title of the banner above the composer shown when a live conference exists in the room and the viewer is not in it."
+  },
+  "conferenceJoin": "Join",
+  "@conferenceJoin": {
+    "description": "TASK51 (UI): join button on the ongoing-conference banner."
+  },
+  "conferenceEndedFull": "Conference is full (max {max})",
+  "@conferenceEndedFull": {
+    "description": "TASK51 (UI): toast when the server rejected the join because the mesh participant limit is reached. {max} is the server limit.",
+    "placeholders": {
+      "max": { "type": "int", "example": "4" }
+    }
+  },
+  "conferenceYou": "You",
+  "@conferenceYou": {
+    "description": "TASK51 (UI): label marking the viewer's own tile in the conference participant list."
+  },
+  "conferencePairFailed": "No connection",
+  "@conferencePairFailed": {
+    "description": "TASK51 (UI): status on a participant tile whose pairwise link failed permanently (conference continues without audio from them)."
+  },
+
   "messageActionForward": "Forward",
   "@messageActionForward": {
     "description": "Forward: action-sheet item — переслать сообщение/альбом в другой чат (внутренний пикер)."

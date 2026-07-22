@@ -35,9 +35,12 @@ import '../messages/message_composer.dart';
 import '../messages/messages_controller.dart';
 import '../messages/messages_rpc.dart';
 import '../messages/messages_state.dart';
+import '../calls/conference_call_controller.dart';
+import '../calls/conference_call_state.dart';
 import '../messenger_runtime.dart';
 import 'chat_route.dart';
 import 'contact_profile_screen.dart';
+import 'nsg_route_observer.dart';
 import '../rooms/participant_action_sheet.dart' show formatWriteBanUntil;
 import '../presence/last_seen_format.dart';
 import '../session/auth_retry.dart' show withAuthRetry;
@@ -123,6 +126,7 @@ class ChatScreen extends StatefulWidget {
     @visibleForTesting this.escalateSupportOverride,
     @visibleForTesting this.roomDetailsOverride,
     @visibleForTesting this.startCallOverride,
+    @visibleForTesting this.conferenceCallsOverride,
     @visibleForTesting this.forwardRoomsLoaderOverride,
     @visibleForTesting this.forwardSourceProbeOverride,
   });
@@ -155,6 +159,13 @@ class ChatScreen extends StatefulWidget {
   /// передан — используется вместо `NsgMessenger.startCall`, чтобы
   /// widget-тест кнопки «Позвонить» не поднимал runtime/flutter_webrtc.
   final StartCallOverride? startCallOverride;
+
+  /// **TASK51 (UI)**: visible-for-testing подмена контроллера
+  /// конференций. Если передана — кнопка «Групповой звонок» и плашка
+  /// «идёт конференция» работают через неё (fake), runtime не трогается.
+  /// В production не передаётся — берём
+  /// `MessengerRuntime.instance.conferenceCallsOrNull`.
+  final ConferenceCallController? conferenceCallsOverride;
 
   /// **TASK45 фаза 2**: visible-for-testing подмена RoomDetails, чтобы
   /// widget-тест кнопки эскалации мог задать object-room без runtime
@@ -241,7 +252,8 @@ class ChatScreen extends StatefulWidget {
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
+class _ChatScreenState extends State<ChatScreen>
+    with WidgetsBindingObserver, RouteAware {
   late final MessagesController _controller;
   late final bool _ownsController;
 
@@ -311,6 +323,26 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// **Issue #37**: newest сообщение сейчас в видимой области.
   /// Стартует `true` — свежеоткрытый чат отрисован на дне ленты.
   bool _newestVisible = true;
+
+  /// **Issue #55**: экран перекрыт другим маршрутом ПОВЕРХ внутри
+  /// приложения (профиль/настройки/галерея). ЧЕТВЁРТАЯ ось видимости —
+  /// первые три ([ChatScreen.active], [_appResumed], [_newestVisible])
+  /// перекрытие не ловят: приложение в foreground, вкладка активна,
+  /// скролл внизу, а юзер смотрит на профиль. Живёт через RouteAware-
+  /// подписку в [didChangeDependencies]; без зарегистрированного у
+  /// навигатора `NsgMessenger.routeObserver` никогда не взводится —
+  /// деградация к прежнему поведению.
+  bool _routeCovered = false;
+
+  /// **Issue #55**: маршрут, на который сейчас подписаны как [RouteAware],
+  /// и наблюдатели, в которые подписались, — чтобы переподписаться при
+  /// смене маршрута (keep-alive экран мог переехать) и точно отписаться в
+  /// dispose. На телефоне это маршрут самого чата/пейджера (перекрытие
+  /// пушится тем же корневым навигатором); на десктопе — страница панели
+  /// рабочей области (перекрытие пушится вложенным навигатором панели).
+  /// Оба случая покрываются одинаково: ближайший `ModalRoute.of(context)`.
+  ModalRoute<void>? _subscribedRoute;
+  List<RouteObserver<ModalRoute<void>>> _subscribedObservers = const [];
 
   /// **TASK16-A**: участники комнаты (TASK13 30-cap). Загружаются один
   /// раз в initState через `MessengerRuntime.instance.rooms.get(roomId)`
@@ -428,6 +460,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final overrideDetails = widget.roomDetailsOverride;
     if (overrideDetails != null) _applyRoomDetails(overrideDetails);
     _fetchRoomDetails();
+    // **TASK51 (UI)**: разово освежить знание о живой конференции комнаты
+    // (плашка «идёт групповой звонок»): события шины шлются только на
+    // ИЗМЕНЕНИЯ состава — о конференции, начавшейся до нашего подключения,
+    // события не будет. Best-effort внутри контроллера.
+    unawaited(_conferenceCalls?.refreshRoomConference(widget.roomId));
     // **B10**: авто-retry failed-сообщений при возврате сети. Только
     // production-путь — в инжектированном controller-е (тесты) runtime
     // connectionStateStream пуст/healthy, но runtime трогать не нужно.
@@ -461,11 +498,114 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     // presence и метим прочитанным накопившееся; стал фоновым → отпускаем
     // (новый активный чат перезапишет currentRoomId своим).
     if (widget.active && !old.active) {
-      _firePresence(currentRoomId: widget.roomId, foreground: true);
+      // **Issue #55**: если панель прямо сейчас перекрыта маршрутом (юзер
+      // сфокусировал панель, над которой открыт профиль) — заявлять
+      // presence комнаты нельзя, юзер её не видит. Шлём null: это честнее,
+      // чем молчать, — прежний активный чат при деактивации ничего не шлёт
+      // (рассчитывает, что новый активный перезапишет), и без null его
+      // stale-заявка висела бы до TTL.
+      _firePresence(
+        currentRoomId: _routeCovered ? null : widget.roomId,
+        foreground: true,
+      );
       // **Issue #37**: вкладка стала активной — дожимаем отложенное
       // сразу, без debounce (условие видимости только что выполнилось).
+      // При перекрытии (#55) внутренний гейт не пропустит — дожмётся
+      // на didPopNext.
       _flushMarkRead();
     }
+    // **Issue #53**: у keep-alive экрана (панель/вкладка рабочего набора)
+    // цель перехода может смениться «на лету» — тап по уведомлению УЖЕ
+    // открытого чата приносит новый target. Снимаем одноразовую защёлку и
+    // прыгаем к новой цели; если история ещё грузится, прыжок дожмёт
+    // `_onStateChange` на ближайшем Ready. Прежняя (уже потреблённая)
+    // цель не перезапускается — только реальная смена значения.
+    final target = widget.initialTargetEventId;
+    if (target != null &&
+        target.isNotEmpty &&
+        target != old.initialTargetEventId) {
+      _initialJumpStarted = false;
+      // Пост-фрейм, а не сразу: didUpdateWidget идёт ПОСРЕДИ build, а
+      // промах прыжка синхронно показывает снекбар «не удалось перейти»
+      // (showSnackBar в build запрещён). Если до конца кадра прыжок уже
+      // запустил `_onStateChange` — защёлка сделает вызов no-op.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _maybeJumpToInitialTarget();
+      });
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // **Issue #55**: RouteAware-подписка на ближайший маршрут — чтобы
+    // замечать перекрытие другим экраном ПОВЕРХ (didPushNext/didPopNext).
+    // Именно в didChangeDependencies, а не в initState: ModalRoute здесь
+    // уже доступен, и при смене маршрута (keep-alive экран переехал)
+    // переподписываемся. Если host не включил `NsgMessenger.routeObserver`
+    // в navigatorObservers — подписка никогда не выстрелит: деградация к
+    // прежнему поведению (перекрытие не замечаем), без исключений.
+    final route = ModalRoute.of(context);
+    if (route != _subscribedRoute) {
+      _unsubscribeRouteAware();
+      if (route != null) {
+        // Во ВСЕ зарегистрированные наблюдатели (главный + вложенные
+        // панельные): выстрелит только тот, чьему навигатору принадлежит
+        // маршрут, остальные молчат. Snapshot сохраняем, чтобы в dispose
+        // отписаться ровно оттуда, куда подписались.
+        _subscribedObservers = nsgAllRouteObservers;
+        for (final observer in _subscribedObservers) {
+          observer.subscribe(this, route);
+        }
+        _subscribedRoute = route;
+      }
+    }
+  }
+
+  void _unsubscribeRouteAware() {
+    for (final observer in _subscribedObservers) {
+      observer.unsubscribe(this);
+    }
+    _subscribedObservers = const [];
+    _subscribedRoute = null;
+  }
+
+  /// **Issue #55**: поверх нашего маршрута запушили другой экран
+  /// (профиль/настройки/галерея) — юзер чата больше не видит, хотя экран
+  /// жив и realtime продолжает приходить.
+  ///
+  /// Presence отпускаем как в dispose (`currentRoomId: null`) — иначе
+  /// серверный кэш продолжает утверждать «пользователь в комнате», и
+  /// push-routing (фильтр «foreground в той же комнате → skip») глушит
+  /// уведомления, которые юзер ДОЛЖЕН получить. Но только если мы вообще
+  /// заявляли presence: неактивная панель (TASK66) комнату не держит, а её
+  /// null стёр бы заявку АКТИВНОГО чата (presence на сервере один на
+  /// юзера). При свёрнутом приложении (!_appResumed) bus уже отправил
+  /// null+background — не перебиваем его «foreground: true»-враньём.
+  @override
+  void didPushNext() {
+    _routeCovered = true;
+    if (widget.active && _appResumed) {
+      _firePresence(currentRoomId: null, foreground: true);
+    }
+  }
+
+  /// **Issue #55**: перекрывавший экран закрыли — чат снова виден.
+  /// Возвращаем presence комнаты и дожимаем отложенное «прочитано»
+  /// (механика догона issue #37: [_flushMarkRead] сам пересчитает newest
+  /// и сам проверит гейт). Presence шлём только когда чат реально виден И
+  /// имеет право на комнату: didPopNext может прийти в неактивную вкладку
+  /// (перекрытие общего маршрута пейджера получают ВСЕ его keep-alive
+  /// экраны) или при свёрнутом приложении (программный pop) — тогда
+  /// комнату заявит didUpdateWidget(active) / resumed-обработчик, когда
+  /// своя ось видимости восстановится.
+  @override
+  void didPopNext() {
+    _routeCovered = false;
+    if (widget.active && _appResumed) {
+      _firePresence(currentRoomId: widget.roomId, foreground: true);
+    }
+    _flushMarkRead();
   }
 
   @override
@@ -480,8 +620,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       // Race fix: bus's lifecycle handler уже отправил setPresence с
       // currentRoomId=null. Re-overwrite с актуальным roomId (только если
-      // этот чат активен — TASK66).
-      if (widget.active) {
+      // этот чат активен — TASK66). **Issue #55**: при перекрытии
+      // маршрутом НЕ перезаписываем — null от bus-а и есть правда (юзер
+      // вернулся в приложение, но смотрит на перекрывающий экран);
+      // комнату заявит didPopNext.
+      if (widget.active && !_routeCovered) {
         _firePresence(currentRoomId: widget.roomId, foreground: true);
       }
       // Реконсиляция «пропущенных входящих»: сообщение, пришедшее пока app
@@ -627,6 +770,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _connSub = null;
     _controller.stateListenable.removeListener(_onStateChange);
     WidgetsBinding.instance.removeObserver(this);
+    // **Issue #55**: снять RouteAware-подписки (иначе observer держит
+    // ссылку на мёртвый State и продолжает дёргать его колбэки).
+    _unsubscribeRouteAware();
     // **TASK20 Chunk 4-prep**: clear currentRoomId на close — иначе
     // server-side presence-cache держит stale `currentRoomId=widget
     // .roomId` 60s после navigation away, и push-routing будет
@@ -682,8 +828,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     // **Issue #37**: гейт «юзер это действительно видит». Если не сходится
     // — НЕ метим и не заводим таймер; отложенный markRead дожмётся, как
     // только условия выполнятся (resume / доскролл вниз / активация
-    // вкладки), потому что [_flushMarkRead] всегда пересчитывает newest
-    // из текущего state.
+    // вкладки / возврат из перекрывшего маршрута — issue #55), потому что
+    // [_flushMarkRead] всегда пересчитывает newest из текущего state.
     if (!_canMarkRead) return;
     final eventId = _newestMarkableEventId();
     if (eventId == null) return;
@@ -703,15 +849,20 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   /// **Issue #37**: можно ли СЕЙЧАС честно сказать «прочитано».
   ///
-  /// Три независимых условия, все обязательны:
+  /// Четыре независимых условия, все обязательны:
   ///   * [ChatScreen.active] — TASK66-флаг активной вкладки/панели
   ///     (фоновая вкладка рабочего набора не гасит unread молча);
   ///   * [_appResumed] — приложение в foreground на уровне ОС (свёрнутое
   ///     приложение с открытым чатом продолжает получать realtime,
   ///     но юзер ничего не видит — это и был баг issue #37);
   ///   * [_newestVisible] — newest сообщение в видимой области (юзер не
-  ///     ушёл вверх в историю).
-  bool get _canMarkRead => widget.active && _appResumed && _newestVisible;
+  ///     ушёл вверх в историю);
+  ///   * `!`[_routeCovered] — поверх чата не открыт другой маршрут
+  ///     (issue #55: пропущенный кейс гейта #37 — приложение в
+  ///     foreground, вкладка активна, скролл внизу, а юзер смотрит на
+  ///     профиль, и сообщение молча получало «прочитано»).
+  bool get _canMarkRead =>
+      widget.active && _appResumed && _newestVisible && !_routeCovered;
 
   /// Newest сообщение с `matrixEventId` из текущего state — то, до
   /// которого метим прочитанным. `null` — метить нечего (не Ready,
@@ -1708,6 +1859,44 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     return null;
   }
 
+  /// **TASK51 (UI)**: групповая ли эта комната. Кнопка «Групповой звонок»
+  /// и плашка «идёт конференция» — только для RoomType.group (в direct
+  /// остаётся 1:1; team/support/прочее — вне итерации 1).
+  bool get _isGroupRoom => _roomDetails?.roomType == RoomType.group;
+
+  /// **TASK51 (UI)**: контроллер конференций — override (тесты) или
+  /// runtime. null в test-mode без override и в окне teardown/reinit
+  /// (тогда кнопка/плашка просто не работают — как 1:1-паттерн).
+  ConferenceCallController? get _conferenceCalls =>
+      widget.conferenceCallsOverride ??
+      (widget.controllerOverride == null
+          ? MessengerRuntime.instance.conferenceCallsOrNull
+          : null);
+
+  /// **TASK51 (UI)**: «позвонить всем в группе» / «присоединиться к
+  /// идущей» — обе команды сводятся к `conferenceCalls.join(roomId)`
+  /// (сервер создаст конференцию при отсутствии; MVP без выбора
+  /// подмножества участников). Гейт второго звонка — как в 1:1.
+  Future<void> _startConferenceCall() async {
+    final ctrl = _conferenceCalls;
+    if (ctrl == null) return;
+    // Запрет параллельного звонка: идёт конференция ИЛИ 1:1 (общий
+    // микрофон/аудио-сессия — одновременно нельзя). 1:1 проверяем только
+    // в production (в test-mode runtime недоступен).
+    final oneOnOneBusy =
+        widget.conferenceCallsOverride == null &&
+        widget.controllerOverride == null &&
+        (MessengerRuntime.instance.callsOrNull?.isBusy ?? false);
+    if (ctrl.isBusy || oneOnOneBusy) {
+      final l = NsgL10n.of(context);
+      ScaffoldMessenger.maybeOf(
+        context,
+      )?.showSnackBar(SnackBar(content: Text(l.callAlreadyActive)));
+      return;
+    }
+    await ctrl.join(roomId: widget.roomId);
+  }
+
   Future<void> _startCall() async {
     // Запрет второго звонка: если уже идёт (любая фаза, кроме idle/ended) —
     // не начинаем новый, показываем подсказку. Hold/конференция — на
@@ -1845,6 +2034,20 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     icon: const Icon(Icons.call),
                     tooltip: NsgL10n.of(context).callStartTooltip,
                     onPressed: _startCall,
+                  ),
+                // **TASK51 (UI)**: кнопка «Групповой звонок» — только для
+                // group-комнат (mesh-конференция, «позвонить всем»). Тап =
+                // conferenceCalls.join(roomId); оверлей конференции
+                // поднимает ConferenceOverlayHost в корне навигации. В
+                // test-mode показываем при переданном fake-контроллере.
+                if (_isGroupRoom &&
+                    (widget.controllerOverride == null ||
+                        widget.conferenceCallsOverride != null))
+                  IconButton(
+                    key: const Key('chatConferenceCallButton'),
+                    icon: const Icon(Icons.groups),
+                    tooltip: NsgL10n.of(context).conferenceStartTooltip,
+                    onPressed: _startConferenceCall,
                   ),
                 if (widget.controllerOverride == null)
                   IconButton(
@@ -2012,6 +2215,35 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               ),
             ),
           ),
+          // **TASK51 (UI)**: плашка «идёт групповой звонок» над композером
+          // — если в комнате живая конференция, а мы не в ней. Данные — из
+          // контроллера конференций (ChangeNotifier): карта живых
+          // конференций комнат наполняется событиями `conferenceUpdated` +
+          // разовым refresh при открытии экрана (см. initState).
+          if (_conferenceCalls != null)
+            ListenableBuilder(
+              listenable: _conferenceCalls!,
+              builder: (context, _) {
+                final ctrl = _conferenceCalls;
+                final info = ctrl?.liveConferenceInRoom(widget.roomId);
+                if (ctrl == null || info == null) {
+                  return const SizedBox.shrink();
+                }
+                // Уже в этой конференции (входим/активна) — плашка не
+                // нужна, оверлей и так поверх всего.
+                final s = ctrl.state;
+                final inThisRoom = switch (s) {
+                  ConferenceJoining(:final roomId) => roomId == widget.roomId,
+                  ConferenceActive(:final roomId) => roomId == widget.roomId,
+                  _ => false,
+                };
+                if (inThisRoom) return const SizedBox.shrink();
+                return _ConferenceOngoingBanner(
+                  memberCount: info.memberCount,
+                  onJoin: _startConferenceCall,
+                );
+              },
+            ),
           // **TASK22-Phase2 Chunk 2**: hide composer entirely in read-
           // only / demo mode. Without this the demo would crash on
           // first send (RPC throws UnimplementedError).
@@ -3622,6 +3854,75 @@ class _SearchNavBar extends StatelessWidget {
 /// одно закреплённое сообщение (по умолчанию — самое свежее); при нескольких
 /// закреплённых тап по телу циклически перебирает их (Telegram-style, «k/N»).
 /// Кнопка-крестик открепляет текущее (видна только если у viewer-а есть права).
+/// **TASK51 (UI)**: заметная плашка «Идёт групповой звонок · N участников
+/// · [Присоединиться]» над композером group-комнаты, пока в ней живёт
+/// конференция без нас. Тап по кнопке = `conferenceCalls.join(roomId)`.
+class _ConferenceOngoingBanner extends StatelessWidget {
+  const _ConferenceOngoingBanner({
+    required this.memberCount,
+    required this.onJoin,
+  });
+
+  final int memberCount;
+  final VoidCallback onJoin;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = NsgL10n.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      key: const Key('conferenceOngoingBanner'),
+      color: scheme.primaryContainer,
+      child: SafeArea(
+        top: false,
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              Icon(Icons.groups, color: scheme.onPrimaryContainer),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      l.conferenceOngoingBannerTitle,
+                      style: TextStyle(
+                        color: scheme.onPrimaryContainer,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (memberCount > 0)
+                      Text(
+                        l.conferenceMemberCount(memberCount),
+                        style: TextStyle(
+                          color: scheme.onPrimaryContainer.withValues(
+                            alpha: 0.8,
+                          ),
+                          fontSize: 13,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              FilledButton(
+                key: const Key('conferenceJoinButton'),
+                onPressed: onJoin,
+                child: Text(l.conferenceJoin),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _PinnedBanner extends StatefulWidget {
   const _PinnedBanner({
     required this.pinned,

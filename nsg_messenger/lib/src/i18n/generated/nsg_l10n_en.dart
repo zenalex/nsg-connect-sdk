@@ -738,6 +738,50 @@ class NsgL10nEn extends NsgL10n {
   String get callEndedFailed => 'Call error';
 
   @override
+  String get conferenceStartTooltip => 'Group call';
+
+  @override
+  String get conferenceTitle => 'Group call';
+
+  @override
+  String conferenceIncomingTitle(String room) {
+    return 'Group call in $room';
+  }
+
+  @override
+  String conferenceIncomingCaller(String caller) {
+    return '$caller is inviting you';
+  }
+
+  @override
+  String conferenceMemberCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count participants',
+      one: '$count participant',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get conferenceOngoingBannerTitle => 'Group call in progress';
+
+  @override
+  String get conferenceJoin => 'Join';
+
+  @override
+  String conferenceEndedFull(int max) {
+    return 'Conference is full (max $max)';
+  }
+
+  @override
+  String get conferenceYou => 'You';
+
+  @override
+  String get conferencePairFailed => 'No connection';
+
+  @override
   String get messageActionForward => 'Forward';
 
   @override

@@ -1411,6 +1411,66 @@ abstract class NsgL10n {
   /// **'Call error'**
   String get callEndedFailed;
 
+  /// TASK51 (UI): tooltip on the group-call IconButton in the group chat app-bar that starts/joins a mesh conference (call everyone).
+  ///
+  /// In en, this message translates to:
+  /// **'Group call'**
+  String get conferenceStartTooltip;
+
+  /// TASK51 (UI): generic heading of the group-call overlay (active screen; incoming fallback when the room name is unknown).
+  ///
+  /// In en, this message translates to:
+  /// **'Group call'**
+  String get conferenceTitle;
+
+  /// TASK51 (UI): incoming group-call overlay heading. {room} is the room display name.
+  ///
+  /// In en, this message translates to:
+  /// **'Group call in {room}'**
+  String conferenceIncomingTitle(String room);
+
+  /// TASK51 (UI): incoming group-call overlay subtitle naming the de-facto initiator (earliest participant).
+  ///
+  /// In en, this message translates to:
+  /// **'{caller} is inviting you'**
+  String conferenceIncomingCaller(String caller);
+
+  /// TASK51 (UI): participant counter shown on the incoming overlay and the ongoing-conference banner.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{{count} participant} other{{count} participants}}'**
+  String conferenceMemberCount(int count);
+
+  /// TASK51 (UI): title of the banner above the composer shown when a live conference exists in the room and the viewer is not in it.
+  ///
+  /// In en, this message translates to:
+  /// **'Group call in progress'**
+  String get conferenceOngoingBannerTitle;
+
+  /// TASK51 (UI): join button on the ongoing-conference banner.
+  ///
+  /// In en, this message translates to:
+  /// **'Join'**
+  String get conferenceJoin;
+
+  /// TASK51 (UI): toast when the server rejected the join because the mesh participant limit is reached. {max} is the server limit.
+  ///
+  /// In en, this message translates to:
+  /// **'Conference is full (max {max})'**
+  String conferenceEndedFull(int max);
+
+  /// TASK51 (UI): label marking the viewer's own tile in the conference participant list.
+  ///
+  /// In en, this message translates to:
+  /// **'You'**
+  String get conferenceYou;
+
+  /// TASK51 (UI): status on a participant tile whose pairwise link failed permanently (conference continues without audio from them).
+  ///
+  /// In en, this message translates to:
+  /// **'No connection'**
+  String get conferencePairFailed;
+
   /// Forward: action-sheet item — переслать сообщение/альбом в другой чат (внутренний пикер).
   ///
   /// In en, this message translates to:

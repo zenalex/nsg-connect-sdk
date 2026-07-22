@@ -220,6 +220,32 @@ export 'src/calls/call_state.dart'
         CallEnded,
         CallEndReason;
 export 'src/calls/call_rpc.dart' show CallRpc, ClientCallRpc;
+// **TASK51 итерация 1**: групповые (mesh) аудиозвонки. Контроллер +
+// sealed ConferenceCallState — готовы к UI-биндингу (групповой overlay —
+// следующий чанк). ConferenceRpc — test-seam, как CallRpc.
+export 'src/calls/conference_call_controller.dart'
+    show
+        ConferenceCallController,
+        ConferenceRoomInfo,
+        ConferencePairCallId,
+        kConferenceCallIdPrefix,
+        kConferenceHeartbeatInterval;
+// **TASK51 (UI)**: глобальный хост оверлеев ГРУППОВОГО звонка — host-app
+// ставит его рядом с [CallOverlayHost] (Chatista: внутрь него, чтобы
+// 1:1-оверлей при коллизии рисовался поверх).
+export 'src/calls/conference_overlay_host.dart' show ConferenceOverlayHost;
+export 'src/calls/conference_call_state.dart'
+    show
+        ConferenceCallState,
+        ConferenceCallIdle,
+        ConferenceIncomingRinging,
+        ConferenceJoining,
+        ConferenceActive,
+        ConferenceCallEnded,
+        ConferenceEndReason,
+        ConferenceParticipantView,
+        ConferencePairPhase;
+export 'src/calls/conference_rpc.dart' show ConferenceRpc, ClientConferenceRpc;
 export 'src/calls/webrtc_adapter.dart'
     show
         WebRtcAdapter,

@@ -771,7 +771,6 @@ class _MessageComposerState extends State<MessageComposer> {
   ///   EditableText сам вставит `\n`.
   /// * Esc + replyTarget → cancel reply.
   bool _globalKeyHandler(KeyEvent event) {
-    // Unconditional debug, чтобы видеть что handler вообще вызывается
     if (!_focus.hasFocus) return false;
     if (event is! KeyDownEvent) return false;
     final keyboard = HardwareKeyboard.instance;

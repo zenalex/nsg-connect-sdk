@@ -120,7 +120,18 @@ enum MessengerEventType implements _i1.SerializableModel {
   /// (state + timeline) и эмитит это событие. Гейтится capability
   /// `pinned-messages` (для легаси-клиента без knownEventTypes — unknown
   /// enum уронил бы стрим; урок callNegotiate/presence).
-  pinnedMessagesChanged;
+  pinnedMessagesChanged,
+
+  /// **TASK51 итерация 1 (mesh-конференции)**: состав активной
+  /// конференции комнаты изменился (join / leave / зачистка призрака /
+  /// смерть конференции). Payload — `conferenceConfId` + `conferenceMembers`
+  /// (ПОЛНЫЙ новый состав — override, не diff, как typingMatrixUserIds;
+  /// пустой список = конференция умерла). SDK группового звонка по нему
+  /// строит/сносит pairwise-сессии с новыми/ушедшими участниками.
+  /// Эмитится ВСЕМ участникам комнаты (состав конференции им legitimate
+  /// виден — они могут присоединиться). Гейтится capability `conference`
+  /// (легаси-путь; современный клиент покрыт knownEventTypes).
+  conferenceUpdated;
 
   static MessengerEventType fromJson(String name) {
     switch (name) {
@@ -182,6 +193,8 @@ enum MessengerEventType implements _i1.SerializableModel {
         return MessengerEventType.contactRequestChanged;
       case 'pinnedMessagesChanged':
         return MessengerEventType.pinnedMessagesChanged;
+      case 'conferenceUpdated':
+        return MessengerEventType.conferenceUpdated;
       default:
         throw ArgumentError(
           'Value "$name" cannot be converted to "MessengerEventType"',

@@ -1894,6 +1894,11 @@ class NsgMessengerRooms {
       // не меняются; обрабатывается в MessagesController открытого чата
       // (плашка закреплённых).
       case MessengerEventType.pinnedMessagesChanged:
+      // **TASK51**: состав mesh-конференции — живёт в
+      // ConferenceCallController; кэш комнат не трогает (бейдж «идёт
+      // конференция» в списке чатов — следующий чанк, ему понадобится
+      // отдельная per-room map, как typing, не инвалидация кэша).
+      case MessengerEventType.conferenceUpdated:
         // Эти events НЕ влияют на rooms-list (room metadata не
         // меняется); SDK обработают на уровне MessagesController
         // (reactionChanged → reaction aggregation в открытом чате).
@@ -1923,6 +1928,13 @@ class NsgMessengerRooms {
         // **Realtime-синк**: alias мог смениться — имена direct-комнат
         // в списке устарели; кэш меток сбрасывает runtime-листенер.
         invalidate();
+        return;
+      case MessengerEventType.conferenceUpdated:
+        // **TASK51 итер.1**: серверный фундамент mesh-конференций добавил
+        // событие раньше, чем SDK научился конференциям (итер.2). Состав/
+        // состояние конференции метаданные rooms-list не меняют — событие
+        // обработает будущий ConferenceController; здесь осознанный no-op,
+        // чтобы exhaustive-switch не ломал сборку потребителей SDK.
         return;
     }
   }

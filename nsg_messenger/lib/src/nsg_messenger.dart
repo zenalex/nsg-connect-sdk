@@ -5,6 +5,7 @@ import 'package:nsg_connect_client/nsg_connect_client.dart';
 
 import 'auth_token_provider.dart';
 import 'calls/call_controller.dart';
+import 'calls/conference_call_controller.dart';
 import 'demo/demo_fixtures.dart';
 import 'demo/demo_runtime.dart';
 import 'i18n/generated/nsg_l10n.dart';
@@ -25,6 +26,7 @@ import 'runtime/messenger_connection_state.dart';
 import 'runtime/nsg_messenger_config.dart';
 import 'screens/chat_screen.dart';
 import 'screens/chats_list_screen.dart';
+import 'screens/nsg_route_observer.dart';
 import 'screens/contact_profile_screen.dart';
 import 'screens/contact_requests_screen.dart';
 import 'screens/people_screen.dart';
@@ -333,6 +335,17 @@ class NsgMessenger {
   /// `ChangeNotifier`; команды: `startCall` / `accept` / `decline` /
   /// `hangup` / `toggleMute`.
   static CallController get callController => MessengerRuntime.instance.calls;
+
+  /// **TASK51 итерация 1 (SDK)**: контроллер групповых (mesh)
+  /// аудиозвонков. `ChangeNotifier` — единый источник состояния
+  /// конференции (`ConferenceCallState`: idle/incomingRinging/joining/
+  /// active/ended). Подписан на realtime с момента [init] — входящая
+  /// конференция ловится на любом экране.
+  ///
+  /// Команды: `join(roomId:)` (позвонить всем в группе / присоединиться)
+  /// / `accept` / `decline` / `leave` / `toggleMute` / `toggleSpeaker`.
+  static ConferenceCallController get conferenceCalls =>
+      MessengerRuntime.instance.conferenceCalls;
 
   /// **TASK46 (SDK)**: инициировать исходящий звонок в комнату
   /// [roomId] собеседнику [peerMessengerUserId] (для показа имени в UI).
@@ -693,6 +706,48 @@ class NsgMessenger {
       runtime.shareFlowActive = false;
     }
   }
+
+  /// **Issue #55**: наблюдатель навигации host-приложения. Host ОБЯЗАН
+  /// включить его в `MaterialApp.navigatorObservers`:
+  ///
+  /// ```dart
+  /// MaterialApp(
+  ///   navigatorObservers: [NsgMessenger.routeObserver],
+  ///   ...
+  /// )
+  /// ```
+  ///
+  /// Через него `ChatScreen` замечает, что поверх него ВНУТРИ приложения
+  /// открыт другой маршрут (профиль/настройки/галерея), и ведёт себя как
+  /// при уходе с экрана: отпускает серверный presence `currentRoomId`
+  /// (иначе push-routing глушит уведомления «пользователю в комнате») и
+  /// откладывает auto-markRead (иначе сообщение молча помечается
+  /// прочитанным, пока юзер смотрит на профиль). Bottom-sheet-ы и диалоги
+  /// перекрытием НЕ считаются (чат под ними виден) — см. [NsgRouteObserver].
+  ///
+  /// Не подключён — SDK деградирует к прежнему поведению (перекрытие не
+  /// замечается), без исключений; но интегратор получает баг issue #55.
+  static RouteObserver<ModalRoute<void>> get routeObserver =>
+      nsgPrimaryRouteObserver;
+
+  /// **Issue #55**: наблюдатель для ВЛОЖЕННОГО навигатора host-приложения
+  /// (например, десктопная панель master-detail, внутри которой чат пушит
+  /// профиль/настройки СВОИМ `Navigator`-ом). Один [routeObserver] нельзя
+  /// отдать двум живым навигаторам (assert во Flutter) — на каждый
+  /// вложенный навигатор host создаёт отдельный экземпляр и передаёт его
+  /// в `Navigator(observers: [...])`. `ChatScreen` подписывается во все
+  /// созданные наблюдатели сам.
+  ///
+  /// Когда владеющий навигатором State умирает — отпустить через
+  /// [releaseNestedRouteObserver], чтобы реестр не рос бесконечно.
+  static RouteObserver<ModalRoute<void>> createNestedRouteObserver() =>
+      createNestedNsgRouteObserver();
+
+  /// **Issue #55**: снять с учёта наблюдатель, созданный
+  /// [createNestedRouteObserver]. Идемпотентно.
+  static void releaseNestedRouteObserver(
+    RouteObserver<ModalRoute<void>> observer,
+  ) => releaseNestedNsgRouteObserver(observer);
 
   /// Hook для host-app `WidgetsBindingObserver.didChangeAppLifecycleState`.
   /// **TASK20** реализует: при `paused`/`detached` SDK закрывает

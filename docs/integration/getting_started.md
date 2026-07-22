@@ -182,6 +182,11 @@ class MyApp extends StatelessWidget {
         // L10n delegates — required for the SDK to render localized strings.
         localizationsDelegates: NsgL10n.localizationsDelegates,
         supportedLocales: NsgL10n.supportedLocales,
+        // Required: lets the SDK notice when another route (your profile /
+        // settings screen) is pushed on top of an open chat — otherwise the
+        // covered chat keeps suppressing push notifications and silently
+        // marks incoming messages as read (issue #55).
+        navigatorObservers: [NsgMessenger.routeObserver],
         home: const HomePage(),
       );
 }
@@ -217,6 +222,7 @@ Available public widget / API surface (see `nsg_messenger.dart` for the full exp
 - `NsgMessenger.messagesControllerFor(roomId)` — controller for a custom chat screen.
 - `NsgMessenger.userEventStream` / `NsgMessenger.roomStream(roomId)` — realtime events.
 - `NsgMessenger.sessionStateStream()` — session lifecycle for connection banners.
+- `NsgMessenger.routeObserver` — add to `MaterialApp.navigatorObservers` (required, see the embed snippet above); for a nested `Navigator` that pushes screens over an embedded chat use `NsgMessenger.createNestedRouteObserver()` / `releaseNestedRouteObserver()`.
 
 Lower-level screens (`ChatScreen`, `ChatsListScreen`) are NOT exported — host apps go through the static factory methods so theme injection works uniformly.
 

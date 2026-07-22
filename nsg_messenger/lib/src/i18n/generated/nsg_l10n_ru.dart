@@ -748,6 +748,52 @@ class NsgL10nRu extends NsgL10n {
   String get callEndedFailed => 'Ошибка';
 
   @override
+  String get conferenceStartTooltip => 'Групповой звонок';
+
+  @override
+  String get conferenceTitle => 'Групповой звонок';
+
+  @override
+  String conferenceIncomingTitle(String room) {
+    return 'Групповой звонок в $room';
+  }
+
+  @override
+  String conferenceIncomingCaller(String caller) {
+    return '$caller приглашает вас';
+  }
+
+  @override
+  String conferenceMemberCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count участника',
+      many: '$count участников',
+      few: '$count участника',
+      one: '$count участник',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get conferenceOngoingBannerTitle => 'Идёт групповой звонок';
+
+  @override
+  String get conferenceJoin => 'Присоединиться';
+
+  @override
+  String conferenceEndedFull(int max) {
+    return 'Конференция заполнена (макс. $max)';
+  }
+
+  @override
+  String get conferenceYou => 'Вы';
+
+  @override
+  String get conferencePairFailed => 'Нет связи';
+
+  @override
   String get messageActionForward => 'Переслать';
 
   @override

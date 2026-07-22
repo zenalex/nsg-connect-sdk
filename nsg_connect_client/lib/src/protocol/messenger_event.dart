@@ -14,7 +14,8 @@ import 'package:serverpod_client/serverpod_client.dart' as _i1;
 import 'enums/messenger_event_type.dart' as _i2;
 import 'messenger_message.dart' as _i3;
 import 'call_ice_candidate.dart' as _i4;
-import 'package:nsg_connect_client/src/protocol/protocol.dart' as _i5;
+import 'conference_member.dart' as _i5;
+import 'package:nsg_connect_client/src/protocol/protocol.dart' as _i6;
 
 /// Событие в realtime-стриме мессенджера. Tagged union через
 /// [MessengerEventType], плюс опциональные payload-поля для каждого
@@ -62,6 +63,8 @@ abstract class MessengerEvent implements _i1.SerializableModel {
     this.callSelectedPartyId,
     this.callLifetime,
     this.callSdpType,
+    this.conferenceConfId,
+    this.conferenceMembers,
     this.pinnedEventIds,
   });
 
@@ -102,6 +105,8 @@ abstract class MessengerEvent implements _i1.SerializableModel {
     String? callSelectedPartyId,
     int? callLifetime,
     String? callSdpType,
+    String? conferenceConfId,
+    List<_i5.ConferenceMember>? conferenceMembers,
     List<String>? pinnedEventIds,
   }) = _MessengerEventImpl;
 
@@ -117,7 +122,7 @@ abstract class MessengerEvent implements _i1.SerializableModel {
       matrixRoomId: jsonSerialization['matrixRoomId'] as String?,
       message: jsonSerialization['message'] == null
           ? null
-          : _i5.Protocol().deserialize<_i3.MessengerMessage>(
+          : _i6.Protocol().deserialize<_i3.MessengerMessage>(
               jsonSerialization['message'],
             ),
       presenceUserId: jsonSerialization['presenceUserId'] as int?,
@@ -143,12 +148,12 @@ abstract class MessengerEvent implements _i1.SerializableModel {
           jsonSerialization['readReceiptMatrixUserId'] as String?,
       typingMatrixUserIds: jsonSerialization['typingMatrixUserIds'] == null
           ? null
-          : _i5.Protocol().deserialize<List<String>>(
+          : _i6.Protocol().deserialize<List<String>>(
               jsonSerialization['typingMatrixUserIds'],
             ),
       typingDisplayNames: jsonSerialization['typingDisplayNames'] == null
           ? null
-          : _i5.Protocol().deserialize<List<String>>(
+          : _i6.Protocol().deserialize<List<String>>(
               jsonSerialization['typingDisplayNames'],
             ),
       unreadCount: jsonSerialization['unreadCount'] as int?,
@@ -173,16 +178,22 @@ abstract class MessengerEvent implements _i1.SerializableModel {
       callSdp: jsonSerialization['callSdp'] as String?,
       callCandidates: jsonSerialization['callCandidates'] == null
           ? null
-          : _i5.Protocol().deserialize<List<_i4.CallIceCandidate>>(
+          : _i6.Protocol().deserialize<List<_i4.CallIceCandidate>>(
               jsonSerialization['callCandidates'],
             ),
       callHangupReason: jsonSerialization['callHangupReason'] as String?,
       callSelectedPartyId: jsonSerialization['callSelectedPartyId'] as String?,
       callLifetime: jsonSerialization['callLifetime'] as int?,
       callSdpType: jsonSerialization['callSdpType'] as String?,
+      conferenceConfId: jsonSerialization['conferenceConfId'] as String?,
+      conferenceMembers: jsonSerialization['conferenceMembers'] == null
+          ? null
+          : _i6.Protocol().deserialize<List<_i5.ConferenceMember>>(
+              jsonSerialization['conferenceMembers'],
+            ),
       pinnedEventIds: jsonSerialization['pinnedEventIds'] == null
           ? null
-          : _i5.Protocol().deserialize<List<String>>(
+          : _i6.Protocol().deserialize<List<String>>(
               jsonSerialization['pinnedEventIds'],
             ),
     );
@@ -375,6 +386,20 @@ abstract class MessengerEvent implements _i1.SerializableModel {
 
   String? callSdpType;
 
+  /// **TASK51 итерация 1** — для `conferenceUpdated`:
+  ///   * `conferenceConfId` — публичный id конференции (`conf_<32 hex>`),
+  ///     коррелятор mesh-звонка (CallKit-коллапс: callId = confId);
+  ///   * `conferenceMembers` — ПОЛНЫЙ новый состав (override, не diff —
+  ///     как `typingMatrixUserIds`): по нему SDK строит pairwise-сессии
+  ///     с появившимися и сносит с ушедшими. ПУСТОЙ список = конференция
+  ///     умерла (последний leave / все зачищены как призраки) — SDK
+  ///     завершает групповой звонок.
+  /// `roomId` обязательно задан для этих событий. Оба nullable — прочие
+  /// типы событий их не несут (backward compat).
+  String? conferenceConfId;
+
+  List<_i5.ConferenceMember>? conferenceMembers;
+
   /// **Issue #35 — закрепление сообщений**: для `pinnedMessagesChanged`.
   /// Полный НОВЫЙ список закреплённых `matrixEventId` комнаты (в порядке
   /// закрепления, oldest-first) — override, не diff, как `typingMatrixUserIds`.
@@ -425,6 +450,8 @@ abstract class MessengerEvent implements _i1.SerializableModel {
     String? callSelectedPartyId,
     int? callLifetime,
     String? callSdpType,
+    String? conferenceConfId,
+    List<_i5.ConferenceMember>? conferenceMembers,
     List<String>? pinnedEventIds,
   });
   @override
@@ -481,6 +508,11 @@ abstract class MessengerEvent implements _i1.SerializableModel {
         'callSelectedPartyId': callSelectedPartyId,
       if (callLifetime != null) 'callLifetime': callLifetime,
       if (callSdpType != null) 'callSdpType': callSdpType,
+      if (conferenceConfId != null) 'conferenceConfId': conferenceConfId,
+      if (conferenceMembers != null)
+        'conferenceMembers': conferenceMembers?.toJson(
+          valueToJson: (v) => v.toJson(),
+        ),
       if (pinnedEventIds != null) 'pinnedEventIds': pinnedEventIds?.toJson(),
     };
   }
@@ -531,6 +563,8 @@ class _MessengerEventImpl extends MessengerEvent {
     String? callSelectedPartyId,
     int? callLifetime,
     String? callSdpType,
+    String? conferenceConfId,
+    List<_i5.ConferenceMember>? conferenceMembers,
     List<String>? pinnedEventIds,
   }) : super._(
          eventType: eventType,
@@ -569,6 +603,8 @@ class _MessengerEventImpl extends MessengerEvent {
          callSelectedPartyId: callSelectedPartyId,
          callLifetime: callLifetime,
          callSdpType: callSdpType,
+         conferenceConfId: conferenceConfId,
+         conferenceMembers: conferenceMembers,
          pinnedEventIds: pinnedEventIds,
        );
 
@@ -613,6 +649,8 @@ class _MessengerEventImpl extends MessengerEvent {
     Object? callSelectedPartyId = _Undefined,
     Object? callLifetime = _Undefined,
     Object? callSdpType = _Undefined,
+    Object? conferenceConfId = _Undefined,
+    Object? conferenceMembers = _Undefined,
     Object? pinnedEventIds = _Undefined,
   }) {
     return MessengerEvent(
@@ -696,6 +734,12 @@ class _MessengerEventImpl extends MessengerEvent {
           : this.callSelectedPartyId,
       callLifetime: callLifetime is int? ? callLifetime : this.callLifetime,
       callSdpType: callSdpType is String? ? callSdpType : this.callSdpType,
+      conferenceConfId: conferenceConfId is String?
+          ? conferenceConfId
+          : this.conferenceConfId,
+      conferenceMembers: conferenceMembers is List<_i5.ConferenceMember>?
+          ? conferenceMembers
+          : this.conferenceMembers?.map((e0) => e0.copyWith()).toList(),
       pinnedEventIds: pinnedEventIds is List<String>?
           ? pinnedEventIds
           : this.pinnedEventIds?.map((e0) => e0).toList(),

@@ -197,7 +197,15 @@ class MessengerEventBus {
       // **TASK55 итер.2b**: presence — новый гейтящийся тип событий.
       // **Issue #35**: pinned-messages — гейт закрепления для старого
       // сервера (legacy-путь). capabilities остаются для совместимости.
-      capabilities: const ['call-negotiate', 'presence', 'pinned-messages'],
+      // **TASK51**: conference — события mesh-конференций
+      // (`conferenceUpdated`); современный сервер и так покрыт
+      // knownEventTypes ниже, capability — явный контракт + fast-path.
+      capabilities: const [
+        'call-negotiate',
+        'presence',
+        'pinned-messages',
+        'conference',
+      ],
       // **Forward-compat**: объявляем серверу ВСЕ известные этой сборке
       // типы событий — новые серверные типы автоматически вырезаются на
       // сервере и не роняют стрим десериализацией неизвестного enum.

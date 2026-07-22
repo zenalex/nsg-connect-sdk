@@ -53,69 +53,70 @@ import 'package:nsg_connect_client/src/protocol/turn_credentials.dart' as _i26;
 import 'package:nsg_connect_client/src/protocol/messenger_event.dart' as _i27;
 import 'package:nsg_connect_client/src/protocol/call_history_entry.dart'
     as _i28;
+import 'package:nsg_connect_client/src/protocol/conference_state.dart' as _i29;
 import 'package:nsg_connect_client/src/protocol/enums/room_member_role.dart'
-    as _i29;
-import 'package:nsg_connect_client/src/protocol/room_participant.dart' as _i30;
-import 'dart:typed_data' as _i31;
-import 'package:nsg_connect_client/src/protocol/attachment_bytes.dart' as _i32;
+    as _i30;
+import 'package:nsg_connect_client/src/protocol/room_participant.dart' as _i31;
+import 'dart:typed_data' as _i32;
+import 'package:nsg_connect_client/src/protocol/attachment_bytes.dart' as _i33;
 import 'package:nsg_connect_client/src/protocol/messenger_message_list_page.dart'
-    as _i33;
-import 'package:nsg_connect_client/src/protocol/device_registration.dart'
     as _i34;
-import 'package:nsg_connect_client/src/protocol/enums/push_service.dart'
+import 'package:nsg_connect_client/src/protocol/device_registration.dart'
     as _i35;
-import 'package:nsg_connect_client/src/protocol/enums/room_state.dart' as _i36;
-import 'package:nsg_connect_client/src/protocol/room_list_page.dart' as _i37;
-import 'package:nsg_connect_client/src/protocol/room_details.dart' as _i38;
-import 'package:nsg_connect_client/src/protocol/enums/room_type.dart' as _i39;
-import 'package:nsg_connect_client/src/protocol/ticket_view.dart' as _i40;
-import 'package:nsg_connect_client/src/protocol/presence_info.dart' as _i41;
-import 'package:nsg_connect_client/src/protocol/chat_folder_view.dart' as _i42;
-import 'package:nsg_connect_client/src/protocol/contact_relation.dart' as _i43;
+import 'package:nsg_connect_client/src/protocol/enums/push_service.dart'
+    as _i36;
+import 'package:nsg_connect_client/src/protocol/enums/room_state.dart' as _i37;
+import 'package:nsg_connect_client/src/protocol/room_list_page.dart' as _i38;
+import 'package:nsg_connect_client/src/protocol/room_details.dart' as _i39;
+import 'package:nsg_connect_client/src/protocol/enums/room_type.dart' as _i40;
+import 'package:nsg_connect_client/src/protocol/ticket_view.dart' as _i41;
+import 'package:nsg_connect_client/src/protocol/presence_info.dart' as _i42;
+import 'package:nsg_connect_client/src/protocol/chat_folder_view.dart' as _i43;
+import 'package:nsg_connect_client/src/protocol/contact_relation.dart' as _i44;
 import 'package:nsg_connect_client/src/protocol/contact_request_view.dart'
-    as _i44;
-import 'package:nsg_connect_client/src/protocol/trust_token_issued.dart'
     as _i45;
-import 'package:nsg_connect_client/src/protocol/enums/trust_token_kind.dart'
+import 'package:nsg_connect_client/src/protocol/trust_token_issued.dart'
     as _i46;
-import 'package:nsg_connect_client/src/protocol/trust_redeem_result.dart'
+import 'package:nsg_connect_client/src/protocol/enums/trust_token_kind.dart'
     as _i47;
-import 'package:nsg_connect_client/src/protocol/nearby_confirm_result.dart'
+import 'package:nsg_connect_client/src/protocol/trust_redeem_result.dart'
     as _i48;
-import 'package:nsg_connect_client/src/protocol/contact_card_info.dart' as _i49;
-import 'package:nsg_connect_client/src/protocol/contact_card.dart' as _i50;
+import 'package:nsg_connect_client/src/protocol/nearby_confirm_result.dart'
+    as _i49;
+import 'package:nsg_connect_client/src/protocol/contact_card_info.dart' as _i50;
+import 'package:nsg_connect_client/src/protocol/contact_card.dart' as _i51;
 import 'package:nsg_connect_client/src/protocol/contact_profile_view.dart'
-    as _i51;
-import 'package:nsg_connect_client/src/protocol/contact_label.dart' as _i52;
+    as _i52;
+import 'package:nsg_connect_client/src/protocol/contact_label.dart' as _i53;
 import 'package:nsg_connect_client/src/protocol/contact_label_assignment.dart'
-    as _i53;
-import 'package:nsg_connect_client/src/protocol/support_team_view.dart' as _i54;
+    as _i54;
+import 'package:nsg_connect_client/src/protocol/support_team_view.dart' as _i55;
 import 'package:nsg_connect_client/src/protocol/enums/support_team_role.dart'
-    as _i55;
-import 'package:nsg_connect_client/src/protocol/product_object_room.dart'
     as _i56;
-import 'package:nsg_connect_client/src/protocol/escalation_result.dart' as _i57;
-import 'package:nsg_connect_client/src/protocol/product.dart' as _i58;
-import 'package:nsg_connect_client/src/protocol/presence_state.dart' as _i59;
+import 'package:nsg_connect_client/src/protocol/product_object_room.dart'
+    as _i57;
+import 'package:nsg_connect_client/src/protocol/escalation_result.dart' as _i58;
+import 'package:nsg_connect_client/src/protocol/product.dart' as _i59;
+import 'package:nsg_connect_client/src/protocol/presence_state.dart' as _i60;
 import 'package:nsg_connect_client/src/protocol/notification_settings.dart'
-    as _i60;
-import 'package:nsg_connect_client/src/protocol/push_test_result.dart' as _i61;
+    as _i61;
+import 'package:nsg_connect_client/src/protocol/push_test_result.dart' as _i62;
 import 'package:nsg_connect_client/src/protocol/profile_translation.dart'
-    as _i62;
-import 'package:nsg_connect_client/src/protocol/product_notification_send_result.dart'
     as _i63;
-import 'package:nsg_connect_client/src/protocol/pulse_event.dart' as _i64;
-import 'package:nsg_connect_client/src/protocol/pulse_folder.dart' as _i65;
-import 'package:nsg_connect_client/src/protocol/pulse_monitor.dart' as _i66;
+import 'package:nsg_connect_client/src/protocol/product_notification_send_result.dart'
+    as _i64;
+import 'package:nsg_connect_client/src/protocol/pulse_event.dart' as _i65;
+import 'package:nsg_connect_client/src/protocol/pulse_folder.dart' as _i66;
+import 'package:nsg_connect_client/src/protocol/pulse_monitor.dart' as _i67;
 import 'package:nsg_connect_client/src/protocol/pulse_monitor_created.dart'
-    as _i67;
-import 'package:nsg_connect_client/src/protocol/pulse_alert_rule.dart' as _i68;
-import 'package:nsg_connect_client/src/protocol/pulse_incident.dart' as _i69;
+    as _i68;
+import 'package:nsg_connect_client/src/protocol/pulse_alert_rule.dart' as _i69;
+import 'package:nsg_connect_client/src/protocol/pulse_incident.dart' as _i70;
 import 'package:nsg_connect_client/src/protocol/task_manager_config.dart'
-    as _i70;
-import 'package:nsg_connect_client/src/protocol/greetings/greeting.dart'
     as _i71;
-import 'protocol.dart' as _i72;
+import 'package:nsg_connect_client/src/protocol/greetings/greeting.dart'
+    as _i72;
+import 'protocol.dart' as _i73;
 
 /// By extending [EmailIdpBaseEndpoint], the email identity provider endpoints
 /// are made available on the server and enable the corresponding sign-in widget
@@ -1738,6 +1739,57 @@ class EndpointMessenger extends _i2.EndpointRef {
     {'limit': limit},
   );
 
+  /// **TASK51**: войти в конференцию комнаты (создав её, если активной
+  /// нет). Возвращает актуальный состав — SDK строит pairwise 1:1-сессии
+  /// (TASK46-сигналинг, свой callId на пару) с каждым участником из
+  /// `members`; сам сигналинг остаётся `sendCallEvent` как есть.
+  ///
+  /// [partyId] — тот же per-device uuid, что в pairwise-сигналинге:
+  /// по паре (messengerUserId, partyId) остальные адресуют сессии.
+  ///
+  /// **Контракт keepalive**: повторный join идемпотентен и продлевает
+  /// `lastSeenAt`; SDK ОБЯЗАН перевызывать joinConference не реже, чем
+  /// раз в половину TTL (default TTL 90с → интервал 30с рекомендован) —
+  /// иначе участник будет зачищен как «призрак» (краш-семантика).
+  ///
+  /// Отказы: [RoomUnavailableException] (нет комнаты / не участник —
+  /// единый вид, anti-enumeration), [ConferenceFullException] (серверный
+  /// лимит mesh, §3A.5), [RateLimitExceededException].
+  _i3.Future<_i29.ConferenceState> joinConference({
+    required int roomId,
+    required String partyId,
+  }) => caller.callServerEndpoint<_i29.ConferenceState>(
+    'messenger',
+    'joinConference',
+    {
+      'roomId': roomId,
+      'partyId': partyId,
+    },
+  );
+
+  /// **TASK51**: штатный выход из конференции комнаты. Идемпотентно
+  /// (не в конференции / конференции нет → no-op). Последний вышедший
+  /// убивает конференцию. Остальным доезжает `conferenceUpdated` — они
+  /// сносят pairwise-сессии с ушедшим (плюс он сам шлёт им hangup по
+  /// парам, это дублирующая страховка).
+  _i3.Future<void> leaveConference({required int roomId}) =>
+      caller.callServerEndpoint<void>(
+        'messenger',
+        'leaveConference',
+        {'roomId': roomId},
+      );
+
+  /// **TASK51**: актуальный состав активной конференции комнаты или
+  /// `null`, если её нет. Поздний участник (и просто открывший комнату)
+  /// получает состав одним запросом — для бейджа «идёт конференция,
+  /// N человек» и решения войти. [RoomUnavailableException] — не участник.
+  _i3.Future<_i29.ConferenceState?> getConference({required int roomId}) =>
+      caller.callServerEndpoint<_i29.ConferenceState?>(
+        'messenger',
+        'getConference',
+        {'roomId': roomId},
+      );
+
   /// **Reactions history (phase 2)**: для списка message `eventIds`
   /// возвращает существующие реакции как `reactionChanged`-add
   /// `MessengerEvent`-ы (тот же shape что realtime). SDK скармливает их
@@ -1876,7 +1928,7 @@ class EndpointMessenger extends _i2.EndpointRef {
   _i3.Future<void> setRoomMemberRole({
     required int roomId,
     required int targetMessengerUserId,
-    required _i29.RoomMemberRole newRole,
+    required _i30.RoomMemberRole newRole,
   }) => caller.callServerEndpoint<void>(
     'messenger',
     'setRoomMemberRole',
@@ -1890,9 +1942,9 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// **TASK29 Chunk 2**: список banned users в комнате — для admin
   /// `BannedUsersScreen` UI. Caller `role >= admin`. Federation banned
   /// users отфильтрованы (DTO requires non-null messengerUserId).
-  _i3.Future<List<_i30.RoomParticipant>> listBannedUsers({
+  _i3.Future<List<_i31.RoomParticipant>> listBannedUsers({
     required int roomId,
-  }) => caller.callServerEndpoint<List<_i30.RoomParticipant>>(
+  }) => caller.callServerEndpoint<List<_i31.RoomParticipant>>(
     'messenger',
     'listBannedUsers',
     {'roomId': roomId},
@@ -1906,7 +1958,7 @@ class EndpointMessenger extends _i2.EndpointRef {
   ///
   /// Возвращает [AttachmentRef] для последующего `sendMessage(attachment:)`.
   _i3.Future<_i22.AttachmentRef> uploadAttachment({
-    required _i31.ByteData bytes,
+    required _i32.ByteData bytes,
     required String mimeType,
     required String originalFilename,
   }) => caller.callServerEndpoint<_i22.AttachmentRef>(
@@ -1936,7 +1988,7 @@ class EndpointMessenger extends _i2.EndpointRef {
   ///
   /// Возвращает обновлённый `MessengerUser.avatarUrl` (= mxcUrl).
   _i3.Future<String> uploadUserAvatar({
-    required _i31.ByteData bytes,
+    required _i32.ByteData bytes,
     required String mimeType,
   }) => caller.callServerEndpoint<String>(
     'messenger',
@@ -1961,7 +2013,7 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// Возвращает mxcUrl.
   _i3.Future<String> setRoomAvatar({
     required int roomId,
-    required _i31.ByteData bytes,
+    required _i32.ByteData bytes,
     required String mimeType,
   }) => caller.callServerEndpoint<String>(
     'messenger',
@@ -1977,9 +2029,9 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// (Matrix Authenticated Media — Synapse 1.100+ обязателен).
   /// Caller должен быть member хотя бы одной комнаты, где media
   /// post-нута; Matrix verify-ит автоматически.
-  _i3.Future<_i32.AttachmentBytes> downloadAttachment({
+  _i3.Future<_i33.AttachmentBytes> downloadAttachment({
     required String mxcUrl,
-  }) => caller.callServerEndpoint<_i32.AttachmentBytes>(
+  }) => caller.callServerEndpoint<_i33.AttachmentBytes>(
     'messenger',
     'downloadAttachment',
     {'mxcUrl': mxcUrl},
@@ -1991,11 +2043,11 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// `method = scale` (preserves aspect). Authenticated Media через
   /// caller's matrix token. Используется SDK для chat bubble preview —
   /// fast load, low bandwidth по сравнению с full download.
-  _i3.Future<_i32.AttachmentBytes> downloadAttachmentThumbnail({
+  _i3.Future<_i33.AttachmentBytes> downloadAttachmentThumbnail({
     required String mxcUrl,
     int? width,
     int? height,
-  }) => caller.callServerEndpoint<_i32.AttachmentBytes>(
+  }) => caller.callServerEndpoint<_i33.AttachmentBytes>(
     'messenger',
     'downloadAttachmentThumbnail',
     {
@@ -2016,11 +2068,11 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// TASK15: возвращаем [MessengerMessageListPage] с tokens (на TASK09
   /// был просто `List` без pagination — закрыто с приходом SDK
   /// `MessagesController.loadMore`).
-  _i3.Future<_i33.MessengerMessageListPage> listMessages({
+  _i3.Future<_i34.MessengerMessageListPage> listMessages({
     required int roomId,
     String? fromToken,
     required int limit,
-  }) => caller.callServerEndpoint<_i33.MessengerMessageListPage>(
+  }) => caller.callServerEndpoint<_i34.MessengerMessageListPage>(
     'messenger',
     'listMessages',
     {
@@ -2107,15 +2159,15 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// `productExternalKey` опциональный — для standalone Chatista
   /// можно null; для embedded SDK customer-app передаёт свой product.
   /// Resolves в `productId` через `Product.externalKey`.
-  _i3.Future<_i34.DeviceRegistration> registerDevice({
+  _i3.Future<_i35.DeviceRegistration> registerDevice({
     required _i16.DevicePlatform platform,
     required String pushToken,
-    required _i35.PushService pushService,
+    required _i36.PushService pushService,
     required String locale,
     required String appVersion,
     String? deviceModel,
     String? productExternalKey,
-  }) => caller.callServerEndpoint<_i34.DeviceRegistration>(
+  }) => caller.callServerEndpoint<_i35.DeviceRegistration>(
     'messenger',
     'registerDevice',
     {
@@ -2170,7 +2222,7 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// `productId` + `cursor`.
   _i3.Future<List<_i9.RoomSummary>> listRooms({
     int? productId,
-    _i36.RoomState? state,
+    _i37.RoomState? state,
     String? search,
     bool? includeArchived,
     required int limit,
@@ -2198,14 +2250,14 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// SDK крутит этот метод в цикле до `nextCursor == null` (полный синк
   /// списка комнат), поэтому [listRooms] не тронут — по нему продолжают
   /// ходить клиенты в поле.
-  _i3.Future<_i37.RoomListPage> listRoomsPage({
+  _i3.Future<_i38.RoomListPage> listRoomsPage({
     int? productId,
-    _i36.RoomState? state,
+    _i37.RoomState? state,
     String? search,
     bool? includeArchived,
     required int limit,
     String? cursor,
-  }) => caller.callServerEndpoint<_i37.RoomListPage>(
+  }) => caller.callServerEndpoint<_i38.RoomListPage>(
     'messenger',
     'listRoomsPage',
     {
@@ -2221,8 +2273,8 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// Подробности конкретной комнаты + первые 30 участников + viewer-роль.
   /// Если caller не состоит в membership — `RoomUnavailableException`
   /// (anti-enumeration).
-  _i3.Future<_i38.RoomDetails> getRoom({required int roomId}) =>
-      caller.callServerEndpoint<_i38.RoomDetails>(
+  _i3.Future<_i39.RoomDetails> getRoom({required int roomId}) =>
+      caller.callServerEndpoint<_i39.RoomDetails>(
         'messenger',
         'getRoom',
         {'roomId': roomId},
@@ -2231,9 +2283,9 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// Идемпотентно создать direct chat caller↔peer. Заменяет старый
   /// `getOrCreateDirect`. Cross-tenant / non-existent peer →
   /// `PeerUnavailableException` (anti-enumeration).
-  _i3.Future<_i38.RoomDetails> createDirect({
+  _i3.Future<_i39.RoomDetails> createDirect({
     required int peerMessengerUserId,
-  }) => caller.callServerEndpoint<_i38.RoomDetails>(
+  }) => caller.callServerEndpoint<_i39.RoomDetails>(
     'messenger',
     'createDirect',
     {'peerMessengerUserId': peerMessengerUserId},
@@ -2255,10 +2307,10 @@ class EndpointMessenger extends _i2.EndpointRef {
   ///   * EmailAccount существует но MessengerUser ещё не создан
   ///     (signedUp но не вызывал messenger.session()) → тоже
   ///     PeerUnavailableException.
-  _i3.Future<_i30.RoomParticipant> findUserByEmail({
+  _i3.Future<_i31.RoomParticipant> findUserByEmail({
     required String email,
     required String tenantExternalKey,
-  }) => caller.callServerEndpoint<_i30.RoomParticipant>(
+  }) => caller.callServerEndpoint<_i31.RoomParticipant>(
     'messenger',
     'findUserByEmail',
     {
@@ -2282,8 +2334,8 @@ class EndpointMessenger extends _i2.EndpointRef {
   ///
   /// Возвращает пустой list если у caller нет ни одной комнаты или нет
   /// peer-ов в комнатах.
-  _i3.Future<List<_i30.RoomParticipant>> listKnownContacts() =>
-      caller.callServerEndpoint<List<_i30.RoomParticipant>>(
+  _i3.Future<List<_i31.RoomParticipant>> listKnownContacts() =>
+      caller.callServerEndpoint<List<_i31.RoomParticipant>>(
         'messenger',
         'listKnownContacts',
         {},
@@ -2305,11 +2357,11 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// **Edge cases**:
   ///   * Empty query → пустой list (no DoS surface).
   ///   * Query короче 2 символов → пустой list (anti-fishing).
-  _i3.Future<List<_i30.RoomParticipant>> searchUsers({
+  _i3.Future<List<_i31.RoomParticipant>> searchUsers({
     required String query,
     required int limit,
     required String tenantExternalKey,
-  }) => caller.callServerEndpoint<List<_i30.RoomParticipant>>(
+  }) => caller.callServerEndpoint<List<_i31.RoomParticipant>>(
     'messenger',
     'searchUsers',
     {
@@ -2344,11 +2396,11 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// silently dedup-ятся, caller silently удаляется из списка если
   /// был добавлен. Cross-tenant / non-existent member →
   /// `PeerUnavailableException`.
-  _i3.Future<_i38.RoomDetails> createGroup({
+  _i3.Future<_i39.RoomDetails> createGroup({
     required String name,
     required List<int> memberMessengerUserIds,
     int? productId,
-  }) => caller.callServerEndpoint<_i38.RoomDetails>(
+  }) => caller.callServerEndpoint<_i39.RoomDetails>(
     'messenger',
     'createGroup',
     {
@@ -2361,12 +2413,12 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// Идемпотентно создать / найти комнату для продуктовой сущности
   /// `(productExternalKey, entityType, entityId)`. При cache hit caller
   /// auto-join-ится в membership, если ещё не там.
-  _i3.Future<_i38.RoomDetails> getOrCreateProductRoom({
+  _i3.Future<_i39.RoomDetails> getOrCreateProductRoom({
     required String productExternalKey,
     required String entityType,
     required String entityId,
-    required _i39.RoomType roomType,
-  }) => caller.callServerEndpoint<_i38.RoomDetails>(
+    required _i40.RoomType roomType,
+  }) => caller.callServerEndpoint<_i39.RoomDetails>(
     'messenger',
     'getOrCreateProductRoom',
     {
@@ -2380,10 +2432,10 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// Поддержка по `contextId`. На MVP — частный случай productRoom
   /// с `entityType='support_ticket'` без pre-defined operator-а
   /// (TASK29 / customer config добавит).
-  _i3.Future<_i38.RoomDetails> openSupportChat({
+  _i3.Future<_i39.RoomDetails> openSupportChat({
     required String productExternalKey,
     required String contextId,
-  }) => caller.callServerEndpoint<_i38.RoomDetails>(
+  }) => caller.callServerEndpoint<_i39.RoomDetails>(
     'messenger',
     'openSupportChat',
     {
@@ -2394,8 +2446,8 @@ class EndpointMessenger extends _i2.EndpointRef {
 
   /// **TASK57 фаза 1**: «Мои обращения» — список тикетов текущего пользователя
   /// со статусами (open/closed) и ссылкой на GitHub issue (если заведён).
-  _i3.Future<List<_i40.TicketView>> listMyTickets() =>
-      caller.callServerEndpoint<List<_i40.TicketView>>(
+  _i3.Future<List<_i41.TicketView>> listMyTickets() =>
+      caller.callServerEndpoint<List<_i41.TicketView>>(
         'messenger',
         'listMyTickets',
         {},
@@ -2413,9 +2465,9 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// пользователям с общей комнатой (тот же tenant); боты/чужие id тихо
   /// отбрасываются. `lastActiveAt` огрублён до минуты. НЕ путать с
   /// [getPresence] (foreground-кэш для UI «онлайн сейчас», single-id).
-  _i3.Future<List<_i41.PresenceInfo>> getLastSeen({
+  _i3.Future<List<_i42.PresenceInfo>> getLastSeen({
     required List<int> userIds,
-  }) => caller.callServerEndpoint<List<_i41.PresenceInfo>>(
+  }) => caller.callServerEndpoint<List<_i42.PresenceInfo>>(
     'messenger',
     'getLastSeen',
     {'userIds': userIds},
@@ -2425,35 +2477,35 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// TTL ~5 мин — SDK повторяет при открытом чате). Возвращает актуальный
   /// снапшот. События придут в userEventStream при объявленной capability
   /// `presence`.
-  _i3.Future<List<_i41.PresenceInfo>> subscribePresence({
+  _i3.Future<List<_i42.PresenceInfo>> subscribePresence({
     required List<int> userIds,
-  }) => caller.callServerEndpoint<List<_i41.PresenceInfo>>(
+  }) => caller.callServerEndpoint<List<_i42.PresenceInfo>>(
     'messenger',
     'subscribePresence',
     {'userIds': userIds},
   );
 
   /// **TASK62**: список папок текущего пользователя (с roomIds).
-  _i3.Future<List<_i42.ChatFolderView>> listChatFolders() =>
-      caller.callServerEndpoint<List<_i42.ChatFolderView>>(
+  _i3.Future<List<_i43.ChatFolderView>> listChatFolders() =>
+      caller.callServerEndpoint<List<_i43.ChatFolderView>>(
         'messenger',
         'listChatFolders',
         {},
       );
 
   /// **TASK62**: создать папку (имя 1..64, уникально per user, ≤50 папок).
-  _i3.Future<_i42.ChatFolderView> createChatFolder({required String name}) =>
-      caller.callServerEndpoint<_i42.ChatFolderView>(
+  _i3.Future<_i43.ChatFolderView> createChatFolder({required String name}) =>
+      caller.callServerEndpoint<_i43.ChatFolderView>(
         'messenger',
         'createChatFolder',
         {'name': name},
       );
 
   /// **TASK62**: переименовать свою папку.
-  _i3.Future<_i42.ChatFolderView> renameChatFolder({
+  _i3.Future<_i43.ChatFolderView> renameChatFolder({
     required int folderId,
     required String name,
-  }) => caller.callServerEndpoint<_i42.ChatFolderView>(
+  }) => caller.callServerEndpoint<_i43.ChatFolderView>(
     'messenger',
     'renameChatFolder',
     {
@@ -2504,8 +2556,8 @@ class EndpointMessenger extends _i2.EndpointRef {
   ///
   /// Self-чат — обычная Matrix-комната с единственным участником, поэтому
   /// синхронизация между устройствами идёт штатным `/sync` (см. TASK68 §4).
-  _i3.Future<_i38.RoomDetails> getOrCreateSelfRoom() =>
-      caller.callServerEndpoint<_i38.RoomDetails>(
+  _i3.Future<_i39.RoomDetails> getOrCreateSelfRoom() =>
+      caller.callServerEndpoint<_i39.RoomDetails>(
         'messenger',
         'getOrCreateSelfRoom',
         {},
@@ -2518,8 +2570,8 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// (пустое / длиннее [SavedChatPolicy.maxNameLength]), `saved_chat_limit`
   /// (потолок [SavedChatPolicy.maxSavedChatsPerUser] разделов),
   /// `saved_chat_name_taken` (такой раздел уже есть).
-  _i3.Future<_i38.RoomDetails> createSavedChat({required String name}) =>
-      caller.callServerEndpoint<_i38.RoomDetails>(
+  _i3.Future<_i39.RoomDetails> createSavedChat({required String name}) =>
+      caller.callServerEndpoint<_i39.RoomDetails>(
         'messenger',
         'createSavedChat',
         {'name': name},
@@ -2542,10 +2594,10 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// Throws [RoomUnavailableException] (не участник / нет комнаты) или
   /// [StateError] с кодом `saved_chat_ttl_unsupported` (комната не
   /// «Избранное») / `saved_chat_ttl_invalid` (TTL вне допустимых границ).
-  _i3.Future<_i38.RoomDetails> setRoomAutoCleanupTtl({
+  _i3.Future<_i39.RoomDetails> setRoomAutoCleanupTtl({
     required int roomId,
     int? ttlSeconds,
-  }) => caller.callServerEndpoint<_i38.RoomDetails>(
+  }) => caller.callServerEndpoint<_i39.RoomDetails>(
     'messenger',
     'setRoomAutoCleanupTtl',
     {
@@ -2556,9 +2608,9 @@ class EndpointMessenger extends _i2.EndpointRef {
 
   /// **TASK52**: отношение текущего пользователя к другому (для UI:
   /// кнопки контакта/блокировки, интро-карточка).
-  _i3.Future<_i43.ContactRelation> getContactRelation({
+  _i3.Future<_i44.ContactRelation> getContactRelation({
     required int otherMessengerUserId,
-  }) => caller.callServerEndpoint<_i43.ContactRelation>(
+  }) => caller.callServerEndpoint<_i44.ContactRelation>(
     'messenger',
     'getContactRelation',
     {'otherMessengerUserId': otherMessengerUserId},
@@ -2616,8 +2668,8 @@ class EndpointMessenger extends _i2.EndpointRef {
   );
 
   /// **TASK52**: мои входящие заявки (pending) с полями отправителей.
-  _i3.Future<List<_i44.ContactRequestView>> listIncomingContactRequests() =>
-      caller.callServerEndpoint<List<_i44.ContactRequestView>>(
+  _i3.Future<List<_i45.ContactRequestView>> listIncomingContactRequests() =>
+      caller.callServerEndpoint<List<_i45.ContactRequestView>>(
         'messenger',
         'listIncomingContactRequests',
         {},
@@ -2626,8 +2678,8 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// **TASK52**: принять заявку → взаимный ContactLink + direct-чат.
   /// Возврат — RoomDetails созданной комнаты. Заявка не найдена/не моя/
   /// не pending → PeerUnavailable (anti-enumeration).
-  _i3.Future<_i38.RoomDetails> acceptContactRequest({required int requestId}) =>
-      caller.callServerEndpoint<_i38.RoomDetails>(
+  _i3.Future<_i39.RoomDetails> acceptContactRequest({required int requestId}) =>
+      caller.callServerEndpoint<_i39.RoomDetails>(
         'messenger',
         'acceptContactRequest',
         {'requestId': requestId},
@@ -2646,9 +2698,9 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// инвайт-ссылка). Единый механизм — потребитель различается только
   /// [kind]. Токен встраивается в QR/ссылку/BLE; встречный гасит его
   /// через [redeemTrustToken] → взаимный контакт.
-  _i3.Future<_i45.TrustTokenIssued> issueTrustToken({
-    required _i46.TrustTokenKind kind,
-  }) => caller.callServerEndpoint<_i45.TrustTokenIssued>(
+  _i3.Future<_i46.TrustTokenIssued> issueTrustToken({
+    required _i47.TrustTokenKind kind,
+  }) => caller.callServerEndpoint<_i46.TrustTokenIssued>(
     'messenger',
     'issueTrustToken',
     {'kind': kind},
@@ -2659,9 +2711,9 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// direct-чата/интро-карточки), либо null на любой невалидный исход
   /// (нет токена / истёк / исчерпан / свой / чужой tenant — неотличимо,
   /// anti-enumeration).
-  _i3.Future<_i47.TrustRedeemResult?> redeemTrustToken({
+  _i3.Future<_i48.TrustRedeemResult?> redeemTrustToken({
     required String token,
-  }) => caller.callServerEndpoint<_i47.TrustRedeemResult?>(
+  }) => caller.callServerEndpoint<_i48.TrustRedeemResult?>(
     'messenger',
     'redeemTrustToken',
     {'token': token},
@@ -2679,9 +2731,9 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// ВЗАИМНОГО тапа в окне 60с — BLE недоверенное. matched=true →
   /// взаимный контакт (можно открыть чат); matched=false → ждём ответный
   /// тап peer-а.
-  _i3.Future<_i48.NearbyConfirmResult> confirmNearby({
+  _i3.Future<_i49.NearbyConfirmResult> confirmNearby({
     required int peerMessengerUserId,
-  }) => caller.callServerEndpoint<_i48.NearbyConfirmResult>(
+  }) => caller.callServerEndpoint<_i49.NearbyConfirmResult>(
     'messenger',
     'confirmNearby',
     {'peerMessengerUserId': peerMessengerUserId},
@@ -2691,9 +2743,9 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// поля вырезаны, если нет trust-связи (итер.1 — общая комната).
   /// null = визитки нет; несуществующий id / чужой tenant — тоже null
   /// (anti-enumeration). Rate-limit 120/мин на вызывающего.
-  _i3.Future<_i49.ContactCardInfo?> getContactCard({
+  _i3.Future<_i50.ContactCardInfo?> getContactCard({
     required int messengerUserId,
-  }) => caller.callServerEndpoint<_i49.ContactCardInfo?>(
+  }) => caller.callServerEndpoint<_i50.ContactCardInfo?>(
     'messenger',
     'getContactCard',
     {'messengerUserId': messengerUserId},
@@ -2701,8 +2753,8 @@ class EndpointMessenger extends _i2.EndpointRef {
 
   /// **TASK52**: своя визитка целиком (включая contactsOnlyFields) —
   /// для редактора. null = ещё не создана.
-  _i3.Future<_i50.ContactCard?> getMyContactCard() =>
-      caller.callServerEndpoint<_i50.ContactCard?>(
+  _i3.Future<_i51.ContactCard?> getMyContactCard() =>
+      caller.callServerEndpoint<_i51.ContactCard?>(
         'messenger',
         'getMyContactCard',
         {},
@@ -2710,9 +2762,9 @@ class EndpointMessenger extends _i2.EndpointRef {
 
   /// **TASK52**: сохранить свою визитку (upsert). id/messengerUserId
   /// из [card] игнорируются — владелец всегда caller.
-  _i3.Future<_i50.ContactCard> setMyContactCard({
-    required _i50.ContactCard card,
-  }) => caller.callServerEndpoint<_i50.ContactCard>(
+  _i3.Future<_i51.ContactCard> setMyContactCard({
+    required _i51.ContactCard card,
+  }) => caller.callServerEndpoint<_i51.ContactCard>(
     'messenger',
     'setMyContactCard',
     {'card': card},
@@ -2727,9 +2779,9 @@ class EndpointMessenger extends _i2.EndpointRef {
 
   /// **TASK63**: профиль контакта глазами текущего пользователя —
   /// публичные поля + приватные alias/заметка/метки viewer-а.
-  _i3.Future<_i51.ContactProfileView> getContactProfile({
+  _i3.Future<_i52.ContactProfileView> getContactProfile({
     required int contactMessengerUserId,
-  }) => caller.callServerEndpoint<_i51.ContactProfileView>(
+  }) => caller.callServerEndpoint<_i52.ContactProfileView>(
     'messenger',
     'getContactProfile',
     {'contactMessengerUserId': contactMessengerUserId},
@@ -2737,11 +2789,11 @@ class EndpointMessenger extends _i2.EndpointRef {
 
   /// **TASK63**: задать «своё имя» и/или заметку. null = не менять,
   /// пустая строка = очистить.
-  _i3.Future<_i51.ContactProfileView> setContactMeta({
+  _i3.Future<_i52.ContactProfileView> setContactMeta({
     required int contactMessengerUserId,
     String? customName,
     String? note,
-  }) => caller.callServerEndpoint<_i51.ContactProfileView>(
+  }) => caller.callServerEndpoint<_i52.ContactProfileView>(
     'messenger',
     'setContactMeta',
     {
@@ -2752,8 +2804,8 @@ class EndpointMessenger extends _i2.EndpointRef {
   );
 
   /// **TASK63**: метки текущего пользователя.
-  _i3.Future<List<_i52.ContactLabel>> listContactLabels() =>
-      caller.callServerEndpoint<List<_i52.ContactLabel>>(
+  _i3.Future<List<_i53.ContactLabel>> listContactLabels() =>
+      caller.callServerEndpoint<List<_i53.ContactLabel>>(
         'messenger',
         'listContactLabels',
         {},
@@ -2761,18 +2813,18 @@ class EndpointMessenger extends _i2.EndpointRef {
 
   /// **TASK63 итер.3**: все назначения меток текущего пользователя
   /// (для точек/счётчиков/клиентского фильтра на экране «Люди»).
-  _i3.Future<List<_i53.ContactLabelAssignment>> listContactLabelAssignments() =>
-      caller.callServerEndpoint<List<_i53.ContactLabelAssignment>>(
+  _i3.Future<List<_i54.ContactLabelAssignment>> listContactLabelAssignments() =>
+      caller.callServerEndpoint<List<_i54.ContactLabelAssignment>>(
         'messenger',
         'listContactLabelAssignments',
         {},
       );
 
   /// **TASK63**: создать метку (имя 1..32, уникально per user, ≤100).
-  _i3.Future<_i52.ContactLabel> createContactLabel({
+  _i3.Future<_i53.ContactLabel> createContactLabel({
     required String name,
     String? colorHex,
-  }) => caller.callServerEndpoint<_i52.ContactLabel>(
+  }) => caller.callServerEndpoint<_i53.ContactLabel>(
     'messenger',
     'createContactLabel',
     {
@@ -2782,11 +2834,11 @@ class EndpointMessenger extends _i2.EndpointRef {
   );
 
   /// **TASK63**: переименовать/перекрасить метку.
-  _i3.Future<_i52.ContactLabel> renameContactLabel({
+  _i3.Future<_i53.ContactLabel> renameContactLabel({
     required int labelId,
     required String name,
     String? colorHex,
-  }) => caller.callServerEndpoint<_i52.ContactLabel>(
+  }) => caller.callServerEndpoint<_i53.ContactLabel>(
     'messenger',
     'renameContactLabel',
     {
@@ -2820,9 +2872,9 @@ class EndpointMessenger extends _i2.EndpointRef {
   );
 
   /// **TASK63**: контакты с меткой (директория; имена уже с alias-ами).
-  _i3.Future<List<_i30.RoomParticipant>> listContactsByLabel({
+  _i3.Future<List<_i31.RoomParticipant>> listContactsByLabel({
     required int labelId,
-  }) => caller.callServerEndpoint<List<_i30.RoomParticipant>>(
+  }) => caller.callServerEndpoint<List<_i31.RoomParticipant>>(
     'messenger',
     'listContactsByLabel',
     {'labelId': labelId},
@@ -2837,12 +2889,12 @@ class EndpointMessenger extends _i2.EndpointRef {
   ///
   /// Обычно вызывается server-to-server из titan (сессия caller-а), но
   /// сигнатура — обычный аутентифицированный messenger-RPC.
-  _i3.Future<_i38.RoomDetails> getOrCreateObjectRoom({
+  _i3.Future<_i39.RoomDetails> getOrCreateObjectRoom({
     required String productExternalKey,
     required String objectId,
     required String name,
     required List<int> memberMessengerUserIds,
-  }) => caller.callServerEndpoint<_i38.RoomDetails>(
+  }) => caller.callServerEndpoint<_i39.RoomDetails>(
     'messenger',
     'getOrCreateObjectRoom',
     {
@@ -2861,9 +2913,9 @@ class EndpointMessenger extends _i2.EndpointRef {
   ///
   /// Не-участник → [NotSupportTeamMemberException] (anti-enumeration: не
   /// раскрываем ни существование команды, ни её состав).
-  _i3.Future<_i54.SupportTeamView> getSupportTeam({
+  _i3.Future<_i55.SupportTeamView> getSupportTeam({
     required String productExternalKey,
-  }) => caller.callServerEndpoint<_i54.SupportTeamView>(
+  }) => caller.callServerEndpoint<_i55.SupportTeamView>(
     'messenger',
     'getSupportTeam',
     {'productExternalKey': productExternalKey},
@@ -2879,9 +2931,9 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// caller-а), [NotSupportTeamMemberException] (команда уже есть и caller
   /// не в ней — anti-enumeration). Идемпотентно для участника существующей
   /// команды (вернёт её view).
-  _i3.Future<_i54.SupportTeamView> createSupportTeam({
+  _i3.Future<_i55.SupportTeamView> createSupportTeam({
     required String productExternalKey,
-  }) => caller.callServerEndpoint<_i54.SupportTeamView>(
+  }) => caller.callServerEndpoint<_i55.SupportTeamView>(
     'messenger',
     'createSupportTeam',
     {'productExternalKey': productExternalKey},
@@ -2891,11 +2943,11 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// только владелец. «Назначение других администраторов»: повышенный
   /// участник тоже управляет составом. Понизить последнего владельца
   /// нельзя ([LastOwnerCannotDemoteException]). Возвращает обновлённый view.
-  _i3.Future<_i54.SupportTeamView> setSupportTeamMemberRole({
+  _i3.Future<_i55.SupportTeamView> setSupportTeamMemberRole({
     required String productExternalKey,
     required int targetMessengerUserId,
-    required _i55.SupportTeamRole role,
-  }) => caller.callServerEndpoint<_i54.SupportTeamView>(
+    required _i56.SupportTeamRole role,
+  }) => caller.callServerEndpoint<_i55.SupportTeamView>(
     'messenger',
     'setSupportTeamMemberRole',
     {
@@ -2912,11 +2964,11 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// ней), [NotSupportTeamOwnerException] (caller не owner),
   /// [PeerUnavailableException] (email не резолвится — оператор ещё не
   /// входил / нет аккаунта).
-  _i3.Future<_i54.SupportTeamView> addSupportTeamMember({
+  _i3.Future<_i55.SupportTeamView> addSupportTeamMember({
     required String productExternalKey,
     required String email,
     int? tier,
-  }) => caller.callServerEndpoint<_i54.SupportTeamView>(
+  }) => caller.callServerEndpoint<_i55.SupportTeamView>(
     'messenger',
     'addSupportTeamMember',
     {
@@ -2930,11 +2982,11 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// `tier` 1 = фронт-линия, 2 = эскалация. Затрагивает БУДУЩИЕ support-
   /// комнаты и эскалацию; уже открытые не трогаются. Возвращает обновлённый
   /// view. Throws как [addSupportTeamMember] (owner-gated).
-  _i3.Future<_i54.SupportTeamView> setSupportTeamMemberTier({
+  _i3.Future<_i55.SupportTeamView> setSupportTeamMemberTier({
     required String productExternalKey,
     required int targetMessengerUserId,
     required int tier,
-  }) => caller.callServerEndpoint<_i54.SupportTeamView>(
+  }) => caller.callServerEndpoint<_i55.SupportTeamView>(
     'messenger',
     'setSupportTeamMemberTier',
     {
@@ -2947,10 +2999,10 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// **TASK48 iter2**: порог авто-эскалации команды в минутах — только
   /// owner. Читается sweep-джобом (`SupportEscalationSweepFutureCall`).
   /// Клампится сервером в [1, 10080]. Возвращает обновлённый view.
-  _i3.Future<_i54.SupportTeamView> setSupportTeamTimeout({
+  _i3.Future<_i55.SupportTeamView> setSupportTeamTimeout({
     required String productExternalKey,
     required int minutes,
-  }) => caller.callServerEndpoint<_i54.SupportTeamView>(
+  }) => caller.callServerEndpoint<_i55.SupportTeamView>(
     'messenger',
     'setSupportTeamTimeout',
     {
@@ -2962,10 +3014,10 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// **TASK43**: убрать оператора из команды по messengerUserId — только
   /// владелец. Нельзя убрать последнего owner-а
   /// ([LastOwnerCannotDemoteException]). Возвращает обновлённый view.
-  _i3.Future<_i54.SupportTeamView> removeSupportTeamMember({
+  _i3.Future<_i55.SupportTeamView> removeSupportTeamMember({
     required String productExternalKey,
     required int targetMessengerUserId,
-  }) => caller.callServerEndpoint<_i54.SupportTeamView>(
+  }) => caller.callServerEndpoint<_i55.SupportTeamView>(
     'messenger',
     'removeSupportTeamMember',
     {
@@ -2983,9 +3035,9 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// Каждая запись несёт флаг [ProductObjectRoom.viewerIsMember] («я уже
   /// вошёл?») — UI по нему решает: открыть сразу или сперва
   /// [joinProductRoom].
-  _i3.Future<List<_i56.ProductObjectRoom>> listProductObjectRooms({
+  _i3.Future<List<_i57.ProductObjectRoom>> listProductObjectRooms({
     required String productExternalKey,
-  }) => caller.callServerEndpoint<List<_i56.ProductObjectRoom>>(
+  }) => caller.callServerEndpoint<List<_i57.ProductObjectRoom>>(
     'messenger',
     'listProductObjectRooms',
     {'productExternalKey': productExternalKey},
@@ -2998,8 +3050,8 @@ class EndpointMessenger extends _i2.EndpointRef {
   ///
   /// Gated: caller — член команды продукта комнаты, [roomId] — объектовая
   /// комната. Иначе [NotSupportTeamMemberException] / [RoomUnavailableException].
-  _i3.Future<_i38.RoomDetails> joinProductRoom({required int roomId}) =>
-      caller.callServerEndpoint<_i38.RoomDetails>(
+  _i3.Future<_i39.RoomDetails> joinProductRoom({required int roomId}) =>
+      caller.callServerEndpoint<_i39.RoomDetails>(
         'messenger',
         'joinProductRoom',
         {'roomId': roomId},
@@ -3026,9 +3078,9 @@ class EndpointMessenger extends _i2.EndpointRef {
   ///   * [RoomUnavailableException] — комната не существует / caller не
   ///     участник (anti-enumeration);
   ///   * [NotObjectRoomException] — комната не объектовая.
-  _i3.Future<_i57.EscalationResult> escalateToSupportTeam({
+  _i3.Future<_i58.EscalationResult> escalateToSupportTeam({
     required int roomId,
-  }) => caller.callServerEndpoint<_i57.EscalationResult>(
+  }) => caller.callServerEndpoint<_i58.EscalationResult>(
     'messenger',
     'escalateToSupportTeam',
     {'roomId': roomId},
@@ -3040,9 +3092,9 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// тира + системное сообщение + push. Конкурентно-безопасно. «Мягкие»
   /// отказы (выше никого / гонка) → no-op [EscalationResult]. Throws
   /// [RoomUnavailableException], если caller не участник комнаты.
-  _i3.Future<_i57.EscalationResult> escalateSupportRoom({
+  _i3.Future<_i58.EscalationResult> escalateSupportRoom({
     required int roomId,
-  }) => caller.callServerEndpoint<_i57.EscalationResult>(
+  }) => caller.callServerEndpoint<_i58.EscalationResult>(
     'messenger',
     'escalateSupportRoom',
     {'roomId': roomId},
@@ -3160,8 +3212,8 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// Используется в SDK ProductFilter dropdown (standalone mode).
   /// Не фильтруется по `archived` — dropdown включает все products
   /// независимо от текущего archive-tab.
-  _i3.Future<List<_i58.Product>> getAvailableProducts() =>
-      caller.callServerEndpoint<List<_i58.Product>>(
+  _i3.Future<List<_i59.Product>> getAvailableProducts() =>
+      caller.callServerEndpoint<List<_i59.Product>>(
         'messenger',
         'getAvailableProducts',
         {},
@@ -3193,8 +3245,8 @@ class EndpointMessenger extends _i2.EndpointRef {
   ///     по разнице ответа `null` (нет) vs typed-exception (есть, но
   ///     в другом tenant) скрейпил бы id-пространство. См. ревью
   ///     7d545ff п.2.
-  _i3.Future<_i59.PresenceState?> getPresence({required int messengerUserId}) =>
-      caller.callServerEndpoint<_i59.PresenceState?>(
+  _i3.Future<_i60.PresenceState?> getPresence({required int messengerUserId}) =>
+      caller.callServerEndpoint<_i60.PresenceState?>(
         'messenger',
         'getPresence',
         {'messengerUserId': messengerUserId},
@@ -3204,8 +3256,8 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// текущего user-а. Используется SDK [NsgMessengerSettings] для
   /// initial load + после `setNotificationSettings` round-trip.
   /// Default-ы из `MessengerUser` schema (`showMessagePreview=true`).
-  _i3.Future<_i60.NotificationSettings> getNotificationSettings() =>
-      caller.callServerEndpoint<_i60.NotificationSettings>(
+  _i3.Future<_i61.NotificationSettings> getNotificationSettings() =>
+      caller.callServerEndpoint<_i61.NotificationSettings>(
         'messenger',
         'getNotificationSettings',
         {},
@@ -3221,8 +3273,8 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// `PushRoutingService`: тест шлём себе же, mute/foreground подавлять не
   /// нужно). Если у пользователя нет push-устройств (нет токена / desktop /
   /// web) — `deviceCount == 0`, FutureCall не планируется.
-  _i3.Future<_i61.PushTestResult> testPush() =>
-      caller.callServerEndpoint<_i61.PushTestResult>(
+  _i3.Future<_i62.PushTestResult> testPush() =>
+      caller.callServerEndpoint<_i62.PushTestResult>(
         'messenger',
         'testPush',
         {},
@@ -3255,8 +3307,8 @@ class EndpointMessenger extends _i2.EndpointRef {
   );
 
   /// **TASK64**: все языковые версии своего профиля (для редактора).
-  _i3.Future<List<_i62.ProfileTranslation>> listMyProfileTranslations() =>
-      caller.callServerEndpoint<List<_i62.ProfileTranslation>>(
+  _i3.Future<List<_i63.ProfileTranslation>> listMyProfileTranslations() =>
+      caller.callServerEndpoint<List<_i63.ProfileTranslation>>(
         'messenger',
         'listMyProfileTranslations',
         {},
@@ -3265,13 +3317,13 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// **TASK64**: записать языковую версию профиля. null = не менять,
   /// пустая строка = очистить; полностью пустая версия удаляется
   /// (возврат null).
-  _i3.Future<_i62.ProfileTranslation?> setProfileTranslation({
+  _i3.Future<_i63.ProfileTranslation?> setProfileTranslation({
     required String locale,
     String? displayName,
     String? about,
     String? jobTitle,
     String? company,
-  }) => caller.callServerEndpoint<_i62.ProfileTranslation?>(
+  }) => caller.callServerEndpoint<_i63.ProfileTranslation?>(
     'messenger',
     'setProfileTranslation',
     {
@@ -3506,7 +3558,7 @@ class EndpointProductNotification extends _i2.EndpointRef {
   /// [InvalidNotificationException] `reason=<validation>` — кривой вход
   /// (пустой список, пустой контент, слишком длинно). Валидация — до
   /// любых обращений в БД, продукту отдаём внятную причину (не секрет).
-  _i3.Future<_i63.ProductNotificationSendResult> send({
+  _i3.Future<_i64.ProductNotificationSendResult> send({
     required String tenantExternalKey,
     required String productExternalKey,
     required String serviceSecret,
@@ -3518,7 +3570,7 @@ class EndpointProductNotification extends _i2.EndpointRef {
     String? collapseKey,
     String? priority,
     int? ttlSeconds,
-  }) => caller.callServerEndpoint<_i63.ProductNotificationSendResult>(
+  }) => caller.callServerEndpoint<_i64.ProductNotificationSendResult>(
     'productNotification',
     'send',
     {
@@ -3554,10 +3606,10 @@ class EndpointPulse extends _i2.EndpointRef {
 
   /// Живые события дашборда: переходы статусов, инциденты.
   /// Дашборд перечитывает узел из `event.monitor` без refetch дерева.
-  _i3.Stream<_i64.PulseEvent> statusStream() =>
+  _i3.Stream<_i65.PulseEvent> statusStream() =>
       caller.callStreamingServerEndpoint<
-        _i3.Stream<_i64.PulseEvent>,
-        _i64.PulseEvent
+        _i3.Stream<_i65.PulseEvent>,
+        _i65.PulseEvent
       >(
         'pulse',
         'statusStream',
@@ -3565,17 +3617,17 @@ class EndpointPulse extends _i2.EndpointRef {
         {},
       );
 
-  _i3.Future<List<_i65.PulseFolder>> listFolders() =>
-      caller.callServerEndpoint<List<_i65.PulseFolder>>(
+  _i3.Future<List<_i66.PulseFolder>> listFolders() =>
+      caller.callServerEndpoint<List<_i66.PulseFolder>>(
         'pulse',
         'listFolders',
         {},
       );
 
-  _i3.Future<_i65.PulseFolder> createFolder({
+  _i3.Future<_i66.PulseFolder> createFolder({
     required String name,
     int? parentId,
-  }) => caller.callServerEndpoint<_i65.PulseFolder>(
+  }) => caller.callServerEndpoint<_i66.PulseFolder>(
     'pulse',
     'createFolder',
     {
@@ -3584,10 +3636,10 @@ class EndpointPulse extends _i2.EndpointRef {
     },
   );
 
-  _i3.Future<_i65.PulseFolder> renameFolder({
+  _i3.Future<_i66.PulseFolder> renameFolder({
     required int id,
     required String name,
-  }) => caller.callServerEndpoint<_i65.PulseFolder>(
+  }) => caller.callServerEndpoint<_i66.PulseFolder>(
     'pulse',
     'renameFolder',
     {
@@ -3605,20 +3657,20 @@ class EndpointPulse extends _i2.EndpointRef {
         {'id': id},
       );
 
-  _i3.Future<List<_i66.PulseMonitor>> listMonitors() =>
-      caller.callServerEndpoint<List<_i66.PulseMonitor>>(
+  _i3.Future<List<_i67.PulseMonitor>> listMonitors() =>
+      caller.callServerEndpoint<List<_i67.PulseMonitor>>(
         'pulse',
         'listMonitors',
         {},
       );
 
   /// Создать монитор → beat-токен + готовый URL (показать один раз).
-  _i3.Future<_i67.PulseMonitorCreated> createMonitor({
+  _i3.Future<_i68.PulseMonitorCreated> createMonitor({
     required String name,
     int? folderId,
     required int periodSeconds,
     required int graceSeconds,
-  }) => caller.callServerEndpoint<_i67.PulseMonitorCreated>(
+  }) => caller.callServerEndpoint<_i68.PulseMonitorCreated>(
     'pulse',
     'createMonitor',
     {
@@ -3630,18 +3682,18 @@ class EndpointPulse extends _i2.EndpointRef {
   );
 
   /// Ротация beat-токена (тот же монитор; старый токен мёртв немедленно).
-  _i3.Future<_i67.PulseMonitorCreated> rotateToken({required int id}) =>
-      caller.callServerEndpoint<_i67.PulseMonitorCreated>(
+  _i3.Future<_i68.PulseMonitorCreated> rotateToken({required int id}) =>
+      caller.callServerEndpoint<_i68.PulseMonitorCreated>(
         'pulse',
         'rotateToken',
         {'id': id},
       );
 
   /// Пауза (обслуживание/деплой): beat → 403, свипер/алерты пропускают.
-  _i3.Future<_i66.PulseMonitor> setPaused({
+  _i3.Future<_i67.PulseMonitor> setPaused({
     required int id,
     required bool paused,
-  }) => caller.callServerEndpoint<_i66.PulseMonitor>(
+  }) => caller.callServerEndpoint<_i67.PulseMonitor>(
     'pulse',
     'setPaused',
     {
@@ -3657,8 +3709,8 @@ class EndpointPulse extends _i2.EndpointRef {
         {'id': id},
       );
 
-  _i3.Future<List<_i68.PulseAlertRule>> listRules() =>
-      caller.callServerEndpoint<List<_i68.PulseAlertRule>>(
+  _i3.Future<List<_i69.PulseAlertRule>> listRules() =>
+      caller.callServerEndpoint<List<_i69.PulseAlertRule>>(
         'pulse',
         'listRules',
         {},
@@ -3666,7 +3718,7 @@ class EndpointPulse extends _i2.EndpointRef {
 
   /// Создать правило: ровно один scope (папка ИЛИ монитор). Заводит/находит
   /// тенантного Pulse-бота и добавляет его в комнату-цель.
-  _i3.Future<_i68.PulseAlertRule> createRule({
+  _i3.Future<_i69.PulseAlertRule> createRule({
     int? scopeFolderId,
     int? scopeMonitorId,
     required int roomId,
@@ -3675,7 +3727,7 @@ class EndpointPulse extends _i2.EndpointRef {
     String? level1UserIds,
     int? escalate2AfterMinutes,
     String? level2UserIds,
-  }) => caller.callServerEndpoint<_i68.PulseAlertRule>(
+  }) => caller.callServerEndpoint<_i69.PulseAlertRule>(
     'pulse',
     'createRule',
     {
@@ -3697,10 +3749,10 @@ class EndpointPulse extends _i2.EndpointRef {
         {'id': id},
       );
 
-  _i3.Future<List<_i69.PulseIncident>> listIncidents({
+  _i3.Future<List<_i70.PulseIncident>> listIncidents({
     required int monitorId,
     required int limit,
-  }) => caller.callServerEndpoint<List<_i69.PulseIncident>>(
+  }) => caller.callServerEndpoint<List<_i70.PulseIncident>>(
     'pulse',
     'listIncidents',
     {
@@ -3710,8 +3762,8 @@ class EndpointPulse extends _i2.EndpointRef {
   );
 
   /// «Взять в работу» — останавливает эскалацию.
-  _i3.Future<_i69.PulseIncident> ackIncident({required int incidentId}) =>
-      caller.callServerEndpoint<_i69.PulseIncident>(
+  _i3.Future<_i70.PulseIncident> ackIncident({required int incidentId}) =>
+      caller.callServerEndpoint<_i70.PulseIncident>(
         'pulse',
         'ackIncident',
         {'incidentId': incidentId},
@@ -3738,14 +3790,14 @@ class EndpointTaskAdmin extends _i2.EndpointRef {
   /// `url` зависит от типа: webhook — SSRF-гард (`WebhookUrlValidator`);
   /// github — формат `owner/repo`. Секрет генерится если не задан (для github
   /// не используется — токен берётся из env `GITHUB_TOKEN`).
-  _i3.Future<_i70.TaskManagerConfig> setTaskManagerConfig({
+  _i3.Future<_i71.TaskManagerConfig> setTaskManagerConfig({
     required String tenantExternalKey,
     String? productExternalKey,
     required String url,
     String? adapterType,
     String? secret,
     required bool enabled,
-  }) => caller.callServerEndpoint<_i70.TaskManagerConfig>(
+  }) => caller.callServerEndpoint<_i71.TaskManagerConfig>(
     'taskAdmin',
     'setTaskManagerConfig',
     {
@@ -3759,10 +3811,10 @@ class EndpointTaskAdmin extends _i2.EndpointRef {
   );
 
   /// Возвращает конфиг для (tenantId, productId) или `null`.
-  _i3.Future<_i70.TaskManagerConfig?> getTaskManagerConfig({
+  _i3.Future<_i71.TaskManagerConfig?> getTaskManagerConfig({
     required String tenantExternalKey,
     String? productExternalKey,
-  }) => caller.callServerEndpoint<_i70.TaskManagerConfig?>(
+  }) => caller.callServerEndpoint<_i71.TaskManagerConfig?>(
     'taskAdmin',
     'getTaskManagerConfig',
     {
@@ -3782,8 +3834,8 @@ class EndpointGreeting extends _i2.EndpointRef {
   String get name => 'greeting';
 
   /// Returns a personalized greeting message: "Hello {name}".
-  _i3.Future<_i71.Greeting> hello(String name) =>
-      caller.callServerEndpoint<_i71.Greeting>(
+  _i3.Future<_i72.Greeting> hello(String name) =>
+      caller.callServerEndpoint<_i72.Greeting>(
         'greeting',
         'hello',
         {'name': name},
@@ -3821,7 +3873,7 @@ class Client extends _i2.ServerpodClientShared {
     bool? disconnectStreamsOnLostInternetConnection,
   }) : super(
          host,
-         _i72.Protocol(),
+         _i73.Protocol(),
          securityContext: securityContext,
          streamingConnectionTimeout: streamingConnectionTimeout,
          connectionTimeout: connectionTimeout,

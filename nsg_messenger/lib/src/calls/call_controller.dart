@@ -13,22 +13,13 @@ import 'package:uuid/uuid.dart';
 import '../auth_token_provider.dart' show ErrorReporter;
 import 'call_rpc.dart';
 import 'call_state.dart';
+import 'ice_servers.dart';
 import 'webrtc_adapter.dart';
 
-/// **Отчёт в трекер: звонок остался без TURN.** Отдельный тип (а не голый
-/// `error`), чтобы в GlitchTip это был СВОЙ issue с говорящим заголовком, а
-/// не сливалось с общим шумом причины (напр. с
-/// `MessengerNotAuthenticatedException`, которого там и так десятки).
-///
-/// `toString` стабилен — все такие события группируются в один issue;
-/// конкретная причина уходит тегом `turn.cause` (см. `_resolveIceServers`).
-class CallTurnUnavailableReport implements Exception {
-  const CallTurnUnavailableReport();
-
-  @override
-  String toString() =>
-      'CallTurn: TURN-креды не получены — звонок пойдёт STUN-only';
-}
+// **TASK51**: CallTurnUnavailableReport переехал в ice_servers.dart (общий
+// путь TURN у 1:1 и конференций); реэкспорт — совместимость для тестов и
+// host-кода, импортировавших его отсюда.
+export 'ice_servers.dart' show CallTurnUnavailableReport;
 
 /// Генератор идентификаторов (callId / partyId). Вынесен для
 /// детерминизма тестов (glare-resolution зависит от лексикографического
@@ -386,6 +377,16 @@ class CallController extends ChangeNotifier {
     // roomId обязателен для call-событий (server гарантирует), но тип
     // nullable — guard, чтобы не пропустить malformed event.
     if (callId == null || roomId == null || offerSdp == null) return;
+
+    // **TASK51**: pairwise-invite mesh-конференции (callId `conf:...`) —
+    // НЕ наш звонок: его обрабатывает ConferenceCallController. Без guard-а
+    // первый же pairwise-invite конференции зазвонил бы здесь как обычный
+    // 1:1-входящий (а при нашем активном исходящем в той же комнате ещё и
+    // ушёл бы в glare-ветку и мог свернуть живой 1:1-звонок). Guard именно
+    // в _onInvite: прочие события чужого callId и так отсекает `_matches`,
+    // а invite — единственное, что создаёт состояние с нуля. Покрывает оба
+    // пути доставки (live-шина и `ingestFetchedInvite` push-побудки).
+    if (callId.startsWith('conf:')) return;
 
     // Защита от «звонков из прошлого». Invite может прилететь спустя
     // минуты/часы — replay-ем Matrix-синхронизации при reconnect-е или
@@ -971,63 +972,11 @@ class CallController extends ChangeNotifier {
   /// адаптер сам глушит ошибки и no-op-ит на desktop/web.
   Future<void> _applySpeakerRoute() => _webrtc.setSpeakerphone(_speakerOn);
 
-  /// Список ICE-серверов для pc: TURN-креды с сервера (если есть) плюс
-  /// публичные STUN как fallback. Если getTurnCredentials упал —
-  /// gracefully деградируем на один STUN.
-  ///
-  /// **Деградация обязана быть ГРОМКОЙ.** Без relay звонок за симметричным
-  /// NAT / в сотовой сети просто не соединится, а раньше этот путь молчал:
-  /// ошибка глоталась, `debugPrint` в release не выводится, в трекер не
-  /// уходило ничего. Итог — звонки не соединялись, а в логах устройства
-  /// «всё штатно» (2026-07-16: `getTurnCredentials` падал с
-  /// `MessengerNotAuthenticatedException`, и это не было видно НИГДЕ).
-  /// Поэтому: STUN-only остаётся (лучше шанс на звонок, чем отказ), но
-  /// факт потери TURN всегда уходит в трекер.
-  Future<List<Map<String, dynamic>>> _resolveIceServers() async {
-    final servers = <Map<String, dynamic>>[
-      {
-        'urls': ['stun:stun.l.google.com:19302'],
-      },
-    ];
-    try {
-      final turn = await _rpc.getTurnCredentials();
-      if (turn.urls.isNotEmpty) {
-        servers.add({
-          'urls': turn.urls,
-          'username': turn.username,
-          'credential': turn.credential,
-        });
-        return servers;
-      }
-      // Сервер ответил, но список пуст — TURN на нём выключен (нет
-      // TURN_URLS/секрета). Для звонка это тот же STUN-only, поэтому тоже
-      // репортим: молча ходить без relay нельзя.
-      _reportTurnUnavailable('empty_urls');
-    } catch (e, st) {
-      _reportTurnUnavailable('${e.runtimeType}: $e', st);
-    }
-    return servers;
-  }
-
-  /// Сообщить в трекер, что звонок пойдёт без relay. Best-effort: сам
-  /// репорт не должен ронять звонок.
-  void _reportTurnUnavailable(String cause, [StackTrace? st]) {
-    if (kDebugMode) {
-      debugPrint('[CallController] TURN недоступен ($cause) → STUN-only');
-    }
-    try {
-      _reporter?.reportError(
-        const CallTurnUnavailableReport(),
-        st,
-        tags: {
-          // Обрезаем: GlitchTip режет теги ~200 символов.
-          'turn.cause': cause.length <= 190 ? cause : cause.substring(0, 190),
-        },
-      );
-    } catch (_) {
-      // Трекер недоступен/упал — звонку это не повод падать.
-    }
-  }
+  /// Список ICE-серверов для pc — общий путь с конференциями (TASK51):
+  /// TURN-креды + STUN-fallback + громкий репорт деградации, см.
+  /// [resolveIceServers] в `ice_servers.dart` (код вынесен туда 1:1).
+  Future<List<Map<String, dynamic>>> _resolveIceServers() =>
+      resolveIceServers(_rpc, _reporter);
 
   // ── ICE trickle helpers ────────────────────────────────────────────
 
