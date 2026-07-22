@@ -730,11 +730,18 @@ class MessengerCacheStore {
 
   /// **OUTBOX**: перманентная ошибка (4xx/доменная) — `failed` (UI:
   /// повторить/удалить).
-  Future<void> markOutboxFailed(String clientTxnId, {String? lastError}) =>
-      _updateOutbox(clientTxnId, {
-        'status': OutboxStatus.failed,
-        'lastError': lastError,
-      });
+  /// [attempts] — передаётся, когда отправитель сдался по лимиту попыток:
+  /// иначе в строке осталось бы число с ПРЕДЫДУЩЕЙ (успевшей записаться)
+  /// попытки, и по логам не понять, сколько раз мы на самом деле пытались.
+  Future<void> markOutboxFailed(
+    String clientTxnId, {
+    String? lastError,
+    int? attempts,
+  }) => _updateOutbox(clientTxnId, {
+    'status': OutboxStatus.failed,
+    'lastError': lastError,
+    'attempts': ?attempts,
+  });
 
   /// **OUTBOX**: ручной retry из UI — `failed`/`pending` строку возвращаем в
   /// `pending` с `nextAttemptAt=0`, чтобы ближайший дренаж её взял сразу.

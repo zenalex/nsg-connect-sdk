@@ -36,12 +36,17 @@ void main() {
     return store!;
   }
 
-  OutboxSender makeSender(MessengerCacheStore store, _FakeRpc rpc) =>
+  OutboxSender makeSender(
+    MessengerCacheStore store,
+    _FakeRpc rpc, {
+    int? maxAttempts,
+  }) =>
       OutboxSender(
         store: store,
         rpc: rpc,
         // Быстрый бэкофф для теста (не влияет на классификацию).
         backoffSchedule: const [Duration(milliseconds: 1)],
+        maxAttempts: maxAttempts,
         directoryResolver: () async => outboxDir,
       );
 
@@ -93,6 +98,43 @@ void main() {
     expect(rows.single.attempts, 1);
     expect(rows.single.nextAttemptAt, greaterThan(0));
     expect(rows.single.lastError, contains('net down'));
+    await sender.dispose();
+    await store.close();
+  });
+
+  test('транзиент сверх лимита попыток → failed (не ретраим вечно)', () async {
+    final store = await openStore();
+    // Транзиентная (по классификатору) ошибка, которая НИКОГДА не пройдёт —
+    // ровно случай несериализуемого 500 из серверной валидации.
+    final rpc = _FakeRpc()..sendError = TimeoutException('net down');
+    final sender = makeSender(store, rpc, maxAttempts: 2);
+
+    await store.enqueueOutbox(
+      OutboxItem(
+        clientTxnId: 'txt1',
+        userId: 7,
+        roomId: 1,
+        kind: OutboxKind.text,
+        body: 'hi',
+        createdAt: 1,
+      ),
+    );
+
+    // Попытка 1 — ещё в пределах лимита, строка ждёт следующей.
+    await sender.flush();
+    var rows = await store.outboxForRoom(1);
+    expect(rows.single.status, OutboxStatus.pending);
+    expect(rows.single.attempts, 1);
+
+    // Попытка 2 упирается в лимит → сдаёмся, строка становится failed
+    // (в UI появляются «повторить»/«удалить» вместо вечного «отправляется»).
+    await sender.flush();
+    rows = await store.outboxForRoom(1);
+    expect(rows, hasLength(1), reason: 'строку не теряем — юзер решит сам');
+    expect(rows.single.status, OutboxStatus.failed);
+    expect(rows.single.attempts, 2);
+    expect(rows.single.lastError, contains('исчерпан лимит попыток'));
+
     await sender.dispose();
     await store.close();
   });

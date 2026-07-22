@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../cache/messenger_cache_store.dart';
+import '../messages/attachments/attachment_mime_types.dart';
 import '../messages/messages_rpc.dart';
 import '../messages/send_error_classifier.dart';
 import 'outbox_item.dart';
@@ -25,6 +26,22 @@ const List<Duration> kOutboxBackoffSchedule = [
   Duration(minutes: 5),
 ];
 
+/// **OUTBOX**: сколько раз пытаться доставить строку, прежде чем сдаться.
+///
+/// Без лимита транзиентная ветка крутится ВЕЧНО, и это не теоретическая
+/// придирка: перманентный отказ, который сервер вернул несериализуемым
+/// 500 (например `ArgumentError` из валидации MIME), приезжает клиенту
+/// как generic `ServerpodClientException` и классифицируется
+/// [isTransientSendError] как транзиентный. Такая строка не доедет
+/// никогда, но и не упадёт — пользователь бесконечно видит «в отправке»
+/// без объяснения и без возможности её убрать.
+///
+/// 50 попыток по [kOutboxBackoffSchedule] — это ~3.5 часа (первые шесть
+/// укладываются в 9 минут, дальше по 5). Ночной офлайн такой лимит
+/// переживает, вечное залипание — нет. Сверх лимита строка уходит в
+/// `failed`, где в UI есть «повторить» и «удалить».
+const int kOutboxMaxAttempts = 50;
+
 /// **OUTBOX**: фоновый отправитель персистентной очереди исходящих.
 ///
 /// Синглтон рантайма (`runtime.outbox`). Один активный дренаж (re-entrancy
@@ -42,17 +59,20 @@ class OutboxSender {
     required MessengerCacheStore store,
     required MessagesRpc rpc,
     List<Duration>? backoffSchedule,
+    int? maxAttempts,
     Duration pollInterval = const Duration(seconds: 20),
     Future<Directory> Function()? directoryResolver,
   }) : _store = store,
        _rpc = rpc,
        _backoff = backoffSchedule ?? kOutboxBackoffSchedule,
+       _maxAttempts = maxAttempts ?? kOutboxMaxAttempts,
        _pollInterval = pollInterval,
        _directoryResolver = directoryResolver ?? _defaultOutboxDir;
 
   final MessengerCacheStore _store;
   final MessagesRpc _rpc;
   final List<Duration> _backoff;
+  final int _maxAttempts;
   final Duration _pollInterval;
   final Future<Directory> Function() _directoryResolver;
 
@@ -215,8 +235,13 @@ class OutboxSender {
       await _store.deleteOutbox(item.clientTxnId);
     } catch (e, st) {
       if (_disposed) return;
-      if (isTransientSendError(e)) {
-        final attempts = item.attempts + 1;
+      final attempts = item.attempts + 1;
+      // Лимит бьётся ОТДЕЛЬНО от классификации: ошибка может быть честно
+      // транзиентной, но если мы долбимся полдня — это уже не «сеть моргнула»,
+      // и держать пузырь в «отправляется» бесконечно вреднее, чем признать
+      // неудачу (см. [kOutboxMaxAttempts]).
+      final exhausted = attempts >= _maxAttempts;
+      if (isTransientSendError(e) && !exhausted) {
         final delay = _backoffFor(attempts);
         final nextAt = DateTime.now().millisecondsSinceEpoch + delay.inMilliseconds;
         await _store.markOutboxBackoff(
@@ -228,18 +253,25 @@ class OutboxSender {
         if (kDebugMode) {
           debugPrint(
             '[OutboxSender] transient (txn=${item.clientTxnId}) '
-            'attempt=$attempts retry in ${delay.inSeconds}s: $e',
+            'attempt=$attempts/$_maxAttempts retry in ${delay.inSeconds}s: $e',
           );
         }
       } else {
-        // Перманент (4xx/доменная/файл пропал) → failed (UI: retry/discard).
+        // Перманент (4xx/доменная/файл пропал) ИЛИ исчерпан лимит попыток
+        // → failed (UI: retry/discard).
         await _store.markOutboxFailed(
           item.clientTxnId,
-          lastError: e.toString(),
+          lastError: exhausted
+              ? 'исчерпан лимит попыток ($attempts): $e'
+              : e.toString(),
+          // Только для сдачи по лимиту: перманентный отказ с первого раза
+          // счётчик не трогает (попытка была одна, и она не «потрачена»).
+          attempts: exhausted ? attempts : null,
         );
         if (kDebugMode) {
           debugPrint(
-            '[OutboxSender] permanent fail (txn=${item.clientTxnId}): $e\n$st',
+            '[OutboxSender] ${exhausted ? 'giving up after $attempts attempts' : 'permanent fail'} '
+            '(txn=${item.clientTxnId}): $e\n$st',
           );
         }
       }
@@ -262,7 +294,7 @@ class OutboxSender {
     await _rpc.sendMessage(
       roomId: item.roomId,
       body: ref.originalFilename,
-      msgType: _msgTypeForMime(ref.mimeType),
+      msgType: matrixMsgTypeForMime(ref.mimeType),
       clientTxnId: item.clientTxnId,
       attachment: ref,
       albumId: item.albumId,
@@ -274,13 +306,6 @@ class OutboxSender {
   Duration _backoffFor(int attempts) {
     final idx = (attempts - 1).clamp(0, _backoff.length - 1);
     return _backoff[idx];
-  }
-
-  static String _msgTypeForMime(String mime) {
-    if (mime.startsWith('image/')) return 'm.image';
-    if (mime.startsWith('video/')) return 'm.video';
-    if (mime.startsWith('audio/')) return 'm.audio';
-    return 'm.file';
   }
 
   // ──────────────────────────────────────────── UI ops ──

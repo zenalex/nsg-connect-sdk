@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:nsg_connect_client/nsg_connect_client.dart';
 
+import 'attachments/attachment_mime_types.dart';
 import 'forward_source.dart';
 import 'status_card_data.dart';
 
@@ -53,6 +54,7 @@ class ChatMessage {
     this.forwardedSource,
     this.statusCard,
     this.localImageBytes,
+    this.localMimeType,
   });
 
   /// Идентификатор для optimistic dedup. Обязателен для собственных
@@ -177,6 +179,15 @@ class ChatMessage {
   /// сломал бы optimistic dedup).
   final Uint8List? localImageBytes;
 
+  /// **Issue #54**: исходный MIME для [localImageBytes] — тот, что вернул
+  /// пикер. Нужен для retry: `msgType` (`m.file`) обратно в MIME не
+  /// разворачивается, и re-upload уходил с `application/octet-stream`,
+  /// который сервер реджектил — красный «!» невозможно было починить
+  /// повторным тапом. Живёт только в памяти рядом с [localImageBytes]
+  /// (в кэш/outbox pending-вложения не персистятся), поэтому миграции
+  /// схемы не требует. Как и байты, не участвует в `==`/`hashCode`.
+  final String? localMimeType;
+
   /// **Оптимистичный альбом**: картинка ещё грузится (bytes есть, mxc —
   /// нет). UI рисует плитку блюром + прогресс-индикатор. После аплоада
   /// (`attachment != null`) — расблюр.
@@ -281,6 +292,7 @@ class ChatMessage {
     int? forwardedFromMessengerUserId,
     ForwardSource? forwardedSource,
     Uint8List? localImageBytes,
+    String? localMimeType,
   }) => ChatMessage(
     clientTxnId: clientTxnId,
     matrixEventId: null,
@@ -299,6 +311,7 @@ class ChatMessage {
     forwardedFromMessengerUserId: forwardedFromMessengerUserId,
     forwardedSource: forwardedSource,
     localImageBytes: localImageBytes,
+    localMimeType: localMimeType,
   );
 
   /// Перевести pending → failed (retainable retry-state). Сохраняет
@@ -326,6 +339,7 @@ class ChatMessage {
     forwardedSource: forwardedSource,
     statusCard: statusCard,
     localImageBytes: localImageBytes,
+    localMimeType: localMimeType,
   );
 
   /// Перевести failed → pending (на retry). Сохраняет тот же
@@ -352,6 +366,7 @@ class ChatMessage {
     forwardedSource: forwardedSource,
     statusCard: statusCard,
     localImageBytes: localImageBytes,
+    localMimeType: localMimeType,
   );
 
   /// **Оптимистичный альбом**: аплоад завершён — привязать `attachment`
@@ -365,7 +380,7 @@ class ChatMessage {
     senderMatrixUserId: senderMatrixUserId,
     senderMessengerUserId: senderMessengerUserId,
     body: body,
-    msgType: _msgTypeForMime(ref.mimeType),
+    msgType: matrixMsgTypeForMime(ref.mimeType),
     serverTimestamp: serverTimestamp,
     threadId: threadId,
     replyToMessageId: replyToMessageId,
@@ -380,17 +395,8 @@ class ChatMessage {
     forwardedFromMessengerUserId: forwardedFromMessengerUserId,
     forwardedSource: forwardedSource,
     localImageBytes: localImageBytes,
+    localMimeType: localMimeType,
   );
-
-  /// Matrix msgType из MIME для оптимистичного bubble (`m.image`/`m.video`/
-  /// `m.file`). Идентично серверному деривату; сервер подтверждает точное
-  /// значение в RPC-return.
-  static String _msgTypeForMime(String mime) {
-    if (mime.startsWith('image/')) return 'm.image';
-    if (mime.startsWith('video/')) return 'm.video';
-    if (mime.startsWith('audio/')) return 'm.audio';
-    return 'm.file';
-  }
 
   /// **TASK37**: применить edit — body заменяется, `editedAt`
   /// populated. Использует и optimistic-update в controller, и
@@ -421,6 +427,7 @@ class ChatMessage {
     forwardedSource: forwardedSource,
     statusCard: statusCard,
     localImageBytes: localImageBytes,
+    localMimeType: localMimeType,
   );
 
   /// **TASK37**: применить delete — body cleared, `deletedAt`

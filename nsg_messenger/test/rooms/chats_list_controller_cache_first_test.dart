@@ -174,7 +174,14 @@ void main() {
     await h.cache.putRooms([room(3, at: t0)]);
 
     h.controller.init();
-    await pumpEventQueue();
+    // **Флейк-фикс (2026-07-22)**: раньше тут был голый `pumpEventQueue()` —
+    // он прокачивает микротаски фиксированное число раз, а `init()` ходит в
+    // кэш и ловит сетевой отказ через НЕСКОЛЬКО асинхронных прыжков. В
+    // изоляции успевало, под нагрузкой полного сьюта (параллельные шарды,
+    // конкуренция за планировщик) — нет, и тест «моргал» с Loading вместо
+    // Ready, отправляя ревьюера искать несуществующий баг. Ждём УСЛОВИЕ,
+    // а не «сколько-то тиков».
+    await _waitFor(() => h.controller.state is ChatsListReady);
 
     // Сеть упала, но кэш уже показан → Ready (не Loading, не голый Error).
     final state = h.controller.state;
@@ -217,4 +224,21 @@ void main() {
     },
     timeout: const Timeout(Duration(seconds: 20)),
   );
+}
+
+/// Ждать выполнения [condition], прокачивая очередь событий, но не дольше
+/// [timeout]. Замена `pumpEventQueue()` в местах, где число асинхронных
+/// прыжков не фиксировано: под нагрузкой полного сьюта фиксированная
+/// прокачка не успевала и тест «моргал».
+Future<void> _waitFor(
+  bool Function() condition, {
+  Duration timeout = const Duration(seconds: 5),
+}) async {
+  final deadline = DateTime.now().add(timeout);
+  while (!condition()) {
+    if (DateTime.now().isAfter(deadline)) {
+      fail('условие не выполнилось за $timeout');
+    }
+    await pumpEventQueue(times: 1);
+  }
 }

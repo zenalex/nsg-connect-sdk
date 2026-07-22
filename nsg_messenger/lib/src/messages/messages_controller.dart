@@ -10,6 +10,7 @@ import '../cache/messenger_cache_store.dart';
 import '../outbox/outbox_item.dart';
 import '../outbox/outbox_sender.dart';
 import '../share/share_limits.dart';
+import 'attachments/attachment_mime_types.dart';
 import 'attachments/attachment_picker.dart';
 import 'chat_message.dart';
 import 'composer_album_edit.dart';
@@ -90,7 +91,7 @@ class MessagesController {
     int pendingBufferCap = kDefaultPendingBufferCap,
     int initialPageSize = kDefaultInitialPageSize,
     int loadMorePageSize = kDefaultInitialPageSize,
-    void Function(Object error, StackTrace stack)? onSendError,
+    this.onSendError,
     List<Duration>? sendRetrySchedule,
     MessengerCacheStore? cache,
     OutboxSender? outbox,
@@ -112,8 +113,7 @@ class MessagesController {
        _txnIdGenerator = clientTxnIdGenerator ?? _defaultTxnIdGenerator,
        _pendingBufferCap = pendingBufferCap,
        _initialPageSize = initialPageSize,
-       _loadMorePageSize = loadMorePageSize,
-       _onSendError = onSendError;
+       _loadMorePageSize = loadMorePageSize;
 
   final int _roomId;
   final MessagesRpc _rpc;
@@ -124,7 +124,17 @@ class MessagesController {
   final int _pendingBufferCap;
   final int _initialPageSize;
   final int _loadMorePageSize;
-  final void Function(Object error, StackTrace stack)? _onSendError;
+
+  /// Сбой отправки, который пользователь должен увидеть: исчерпанный
+  /// send-RPC либо упавший фоновый аплоад вложения.
+  ///
+  /// **Issue #54**: поле mutable (не `final`), потому что задать его через
+  /// конструктор может только тот, кто контроллер СОЗДАЁТ. ChatScreen же
+  /// часто получает готовый инстанс (`controllerOverride`) — и тогда
+  /// ошибка снова умирала бы внутри контроллера. Теперь экран подключается
+  /// после конструктора, не завися от того, кто владеет контроллером.
+  void Function(Object error, StackTrace stack)? onSendError;
+
   final List<Duration> _sendRetrySchedule;
 
   /// **TASK47**: дисковый кэш (null → оффлайн-история выключена). init()
@@ -868,7 +878,7 @@ class MessagesController {
   /// Возвращает `clientTxnId`, чтобы host-app мог сослаться на
   /// созданный bubble (например, для ручного `retry`). Метод не
   /// throws — все ошибки уходят в state failed-bubble через
-  /// `_onSendError` callback.
+  /// `onSendError` callback.
   ///
   /// **Контракт порядка**: ожидается, что `init()` вызван **до**
   /// `sendMessage`. Если sendMessage пришёл во время Loading (init
@@ -898,7 +908,7 @@ class MessagesController {
     // отображает attachment мгновенно — UI выглядит как media-message
     // без spinner-фазы.
     final effectiveMsgType = attachment != null
-        ? _msgTypeForMime(attachment.mimeType)
+        ? matrixMsgTypeForMime(attachment.mimeType)
         : msgType;
     final effectiveBody = body.isEmpty && attachment != null
         ? attachment.originalFilename
@@ -1047,9 +1057,12 @@ class MessagesController {
         // Body-плейсхолдер = filename (как серверный default); в bubble для
         // картинок он не показывается (см. _shouldRenderBodyText).
         body: img.originalFilename,
-        msgType: _msgTypeForMime(img.mimeType),
+        msgType: matrixMsgTypeForMime(img.mimeType),
         attachment: null,
         localImageBytes: img.bytes,
+        // Issue #54: запоминаем ИСХОДНЫЙ MIME — retry не должен
+        // восстанавливать его из msgType (для m.file это невозможно).
+        localMimeType: img.mimeType,
         albumId: albumId,
       );
       _insertLocalPending(optimistic);
@@ -1090,8 +1103,19 @@ class MessagesController {
         );
       } catch (err, st) {
         if (_disposed) return;
+        // Issue #54: раньше эта ветка молчала — .txt падал с красным «!»
+        // и НУЛЁМ строк в логе. Логируем до пометки failed, чтобы причина
+        // (в т.ч. AttachmentRejectedException) была видна в консоли даже
+        // если host не подключил onSendError.
+        if (kDebugMode) {
+          debugPrint(
+            '[MessagesController.room=$_roomId] upload failed '
+            '(txn=${e.txnId}, mime=${e.image.mimeType}, '
+            'file=${e.image.originalFilename}): $err',
+          );
+        }
         _markFailed(clientTxnId: e.txnId, error: err);
-        _onSendError?.call(err, st);
+        onSendError?.call(err, st);
         continue;
       }
       if (_disposed) return;
@@ -1103,7 +1127,7 @@ class MessagesController {
         _shootSendRpc(
           clientTxnId: e.txnId,
           body: ref.originalFilename,
-          msgType: _msgTypeForMime(ref.mimeType),
+          msgType: matrixMsgTypeForMime(ref.mimeType),
           attachment: ref,
           albumId: albumId,
         ),
@@ -1332,7 +1356,7 @@ class MessagesController {
         roomId: targetRoomId,
         body: part.body,
         msgType: part.attachment != null
-            ? _msgTypeForMime(part.attachment!.mimeType)
+            ? matrixMsgTypeForMime(part.attachment!.mimeType)
             : 'm.text',
         clientTxnId: _txnIdGenerator(),
         attachment: part.attachment,
@@ -1354,15 +1378,6 @@ class MessagesController {
     final colon = s.indexOf(':');
     if (colon >= 0) s = s.substring(0, colon);
     return s.isEmpty ? mxid : s;
-  }
-
-  /// Matrix msgType derived из MIME для optimistic bubble msgType.
-  /// Server валидирует и sets окончательный — в RPC return приходит
-  /// authoritative значение, мы переписываем локальный bubble.
-  static String _msgTypeForMime(String mime) {
-    if (mime.startsWith('image/')) return 'm.image';
-    if (mime.startsWith('video/')) return 'm.video';
-    return 'm.file';
   }
 
   /// Помечает комнату прочитанной до `matrixEventId` включительно
@@ -1398,8 +1413,21 @@ class MessagesController {
   /// `clientTxnId` — server-side idempotency защитит от дубля
   /// (если первый запрос успел дойти, server вернёт existing event
   /// с тем же matrix event id).
+  ///
+  /// **OUTBOX**: если у баббла есть строка персистентной очереди —
+  /// повторяем ЧЕРЕЗ очередь ([retryOutbox]), а не in-memory путём ниже.
+  /// Иначе retry уходил мимо очереди и делал не то: у outbox-баббла
+  /// `attachment == null` (mxc ещё не получен), поэтому вложение без
+  /// локальных байтов (файл из Share Extension — не картинка) улетало
+  /// в `_shootSendRpc` БЕЗ вложения, т.е. в комнату отправлялось
+  /// текстовое сообщение с одним именем файла. Строка при этом
+  /// оставалась в очереди и дренировалась параллельно.
   Future<void> retry(String clientTxnId) async {
     if (_disposed) return;
+    if (isOutboxTxn(clientTxnId)) {
+      await retryOutbox(clientTxnId);
+      return;
+    }
     final current = _state.value;
     if (current is! MessagesReady) return;
 
@@ -1423,7 +1451,13 @@ class MessagesController {
           txnId: clientTxnId,
           image: PickedAttachment(
             bytes: localBytes,
-            mimeType: _mimeForMsgType(failedMsg.msgType),
+            // Issue #54: исходный MIME, сохранённый при первой отправке.
+            // Fallback на дериват из msgType — только для бабблов, живших
+            // до этого фикса (или восстановленных без localMimeType). Сам
+            // дериват — из общей таблицы, чтобы не разъехаться с пикером.
+            mimeType:
+                failedMsg.localMimeType ??
+                mimeForMatrixMsgType(failedMsg.msgType),
             originalFilename: failedMsg.body,
           ),
         ),
@@ -1440,23 +1474,6 @@ class MessagesController {
       mentionedMessengerUserIds: failedMsg.mentionedMessengerUserIds,
       albumId: failedMsg.albumId,
     );
-  }
-
-  /// Обратный дериват mime из Matrix msgType — для реконструкции
-  /// `PickedAttachment` при re-upload упавшего члена альбома (точный
-  /// исходный MIME не сохранён, но серверу достаточно категории —
-  /// он валидирует байты сам). Fallback — image/jpeg (альбом = картинки).
-  static String _mimeForMsgType(String msgType) {
-    switch (msgType) {
-      case 'm.video':
-        return 'video/mp4';
-      case 'm.audio':
-        return 'audio/mp4';
-      case 'm.file':
-        return 'application/octet-stream';
-      default:
-        return 'image/jpeg';
-    }
   }
 
   /// **B10 (BACKLOG)**: повторить ВСЕ сообщения в `failed`-статусе. Зовётся
@@ -1605,7 +1622,7 @@ class MessagesController {
       if (_disposed) return;
       // Revert.
       _state.value = current.copyWith(messages: snapshot);
-      _onSendError?.call(e, st);
+      onSendError?.call(e, st);
       rethrow;
     }
   }
@@ -1634,7 +1651,7 @@ class MessagesController {
       if (_disposed) return;
       // Revert.
       _state.value = current.copyWith(messages: snapshot);
-      _onSendError?.call(e, st);
+      onSendError?.call(e, st);
       rethrow;
     }
   }
@@ -2031,6 +2048,16 @@ class MessagesController {
     return item.isFailed ? base.failed(item.lastError ?? 'send failed') : base;
   }
 
+  /// **OUTBOX**: стоит ли за бабблом строка персистентной очереди (а не
+  /// in-memory отправка контроллера). Гейт для UI-действий «повторить» и
+  /// «отменить отправку»: у in-memory баббла строки нет, и
+  /// [discardOutbox] для него был бы мёртвой кнопкой. Требует живого
+  /// [OutboxSender] — без него обе операции no-op.
+  bool isOutboxTxn(String? clientTxnId) =>
+      _outbox != null &&
+      clientTxnId != null &&
+      _outboxTxnIds.contains(clientTxnId);
+
   /// **OUTBOX**: повторить failed-строку очереди (сброс в pending + kick
   /// дренажа). Баббл обновится через `outboxRoomChanges`.
   Future<void> retryOutbox(String clientTxnId) async {
@@ -2095,6 +2122,14 @@ class MessagesController {
         lastStack = st;
         if (!_isTransientSendError(e)) {
           // Permanent (4xx, auth, domain exception) — НЕ ретраим.
+          // Issue #54: `break` уходил ДО всех debugPrint-ов ниже, поэтому
+          // permanent-сбой не оставлял в логе ни строки. Логируем здесь.
+          if (kDebugMode) {
+            debugPrint(
+              '[MessagesController.room=$_roomId] send permanent '
+              '(txn=$clientTxnId, msgType=$msgType): $e',
+            );
+          }
           break;
         }
         // **TASK47 (outbox для композера, 2026-07-12)**: ТЕКСТ при
@@ -2154,7 +2189,7 @@ class MessagesController {
     // Все попытки исчерпаны (или permanent error) → mark failed.
     _markFailed(clientTxnId: clientTxnId, error: lastError ?? 'send failed');
     if (lastError != null) {
-      _onSendError?.call(lastError, lastStack ?? StackTrace.current);
+      onSendError?.call(lastError, lastStack ?? StackTrace.current);
     }
   }
 

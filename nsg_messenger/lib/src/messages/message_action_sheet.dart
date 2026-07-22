@@ -112,6 +112,13 @@ class _MessageActionSheetBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = NsgL10n.of(context);
+    // **OUTBOX**: сообщение ещё не на сервере (нет stable matrixEventId) —
+    // весь основной набор ниже для него неприменим: Reply/Forward/Pin/
+    // CreateTask требуют event id, Edit/Delete физически нечего править.
+    // Отдельный компактный шит: повторить / отменить отправку / копировать.
+    if (message.matrixEventId == null) {
+      return _buildQueuedSheet(context, l);
+    }
     // **Emoji reactions**: quick-react row доступен только для сообщений
     // с stable matrixEventId (sent, non-tombstone). Pending/failed/
     // deleted — нет id для реакции.
@@ -237,23 +244,7 @@ class _MessageActionSheetBody extends StatelessWidget {
               ),
             // «Копировать» — самый частый пункт, держим наверху (раньше был
             // внизу и на десктопе обрезался высотой шита).
-            ListTile(
-              leading: const Icon(Icons.copy_outlined),
-              title: Text(l.messageActionCopy),
-              onTap: () async {
-                final navigator = Navigator.of(context);
-                final messenger = ScaffoldMessenger.maybeOf(context);
-                final l = NsgL10n.of(context);
-                navigator.pop();
-                await Clipboard.setData(ClipboardData(text: message.body));
-                messenger?.showSnackBar(
-                  SnackBar(
-                    content: Text(l.messageCopiedSnack),
-                    duration: const Duration(seconds: 2),
-                  ),
-                );
-              },
-            ),
+            _copyTile(context, l),
             // **Скопировать изображение** — для сообщений-картинок (запрос
             // постановщика: картинку из сообщения нельзя было скопировать).
             // Кладёт картинку в буфер обмена (desktop — bitmap/файл, mobile/
@@ -426,6 +417,104 @@ class _MessageActionSheetBody extends StatelessWidget {
                   await _handleCreateTask(messenger, l, eventId);
                 },
               ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// «Копировать» — общий пункт для обоих наборов (отправленное и очередь).
+  /// Для вложения `body` — имя файла, что и нужно скопировать.
+  Widget _copyTile(BuildContext context, NsgL10n l) => ListTile(
+    leading: const Icon(Icons.copy_outlined),
+    title: Text(l.messageActionCopy),
+    onTap: () async {
+      final navigator = Navigator.of(context);
+      final messenger = ScaffoldMessenger.maybeOf(context);
+      navigator.pop();
+      await Clipboard.setData(ClipboardData(text: message.body));
+      messenger?.showSnackBar(
+        SnackBar(
+          content: Text(l.messageCopiedSnack),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    },
+  );
+
+  /// **OUTBOX**: шит для сообщения, которое ещё НЕ ушло на сервер —
+  /// строки персистентной очереди (`enqueueText`/`enqueueFile`, в т.ч. из
+  /// Share Extension) и in-memory failed-бабблы.
+  ///
+  /// До этого long-press на таком пузыре не открывался вообще, а единственной
+  /// affordance была кнопка «!» — которой у зависшего в бэкоффе (pending)
+  /// item-а нет. Отменить отправку было нельзя ничем: файл висел «в отправке»
+  /// неделями.
+  ///
+  /// «Повторить» для строки очереди идёт через [MessagesController.retryOutbox]
+  /// (сброс бэкоффа + kick дренажа), а не через in-memory `retry` — см. doc
+  /// у `retry` про то, чем это кончалось для вложений. «Отменить отправку» —
+  /// только для строки очереди: у in-memory баббла удалять нечего.
+  Widget _buildQueuedSheet(BuildContext context, NsgL10n l) {
+    final theme = Theme.of(context);
+    final txnId = message.clientTxnId;
+    final isQueued = controller.isOutboxTxn(txnId);
+    return SafeArea(
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              child: Text(
+                l.messageActionSheetTitle,
+                style: theme.textTheme.titleMedium,
+              ),
+            ),
+            // Повторять есть что либо у строки очереди (в любом статусе —
+            // ручной retry сбрасывает бэкофф), либо у in-memory failed.
+            if (txnId != null && (isQueued || message.isFailed))
+              ListTile(
+                leading: const Icon(Icons.refresh),
+                title: Text(l.commonRetry),
+                onTap: () async {
+                  Navigator.of(context).pop();
+                  // Строку очереди повторяем ЧЕРЕЗ очередь. `retry` тоже
+                  // так диспатчит, но здесь признак уже посчитан — не
+                  // завязываемся на его внутреннюю логику.
+                  await (isQueued
+                      ? controller.retryOutbox(txnId)
+                      : controller.retry(txnId));
+                },
+              ),
+            if (txnId != null && isQueued)
+              ListTile(
+                leading: Icon(
+                  Icons.delete_outline,
+                  color: theme.colorScheme.error,
+                ),
+                title: Text(
+                  l.messageActionCancelSend,
+                  style: TextStyle(color: theme.colorScheme.error),
+                ),
+                onTap: () async {
+                  final navigator = Navigator.of(context);
+                  final messenger = ScaffoldMessenger.maybeOf(context);
+                  navigator.pop();
+                  try {
+                    await controller.discardOutbox(txnId);
+                  } catch (e, st) {
+                    _reportActionFailed(e, st, 'cancelSend');
+                    messenger?.showSnackBar(
+                      SnackBar(
+                        content: Text(l.messageCancelSendFailed),
+                        duration: const Duration(seconds: 3),
+                      ),
+                    );
+                  }
+                },
+              ),
+            _copyTile(context, l),
           ],
         ),
       ),

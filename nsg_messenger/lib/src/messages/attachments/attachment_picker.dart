@@ -4,6 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../i18n/generated/nsg_l10n.dart';
+import 'attachment_mime_types.dart';
+
+// Таблица «расширение → MIME» переехала в `attachment_mime_types.dart`
+// (pure-Dart, без Flutter): она часть контракта с сервером и читается
+// серверным контракт-тестом. Реэкспорт — чтобы не трогать импорты
+// у `share_intake.dart` и тестов.
+export 'attachment_mime_types.dart'
+    show guessMimeFromExtension, kExtensionToMime, kFallbackMime;
 
 /// Web + desktop: `image_picker` не поддерживает камеру (плагин её не
 /// реализует), поэтому пункт «Камера» на этих платформах не показываем.
@@ -300,64 +308,6 @@ Future<List<PickedAttachment>> pickImagesAttachment(
     );
   }
   return result;
-}
-
-/// Heuristic MIME guess по расширению — fallback когда `XFile.mimeType`
-/// null. Server-side валидирует MIME whitelist.
-String guessMimeFromExtension(String filename) {
-  final lower = filename.toLowerCase();
-  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
-  if (lower.endsWith('.png')) return 'image/png';
-  if (lower.endsWith('.webp')) return 'image/webp';
-  if (lower.endsWith('.gif')) return 'image/gif';
-  if (lower.endsWith('.heic')) return 'image/heic';
-  if (lower.endsWith('.heif')) return 'image/heif';
-  if (lower.endsWith('.avif')) return 'image/avif';
-  if (lower.endsWith('.mp4')) return 'video/mp4';
-  // Issue #54 п.2: с приходом произвольных файлов таблица расширена —
-  // от MIME зависит, каким рядом вложение отрисуется у получателя
-  // (`attachment_bubble.dart` свитчится по mimeType), поэтому честный
-  // MIME важнее, чем «всё есть octet-stream».
-  if (lower.endsWith('.mov')) return 'video/quicktime';
-  if (lower.endsWith('.webm')) return 'video/webm';
-  if (lower.endsWith('.mkv')) return 'video/x-matroska';
-  if (lower.endsWith('.avi')) return 'video/x-msvideo';
-  if (lower.endsWith('.mp3')) return 'audio/mpeg';
-  if (lower.endsWith('.m4a')) return 'audio/mp4';
-  if (lower.endsWith('.aac')) return 'audio/aac';
-  if (lower.endsWith('.ogg') || lower.endsWith('.oga')) return 'audio/ogg';
-  if (lower.endsWith('.opus')) return 'audio/opus';
-  if (lower.endsWith('.wav')) return 'audio/wav';
-  if (lower.endsWith('.flac')) return 'audio/flac';
-  if (lower.endsWith('.pdf')) return 'application/pdf';
-  if (lower.endsWith('.txt') || lower.endsWith('.log')) return 'text/plain';
-  if (lower.endsWith('.csv')) return 'text/csv';
-  if (lower.endsWith('.md')) return 'text/markdown';
-  if (lower.endsWith('.html') || lower.endsWith('.htm')) return 'text/html';
-  if (lower.endsWith('.json')) return 'application/json';
-  if (lower.endsWith('.xml')) return 'application/xml';
-  if (lower.endsWith('.zip')) return 'application/zip';
-  if (lower.endsWith('.rar')) return 'application/vnd.rar';
-  if (lower.endsWith('.7z')) return 'application/x-7z-compressed';
-  if (lower.endsWith('.gz')) return 'application/gzip';
-  if (lower.endsWith('.tar')) return 'application/x-tar';
-  if (lower.endsWith('.doc')) return 'application/msword';
-  if (lower.endsWith('.docx')) {
-    return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-  }
-  if (lower.endsWith('.xls')) return 'application/vnd.ms-excel';
-  if (lower.endsWith('.xlsx')) {
-    return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-  }
-  if (lower.endsWith('.ppt')) return 'application/vnd.ms-powerpoint';
-  if (lower.endsWith('.pptx')) {
-    return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
-  }
-  if (lower.endsWith('.rtf')) return 'application/rtf';
-  if (lower.endsWith('.svg')) return 'image/svg+xml';
-  if (lower.endsWith('.bmp')) return 'image/bmp';
-  if (lower.endsWith('.tif') || lower.endsWith('.tiff')) return 'image/tiff';
-  return 'application/octet-stream';
 }
 
 class _AttachmentPickerSheet extends StatelessWidget {

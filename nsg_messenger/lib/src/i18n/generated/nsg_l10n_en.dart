@@ -238,6 +238,21 @@ class NsgL10nEn extends NsgL10n {
   String get attachUploadFailed => 'Upload failed — try again';
 
   @override
+  String attachRejectedType(String filename) {
+    return 'Can\'t send “$filename” — this file type isn\'t supported';
+  }
+
+  @override
+  String attachRejectedExecutable(String filename) {
+    return 'Can\'t send “$filename” — executable files aren\'t allowed';
+  }
+
+  @override
+  String attachRejectedTooLarge(String filename, int maxMb) {
+    return 'Can\'t send “$filename” — the file is larger than $maxMb MB';
+  }
+
+  @override
   String get attachUnnamedFallback => 'Unnamed file';
 
   @override
@@ -861,6 +876,12 @@ class NsgL10nEn extends NsgL10n {
 
   @override
   String get imageCopiedSnack => 'Image copied to clipboard';
+
+  @override
+  String get messageActionCancelSend => 'Cancel sending';
+
+  @override
+  String get messageCancelSendFailed => 'Couldn\'t cancel sending';
 
   @override
   String get imageCopyFailed => 'Couldn\'t copy the image';

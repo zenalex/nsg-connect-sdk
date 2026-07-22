@@ -16,7 +16,9 @@ import 'package:nsg_connect_client/nsg_connect_client.dart'
         ParticipantKind,
         RoomSummary,
         RoomType,
-        RoomUnavailableException;
+        RoomUnavailableException,
+        AttachmentRejectedException,
+        AttachmentRejectReason;
 
 import '../contact_card/contact_card_view.dart';
 import '../i18n/connection_lost_banner.dart';
@@ -257,6 +259,12 @@ class _ChatScreenState extends State<ChatScreen>
   late final MessagesController _controller;
   late final bool _ownsController;
 
+  /// **Issue #54**: `onSendError`, который был на контроллере до нас (когда
+  /// его создал хост). Держим, чтобы вернуть на место в [dispose] — иначе
+  /// на чужом контроллере остался бы наш замкнутый на мёртвый State
+  /// callback (та же ловушка, что в issue #55 с RouteAware).
+  void Function(Object, StackTrace)? _hostOnSendError;
+
   /// **B10**: подписка на transport `connectionState` — при возврате сети
   /// (reconnecting/disconnected → healthy) авто-переотправляем сообщения,
   /// застрявшие в `failed` пока сеть лежала. Только production-путь
@@ -451,6 +459,16 @@ class _ChatScreenState extends State<ChatScreen>
       );
       _ownsController = true;
     }
+    // **Issue #54**: до этого callback не подключал никто, и ошибка фонового
+    // аплоада умирала внутри контроллера — пользователь видел только красный
+    // «!» без объяснения. Подключаемся ПОСЛЕ выбора контроллера, чтобы
+    // работал и `controllerOverride`-путь. Callback хоста, если он был,
+    // сохраняем — мы дополняем его, а не подменяем.
+    _hostOnSendError = _controller.onSendError;
+    _controller.onSendError = (error, stack) {
+      _hostOnSendError?.call(error, stack);
+      _onSendError(error, stack);
+    };
     _controller.stateListenable.addListener(_onStateChange);
     _controller.init();
     // **TASK45 фаза 2**: тест кнопки эскалации может задать RoomDetails
@@ -773,6 +791,9 @@ class _ChatScreenState extends State<ChatScreen>
     // **Issue #55**: снять RouteAware-подписки (иначе observer держит
     // ссылку на мёртвый State и продолжает дёргать его колбэки).
     _unsubscribeRouteAware();
+    // **Issue #54**: снять наш send-error hook с чужого контроллера (свой
+    // всё равно уничтожается ниже) — иначе он пережил бы этот State.
+    if (!_ownsController) _controller.onSendError = _hostOnSendError;
     // **TASK20 Chunk 4-prep**: clear currentRoomId на close — иначе
     // server-side presence-cache держит stale `currentRoomId=widget
     // .roomId` 60s после navigation away, и push-routing будет
@@ -1105,10 +1126,54 @@ class _ChatScreenState extends State<ChatScreen>
       _reportActionFailed(e, st, 'sendAttachment');
       messenger?.showSnackBar(
         SnackBar(
-          content: Text(l.attachUploadFailed),
+          // Issue #54: при реджекте показываем ПРИЧИНУ, а не общее
+          // «попробуйте ещё раз» (повтор не помог бы — ошибка permanent).
+          content: Text(
+            e is AttachmentRejectedException
+                ? _attachmentRejectedText(l, e)
+                : l.attachUploadFailed,
+          ),
           duration: const Duration(seconds: 3),
         ),
       );
+    }
+  }
+
+  /// **Issue #54**: единственная точка, где ошибка отправки становится
+  /// видимой. Зовётся контроллером и для фонового аплоада альбома
+  /// (`_uploadAlbumInBackground` — путь композера, именно там ошибка
+  /// раньше пропадала бесследно), и для исчерпанного send-RPC.
+  ///
+  /// Снекбар — только для реджекта вложения: он permanent (retry по
+  /// красному «!» не поможет) и объясним юзеру. Сетевые сбои уже
+  /// отражены «!» с рабочим retry — снекбарить их незачем.
+  void _onSendError(Object error, StackTrace stack) {
+    _reportActionFailed(error, stack, 'send');
+    if (!mounted || error is! AttachmentRejectedException) return;
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      SnackBar(
+        content: Text(_attachmentRejectedText(NsgL10n.of(context), error)),
+        duration: const Duration(seconds: 4),
+      ),
+    );
+  }
+
+  /// Локализованное объяснение реджекта. Имя файла подставляем из самого
+  /// исключения: в альбоме несколько плиток, и юзеру нужно понять, какая
+  /// именно не ушла.
+  static String _attachmentRejectedText(
+    NsgL10n l,
+    AttachmentRejectedException e,
+  ) {
+    final name = e.filename.isEmpty ? l.attachUnnamedFallback : e.filename;
+    switch (e.reason) {
+      case AttachmentRejectReason.blockedExtension:
+        return l.attachRejectedExecutable(name);
+      case AttachmentRejectReason.tooLarge:
+        final maxMb = ((e.maxBytes ?? 0) / (1024 * 1024)).round();
+        return l.attachRejectedTooLarge(name, maxMb);
+      case AttachmentRejectReason.unsupportedType:
+        return l.attachRejectedType(name);
     }
   }
 

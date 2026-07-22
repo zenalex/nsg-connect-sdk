@@ -368,6 +368,43 @@
     "description": "TASK19 Chunk 3: snackbar когда upload через `messenger.uploadAttachment` упал (network / server reject mime). UI revert composer state."
   },
 
+  "attachRejectedType": "Can't send “{filename}” — this file type isn't supported",
+  "@attachRejectedType": {
+    "description": "Issue #54: server rejected the attachment (AttachmentRejectReason.unsupportedType). Раньше такой реджект был НЕВИДИМ — сообщение просто получало красный «!» без объяснения.",
+    "placeholders": {
+      "filename": {
+        "type": "String",
+        "example": "notes.txt"
+      }
+    }
+  },
+
+  "attachRejectedExecutable": "Can't send “{filename}” — executable files aren't allowed",
+  "@attachRejectedExecutable": {
+    "description": "Issue #54: реджект по extension-blacklist (AttachmentRejectReason.blockedExtension) — .exe/.apk/.msi и т.п.",
+    "placeholders": {
+      "filename": {
+        "type": "String",
+        "example": "setup.exe"
+      }
+    }
+  },
+
+  "attachRejectedTooLarge": "Can't send “{filename}” — the file is larger than {maxMb} MB",
+  "@attachRejectedTooLarge": {
+    "description": "Issue #54: реджект по size cap (AttachmentRejectReason.tooLarge). `maxMb` — лимит, который нарушен (50 для image/file, 100 для video).",
+    "placeholders": {
+      "filename": {
+        "type": "String",
+        "example": "movie.mp4"
+      },
+      "maxMb": {
+        "type": "int",
+        "example": "50"
+      }
+    }
+  },
+
   "attachUnnamedFallback": "Unnamed file",
   "@attachUnnamedFallback": {
     "description": "TASK19 Chunk 3: fallback в `_FileRow` когда `AttachmentRef.originalFilename == ''` (defensive — server обычно non-empty)."
@@ -1169,6 +1206,14 @@
   "imageCopiedSnack": "Image copied to clipboard",
   "@imageCopiedSnack": {
     "description": "Snackbar после успешного копирования картинки в буфер обмена."
+  },
+  "messageActionCancelSend": "Cancel sending",
+  "@messageActionCancelSend": {
+    "description": "OUTBOX: убрать сообщение из персистентной очереди отправки (строка + локальная копия файла). Только для ещё-не-ушедших сообщений — отправленное удаляется через messageActionDelete."
+  },
+  "messageCancelSendFailed": "Couldn't cancel sending",
+  "@messageCancelSendFailed": {
+    "description": "OUTBOX: snackbar когда discard строки очереди упал (например store недоступен)."
   },
   "imageCopyFailed": "Couldn't copy the image",
   "@imageCopyFailed": {

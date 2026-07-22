@@ -2282,6 +2282,122 @@ void main() {
       await controller.dispose();
       await eventCtrl.close();
     });
+
+    // ─────────────── issue #54: файловые вложения из композера ───────────────
+    //
+    // Живой баг: .txt уходил с красным «!», сервер реджектил MIME, ошибка
+    // нигде не всплывала, а retry не мог помочь — при повторной отправке
+    // MIME восстанавливался из msgType (`m.file` → application/octet-stream),
+    // который сервер реджектил снова.
+    group('issue #54 — реджект и retry файлового вложения', () {
+      PickedAttachment pickedFile(String name, String mime) => PickedAttachment(
+        bytes: Uint8List.fromList(List.filled(4, 7)),
+        mimeType: mime,
+        originalFilename: name,
+      );
+
+      test(
+        'ошибка фонового аплоада доезжает до onSendError (не молчит)',
+        () async {
+          final rpc = _FakeRpc();
+          rpc.listMessagesHandler = (_, _, _) async => _page(messages: []);
+          final rejected = AttachmentRejectedException(
+            reason: AttachmentRejectReason.unsupportedType,
+            mimeType: 'text/plain',
+            filename: 'notes.txt',
+          );
+          rpc.uploadAttachmentHandler = (_, _, _) async => throw rejected;
+          rpc.sendMessageHandler = echoSend;
+
+          final errors = <Object>[];
+          final eventCtrl = StreamController<MessengerEvent>.broadcast();
+          final controller = _make(
+            rpc: rpc,
+            events: eventCtrl.stream,
+            onSendError: (e, _) => errors.add(e),
+          );
+          await controller.init();
+
+          controller.sendAlbumOptimistic(
+            images: [pickedFile('notes.txt', 'text/plain')],
+          );
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+
+          expect(
+            errors.single,
+            same(rejected),
+            reason: 'причина реджекта обязана дойти до UI-слоя',
+          );
+          final state = controller.state as MessagesReady;
+          expect(state.messages.single.isFailed, isTrue);
+
+          await controller.dispose();
+          await eventCtrl.close();
+        },
+      );
+
+      test(
+        'retry переотправляет ИСХОДНЫЙ MIME, а не дериват из msgType',
+        () async {
+          final rpc = _FakeRpc();
+          rpc.listMessagesHandler = (_, _, _) async => _page(messages: []);
+          final uploadMimes = <String>[];
+          var attempt = 0;
+          rpc.uploadAttachmentHandler = (_, mime, name) async {
+            uploadMimes.add(mime);
+            attempt++;
+            if (attempt == 1) {
+              throw AttachmentRejectedException(
+                reason: AttachmentRejectReason.unsupportedType,
+                mimeType: mime,
+                filename: name,
+              );
+            }
+            return AttachmentRef(
+              mxcUrl: 'mxc://localhost/txt',
+              mimeType: mime,
+              sizeBytes: 4,
+              originalFilename: name,
+            );
+          };
+          rpc.sendMessageHandler = echoSend;
+          final eventCtrl = StreamController<MessengerEvent>.broadcast();
+          final controller = _make(rpc: rpc, events: eventCtrl.stream);
+          await controller.init();
+
+          controller.sendAlbumOptimistic(
+            images: [pickedFile('notes.txt', 'text/plain')],
+          );
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+
+          var state = controller.state as MessagesReady;
+          final failed = state.messages.single;
+          expect(failed.isFailed, isTrue);
+          expect(failed.msgType, 'm.file');
+          expect(
+            failed.localMimeType,
+            'text/plain',
+            reason: 'исходный MIME сохранён на пузыре для retry',
+          );
+
+          await controller.retry(failed.clientTxnId!);
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+
+          expect(
+            uploadMimes,
+            ['text/plain', 'text/plain'],
+            reason:
+                'до фикса второй аплоад уходил с application/octet-stream '
+                '(дериват из m.file) и реджектился снова — retry был мёртв',
+          );
+          state = controller.state as MessagesReady;
+          expect(state.messages.single.isSent, isTrue);
+
+          await controller.dispose();
+          await eventCtrl.close();
+        },
+      );
+    });
   });
 }
 
@@ -2784,8 +2900,9 @@ class _FakeRpc implements MessagesRpc {
   }) async => const <String>[];
 
   @override
-  Future<List<MessengerMessage>> listPinnedMessages({required int roomId}) async =>
-      const <MessengerMessage>[];
+  Future<List<MessengerMessage>> listPinnedMessages({
+    required int roomId,
+  }) async => const <MessengerMessage>[];
 }
 
 // Использую _eventForRoom как "rejected ChatMessage helper" нет — этот

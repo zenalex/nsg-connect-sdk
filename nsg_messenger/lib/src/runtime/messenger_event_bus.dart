@@ -9,6 +9,7 @@ import 'package:nsg_connect_client/nsg_connect_client.dart';
 import '../messenger_session_state.dart';
 import '../session/auth_retry.dart' show isAuthInvalidation;
 import 'messenger_connection_state.dart';
+import 'transport_error_text.dart';
 
 /// Сигнатура для `client.messenger.userEventStream` — позволяет тестам
 /// подменить настоящий Serverpod-стрим на in-memory fake.
@@ -209,9 +210,7 @@ class MessengerEventBus {
       // **Forward-compat**: объявляем серверу ВСЕ известные этой сборке
       // типы событий — новые серверные типы автоматически вырезаются на
       // сервере и не роняют стрим десериализацией неизвестного enum.
-      knownEventTypes: [
-        for (final t in MessengerEventType.values) t.name,
-      ],
+      knownEventTypes: [for (final t in MessengerEventType.values) t.name],
     ),
     setPresence: client.messenger.setPresence,
     sessionStateStream: sessionStateStream,
@@ -609,9 +608,13 @@ class MessengerEventBus {
           // (rooms, controllers) не должны видеть transient errors —
           // они появляются в TASK20-followup-c onError handlers, но
           // те — strictly defensive (логирование + preserve UI).
+          // `describeTransportError` — чтобы в логе стоял настоящий адрес
+          // сокета (`wss://host/v1/websocket`), а не артефакт `dart:io`
+          // «https://host:0/v1/websocket#». См. transport_error_text.dart.
           if (kDebugMode) {
             debugPrint(
-              '[MessengerEventBus] underlying stream onError: ${e.runtimeType}: $e',
+              '[MessengerEventBus] underlying stream onError: '
+              '${e.runtimeType}: ${describeTransportError(e)}',
             );
           }
           // **Session-recovery fix (a1)**: типизированный auth-invalidation
@@ -623,7 +626,10 @@ class MessengerEventBus {
           // это делает ТОЛЬКО session manager внутри selfHeal (red line).
           if (_handleStreamAuthError(e)) return;
           _onError?.call(e, st);
-          _scheduleReconnect(reason: 'onError');
+          _scheduleReconnect(
+            reason: 'onError',
+            detail: describeTransportError(e),
+          );
         },
         onDone: () {
           // Серверный стрим закрылся — schedule reconnect. До TASK20
@@ -650,7 +656,8 @@ class MessengerEventBus {
       // считаем как failed-attempt и schedule retry.
       if (kDebugMode) {
         debugPrint(
-          '[MessengerEventBus] _streamFactory() THREW synchronously: ${e.runtimeType}: $e',
+          '[MessengerEventBus] _streamFactory() THREW synchronously: '
+          '${e.runtimeType}: ${describeTransportError(e)}',
         );
       }
       // **Session-recovery fix (a1)**: как и в stream `onError` — если
@@ -658,7 +665,10 @@ class MessengerEventBus {
       // transport-reconnect (иначе бесконечный reconnect на протухшем токене).
       if (_handleStreamAuthError(e)) return;
       _onError?.call(e, st);
-      _scheduleReconnect(reason: 'factory threw');
+      _scheduleReconnect(
+        reason: 'factory threw',
+        detail: describeTransportError(e),
+      );
     }
   }
 
@@ -700,7 +710,11 @@ class MessengerEventBus {
   /// **TASK20 followup (a)**: запланировать reconnect после transport
   /// failure. Increment failure counter, emit reconnecting/disconnected,
   /// schedule retry с jittered backoff.
-  void _scheduleReconnect({required String reason}) {
+  ///
+  /// [detail] — уже причёсанный текст причины ([describeTransportError]).
+  /// Без него в логе оставался голый `reason=onError`, по которому нельзя
+  /// отличить «сервер закрыл стрим» от «апгрейд до websocket отклонён».
+  void _scheduleReconnect({required String reason, String? detail}) {
     if (_disposed) return;
     // Transport упал — отменяем pending confirm (подтверждать нечего).
     _cancelReconnectConfirm();
@@ -744,7 +758,8 @@ class MessengerEventBus {
     if (kDebugMode) {
       debugPrint(
         '[MessengerEventBus] _scheduleReconnect attempt=$attempt '
-        'delay=${delay.inMilliseconds}ms state=$nextState reason=$reason',
+        'delay=${delay.inMilliseconds}ms state=$nextState reason=$reason'
+        '${detail == null ? '' : ' cause=$detail'}',
       );
     }
     _retryTimer = Timer(delay, () {

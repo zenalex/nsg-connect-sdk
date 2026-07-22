@@ -534,8 +534,14 @@ class _MessageComposerState extends State<MessageComposer> {
     if (cb == null) {
       if (kDebugMode) {
         debugPrint(
+          // Штатный случай — комната «Избранное» (ChatScreen намеренно не
+          // передаёт onTyping: показывать «печатает…» самому себе некому).
+          // Прежняя формулировка «host-app не прокинул» обвиняла хост и
+          // читалась как дефект интеграции — мак-агент так и завёл её в
+          // отчёт как баг (2026-07-22).
           '[MessageComposer] _maybeTriggerTyping(hasText=$hasText) '
-          '→ onTyping callback is NULL (host-app не прокинул)',
+          '→ onTyping не задан (комната без индикатора «печатает», '
+          'напр. «Избранное») — пропускаем',
         );
       }
       return;

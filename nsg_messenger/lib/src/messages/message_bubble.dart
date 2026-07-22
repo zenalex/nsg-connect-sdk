@@ -284,15 +284,22 @@ class MessageBubble extends StatelessWidget {
     // cleared, attachment hidden, long-press disabled. Telegram-style.
     final isTombstone = message.isDeleted;
     final tombstoneColor = textColor.withValues(alpha: 0.55);
-    // TASK37: long-press enabled только когда есть stable matrixEventId
-    // (sent) И callback задан И не tombstone. Pending/failed — нет
-    // stable id; tombstone — нет actions (Edit/Delete already-deleted).
+    // TASK37: long-press на ОТПРАВЛЕННОМ — полный набор действий; для них
+    // нужен stable matrixEventId. Tombstone — нет actions (Edit/Delete
+    // already-deleted).
+    //
+    // **OUTBOX**: своё ещё-не-ушедшее сообщение тоже long-press-абельно.
+    // Иначе строку персистентной очереди нечем было ни повторить (кнопка
+    // «!» есть только у failed, а зависший в бэкоффе item — pending), ни
+    // отменить — файл из Share Extension висел «в отправке» неделями.
+    // Шит сам покажет для него компактный набор (повторить / отменить
+    // отправку / копировать) — см. `showMessageActionSheet`.
     final canLongPress =
         !selectionMode &&
         onLongPress != null &&
-        message.isSent &&
         !isTombstone &&
-        message.matrixEventId != null;
+        ((message.isSent && message.matrixEventId != null) ||
+            (isOwn && !message.isSent && message.clientTxnId != null));
 
     final Widget content = Padding(
       // TASK22 Phase2 Chunk 1: vertical = interBubbleSpacing / 2 — соседние

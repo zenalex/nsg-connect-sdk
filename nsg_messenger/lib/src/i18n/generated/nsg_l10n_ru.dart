@@ -242,6 +242,21 @@ class NsgL10nRu extends NsgL10n {
   String get attachUploadFailed => 'Не удалось загрузить — попробуйте ещё раз';
 
   @override
+  String attachRejectedType(String filename) {
+    return 'Не удалось отправить «$filename» — этот тип файла не поддерживается';
+  }
+
+  @override
+  String attachRejectedExecutable(String filename) {
+    return 'Не удалось отправить «$filename» — исполняемые файлы отправлять нельзя';
+  }
+
+  @override
+  String attachRejectedTooLarge(String filename, int maxMb) {
+    return 'Не удалось отправить «$filename» — файл больше $maxMb МБ';
+  }
+
+  @override
   String get attachUnnamedFallback => 'Без имени';
 
   @override
@@ -876,6 +891,12 @@ class NsgL10nRu extends NsgL10n {
 
   @override
   String get imageCopiedSnack => 'Изображение скопировано в буфер обмена';
+
+  @override
+  String get messageActionCancelSend => 'Отменить отправку';
+
+  @override
+  String get messageCancelSendFailed => 'Не удалось отменить отправку';
 
   @override
   String get imageCopyFailed => 'Не удалось скопировать изображение';

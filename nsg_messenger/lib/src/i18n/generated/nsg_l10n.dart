@@ -505,6 +505,24 @@ abstract class NsgL10n {
   /// **'Upload failed — try again'**
   String get attachUploadFailed;
 
+  /// Issue #54: server rejected the attachment (AttachmentRejectReason.unsupportedType). Раньше такой реджект был НЕВИДИМ — сообщение просто получало красный «!» без объяснения.
+  ///
+  /// In en, this message translates to:
+  /// **'Can\'t send “{filename}” — this file type isn\'t supported'**
+  String attachRejectedType(String filename);
+
+  /// Issue #54: реджект по extension-blacklist (AttachmentRejectReason.blockedExtension) — .exe/.apk/.msi и т.п.
+  ///
+  /// In en, this message translates to:
+  /// **'Can\'t send “{filename}” — executable files aren\'t allowed'**
+  String attachRejectedExecutable(String filename);
+
+  /// Issue #54: реджект по size cap (AttachmentRejectReason.tooLarge). `maxMb` — лимит, который нарушен (50 для image/file, 100 для video).
+  ///
+  /// In en, this message translates to:
+  /// **'Can\'t send “{filename}” — the file is larger than {maxMb} MB'**
+  String attachRejectedTooLarge(String filename, int maxMb);
+
   /// TASK19 Chunk 3: fallback в `_FileRow` когда `AttachmentRef.originalFilename == ''` (defensive — server обычно non-empty).
   ///
   /// In en, this message translates to:
@@ -1608,6 +1626,18 @@ abstract class NsgL10n {
   /// In en, this message translates to:
   /// **'Image copied to clipboard'**
   String get imageCopiedSnack;
+
+  /// OUTBOX: убрать сообщение из персистентной очереди отправки (строка + локальная копия файла). Только для ещё-не-ушедших сообщений — отправленное удаляется через messageActionDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel sending'**
+  String get messageActionCancelSend;
+
+  /// OUTBOX: snackbar когда discard строки очереди упал (например store недоступен).
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t cancel sending'**
+  String get messageCancelSendFailed;
 
   /// Snackbar когда копирование картинки в буфер упало (скачивание / запись в буфер).
   ///
