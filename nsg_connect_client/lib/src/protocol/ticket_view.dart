@@ -26,6 +26,7 @@ abstract class TicketView implements _i1.SerializableModel {
     this.externalTaskKey,
     this.resolution,
     this.title,
+    this.threadRootEventId,
     required this.createdAt,
     required this.updatedAt,
     this.lastEventPreview,
@@ -42,6 +43,7 @@ abstract class TicketView implements _i1.SerializableModel {
     String? externalTaskKey,
     String? resolution,
     String? title,
+    String? threadRootEventId,
     required DateTime createdAt,
     required DateTime updatedAt,
     String? lastEventPreview,
@@ -59,6 +61,7 @@ abstract class TicketView implements _i1.SerializableModel {
       externalTaskKey: jsonSerialization['externalTaskKey'] as String?,
       resolution: jsonSerialization['resolution'] as String?,
       title: jsonSerialization['title'] as String?,
+      threadRootEventId: jsonSerialization['threadRootEventId'] as String?,
       createdAt: _i1.DateTimeJsonExtension.fromJson(
         jsonSerialization['createdAt'],
       ),
@@ -95,6 +98,12 @@ abstract class TicketView implements _i1.SerializableModel {
 
   String? title;
 
+  /// **TASK82**: корень треда обсуждения задачи. Не null → строка «Мои
+  /// обращения» открывает СРАЗУ тред (заявитель попадает в контекст своей
+  /// задачи), null → тикет без треда (нет задачи / старый, якорь появится
+  /// лениво при первом событии из GitHub) → открываем комнату как раньше.
+  String? threadRootEventId;
+
   DateTime createdAt;
 
   DateTime updatedAt;
@@ -116,6 +125,7 @@ abstract class TicketView implements _i1.SerializableModel {
     String? externalTaskKey,
     String? resolution,
     String? title,
+    String? threadRootEventId,
     DateTime? createdAt,
     DateTime? updatedAt,
     String? lastEventPreview,
@@ -134,6 +144,7 @@ abstract class TicketView implements _i1.SerializableModel {
       if (externalTaskKey != null) 'externalTaskKey': externalTaskKey,
       if (resolution != null) 'resolution': resolution,
       if (title != null) 'title': title,
+      if (threadRootEventId != null) 'threadRootEventId': threadRootEventId,
       'createdAt': createdAt.toJson(),
       'updatedAt': updatedAt.toJson(),
       if (lastEventPreview != null) 'lastEventPreview': lastEventPreview,
@@ -160,6 +171,7 @@ class _TicketViewImpl extends TicketView {
     String? externalTaskKey,
     String? resolution,
     String? title,
+    String? threadRootEventId,
     required DateTime createdAt,
     required DateTime updatedAt,
     String? lastEventPreview,
@@ -174,6 +186,7 @@ class _TicketViewImpl extends TicketView {
          externalTaskKey: externalTaskKey,
          resolution: resolution,
          title: title,
+         threadRootEventId: threadRootEventId,
          createdAt: createdAt,
          updatedAt: updatedAt,
          lastEventPreview: lastEventPreview,
@@ -194,6 +207,7 @@ class _TicketViewImpl extends TicketView {
     Object? externalTaskKey = _Undefined,
     Object? resolution = _Undefined,
     Object? title = _Undefined,
+    Object? threadRootEventId = _Undefined,
     DateTime? createdAt,
     DateTime? updatedAt,
     Object? lastEventPreview = _Undefined,
@@ -213,6 +227,9 @@ class _TicketViewImpl extends TicketView {
           : this.externalTaskKey,
       resolution: resolution is String? ? resolution : this.resolution,
       title: title is String? ? title : this.title,
+      threadRootEventId: threadRootEventId is String?
+          ? threadRootEventId
+          : this.threadRootEventId,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       lastEventPreview: lastEventPreview is String?

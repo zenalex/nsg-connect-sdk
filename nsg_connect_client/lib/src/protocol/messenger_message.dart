@@ -42,6 +42,8 @@ abstract class MessengerMessage implements _i1.SerializableModel {
     this.parentMessageId,
     this.threadId,
     this.replyToMessageId,
+    this.threadReplyCount,
+    this.threadLastReplyAt,
     required this.serverTimestamp,
     this.clientTxnId,
     this.attachment,
@@ -64,6 +66,8 @@ abstract class MessengerMessage implements _i1.SerializableModel {
     String? parentMessageId,
     String? threadId,
     String? replyToMessageId,
+    int? threadReplyCount,
+    DateTime? threadLastReplyAt,
     required DateTime serverTimestamp,
     String? clientTxnId,
     _i3.AttachmentRef? attachment,
@@ -89,6 +93,12 @@ abstract class MessengerMessage implements _i1.SerializableModel {
       parentMessageId: jsonSerialization['parentMessageId'] as String?,
       threadId: jsonSerialization['threadId'] as String?,
       replyToMessageId: jsonSerialization['replyToMessageId'] as String?,
+      threadReplyCount: jsonSerialization['threadReplyCount'] as int?,
+      threadLastReplyAt: jsonSerialization['threadLastReplyAt'] == null
+          ? null
+          : _i1.DateTimeJsonExtension.fromJson(
+              jsonSerialization['threadLastReplyAt'],
+            ),
       serverTimestamp: _i1.DateTimeJsonExtension.fromJson(
         jsonSerialization['serverTimestamp'],
       ),
@@ -147,6 +157,17 @@ abstract class MessengerMessage implements _i1.SerializableModel {
   String? threadId;
 
   String? replyToMessageId;
+
+  /// **TASK82 threadSummary**: заполняются ТОЛЬКО у якорного сообщения задачи в
+  /// ОСНОВНОЙ ленте (`listMessages`) — счётчик ответов в треде и время
+  /// последнего. DTO-only (не persisted): считаются на лету из `message_index`
+  /// по (roomId, threadRootEventId). null у обычных сообщений и у самих ответов
+  /// треда. SDK рисует по ним строку-кнопку «Обсуждение (N) →» на карточке
+  /// задачи. Аддитивные nullable-поля: старые клиенты игнорируют неизвестный
+  /// ключ при десериализации → capability-гейт не нужен.
+  int? threadReplyCount;
+
+  DateTime? threadLastReplyAt;
 
   DateTime serverTimestamp;
 
@@ -243,6 +264,8 @@ abstract class MessengerMessage implements _i1.SerializableModel {
     String? parentMessageId,
     String? threadId,
     String? replyToMessageId,
+    int? threadReplyCount,
+    DateTime? threadLastReplyAt,
     DateTime? serverTimestamp,
     String? clientTxnId,
     _i3.AttachmentRef? attachment,
@@ -268,6 +291,9 @@ abstract class MessengerMessage implements _i1.SerializableModel {
       if (parentMessageId != null) 'parentMessageId': parentMessageId,
       if (threadId != null) 'threadId': threadId,
       if (replyToMessageId != null) 'replyToMessageId': replyToMessageId,
+      if (threadReplyCount != null) 'threadReplyCount': threadReplyCount,
+      if (threadLastReplyAt != null)
+        'threadLastReplyAt': threadLastReplyAt?.toJson(),
       'serverTimestamp': serverTimestamp.toJson(),
       if (clientTxnId != null) 'clientTxnId': clientTxnId,
       if (attachment != null) 'attachment': attachment?.toJson(),
@@ -301,6 +327,8 @@ class _MessengerMessageImpl extends MessengerMessage {
     String? parentMessageId,
     String? threadId,
     String? replyToMessageId,
+    int? threadReplyCount,
+    DateTime? threadLastReplyAt,
     required DateTime serverTimestamp,
     String? clientTxnId,
     _i3.AttachmentRef? attachment,
@@ -321,6 +349,8 @@ class _MessengerMessageImpl extends MessengerMessage {
          parentMessageId: parentMessageId,
          threadId: threadId,
          replyToMessageId: replyToMessageId,
+         threadReplyCount: threadReplyCount,
+         threadLastReplyAt: threadLastReplyAt,
          serverTimestamp: serverTimestamp,
          clientTxnId: clientTxnId,
          attachment: attachment,
@@ -347,6 +377,8 @@ class _MessengerMessageImpl extends MessengerMessage {
     Object? parentMessageId = _Undefined,
     Object? threadId = _Undefined,
     Object? replyToMessageId = _Undefined,
+    Object? threadReplyCount = _Undefined,
+    Object? threadLastReplyAt = _Undefined,
     DateTime? serverTimestamp,
     Object? clientTxnId = _Undefined,
     Object? attachment = _Undefined,
@@ -374,6 +406,12 @@ class _MessengerMessageImpl extends MessengerMessage {
       replyToMessageId: replyToMessageId is String?
           ? replyToMessageId
           : this.replyToMessageId,
+      threadReplyCount: threadReplyCount is int?
+          ? threadReplyCount
+          : this.threadReplyCount,
+      threadLastReplyAt: threadLastReplyAt is DateTime?
+          ? threadLastReplyAt
+          : this.threadLastReplyAt,
       serverTimestamp: serverTimestamp ?? this.serverTimestamp,
       clientTxnId: clientTxnId is String? ? clientTxnId : this.clientTxnId,
       attachment: attachment is _i3.AttachmentRef?

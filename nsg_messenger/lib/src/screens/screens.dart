@@ -17,3 +17,4 @@ export 'participants_screen.dart';
 export 'people_screen.dart';
 export 'pulse_screen.dart';
 export 'support_chat_screen.dart';
+export 'thread_screen.dart';

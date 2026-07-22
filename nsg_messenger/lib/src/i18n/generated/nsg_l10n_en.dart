@@ -46,6 +46,9 @@ class NsgL10nEn extends NsgL10n {
   String get chatScreenLoadFailed => 'Failed to load messages';
 
   @override
+  String get chatJumpToLatestTooltip => 'To the latest message';
+
+  @override
   String get chatScreenSendHint => 'Message…';
 
   @override
@@ -2032,4 +2035,16 @@ class NsgL10nEn extends NsgL10n {
   String writeBannedUntilSnack(String until) {
     return 'You cannot write in this chat until $until';
   }
+
+  @override
+  String threadOpenDiscussion(int count) {
+    return 'Discussion ($count)';
+  }
+
+  @override
+  String get threadScreenTitle => 'Task discussion';
+
+  @override
+  String get threadScreenEmpty =>
+      'No replies yet. Ask a question about the task here.';
 }

@@ -37,6 +37,7 @@ abstract class MessageIndex implements _i1.SerializableModel {
     required this.body,
     required this.createdAt,
     bool? deleted,
+    this.threadRootEventId,
   }) : deleted = deleted ?? false;
 
   factory MessageIndex({
@@ -48,6 +49,7 @@ abstract class MessageIndex implements _i1.SerializableModel {
     required String body,
     required DateTime createdAt,
     bool? deleted,
+    String? threadRootEventId,
   }) = _MessageIndexImpl;
 
   factory MessageIndex.fromJson(Map<String, dynamic> jsonSerialization) {
@@ -64,6 +66,7 @@ abstract class MessageIndex implements _i1.SerializableModel {
       deleted: jsonSerialization['deleted'] == null
           ? null
           : _i1.BoolJsonExtension.fromJson(jsonSerialization['deleted']),
+      threadRootEventId: jsonSerialization['threadRootEventId'] as String?,
     );
   }
 
@@ -93,6 +96,14 @@ abstract class MessageIndex implements _i1.SerializableModel {
   /// Tombstone для redaction-ов: поиск исключает `deleted=true`.
   bool deleted;
 
+  /// **TASK82**: корень треда (Matrix event id якорного сообщения задачи), если
+  /// это сообщение — ответ В треде (`m.relates_to.rel_type == m.thread`). null
+  /// для обычных сообщений основного потока. По нему считаем `threadSummary`
+  /// (счётчик ответов + время последнего) на якоре — дёшево, всегда свежо,
+  /// без денормализованного счётчика, который дрейфил бы. Заполняется на тех же
+  /// best-effort hook-ах (`sendMessage` / sync), что и остальной индекс.
+  String? threadRootEventId;
+
   /// Returns a shallow copy of this [MessageIndex]
   /// with some or all fields replaced by the given arguments.
   @_i1.useResult
@@ -105,6 +116,7 @@ abstract class MessageIndex implements _i1.SerializableModel {
     String? body,
     DateTime? createdAt,
     bool? deleted,
+    String? threadRootEventId,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -119,6 +131,7 @@ abstract class MessageIndex implements _i1.SerializableModel {
       'body': body,
       'createdAt': createdAt.toJson(),
       'deleted': deleted,
+      if (threadRootEventId != null) 'threadRootEventId': threadRootEventId,
     };
   }
 
@@ -140,6 +153,7 @@ class _MessageIndexImpl extends MessageIndex {
     required String body,
     required DateTime createdAt,
     bool? deleted,
+    String? threadRootEventId,
   }) : super._(
          id: id,
          tenantId: tenantId,
@@ -149,6 +163,7 @@ class _MessageIndexImpl extends MessageIndex {
          body: body,
          createdAt: createdAt,
          deleted: deleted,
+         threadRootEventId: threadRootEventId,
        );
 
   /// Returns a shallow copy of this [MessageIndex]
@@ -164,6 +179,7 @@ class _MessageIndexImpl extends MessageIndex {
     String? body,
     DateTime? createdAt,
     bool? deleted,
+    Object? threadRootEventId = _Undefined,
   }) {
     return MessageIndex(
       id: id is int? ? id : this.id,
@@ -176,6 +192,9 @@ class _MessageIndexImpl extends MessageIndex {
       body: body ?? this.body,
       createdAt: createdAt ?? this.createdAt,
       deleted: deleted ?? this.deleted,
+      threadRootEventId: threadRootEventId is String?
+          ? threadRootEventId
+          : this.threadRootEventId,
     );
   }
 }

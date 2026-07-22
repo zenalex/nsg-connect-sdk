@@ -2082,6 +2082,29 @@ class EndpointMessenger extends _i2.EndpointRef {
     },
   );
 
+  /// **TASK82**: страница ленты ТРЕДА задачи (ответы на якорь
+  /// `threadRootEventId`). Пагинация — как у [listMessages] (`dir=b`,
+  /// `fromToken` = `nextToken` предыдущей страницы, `nextToken == null` →
+  /// тред дочитан); на последней странице в конце приходит сам якорь.
+  ///
+  /// Членство в комнате enforce-ится Matrix-токеном вызывающего (Matrix
+  /// отклоняет не-членов 403) — тем же путём, что [listMessages].
+  _i3.Future<_i34.MessengerMessageListPage> listThreadMessages({
+    required int roomId,
+    required String threadRootEventId,
+    String? fromToken,
+    required int limit,
+  }) => caller.callServerEndpoint<_i34.MessengerMessageListPage>(
+    'messenger',
+    'listThreadMessages',
+    {
+      'roomId': roomId,
+      'threadRootEventId': threadRootEventId,
+      'fromToken': fromToken,
+      'limit': limit,
+    },
+  );
+
   /// **B17 search**: keyword-поиск по сообщениям одной комнаты через
   /// Matrix `/search` endpoint. Возвращает up to `limit` matched
   /// сообщений отсортированных по `recent` (newest first).

@@ -169,6 +169,12 @@ abstract class NsgL10n {
   /// **'Failed to load messages'**
   String get chatScreenLoadFailed;
 
+  /// Tooltip плавающей кнопки-стрелки в `ChatScreen` (issue #59): появляется, когда пользователь ушёл вверх по истории; тап возвращает к самому свежему сообщению.
+  ///
+  /// In en, this message translates to:
+  /// **'To the latest message'**
+  String get chatJumpToLatestTooltip;
+
   /// Placeholder в `MessageComposer` TextField — подсказка пользователю что писать.
   ///
   /// In en, this message translates to:
@@ -3702,6 +3708,24 @@ abstract class NsgL10n {
   /// In en, this message translates to:
   /// **'You cannot write in this chat until {until}'**
   String writeBannedUntilSnack(String until);
+
+  /// TASK82: row-button on the task anchor bubble — opens the task discussion thread; {count} is the number of replies.
+  ///
+  /// In en, this message translates to:
+  /// **'Discussion ({count})'**
+  String threadOpenDiscussion(int count);
+
+  /// TASK82: fallback title of the thread screen when the task subject is unknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Task discussion'**
+  String get threadScreenTitle;
+
+  /// TASK82: empty state of the task thread feed.
+  ///
+  /// In en, this message translates to:
+  /// **'No replies yet. Ask a question about the task here.'**
+  String get threadScreenEmpty;
 }
 
 class _NsgL10nDelegate extends LocalizationsDelegate<NsgL10n> {

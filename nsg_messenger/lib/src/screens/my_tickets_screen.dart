@@ -8,17 +8,24 @@ import '../support/my_tickets_controller.dart';
 import '../support/my_tickets_rpc.dart';
 import '../support/my_tickets_state.dart';
 import 'chat_screen.dart';
+import 'thread_screen.dart';
 
 /// **TASK57 фаза 1 + issue #19**: экран «Мои обращения» — список обращений
 /// пользователя с гранулярным статусом жизненного цикла (Новое / В работе /
 /// Принято / Отклонено), резолюцией и ссылкой на GitHub issue (если заведён).
 /// Тап по строке открывает support-чат обращения ([ChatScreen]). Открывается
 /// через `NsgMessenger.openMyTickets(context)`.
+///
+/// **TASK82**: если у обращения есть тред задачи
+/// ([TicketView.threadRootEventId]) — открываем СРАЗУ его ([ThreadScreen]):
+/// заявитель попадает в контекст своей задачи, а не в общий поток комнаты,
+/// где обсуждение задачи вообще не показывается.
 class MyTicketsScreen extends StatefulWidget {
   const MyTicketsScreen({
     super.key,
     @visibleForTesting this.rpcOverride,
     @visibleForTesting this.onOpenRoom,
+    @visibleForTesting this.onOpenThread,
   });
 
   /// Visible-for-testing — подмена RPC без Serverpod-клиента.
@@ -26,6 +33,9 @@ class MyTicketsScreen extends StatefulWidget {
 
   /// Visible-for-testing — подмена навигации в чат.
   final void Function(BuildContext context, int roomId)? onOpenRoom;
+
+  /// **TASK82**: visible-for-testing — подмена навигации в тред задачи.
+  final void Function(BuildContext context, TicketView ticket)? onOpenThread;
 
   @override
   State<MyTicketsScreen> createState() => _MyTicketsScreenState();
@@ -49,6 +59,32 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  /// **TASK82**: тред задачи, если он у обращения есть; иначе — комната
+  /// целиком (нет задачи / старый тикет, у которого якорь появится лениво
+  /// при первом событии из GitHub).
+  Future<void> _openTicket(TicketView ticket) async {
+    final root = ticket.threadRootEventId;
+    if (root == null || root.isEmpty) {
+      await _openRoom(ticket.roomId);
+      return;
+    }
+    final opener = widget.onOpenThread;
+    if (opener != null) {
+      opener(context, ticket);
+      return;
+    }
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ThreadScreen(
+          roomId: ticket.roomId,
+          threadRootEventId: root,
+          title: ticket.title,
+          statusLabel: _TicketTile._stageStyle(ticket.stage).label,
+        ),
+      ),
+    );
   }
 
   Future<void> _openRoom(int roomId) async {
@@ -85,7 +121,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                         separatorBuilder: (_, _) => const Divider(height: 1),
                         itemBuilder: (context, i) => _TicketTile(
                           ticket: tickets[i],
-                          onTap: () => _openRoom(tickets[i].roomId),
+                          onTap: () => _openTicket(tickets[i]),
                         ),
                       ),
                     ),

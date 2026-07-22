@@ -46,6 +46,9 @@ class NsgL10nRu extends NsgL10n {
   String get chatScreenLoadFailed => 'Не удалось загрузить сообщения';
 
   @override
+  String get chatJumpToLatestTooltip => 'К последнему сообщению';
+
+  @override
   String get chatScreenSendHint => 'Сообщение…';
 
   @override
@@ -2052,4 +2055,16 @@ class NsgL10nRu extends NsgL10n {
   String writeBannedUntilSnack(String until) {
     return 'Вам запрещено писать в этот чат до $until';
   }
+
+  @override
+  String threadOpenDiscussion(int count) {
+    return 'Обсуждение ($count)';
+  }
+
+  @override
+  String get threadScreenTitle => 'Обсуждение задачи';
+
+  @override
+  String get threadScreenEmpty =>
+      'Ответов пока нет. Задайте здесь вопрос по задаче.';
 }

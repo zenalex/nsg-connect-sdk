@@ -95,7 +95,9 @@ class MessagesController {
     List<Duration>? sendRetrySchedule,
     MessengerCacheStore? cache,
     OutboxSender? outbox,
-  }) : _sendRetrySchedule = sendRetrySchedule ?? kDefaultSendRetrySchedule,
+    String? threadRootEventId,
+  }) : _threadRootEventId = threadRootEventId,
+       _sendRetrySchedule = sendRetrySchedule ?? kDefaultSendRetrySchedule,
        _cache = cache,
        _outbox = outbox,
        assert(
@@ -124,6 +126,22 @@ class MessagesController {
   final int _pendingBufferCap;
   final int _initialPageSize;
   final int _loadMorePageSize;
+
+  /// **TASK82**: корень треда задачи. `null` — обычный режим (лента всей
+  /// комнаты). Не null — контроллер работает КАК ЛЕНТА ТРЕДА: история из
+  /// `listThreadMessages`, отправка с `threadId`, из шины принимаются
+  /// только сообщения этого треда.
+  ///
+  /// Параметр, а не подкласс/форк: у ленты треда те же оптимистичная
+  /// отправка, retry-расписание, дедуп, реакции и read-receipt-ы, что у
+  /// обычной — форк пришлось бы чинить дважды на каждый баг.
+  final String? _threadRootEventId;
+
+  /// `true` — контроллер обслуживает тред задачи, а не всю комнату.
+  bool get isThreadMode => _threadRootEventId != null;
+
+  /// Корень треда (см. [isThreadMode]); `null` в обычном режиме.
+  String? get threadRootEventId => _threadRootEventId;
 
   /// Сбой отправки, который пользователь должен увидеть: исчерпанный
   /// send-RPC либо упавший фоновый аплоад вложения.
@@ -484,6 +502,30 @@ class MessagesController {
   // Public API
   // ───────────────────────────────────────────────────────────────────
 
+  /// **TASK82**: одна страница истории — комнаты или треда, в зависимости
+  /// от [isThreadMode]. Единая точка, чтобы `init` / `loadMore` /
+  /// `refreshLatest` не разъехались по режимам (пагинация у обоих RPC
+  /// одинаковая: `fromToken` = `nextToken` предыдущей страницы).
+  Future<MessengerMessageListPage> _fetchPage({
+    String? fromToken,
+    required int limit,
+  }) {
+    final root = _threadRootEventId;
+    if (root == null) {
+      return _rpc.listMessages(
+        roomId: _roomId,
+        fromToken: fromToken,
+        limit: limit,
+      );
+    }
+    return _rpc.listThreadMessages(
+      roomId: _roomId,
+      threadRootEventId: root,
+      fromToken: fromToken,
+      limit: limit,
+    );
+  }
+
   /// Запустить controller: subscribe на events + загрузить первую
   /// страницу истории. Идемпотентен относительно повторных вызовов
   /// (используется во внутреннем restart-on-overflow); host-app обычно
@@ -506,7 +548,11 @@ class MessagesController {
 
     // **OUTBOX**: подписка на изменения очереди этой комнаты (однократно) —
     // enqueue/delete/mark отражаются в pending-бабблах вживую.
-    final outboxCache = _cache;
+    //
+    // **TASK82**: в треде очередь не показываем — она комнатная (в строке
+    // нет корня треда), и её бабблы протекли бы в чужую ленту. Отправка
+    // из треда при сетевом сбое остаётся in-memory retry (см. `_shootSendRpc`).
+    final outboxCache = isThreadMode ? null : _cache;
     if (outboxCache != null) {
       _outboxSub ??= outboxCache.outboxRoomChanges
           .where((rid) => rid == _roomId)
@@ -527,7 +573,11 @@ class MessagesController {
     // **TASK47**: показать кэшированную историю СРАЗУ (до сети). Буфер
     // применяем неразрушающе — серверный путь ниже применит его снова
     // (dedup в _acceptIncomingInto идемпотентен, буфер обнуляется там).
-    final cache = _cache;
+    //
+    // **TASK82**: дисковый кэш комнатный (`getMessages(roomId)`) — в треде
+    // он показал бы чужую ленту и затёр бы кэш комнаты хвостом треда.
+    // Оффлайн-история треда — вне скоупа.
+    final cache = isThreadMode ? null : _cache;
     if (cache != null) {
       try {
         final cached = await cache.getMessages(
@@ -552,7 +602,7 @@ class MessagesController {
 
     final MessengerMessageListPage page;
     try {
-      page = await _rpc.listMessages(roomId: _roomId, limit: _initialPageSize);
+      page = await _fetchPage(limit: _initialPageSize);
     } catch (e) {
       if (_disposed || epoch != _initEpoch) return;
       _initBuffer = null;
@@ -656,11 +706,7 @@ class MessagesController {
 
     final MessengerMessageListPage page;
     try {
-      page = await _rpc.listMessages(
-        roomId: _roomId,
-        fromToken: _nextToken,
-        limit: _loadMorePageSize,
-      );
+      page = await _fetchPage(fromToken: _nextToken, limit: _loadMorePageSize);
     } catch (e) {
       _loadingMore = false;
       if (_disposed) return;
@@ -924,6 +970,10 @@ class MessagesController {
       replyToMessageId: replyToMatrixEventId,
       mentionedMessengerUserIds: mentionedMessengerUserIds,
       albumId: albumId,
+      // **TASK82**: свой pending-пузырь в треде тоже несёт корень — он
+      // такое же сообщение треда, как и серверный echo, который его
+      // заменит; иначе `threadId` мигал бы null → корень при промоуте.
+      threadId: _threadRootEventId,
     );
     _insertLocalPending(optimistic);
 
@@ -1517,7 +1567,7 @@ class MessagesController {
     if (_state.value is! MessagesReady) return; // только когда уже загружено
     MessengerMessageListPage page;
     try {
-      page = await _rpc.listMessages(roomId: _roomId, limit: _initialPageSize);
+      page = await _fetchPage(limit: _initialPageSize);
     } catch (_) {
       return;
     }
@@ -1847,6 +1897,17 @@ class MessagesController {
       return;
     }
 
+    // **TASK82** — разделение лент. Threaded-сообщения едут ОБЫЧНЫМ
+    // `messageCreated` (сервер новых типов событий не заводил), поэтому
+    // «кому это сообщение» решает клиент:
+    //   * обычная лента комнаты отбрасывает всё с `threadId != null` —
+    //     иначе реплики треда мелькали бы в общем потоке до перезахода
+    //     (в `listMessages` сервер их уже отфильтровал, а в шине — нет);
+    //   * лента треда берёт только СВОЙ тред (в одной комнате их много).
+    // Фильтр стоит ПОСЛЕ messageUpdated/messageDeleted: у тех DTO —
+    // координаты цели, и они и так no-op-ят, если цели нет в списке.
+    if (m.threadId != _threadRootEventId) return;
+
     // Если ещё в init() — буферим до Ready.
     final buffer = _initBuffer;
     if (buffer != null) {
@@ -1949,7 +2010,8 @@ class MessagesController {
   /// бабблы. Зовётся в конце init() и на каждое `outboxRoomChanges` события
   /// для этой комнаты. Best-effort — ошибки не ломают чат.
   Future<void> _refreshOutbox() async {
-    final cache = _cache;
+    // **TASK82**: в треде очередь не рисуем — она комнатная (см. init()).
+    final cache = isThreadMode ? null : _cache;
     if (cache == null || _disposed) return;
     List<OutboxItem> rows;
     try {
@@ -2104,6 +2166,10 @@ class MessagesController {
           replyToMatrixEventId: replyToMatrixEventId,
           mentionedMessengerUserIds: mentionedMessengerUserIds,
           albumId: albumId,
+          // **TASK82**: в тред-режиме сообщение уходит с корнем треда —
+          // сервер вешает `m.relates_to {rel_type: m.thread}` и зеркалит
+          // его комментарием в связанный GitHub issue.
+          threadId: _threadRootEventId,
         );
         if (_disposed) return;
         // Layer-1 promote pending → sent. Use _acceptIncomingInto на
@@ -2140,7 +2206,14 @@ class MessagesController {
         // не задублирует, доставку сделает OutboxSender, промоут в sent
         // придёт через /sync). Вложения — прежний in-memory путь
         // (AttachmentRef уже загружен, переупаковка в outbox — отдельно).
-        if (attachment == null && albumId == null && _outbox != null) {
+        // **TASK82**: из треда в персистентную очередь не уходим — строка
+        // очереди хранит только roomId, и после дренажа сообщение всплыло
+        // бы в ОБЩЕЙ ленте комнаты, потеряв тред. Для треда остаётся
+        // прежний in-memory retry-цикл ниже.
+        if (attachment == null &&
+            albumId == null &&
+            _outbox != null &&
+            !isThreadMode) {
           try {
             await _outbox.enqueueText(
               roomId: _roomId,

@@ -33,6 +33,7 @@ abstract class Ticket implements _i1.SerializableModel {
     this.externalTaskUrl,
     this.externalTaskKey,
     this.resolution,
+    this.threadRootEventId,
     required this.createdAt,
     required this.updatedAt,
     this.closedAt,
@@ -50,6 +51,7 @@ abstract class Ticket implements _i1.SerializableModel {
     String? externalTaskUrl,
     String? externalTaskKey,
     String? resolution,
+    String? threadRootEventId,
     required DateTime createdAt,
     required DateTime updatedAt,
     DateTime? closedAt,
@@ -69,6 +71,7 @@ abstract class Ticket implements _i1.SerializableModel {
       externalTaskUrl: jsonSerialization['externalTaskUrl'] as String?,
       externalTaskKey: jsonSerialization['externalTaskKey'] as String?,
       resolution: jsonSerialization['resolution'] as String?,
+      threadRootEventId: jsonSerialization['threadRootEventId'] as String?,
       createdAt: _i1.DateTimeJsonExtension.fromJson(
         jsonSerialization['createdAt'],
       ),
@@ -113,6 +116,14 @@ abstract class Ticket implements _i1.SerializableModel {
   /// Итог при закрытии (RU): «выполнено» / «не будем делать» и т.п.
   String? resolution;
 
+  /// **TASK82**: корень треда обсуждения задачи — Matrix event id якорного
+  /// системного сообщения «Задача создана: …». Для НОВЫХ задач заполняется при
+  /// создании (`createTaskFromMessage`/бот). У СТАРЫХ тикетов null → якорь
+  /// создаётся ЛЕНИВО при первом входящем GitHub-событии (бэкфилл не нужен).
+  /// Все входящие webhook-события и исходящие сообщения диалога привязываются
+  /// к этому корню (`m.thread`), а не сыпятся в общий поток комнаты.
+  String? threadRootEventId;
+
   DateTime createdAt;
 
   DateTime updatedAt;
@@ -134,6 +145,7 @@ abstract class Ticket implements _i1.SerializableModel {
     String? externalTaskUrl,
     String? externalTaskKey,
     String? resolution,
+    String? threadRootEventId,
     DateTime? createdAt,
     DateTime? updatedAt,
     DateTime? closedAt,
@@ -154,6 +166,7 @@ abstract class Ticket implements _i1.SerializableModel {
       if (externalTaskUrl != null) 'externalTaskUrl': externalTaskUrl,
       if (externalTaskKey != null) 'externalTaskKey': externalTaskKey,
       if (resolution != null) 'resolution': resolution,
+      if (threadRootEventId != null) 'threadRootEventId': threadRootEventId,
       'createdAt': createdAt.toJson(),
       'updatedAt': updatedAt.toJson(),
       if (closedAt != null) 'closedAt': closedAt?.toJson(),
@@ -181,6 +194,7 @@ class _TicketImpl extends Ticket {
     String? externalTaskUrl,
     String? externalTaskKey,
     String? resolution,
+    String? threadRootEventId,
     required DateTime createdAt,
     required DateTime updatedAt,
     DateTime? closedAt,
@@ -196,6 +210,7 @@ class _TicketImpl extends Ticket {
          externalTaskUrl: externalTaskUrl,
          externalTaskKey: externalTaskKey,
          resolution: resolution,
+         threadRootEventId: threadRootEventId,
          createdAt: createdAt,
          updatedAt: updatedAt,
          closedAt: closedAt,
@@ -217,6 +232,7 @@ class _TicketImpl extends Ticket {
     Object? externalTaskUrl = _Undefined,
     Object? externalTaskKey = _Undefined,
     Object? resolution = _Undefined,
+    Object? threadRootEventId = _Undefined,
     DateTime? createdAt,
     DateTime? updatedAt,
     Object? closedAt = _Undefined,
@@ -239,6 +255,9 @@ class _TicketImpl extends Ticket {
           ? externalTaskKey
           : this.externalTaskKey,
       resolution: resolution is String? ? resolution : this.resolution,
+      threadRootEventId: threadRootEventId is String?
+          ? threadRootEventId
+          : this.threadRootEventId,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       closedAt: closedAt is DateTime? ? closedAt : this.closedAt,

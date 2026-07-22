@@ -11,23 +11,34 @@ import 'package:nsg_messenger/src/support/my_tickets_rpc.dart';
 void main() {
   final now = DateTime.utc(2026, 7, 8);
 
-  TicketView ticket(int id, {required String stage, String status = 'open'}) =>
-      TicketView(
-        id: id,
-        kind: 'bug',
-        status: status,
-        stage: stage,
-        roomId: 100 + id,
-        createdAt: now,
-        updatedAt: now,
-      );
+  TicketView ticket(
+    int id, {
+    required String stage,
+    String status = 'open',
+    String? threadRootEventId,
+  }) => TicketView(
+    id: id,
+    kind: 'bug',
+    status: status,
+    stage: stage,
+    roomId: 100 + id,
+    createdAt: now,
+    updatedAt: now,
+    threadRootEventId: threadRootEventId,
+  );
 
-  Future<void> pump(WidgetTester tester, List<TicketView> tickets) async {
+  Future<void> pump(
+    WidgetTester tester,
+    List<TicketView> tickets, {
+    void Function(BuildContext, int)? onOpenRoom,
+    void Function(BuildContext, TicketView)? onOpenThread,
+  }) async {
     await tester.pumpWidget(
       MaterialApp(
         home: MyTicketsScreen(
           rpcOverride: _FakeRpc(tickets),
-          onOpenRoom: (_, _) {},
+          onOpenRoom: onOpenRoom ?? (_, _) {},
+          onOpenThread: onOpenThread,
         ),
       ),
     );
@@ -51,6 +62,44 @@ void main() {
   testWidgets('неизвестный stage → безопасный дефолт «Новое»', (tester) async {
     await pump(tester, [ticket(1, stage: 'something_new_from_server')]);
     expect(find.text('Новое'), findsOneWidget);
+  });
+
+  // ─── TASK82 ────────────────────────────────────────────────────────
+  testWidgets('обращение с тредом задачи открывает ТРЕД, а не комнату', (
+    tester,
+  ) async {
+    TicketView? openedThread;
+    var openedRooms = 0;
+    await pump(
+      tester,
+      [ticket(1, stage: 'in_progress', threadRootEventId: 'anchor-event')],
+      onOpenRoom: (_, _) => openedRooms++,
+      onOpenThread: (_, t) => openedThread = t,
+    );
+
+    await tester.tap(find.byKey(const Key('ticketTile_1')));
+    await tester.pumpAndSettle();
+
+    expect(openedThread?.threadRootEventId, 'anchor-event');
+    expect(openedRooms, 0, reason: 'в общий поток комнаты не проваливаемся');
+  });
+
+  testWidgets('обращение БЕЗ треда (старый тикет) открывает комнату как '
+      'раньше', (tester) async {
+    var openedThread = 0;
+    int? openedRoomId;
+    await pump(
+      tester,
+      [ticket(2, stage: 'new')],
+      onOpenRoom: (_, id) => openedRoomId = id,
+      onOpenThread: (_, _) => openedThread++,
+    );
+
+    await tester.tap(find.byKey(const Key('ticketTile_2')));
+    await tester.pumpAndSettle();
+
+    expect(openedRoomId, 102);
+    expect(openedThread, 0);
   });
 }
 

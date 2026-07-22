@@ -2399,6 +2399,216 @@ void main() {
       );
     });
   });
+
+  // ─── TASK82: тред задачи ───────────────────────────────────────────
+  group('TASK82 — тред задачи', () {
+    const root = 'anchor-event';
+
+    test('тред-режим: история грузится через listThreadMessages, а не '
+        'listMessages', () async {
+      final rpc = _FakeRpc();
+      // listMessagesHandler намеренно НЕ задан: если контроллер пойдёт в
+      // обычную ленту — тест упадёт со StateError, а не молча пройдёт.
+      rpc.listThreadMessagesHandler = (roomId, r, fromToken, limit) async =>
+          _page(
+            messages: [
+              _msg(eventId: 'reply-2', threadId: root),
+              _msg(eventId: 'reply-1', threadId: root),
+              _msg(eventId: root), // якорь приходит последней страницей
+            ],
+          );
+      final eventCtrl = StreamController<MessengerEvent>.broadcast();
+      final controller = _make(
+        rpc: rpc,
+        events: eventCtrl.stream,
+        threadRootEventId: root,
+      );
+
+      await controller.init();
+
+      expect(controller.isThreadMode, isTrue);
+      expect(rpc.threadPageCalls.single.root, root);
+      expect(
+        (controller.state as MessagesReady).messages.map(
+          (m) => m.matrixEventId,
+        ),
+        ['reply-2', 'reply-1', root],
+      );
+
+      await controller.dispose();
+      await eventCtrl.close();
+    });
+
+    test('loadMore в треде идёт в listThreadMessages с fromToken', () async {
+      final rpc = _FakeRpc();
+      rpc.listThreadMessagesHandler = (roomId, r, fromToken, limit) async =>
+          fromToken == null
+          ? _page(
+              messages: [_msg(eventId: 'reply-2', threadId: root)],
+              nextToken: 'tok-1',
+            )
+          : _page(messages: [_msg(eventId: 'reply-1', threadId: root)]);
+      final eventCtrl = StreamController<MessengerEvent>.broadcast();
+      final controller = _make(
+        rpc: rpc,
+        events: eventCtrl.stream,
+        threadRootEventId: root,
+      );
+
+      await controller.init();
+      await controller.loadMore();
+
+      expect(rpc.threadPageCalls.map((c) => c.fromToken), [null, 'tok-1']);
+      expect(
+        (controller.state as MessagesReady).messages.map(
+          (m) => m.matrixEventId,
+        ),
+        ['reply-2', 'reply-1'],
+      );
+
+      await controller.dispose();
+      await eventCtrl.close();
+    });
+
+    test('отправка в треде уходит с threadId (сервер повесит m.thread и '
+        'зеркалит в issue)', () async {
+      final inner = _FakeRpc();
+      inner.listThreadMessagesHandler = (roomId, r, fromToken, limit) async =>
+          _page(messages: [_msg(eventId: root)]);
+      final rpc = _CapturingSendRpc(inner);
+      final eventCtrl = StreamController<MessengerEvent>.broadcast();
+      // `_make` типизирован под `_FakeRpc`, поэтому контроллер с капчером
+      // собираем напрямую.
+      final threaded = MessagesController(
+        roomId: _kRoomId,
+        rpc: rpc,
+        events: eventCtrl.stream,
+        selfMessengerUserId: _kSelfMessengerUserId,
+        selfMatrixUserId: _kSelfMatrixUserId,
+        threadRootEventId: root,
+      );
+      await threaded.init();
+
+      await threaded.sendMessage(body: 'проверьте, починилось?');
+
+      expect(rpc.lastThreadId, root);
+
+      await threaded.dispose();
+      await eventCtrl.close();
+    });
+
+    test('в ОБЫЧНОЙ ленте отправка уходит без threadId', () async {
+      final inner = _FakeRpc();
+      inner.listMessagesHandler = (roomId, fromToken, limit) async =>
+          _page(messages: const []);
+      final rpc = _CapturingSendRpc(inner);
+      final eventCtrl = StreamController<MessengerEvent>.broadcast();
+      final controller = MessagesController(
+        roomId: _kRoomId,
+        rpc: rpc,
+        events: eventCtrl.stream,
+        selfMessengerUserId: _kSelfMessengerUserId,
+        selfMatrixUserId: _kSelfMatrixUserId,
+      );
+      await controller.init();
+
+      await controller.sendMessage(body: 'обычное сообщение');
+
+      expect(rpc.lastThreadId, isNull);
+
+      await controller.dispose();
+      await eventCtrl.close();
+    });
+
+    test('REGRESSION: обычная лента ОТБРАСЫВАЕТ threaded-события из шины '
+        '(иначе реплики треда мелькают в общем потоке)', () async {
+      final rpc = _FakeRpc();
+      rpc.listMessagesHandler = (roomId, fromToken, limit) async =>
+          _page(messages: [_msg(eventId: root)]);
+      final eventCtrl = StreamController<MessengerEvent>.broadcast();
+      final controller = _make(rpc: rpc, events: eventCtrl.stream);
+      await controller.init();
+
+      // Ответ В треде — сервер шлёт его обычным messageCreated.
+      eventCtrl.add(
+        _eventForRoom(
+          _kRoomId,
+          _msg(eventId: 'thread-reply', threadId: root),
+        ),
+      );
+      // Обычное сообщение комнаты — должно пройти.
+      eventCtrl.add(_eventForRoom(_kRoomId, _msg(eventId: 'plain')));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        (controller.state as MessagesReady).messages.map(
+          (m) => m.matrixEventId,
+        ),
+        ['plain', root],
+        reason: 'сообщение треда в общую ленту не попадает',
+      );
+
+      await controller.dispose();
+      await eventCtrl.close();
+    });
+
+    test('лента треда берёт из шины ТОЛЬКО свой тред', () async {
+      final rpc = _FakeRpc();
+      rpc.listThreadMessagesHandler = (roomId, r, fromToken, limit) async =>
+          _page(messages: [_msg(eventId: root)]);
+      final eventCtrl = StreamController<MessengerEvent>.broadcast();
+      final controller = _make(
+        rpc: rpc,
+        events: eventCtrl.stream,
+        threadRootEventId: root,
+      );
+      await controller.init();
+
+      eventCtrl.add(
+        _eventForRoom(_kRoomId, _msg(eventId: 'mine', threadId: root)),
+      );
+      // Чужой тред той же комнаты + обычное сообщение комнаты — мимо.
+      eventCtrl.add(
+        _eventForRoom(
+          _kRoomId,
+          _msg(eventId: 'other-thread', threadId: 'another-anchor'),
+        ),
+      );
+      eventCtrl.add(_eventForRoom(_kRoomId, _msg(eventId: 'room-plain')));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        (controller.state as MessagesReady).messages.map(
+          (m) => m.matrixEventId,
+        ),
+        ['mine', root],
+      );
+
+      await controller.dispose();
+      await eventCtrl.close();
+    });
+
+    test('сводка треда с якоря доезжает до ChatMessage (бейдж «Обсуждение N»)',
+        () async {
+      final rpc = _FakeRpc();
+      rpc.listMessagesHandler = (roomId, fromToken, limit) async => _page(
+        messages: [
+          _msg(eventId: root, threadReplyCount: 3),
+          _msg(eventId: 'plain'),
+        ],
+      );
+      final eventCtrl = StreamController<MessengerEvent>.broadcast();
+      final controller = _make(rpc: rpc, events: eventCtrl.stream);
+      await controller.init();
+
+      final msgs = (controller.state as MessagesReady).messages;
+      expect(msgs.first.threadReplyCount, 3);
+      expect(msgs.last.threadReplyCount, isNull);
+
+      await controller.dispose();
+      await eventCtrl.close();
+    });
+  });
 }
 
 /// Wrapper-капчер для verifying что `sendMessage` получает новые
@@ -2426,12 +2636,29 @@ class _CapturingSendRpc implements MessagesRpc {
   String? lastReplyTo;
   List<int>? lastMentions;
 
+  /// **TASK82**: корень треда, с которым ушло последнее сообщение
+  /// (`null` — отправка в обычную ленту комнаты).
+  String? lastThreadId;
+
   @override
   Future<MessengerMessageListPage> listMessages({
     required int roomId,
     String? fromToken,
     int limit = 50,
   }) => _inner.listMessages(roomId: roomId, fromToken: fromToken, limit: limit);
+
+  @override
+  Future<MessengerMessageListPage> listThreadMessages({
+    required int roomId,
+    required String threadRootEventId,
+    String? fromToken,
+    int limit = 50,
+  }) => _inner.listThreadMessages(
+    roomId: roomId,
+    threadRootEventId: threadRootEventId,
+    fromToken: fromToken,
+    limit: limit,
+  );
 
   @override
   Future<MessengerMessage> sendMessage({
@@ -2447,9 +2674,11 @@ class _CapturingSendRpc implements MessagesRpc {
     int? forwardedFromMessengerUserId,
     int? forwardedFromRoomId,
     String? forwardedFromEventId,
+    String? threadId,
   }) async {
     lastReplyTo = replyToMatrixEventId;
     lastMentions = mentionedMessengerUserIds;
+    lastThreadId = threadId;
     return MessengerMessage(
       matrixEventId: 'sent-id',
       roomId: roomId,
@@ -2581,6 +2810,8 @@ MessagesController _make({
   String Function()? clientTxnIdGen,
   int pendingBufferCap = kDefaultPendingBufferCap,
   void Function(Object, StackTrace)? onSendError,
+  // **TASK82**: не null → контроллер работает лентой треда.
+  String? threadRootEventId,
 }) => MessagesController(
   roomId: _kRoomId,
   rpc: rpc,
@@ -2590,6 +2821,7 @@ MessagesController _make({
   clientTxnIdGenerator: clientTxnIdGen,
   pendingBufferCap: pendingBufferCap,
   onSendError: onSendError,
+  threadRootEventId: threadRootEventId,
 );
 
 MessengerMessage _msg({
@@ -2601,6 +2833,9 @@ MessengerMessage _msg({
   String senderMatrixUserId = '@peer:test',
   int? senderMessengerUserId = 99,
   DateTime? timestamp,
+  // **TASK82**: корень треда (ответ В треде) и сводка на якоре.
+  String? threadId,
+  int? threadReplyCount,
 }) => MessengerMessage(
   matrixEventId: eventId,
   roomId: roomId,
@@ -2612,6 +2847,8 @@ MessengerMessage _msg({
   content: ByteData(0),
   serverTimestamp: timestamp ?? DateTime.utc(2026, 1, 1),
   clientTxnId: clientTxnId,
+  threadId: threadId,
+  threadReplyCount: threadReplyCount,
 );
 
 MessengerMessageListPage _page({
@@ -2727,11 +2964,40 @@ class _FakeRpc implements MessagesRpc {
     return h(roomId, fromToken, limit);
   }
 
+  /// **TASK82**: handler ленты треда. Лог вызовов — чтобы тест мог
+  /// убедиться, что в тред-режиме контроллер ходит именно сюда.
+  Future<MessengerMessageListPage> Function(
+    int roomId,
+    String threadRootEventId,
+    String? fromToken,
+    int limit,
+  )?
+  listThreadMessagesHandler;
+
+  final List<({String root, String? fromToken})> threadPageCalls =
+      <({String root, String? fromToken})>[];
+
+  @override
+  Future<MessengerMessageListPage> listThreadMessages({
+    required int roomId,
+    required String threadRootEventId,
+    String? fromToken,
+    int limit = 50,
+  }) {
+    threadPageCalls.add((root: threadRootEventId, fromToken: fromToken));
+    final h = listThreadMessagesHandler;
+    if (h == null) throw StateError('listThreadMessagesHandler not set');
+    return h(roomId, threadRootEventId, fromToken, limit);
+  }
+
   /// Лог всех sendMessage-вызовов (body + albumId + attachment) — для тестов
   /// диффа альбома, где важно, что новые картинки/подпись ушли с albumId.
   final List<({String body, String? albumId, AttachmentRef? attachment})>
   sentMessages =
       <({String body, String? albumId, AttachmentRef? attachment})>[];
+
+  /// **TASK82**: корень треда последнего sendMessage (null — обычная лента).
+  String? lastThreadId;
 
   @override
   Future<MessengerMessage> sendMessage({
@@ -2747,8 +3013,10 @@ class _FakeRpc implements MessagesRpc {
     int? forwardedFromMessengerUserId,
     int? forwardedFromRoomId,
     String? forwardedFromEventId,
+    String? threadId,
   }) {
     sentMessages.add((body: body, albumId: albumId, attachment: attachment));
+    lastThreadId = threadId;
     final h = sendMessageHandler;
     if (h == null) throw StateError('sendMessageHandler not set');
     return h(roomId, body, msgType, clientTxnId, attachment);

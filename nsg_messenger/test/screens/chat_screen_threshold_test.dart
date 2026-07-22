@@ -186,6 +186,16 @@ class _CountingRpc implements MessagesRpc {
   @override
   Future<bool> isTaskIntegrationAvailable({required int roomId}) async => false;
 
+  // **TASK82**: лента треда в этом сьюте не используется — фейку
+  // достаточно удовлетворить интерфейс.
+  @override
+  Future<MessengerMessageListPage> listThreadMessages({
+    required int roomId,
+    required String threadRootEventId,
+    String? fromToken,
+    int limit = 50,
+  }) => throw UnimplementedError();
+
   @override
   Future<MessengerMessageListPage> listMessages({
     required int roomId,
@@ -228,6 +238,8 @@ class _CountingRpc implements MessagesRpc {
     int? forwardedFromMessengerUserId,
     int? forwardedFromRoomId,
     String? forwardedFromEventId,
+    // TASK82: тред задачи — фейку достаточно принять параметр.
+    String? threadId,
   }) => throw UnimplementedError();
 
   @override

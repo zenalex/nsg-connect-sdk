@@ -43,6 +43,7 @@ import '../messenger_runtime.dart';
 import 'chat_route.dart';
 import 'contact_profile_screen.dart';
 import 'nsg_route_observer.dart';
+import 'thread_screen.dart';
 import '../rooms/participant_action_sheet.dart' show formatWriteBanUntil;
 import '../presence/last_seen_format.dart';
 import '../session/auth_retry.dart' show withAuthRetry;
@@ -131,9 +132,17 @@ class ChatScreen extends StatefulWidget {
     @visibleForTesting this.conferenceCallsOverride,
     @visibleForTesting this.forwardRoomsLoaderOverride,
     @visibleForTesting this.forwardSourceProbeOverride,
+    @visibleForTesting this.openThreadOverride,
   });
 
   final int roomId;
+
+  /// **TASK82**: visible-for-testing подмена перехода в тред задачи. В
+  /// production — push [ThreadScreen]; тест подменяет, чтобы проверить сам
+  /// факт перехода, не поднимая runtime (у ThreadScreen свой контроллер,
+  /// которому нужен Serverpod-клиент).
+  final void Function(BuildContext context, ChatMessage anchor)?
+  openThreadOverride;
 
   /// **Пересылка (мультивыбор)**: visible-for-testing загрузчик списка чатов
   /// для forward-пикера. Если передан — используется вместо
@@ -331,6 +340,34 @@ class _ChatScreenState extends State<ChatScreen>
   /// **Issue #37**: newest сообщение сейчас в видимой области.
   /// Стартует `true` — свежеоткрытый чат отрисован на дне ленты.
   bool _newestVisible = true;
+
+  /// **Issue #59**: показывать ли плавающую кнопку «к последнему сообщению».
+  /// Управляется из [_onScroll] с гистерезисом (см. пороги ниже), чтобы
+  /// кнопка не мигала, когда пользователь елозит вокруг границы показа.
+  bool _showJumpToLatest = false;
+
+  /// **Issue #59**: порог ПОЯВЛЕНИЯ кнопки — в высотах вьюпорта ленты
+  /// (reverse: true → pixels растут при уходе в историю). 1.5 экрана:
+  /// меньше — кнопка выскакивает от любого случайного свайпа, больше —
+  /// пользователь уже потерялся в истории без спасательного круга.
+  static const double _jumpButtonShowViewports = 1.5;
+
+  /// **Issue #59**: порог СКРЫТИЯ — заметно ниже порога показа
+  /// (гистерезис). Отдельно от [_newestVisibleThresholdPx]: тот про
+  /// честность markRead (десятки пикселей), а здесь про UX-мигание.
+  static const double _jumpButtonHideViewports = 0.5;
+
+  /// **Issue #59**: дальше этого offset-а прыжок вниз идёт `jumpTo(0)` без
+  /// анимации — как во всех мессенджерах: анимация через тысячи пикселей
+  /// истории заставила бы ListView строить весь промежуточный контент.
+  static const double _jumpAnimateMaxPx = 3000;
+
+  /// **Issue #59**: якорь бейджа непрочитанных на кнопке — newest eventId
+  /// на момент, когда пользователь ушёл от низа ленты ([_newestVisible]
+  /// стал false). Всё, что новее якоря в state.messages, пришло «под
+  /// нижнюю кромку» и юзером не видено — это и показываем числом.
+  /// null — юзер внизу, бейджа нет. Локальный счёт, без нового RPC.
+  String? _jumpBadgeAnchorEventId;
 
   /// **Issue #55**: экран перекрыт другим маршрутом ПОВЕРХ внутри
   /// приложения (профиль/настройки/галерея). ЧЕТВЁРТАЯ ось видимости —
@@ -936,9 +973,90 @@ class _ChatScreenState extends State<ChatScreen>
     final newestVisible = metrics.pixels <= _newestVisibleThresholdPx;
     if (newestVisible != _newestVisible) {
       _newestVisible = newestVisible;
-      if (newestVisible) _flushMarkRead();
+      if (newestVisible) {
+        _flushMarkRead();
+        // **Issue #59**: вернулись к низу — счёт «пришло, пока листал
+        // историю» обнуляется (всё видено, markRead только что дожат).
+        _jumpBadgeAnchorEventId = null;
+      } else {
+        // Уходим от низа: запоминаем newest ЭТОГО момента — всё, что
+        // появится в state новее якоря, юзер ещё не видел (бейдж).
+        _jumpBadgeAnchorEventId = _newestMarkableEventId();
+      }
+    }
+    // **Issue #59**: показ/скрытие кнопки «к последнему» с гистерезисом.
+    // Пороги в высотах вьюпорта — так «1.5 экрана» честно масштабируется
+    // от телефона до десктопной панели. viewportDimension == 0 (лента ещё
+    // не разложена) — не решаем ничего, чтобы не мигнуть на старте.
+    final viewport = metrics.viewportDimension;
+    if (viewport > 0) {
+      final threshold = _showJumpToLatest
+          ? viewport * _jumpButtonHideViewports
+          : viewport * _jumpButtonShowViewports;
+      final show = metrics.pixels > threshold;
+      if (show != _showJumpToLatest) {
+        setState(() => _showJumpToLatest = show);
+      }
     }
     return false;
+  }
+
+  /// **Issue #59**: сколько ЧУЖИХ сообщений пришло ниже видимой области,
+  /// пока пользователь листал историю, — бейдж на кнопке «к последнему».
+  ///
+  /// Считаем локально от якоря [_jumpBadgeAnchorEventId]: лента DESC, всё
+  /// до якоря — новее него. Свои pending/echo не считаем (юзер сам только
+  /// что отправил — «непрочитанным» для него это не является). Якорь мог
+  /// исчезнуть из state (сообщение удалили) — честного счёта нет,
+  /// показываем кнопку без числа, а не враньё.
+  int _jumpBadgeCount() {
+    final anchor = _jumpBadgeAnchorEventId;
+    if (anchor == null) return 0;
+    final state = _controller.state;
+    if (state is! MessagesReady) return 0;
+    var count = 0;
+    for (final m in state.messages) {
+      if (m.matrixEventId == anchor) return count;
+      if (!m.isPending &&
+          !m.isFailed &&
+          m.senderMessengerUserId != _controller.selfMessengerUserId) {
+        count++;
+      }
+    }
+    return 0;
+  }
+
+  /// **Issue #59**: тап по кнопке — прыжок к последнему сообщению.
+  ///
+  /// Близко (в пределах [_jumpAnimateMaxPx]) — плавная анимация; глубоко в
+  /// истории — мгновенный `jumpTo(0)` (см. коммент у константы). Свежие
+  /// сообщения из памяти не выгружаются (лента только дорастает старыми
+  /// страницами через loadMore, newest всегда index 0) — офсет 0 всегда
+  /// показывает актуальный низ, отдельный refresh не нужен.
+  Future<void> _jumpToLatest() async {
+    if (!_scrollController.hasClients) return;
+    final pixels = _scrollController.position.pixels;
+    // Прячем сразу, не дожидаясь скролл-нотификаций: анимация вниз и так
+    // означает «кнопка своё дело сделала», а jumpTo уведомлений о
+    // промежуточных позициях не шлёт.
+    setState(() {
+      _showJumpToLatest = false;
+      _jumpBadgeAnchorEventId = null;
+    });
+    if (pixels > _jumpAnimateMaxPx) {
+      _scrollController.jumpTo(0);
+    } else {
+      await _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeOutCubic,
+      );
+    }
+    if (!mounted) return;
+    // Низ достигнут — newest снова виден; дожимаем отложенное «прочитано»
+    // тем же путём, что доскролл руками (issue #37). Сам гейт внутри.
+    _newestVisible = true;
+    _flushMarkRead();
   }
 
   /// **TASK16-A**: composer передаёт `mentionedMessengerUserIds` +
@@ -976,6 +1094,28 @@ class _ChatScreenState extends State<ChatScreen>
         ),
       );
     }
+  }
+
+  /// **TASK82**: открыть тред задачи с якоря. Заголовок треда — тело
+  /// якорного сообщения («Задача создана: <тема>»): отдельного запроса за
+  /// темой не делаем, она уже в ленте.
+  void _openThread(ChatMessage anchor) {
+    final rootEventId = anchor.matrixEventId;
+    if (rootEventId == null) return; // pending-пузырь якорем быть не может
+    final opener = widget.openThreadOverride;
+    if (opener != null) {
+      opener(context, anchor);
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ThreadScreen(
+          roomId: widget.roomId,
+          threadRootEventId: rootEventId,
+          title: anchor.body.isEmpty ? null : anchor.body,
+        ),
+      ),
+    );
   }
 
   /// Отправить в трекер ошибку действия чата, которую увидел пользователь.
@@ -2211,73 +2351,103 @@ class _ChatScreenState extends State<ChatScreen>
             },
           ),
           Expanded(
-            child: ValueListenableBuilder<MessagesState>(
-              valueListenable: _controller.stateListenable,
-              // **B11**: read-receipt version triggers rebuild когда
-              // peer прочитал что-то новое. Nested ValueListenableBuilder —
-              // дёшево, ListView.builder сам решает какие items
-              // перерисовывать.
-              builder: (context, state, _) => ValueListenableBuilder<int>(
-                valueListenable: _controller.readReceiptsVersionListenable,
-                // **Emoji reactions**: nested version listenable — rebuild
-                // когда агрегат реакций изменился (add/remove). Дёшево,
-                // ListView.builder сам решает что перерисовать.
-                builder: (context, _, _) => ValueListenableBuilder<int>(
-                  valueListenable: _controller.reactionsVersionListenable,
-                  builder: (context, _, _) => _Body(
-                    state: state,
-                    selfMessengerUserId: _controller.selfMessengerUserId,
-                    onScroll: _onScroll,
-                    onRetry: _retry,
-                    onLongPressMessage: _onLongPressMessage,
-                    // **Пересылка (мультивыбор)**: режим выбора + тоггл.
-                    selectionMode: _inSelection,
-                    isSelected: (m) {
-                      final k = _messageKey(m);
-                      return k != null && _selectedKeys.contains(k);
-                    },
-                    onToggleSelect: _toggleSelect,
-                    scrollController: _scrollController,
-                    itemKeys: _itemKeys,
-                    findReplyTarget: _findReplyTarget,
-                    onReplyChipTap: _scrollToOriginal,
-                    onForwardedHeaderTap: _openForwardSource,
-                    participantsByMessengerId: _participantsByMessengerId,
-                    participantsByMatrixId: _participantsByMatrixId,
-                    readByPeerCountFor: (m) =>
-                        _controller.readByPeerMatrixIds(m).length,
-                    isGroupChat: _roomDetails?.roomType == RoomType.group,
-                    // **Issue #39**: подпись отправителя — шире, чем
-                    // `isGroupChat` (тот заодно рулит read-receipt-ами
-                    // и аватарами, его семантику не трогаем).
-                    showSenderNames: _showsSenderNames,
-                    // **TASK52 итер.2**: интро-карточка в пустом direct-чате.
-                    introCard: _roomDetails?.roomType == RoomType.direct
-                        ? _introCard
-                        : null,
-                    onTapReadStatus: _openReadReceiptsSheet,
-                    reactionsFor: (m) => m.matrixEventId == null
-                        ? const <ReactionGroup>[]
-                        : _controller.reactionsFor(m.matrixEventId!),
-                    onToggleReaction: (m, key) {
-                      final id = m.matrixEventId;
-                      if (id == null) return;
-                      _controller.toggleReaction(id, key);
-                    },
-                    thumbnailRpc:
-                        ({required String mxcUrl, int? width, int? height}) =>
-                            _controller.downloadThumbnail(
+            // **Issue #59**: Stack — чтобы плавающая кнопка «к последнему
+            // сообщению» жила ПОВЕРХ ленты, но ВНУТРИ Expanded: всё, что
+            // ниже по Column (typing-футер, плашка конференции, композер с
+            // reply/edit-панелью), сжимает ленту — кнопка поднимается
+            // вместе с её низом сама, без ручной подгонки отступов.
+            child: Stack(
+              children: [
+                ValueListenableBuilder<MessagesState>(
+                  valueListenable: _controller.stateListenable,
+                  // **B11**: read-receipt version triggers rebuild когда
+                  // peer прочитал что-то новое. Nested
+                  // ValueListenableBuilder — дёшево, ListView.builder сам
+                  // решает какие items перерисовывать.
+                  builder: (context, state, _) => ValueListenableBuilder<int>(
+                    valueListenable: _controller.readReceiptsVersionListenable,
+                    // **Emoji reactions**: nested version listenable — rebuild
+                    // когда агрегат реакций изменился (add/remove). Дёшево,
+                    // ListView.builder сам решает что перерисовать.
+                    builder: (context, _, _) => ValueListenableBuilder<int>(
+                      valueListenable: _controller.reactionsVersionListenable,
+                      builder: (context, _, _) => _Body(
+                        state: state,
+                        selfMessengerUserId: _controller.selfMessengerUserId,
+                        onScroll: _onScroll,
+                        onRetry: _retry,
+                        onLongPressMessage: _onLongPressMessage,
+                        // **Пересылка (мультивыбор)**: режим выбора + тоггл.
+                        selectionMode: _inSelection,
+                        isSelected: (m) {
+                          final k = _messageKey(m);
+                          return k != null && _selectedKeys.contains(k);
+                        },
+                        onToggleSelect: _toggleSelect,
+                        scrollController: _scrollController,
+                        itemKeys: _itemKeys,
+                        findReplyTarget: _findReplyTarget,
+                        onReplyChipTap: _scrollToOriginal,
+                        onForwardedHeaderTap: _openForwardSource,
+                        participantsByMessengerId: _participantsByMessengerId,
+                        participantsByMatrixId: _participantsByMatrixId,
+                        readByPeerCountFor: (m) =>
+                            _controller.readByPeerMatrixIds(m).length,
+                        isGroupChat: _roomDetails?.roomType == RoomType.group,
+                        // **Issue #39**: подпись отправителя — шире, чем
+                        // `isGroupChat` (тот заодно рулит read-receipt-ами
+                        // и аватарами, его семантику не трогаем).
+                        showSenderNames: _showsSenderNames,
+                        // **TASK52 итер.2**: интро-карточка в пустом direct-чате.
+                        introCard: _roomDetails?.roomType == RoomType.direct
+                            ? _introCard
+                            : null,
+                        onTapReadStatus: _openReadReceiptsSheet,
+                        reactionsFor: (m) => m.matrixEventId == null
+                            ? const <ReactionGroup>[]
+                            : _controller.reactionsFor(m.matrixEventId!),
+                        onToggleReaction: (m, key) {
+                          final id = m.matrixEventId;
+                          if (id == null) return;
+                          _controller.toggleReaction(id, key);
+                        },
+                        thumbnailRpc:
+                            ({
+                              required String mxcUrl,
+                              int? width,
+                              int? height,
+                            }) => _controller.downloadThumbnail(
                               mxcUrl: mxcUrl,
                               width: width,
                               height: height,
                             ),
-                    fullSizeRpc: ({required String mxcUrl}) =>
-                        _controller.downloadFullSize(mxcUrl: mxcUrl),
-                    // **TASK69 2C**: тап по аватару peer-а в группе → «Упомянуть».
-                    onMentionSender: _onMentionSenderTap,
+                        fullSizeRpc: ({required String mxcUrl}) =>
+                            _controller.downloadFullSize(mxcUrl: mxcUrl),
+                        // **TASK69 2C**: тап по аватару peer-а в группе → «Упомянуть».
+                        onMentionSender: _onMentionSenderTap,
+                        // **TASK82**: вход в тред задачи с якорного пузыря.
+                        onOpenThread: _openThread,
+                      ),
+                    ),
                   ),
                 ),
-              ),
+                // **Issue #59**: кнопка «к последнему сообщению» — справа
+                // внизу над композером. Свой listenable на state: бейдж
+                // должен пересчитываться на каждое входящее сообщение,
+                // не дожидаясь чужих rebuild-ов.
+                Positioned(
+                  right: 12,
+                  bottom: 12,
+                  child: ValueListenableBuilder<MessagesState>(
+                    valueListenable: _controller.stateListenable,
+                    builder: (context, _, _) => _JumpToLatestButton(
+                      visible: _showJumpToLatest,
+                      unreadCount: _jumpBadgeCount(),
+                      onTap: _jumpToLatest,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           // **TASK51 (UI)**: плашка «идёт групповой звонок» над композером
@@ -2419,6 +2589,56 @@ class _ChatScreenState extends State<ChatScreen>
   }
 }
 
+/// **Issue #59**: плавающая кнопка «к последнему сообщению» — появляется,
+/// когда пользователь ушёл вверх по истории (порог с гистерезисом считает
+/// `_ChatScreenState._onScroll`), тап — прыжок к низу ленты. Бейдж — число
+/// чужих сообщений, пришедших пока юзер был в истории (локальный счёт).
+///
+/// Скрытие — не удаление из дерева, а AnimatedScale+Opacity (появление/
+/// исчезновение плавные, как у соседних оверлеев); IgnorePointer гасит
+/// тапы по невидимой кнопке. `heroTag: null` обязателен: в рабочем наборе
+/// (TASK66) несколько keep-alive ChatScreen живут в одном дереве, и
+/// одинаковые default-теги уронили бы Hero при переходе маршрутов.
+class _JumpToLatestButton extends StatelessWidget {
+  const _JumpToLatestButton({
+    required this.visible,
+    required this.unreadCount,
+    required this.onTap,
+  });
+
+  final bool visible;
+  final int unreadCount;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      ignoring: !visible,
+      child: AnimatedOpacity(
+        opacity: visible ? 1 : 0,
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        child: AnimatedScale(
+          scale: visible ? 1 : 0.7,
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          child: Badge(
+            isLabelVisible: unreadCount > 0,
+            label: Text(unreadCount > 99 ? '99+' : '$unreadCount'),
+            child: FloatingActionButton.small(
+              key: const Key('chatJumpToLatestButton'),
+              heroTag: null,
+              tooltip: NsgL10n.of(context).chatJumpToLatestTooltip,
+              onPressed: onTap,
+              child: const Icon(Icons.keyboard_arrow_down),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Лента просмотрщика: только те вложения, которые галерея умеет
 /// показать — `image/*` С готовым превью. Видео/аудио/файлы (у них свой
 /// `_FileRow`) и картинки без `thumbnailMxcUrl` (HEIC без server-side
@@ -2496,6 +2716,7 @@ class _Body extends StatelessWidget {
     this.isSelected,
     this.onToggleSelect,
     this.onMentionSender,
+    this.onOpenThread,
   });
 
   final MessagesState state;
@@ -2561,6 +2782,9 @@ class _Body extends StatelessWidget {
   /// `senderMatrixUserId` наверх (ChatScreen предлагает «Упомянуть»).
   final void Function(String senderMatrixUserId)? onMentionSender;
 
+  /// **TASK82**: тап по строке «Обсуждение (N)» на якоре задачи.
+  final void Function(ChatMessage anchor)? onOpenThread;
+
   @override
   Widget build(BuildContext context) {
     final s = state;
@@ -2595,6 +2819,7 @@ class _Body extends StatelessWidget {
                 isSelected: isSelected,
                 onToggleSelect: onToggleSelect,
                 onMentionSender: onMentionSender,
+                onOpenThread: onOpenThread,
                 errorBanner: e,
               ),
       MessagesReady() => _Loaded(
@@ -2623,6 +2848,7 @@ class _Body extends StatelessWidget {
         isSelected: isSelected,
         onToggleSelect: onToggleSelect,
         onMentionSender: onMentionSender,
+        onOpenThread: onOpenThread,
       ),
     };
   }
@@ -2655,6 +2881,7 @@ class _Loaded extends StatelessWidget {
     this.isSelected,
     this.onToggleSelect,
     this.onMentionSender,
+    this.onOpenThread,
     this.errorBanner,
   });
 
@@ -2692,6 +2919,9 @@ class _Loaded extends StatelessWidget {
 
   /// **TASK69 2C**: тап по аватару отправителя (group peer-bubble).
   final void Function(String senderMatrixUserId)? onMentionSender;
+
+  /// **TASK82**: тап по строке «Обсуждение (N)» на якоре задачи.
+  final void Function(ChatMessage anchor)? onOpenThread;
   final Object? errorBanner;
 
   @override
@@ -2888,6 +3118,14 @@ class _Loaded extends StatelessWidget {
                             showSenderName: showSenderName,
                             // **TASK69 2C**: тап по аватару → «Упомянуть».
                             onSenderAvatarTap: onMentionSender,
+                            // **TASK82**: сводка треда на якоре задачи —
+                            // строка-кнопка «Обсуждение (N)». Вне режима
+                            // выбора: там тап по строке значит «выбрать».
+                            threadReplyCount: m.threadReplyCount,
+                            onOpenThread:
+                                (onOpenThread != null && !selectionMode)
+                                ? () => onOpenThread!(m)
+                                : null,
                             // **Пересылка (мультивыбор)**: режим выбора + тоггл.
                             selectionMode: selectionMode,
                             selected: isSelected != null && isSelected!(m),

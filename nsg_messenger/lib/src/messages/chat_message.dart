@@ -41,6 +41,7 @@ class ChatMessage {
     required this.serverTimestamp,
     required this.status,
     this.threadId,
+    this.threadReplyCount,
     this.replyToMessageId,
     this.lastError,
     this.attachment,
@@ -75,6 +76,17 @@ class ChatMessage {
   final String msgType;
   final DateTime serverTimestamp;
   final String? threadId;
+
+  /// **TASK82**: сколько ответов в треде, корнем которого является ЭТО
+  /// сообщение (сводка приезжает только у якоря задачи в основной ленте).
+  /// `null` — сообщение не якорь треда либо ответов ещё нет: сервер кладёт
+  /// сводку только для корней с ≥1 ответом. Bubble по непустому значению
+  /// рисует строку-кнопку «Обсуждение (N)».
+  ///
+  /// `threadLastReplyAt` из DTO намеренно НЕ тащим: единственный
+  /// потребитель — бейдж со счётчиком, а лишнее поле пришлось бы
+  /// протаскивать через все copy-конструкторы ниже.
+  final int? threadReplyCount;
   final String? replyToMessageId;
   final ChatMessageStatus status;
 
@@ -230,6 +242,7 @@ class ChatMessage {
       msgType: m.msgType,
       serverTimestamp: m.serverTimestamp,
       threadId: m.threadId,
+      threadReplyCount: m.threadReplyCount,
       replyToMessageId: m.replyToMessageId,
       status: ChatMessageStatus.sent,
       attachment: m.attachment,
@@ -325,6 +338,7 @@ class ChatMessage {
     msgType: msgType,
     serverTimestamp: serverTimestamp,
     threadId: threadId,
+    threadReplyCount: threadReplyCount,
     replyToMessageId: replyToMessageId,
     status: ChatMessageStatus.failed,
     lastError: error,
@@ -353,6 +367,7 @@ class ChatMessage {
     msgType: msgType,
     serverTimestamp: serverTimestamp,
     threadId: threadId,
+    threadReplyCount: threadReplyCount,
     replyToMessageId: replyToMessageId,
     status: ChatMessageStatus.pending,
     attachment: attachment,
@@ -383,6 +398,7 @@ class ChatMessage {
     msgType: matrixMsgTypeForMime(ref.mimeType),
     serverTimestamp: serverTimestamp,
     threadId: threadId,
+    threadReplyCount: threadReplyCount,
     replyToMessageId: replyToMessageId,
     status: status,
     attachment: ref,
@@ -414,6 +430,7 @@ class ChatMessage {
     msgType: msgType,
     serverTimestamp: serverTimestamp,
     threadId: threadId,
+    threadReplyCount: threadReplyCount,
     replyToMessageId: replyToMessageId,
     status: status,
     attachment: attachment,
@@ -441,6 +458,9 @@ class ChatMessage {
     msgType: msgType,
     serverTimestamp: serverTimestamp,
     threadId: threadId,
+    // Тред переживает удаление якоря — «Обсуждение (N)» на tombstone
+    // остаётся (сама переписка задачи никуда не делась).
+    threadReplyCount: threadReplyCount,
     replyToMessageId: replyToMessageId,
     status: status,
     attachment: null,

@@ -25,6 +25,24 @@ abstract class MessagesRpc {
     int limit = 50,
   });
 
+  /// **TASK82**: страница ленты ТРЕДА задачи — ответы на якорь
+  /// [threadRootEventId]. Пагинация та же, что у [listMessages]
+  /// (`fromToken == prevPage.nextToken` → OLDER страница, `nextToken ==
+  /// null` → тред дочитан); на ПОСЛЕДНЕЙ странице в конце приезжает сам
+  /// якорь — тред читается как обычная история до корня.
+  ///
+  /// Отдельный RPC, а не флаг у [listMessages]: сервер читает тред из
+  /// Matrix `/relations/{root}/m.thread` (точная лента с вложениями,
+  /// правками и tombstone-ами), а основная лента идёт через `/messages`
+  /// — пути разные, склеивать их одной сигнатурой значило бы врать про
+  /// семантику `fromToken`.
+  Future<MessengerMessageListPage> listThreadMessages({
+    required int roomId,
+    required String threadRootEventId,
+    String? fromToken,
+    int limit = 50,
+  });
+
   /// Отправить сообщение. `clientTxnId` обязателен — SDK генерирует
   /// UUID на каждый pending bubble; server-side через него идёт
   /// idempotency (retry тем же id не дублирует). `attachment`
@@ -48,6 +66,12 @@ abstract class MessagesRpc {
     // production-wiring-а, а не тесты с fake-ами.
     int? forwardedFromRoomId,
     String? forwardedFromEventId,
+    // **TASK82**: корень треда задачи. Не null → сервер прикрепит
+    // `m.relates_to {rel_type: m.thread}` (+ reply-fallback по спеке
+    // Matrix) и, если тред привязан к тикету с GitHub-адаптером, зеркалит
+    // сообщение комментарием в issue. Параметр опциональный именно ради
+    // обратной совместимости: обычная отправка в комнату его не передаёт.
+    String? threadId,
   });
 
   /// **TASK19 Chunk 3**: upload media bytes в Matrix media repo через
@@ -212,6 +236,22 @@ class ClientMessagesRpc implements MessagesRpc {
   );
 
   @override
+  Future<MessengerMessageListPage> listThreadMessages({
+    required int roomId,
+    required String threadRootEventId,
+    String? fromToken,
+    int limit = 50,
+  }) => withAuthRetry(
+    () => _client.messenger.listThreadMessages(
+      roomId: roomId,
+      threadRootEventId: threadRootEventId,
+      fromToken: fromToken,
+      limit: limit,
+    ),
+    _session,
+  );
+
+  @override
   Future<MessengerMessage> sendMessage({
     required int roomId,
     required String body,
@@ -225,6 +265,7 @@ class ClientMessagesRpc implements MessagesRpc {
     int? forwardedFromMessengerUserId,
     int? forwardedFromRoomId,
     String? forwardedFromEventId,
+    String? threadId,
   }) => withAuthRetry(
     () => _client.messenger.sendMessage(
       roomId: roomId,
@@ -239,6 +280,7 @@ class ClientMessagesRpc implements MessagesRpc {
       forwardedFromMessengerUserId: forwardedFromMessengerUserId,
       forwardedFromRoomId: forwardedFromRoomId,
       forwardedFromEventId: forwardedFromEventId,
+      threadId: threadId,
     ),
     _session,
   );

@@ -16,6 +16,7 @@
 
   "chatScreenEmpty": "Сообщений пока нет — напиши первое",
   "chatScreenLoadFailed": "Не удалось загрузить сообщения",
+  "chatJumpToLatestTooltip": "К последнему сообщению",
   "chatScreenSendHint": "Сообщение…",
   "chatScreenSendTooltip": "Отправить",
 
@@ -640,5 +641,9 @@
   "roomAdminWriteBanForever": "Навсегда",
   "roomAdminWriteBannedUntil": "Запрещено до {until}",
   "writeBannedForeverSnack": "Администратор запретил вам писать в этот чат",
-  "writeBannedUntilSnack": "Вам запрещено писать в этот чат до {until}"
+  "writeBannedUntilSnack": "Вам запрещено писать в этот чат до {until}",
+
+  "threadOpenDiscussion": "Обсуждение ({count})",
+  "threadScreenTitle": "Обсуждение задачи",
+  "threadScreenEmpty": "Ответов пока нет. Задайте здесь вопрос по задаче."
 }

@@ -358,6 +358,20 @@ class _DemoMessagesRpc implements MessagesRpc {
     );
   }
 
+  /// **TASK82**: у демо-фикстур тредов нет — лента треда всегда пустая
+  /// (не throw: демо-экран не должен падать, если кто-то нажмёт вход).
+  @override
+  Future<MessengerMessageListPage> listThreadMessages({
+    required int roomId,
+    required String threadRootEventId,
+    String? fromToken,
+    int limit = 50,
+  }) async => MessengerMessageListPage(
+    messages: const <MessengerMessage>[],
+    nextToken: null,
+    prevToken: null,
+  );
+
   @override
   Future<MessengerMessage> sendMessage({
     required int roomId,
@@ -372,6 +386,7 @@ class _DemoMessagesRpc implements MessagesRpc {
     int? forwardedFromMessengerUserId,
     int? forwardedFromRoomId,
     String? forwardedFromEventId,
+    String? threadId,
   }) {
     throw UnimplementedError(
       'NsgMessenger.initDemo: sendMessage is disabled in demo mode.',

@@ -456,6 +456,8 @@ class _FakeRpc implements MessagesRpc {
     int? forwardedFromMessengerUserId,
     int? forwardedFromRoomId,
     String? forwardedFromEventId,
+    // TASK82: тред задачи — фейку достаточно принять параметр.
+    String? threadId,
   }) async {
     sentBodies.add(body);
     return MessengerMessage(

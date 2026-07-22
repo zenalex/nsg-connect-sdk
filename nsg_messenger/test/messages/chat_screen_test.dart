@@ -483,6 +483,16 @@ class _FakeRpc implements MessagesRpc {
   Future<bool> Function(int, String)? markReadHandler;
   final markReadCalls = <String>[];
 
+  // **TASK82**: лента треда в этом сьюте не используется — фейку
+  // достаточно удовлетворить интерфейс.
+  @override
+  Future<MessengerMessageListPage> listThreadMessages({
+    required int roomId,
+    required String threadRootEventId,
+    String? fromToken,
+    int limit = 50,
+  }) => throw UnimplementedError();
+
   @override
   Future<MessengerMessageListPage> listMessages({
     required int roomId,
@@ -508,6 +518,8 @@ class _FakeRpc implements MessagesRpc {
     int? forwardedFromMessengerUserId,
     int? forwardedFromRoomId,
     String? forwardedFromEventId,
+    // TASK82: тред задачи — фейку достаточно принять параметр.
+    String? threadId,
   }) {
     final h = sendMessageHandler;
     if (h == null) throw StateError('sendMessageHandler not set');

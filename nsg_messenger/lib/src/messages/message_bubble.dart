@@ -56,6 +56,8 @@ class MessageBubble extends StatelessWidget {
     this.selected = false,
     this.onToggleSelect,
     this.onSenderAvatarTap,
+    this.threadReplyCount,
+    this.onOpenThread,
   });
 
   final ChatMessage message;
@@ -195,6 +197,23 @@ class MessageBubble extends StatelessWidget {
   /// `senderMatrixUserId` наверх. ChatScreen резолвит участника и предлагает
   /// «Упомянуть». `null` → аватар не кликабелен (прежнее поведение).
   final void Function(String senderMatrixUserId)? onSenderAvatarTap;
+
+  /// **TASK82**: число ответов в треде, корнем которого является ЭТО
+  /// сообщение (якорь задачи). Сводку присылает сервер только для корней
+  /// с ≥1 ответом — `null`/`0` значит «тред показывать нечего», и строка
+  /// «Обсуждение (N)» не рисуется.
+  ///
+  /// Приходит параметром, а не читается из `message`, по той же причине,
+  /// что `reactions`/`readByPeerCount`: bubble остаётся «глупым» —
+  /// решение «показывать ли ссылку здесь» принимает экран. Внутри самого
+  /// треда ([ThreadScreen]) якорь рисуется БЕЗ ссылки — иначе тред
+  /// открывал бы сам себя.
+  final int? threadReplyCount;
+
+  /// **TASK82**: тап по строке «Обсуждение (N)» → открыть тред задачи.
+  /// `null` → строка не рисуется вовсе (обещать переход, которого нет,
+  /// хуже, чем не обещать — тот же принцип, что у reply-chip-а).
+  final VoidCallback? onOpenThread;
 
   /// Ширина левого gutter-а под аватар (avatar + gap). Держим в одном
   /// месте, чтобы avatar и spacer совпадали.
@@ -464,6 +483,16 @@ class MessageBubble extends StatelessWidget {
                               ),
                           ],
                         ],
+                        // **TASK82**: строка-кнопка «Обсуждение (N)» на
+                        // якоре задачи — вход в тред. Рисуется и на
+                        // tombstone-е: переписка задачи переживает
+                        // удаление якорного сообщения.
+                        if ((threadReplyCount ?? 0) > 0 && onOpenThread != null)
+                          _ThreadLink(
+                            replyCount: threadReplyCount!,
+                            onTap: onOpenThread!,
+                            accentColor: theme.colorScheme.primary,
+                          ),
                         const SizedBox(height: 4),
                         Row(
                           mainAxisSize: MainAxisSize.min,
@@ -917,6 +946,55 @@ class _ForwardedHeader extends StatelessWidget {
       onTap: () => onTap!(src),
       borderRadius: BorderRadius.circular(4),
       child: label,
+    );
+  }
+}
+
+/// **TASK82**: строка-кнопка «Обсуждение (N) →» под телом якорного
+/// сообщения задачи. Тап открывает [ThreadScreen] с лентой треда.
+///
+/// Сделана по образцу [_ReplyChip]: акцентная строка внутри пузыря, а не
+/// отдельная кнопка под ним — визуально она принадлежит карточке задачи,
+/// а не ленте. Ключ [Key] стабильный (`threadLink`) — виджет-тесты ищут
+/// вход в тред по нему, не завися от текста и локали.
+class _ThreadLink extends StatelessWidget {
+  const _ThreadLink({
+    required this.replyCount,
+    required this.onTap,
+    required this.accentColor,
+  });
+
+  final int replyCount;
+  final VoidCallback onTap;
+  final Color accentColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = NsgL10n.of(context);
+    return InkWell(
+      key: const Key('threadLink'),
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(4),
+      child: Padding(
+        padding: const EdgeInsets.only(top: 6, bottom: 2),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.forum_outlined, size: 14, color: accentColor),
+            const SizedBox(width: 4),
+            Text(
+              l.threadOpenDiscussion(replyCount),
+              style: TextStyle(
+                color: accentColor,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(width: 2),
+            Icon(Icons.chevron_right, size: 14, color: accentColor),
+          ],
+        ),
+      ),
     );
   }
 }

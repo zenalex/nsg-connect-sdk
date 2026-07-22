@@ -62,6 +62,11 @@
     "description": "Заголовок error-empty в `ChatScreen` когда listMessages() упал на init без lastKnown."
   },
 
+  "chatJumpToLatestTooltip": "To the latest message",
+  "@chatJumpToLatestTooltip": {
+    "description": "Tooltip плавающей кнопки-стрелки в `ChatScreen` (issue #59): появляется, когда пользователь ушёл вверх по истории; тап возвращает к самому свежему сообщению."
+  },
+
   "chatScreenSendHint": "Message…",
   "@chatScreenSendHint": {
     "description": "Placeholder в `MessageComposer` TextField — подсказка пользователю что писать."
@@ -2463,5 +2468,15 @@
   "@roomAdminWriteBannedUntil": {"placeholders": {"until": {"type": "String"}}},
   "writeBannedForeverSnack": "An admin has forbidden you from writing in this chat",
   "writeBannedUntilSnack": "You cannot write in this chat until {until}",
-  "@writeBannedUntilSnack": {"placeholders": {"until": {"type": "String"}}}
+  "@writeBannedUntilSnack": {"placeholders": {"until": {"type": "String"}}},
+
+  "threadOpenDiscussion": "Discussion ({count})",
+  "@threadOpenDiscussion": {
+    "description": "TASK82: row-button on the task anchor bubble — opens the task discussion thread; {count} is the number of replies.",
+    "placeholders": {"count": {"type": "int", "example": "3"}}
+  },
+  "threadScreenTitle": "Task discussion",
+  "@threadScreenTitle": {"description": "TASK82: fallback title of the thread screen when the task subject is unknown."},
+  "threadScreenEmpty": "No replies yet. Ask a question about the task here.",
+  "@threadScreenEmpty": {"description": "TASK82: empty state of the task thread feed."}
 }
