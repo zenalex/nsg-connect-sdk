@@ -175,6 +175,18 @@ abstract class NsgL10n {
   /// **'To the latest message'**
   String get chatJumpToLatestTooltip;
 
+  /// TASK86: плашка-разделитель даты в ленте (и «липкая» дата при скролле) для сообщений сегодняшнего локального дня.
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get chatDateSeparatorToday;
+
+  /// TASK86: плашка-разделитель даты в ленте (и «липкая» дата при скролле) для сообщений вчерашнего локального дня.
+  ///
+  /// In en, this message translates to:
+  /// **'Yesterday'**
+  String get chatDateSeparatorYesterday;
+
   /// Placeholder в `MessageComposer` TextField — подсказка пользователю что писать.
   ///
   /// In en, this message translates to:
@@ -3762,6 +3774,42 @@ abstract class NsgL10n {
   /// In en, this message translates to:
   /// **'Rejected'**
   String get taskStageRejected;
+
+  /// TASK84: title of the Tasks screen (tasks from all my active rooms).
+  ///
+  /// In en, this message translates to:
+  /// **'Tasks'**
+  String get tasksScreenTitle;
+
+  /// TASK84: tab showing tasks from all my active rooms.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get tasksTabAll;
+
+  /// TASK84: tab showing only tasks I filed (createdBy == me).
+  ///
+  /// In en, this message translates to:
+  /// **'Initiated by me'**
+  String get tasksTabInitiator;
+
+  /// TASK84: empty state of the All tab.
+  ///
+  /// In en, this message translates to:
+  /// **'No tasks in your rooms yet.'**
+  String get tasksEmptyAll;
+
+  /// TASK84: empty state of the Initiated-by-me tab.
+  ///
+  /// In en, this message translates to:
+  /// **'You haven\'t filed any tasks yet.'**
+  String get tasksEmptyInitiator;
+
+  /// TASK84: error shown when the tasks list fails to load.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to load tasks'**
+  String get tasksLoadError;
 }
 
 class _NsgL10nDelegate extends LocalizationsDelegate<NsgL10n> {

@@ -2476,6 +2476,17 @@ class EndpointMessenger extends _i2.EndpointRef {
         {},
       );
 
+  /// **TASK84 итерация 1**: «Задачи» — задачи из ВСЕХ моих активных комнат
+  /// (роль «участник» = член комнаты). [filter]: `all` (все) | `initiator`
+  /// (заведённые мной). Отдельный вход от [listMyTickets] («Мои обращения» —
+  /// роль заявитель, только `createdBy == я`); оба живут в профиле рядом.
+  _i3.Future<List<_i41.TicketView>> listMyTasks({required String filter}) =>
+      caller.callServerEndpoint<List<_i41.TicketView>>(
+        'messenger',
+        'listMyTasks',
+        {'filter': filter},
+      );
+
   /// **TASK55 итер.1**: heartbeat активности (SDK шлёт с троттлом ≥60с
   /// в foreground). Обновляет `lastActiveAt` вызывающего.
   _i3.Future<void> presenceHeartbeat() => caller.callServerEndpoint<void>(

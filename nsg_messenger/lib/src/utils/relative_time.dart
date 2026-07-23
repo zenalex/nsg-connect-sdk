@@ -1,7 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';
+import 'package:intl/intl.dart';
 import 'package:timeago/timeago.dart' as timeago;
+
+import '../i18n/generated/nsg_l10n.dart';
 
 /// Форматирует относительное время (Telegram-style: «только что», «5 минут
 /// назад», «час назад»…).
@@ -58,6 +61,113 @@ String _justNow(String lang) {
     default:
       return 'now';
   }
+}
+
+// ─── TASK86: разделители дат в ленте чата ───────────────────────────────
+
+/// **TASK86**: канонический ключ ЛОКАЛЬНОГО дня сообщения — полночь в TZ
+/// пользователя. Именно по нему группируются сообщения в ленту-с-
+/// разделителями и «липкая» дата.
+///
+/// Почему локальный, а не UTC: `ChatMessage.serverTimestamp` хранится в
+/// UTC (bubble рисует его через `.toLocal()`), и сообщение, отправленное в
+/// 01:00 по местному времени, для пользователя — «сегодня», а не «вчера».
+/// Считать день по UTC означало бы рвать ленту не там, где пользователь
+/// видит смену суток. `.toLocal()` идемпотентен для уже-локального
+/// DateTime, поэтому функция безопасна и для UTC, и для local входа.
+DateTime localDayKey(DateTime ts) {
+  final local = ts.toLocal();
+  return DateTime(local.year, local.month, local.day);
+}
+
+/// **TASK86**: тип метки разделителя — ЧИСТАЯ классификация без виджетов и
+/// без локали (тестируется отдельно от текста). Локализация — в
+/// [dateSeparatorLabel].
+enum DateSeparatorKind {
+  /// Сегодня (тот же локальный день, что `now`). Сюда же клампим будущее
+  /// (clock skew client↔server — как в [formatRelativeTime]).
+  today,
+
+  /// Вчера (ровно один локальный день назад).
+  yesterday,
+
+  /// 2–6 дней назад — показываем день недели («Среда» / «Wednesday»).
+  weekday,
+
+  /// Старше недели, но тот же календарный год — «день месяц» («22 июля»).
+  thisYear,
+
+  /// Прошлые годы — «день месяц год» («22 июля 2026»).
+  older,
+}
+
+/// **TASK86**: какой ТИП метки нужен для сообщения с датой [ts] на момент
+/// [now]. Сравнение — по ЛОКАЛЬНОМУ дню (см. [localDayKey]).
+///
+/// Дельта дней считается через полночь-в-UTC (`DateTime.utc(y,m,d)`), а не
+/// вычитанием local-DateTime: у local-полуночей на переходе летнего
+/// времени сутки бывают 23/25 ч, и `Duration.inDays` округлил бы границу не
+/// туда. UTC-сутки ровно 24 ч — дельта календарных дней получается точной,
+/// при этом компоненты y/m/d берём именно локальные.
+DateSeparatorKind dateSeparatorKind(DateTime ts, {DateTime? now}) {
+  final tsLocal = ts.toLocal();
+  final nowLocal = (now ?? DateTime.now()).toLocal();
+  final tsDay = DateTime.utc(tsLocal.year, tsLocal.month, tsLocal.day);
+  final nowDay = DateTime.utc(nowLocal.year, nowLocal.month, nowLocal.day);
+  final diffDays = nowDay.difference(tsDay).inDays;
+  // diff <= 0 — сегодня или (clock skew) будущее: клампим к «Сегодня».
+  if (diffDays <= 0) return DateSeparatorKind.today;
+  if (diffDays == 1) return DateSeparatorKind.yesterday;
+  if (diffDays <= 6) return DateSeparatorKind.weekday;
+  if (tsLocal.year == nowLocal.year) return DateSeparatorKind.thisYear;
+  return DateSeparatorKind.older;
+}
+
+/// **TASK86**: локализованная строка разделителя даты для [ts].
+///
+/// «Сегодня»/«Вчера» — из [l10n] (ключи `chatDateSeparatorToday`/
+/// `...Yesterday`, есть в ru+en ARB). День недели/месяц/год — через
+/// `DateFormat` с [locale] (intl уже инициализировал symbol-data для
+/// активной локали внутри `GlobalMaterialLocalizations.load`).
+///
+/// Форматы (спека TASK86, ru-примеры авторитетны):
+///   * день недели — полное имя, с заглавной («Среда» / «Wednesday»);
+///   * этот год — `d MMMM` («22 июля» / «22 July»);
+///   * старше — `d MMMM y` («22 июля 2026» / «22 July 2026»).
+///
+/// Почему явные паттерны `d MMMM`/`d MMMM y`, а не skeleton
+/// `DateFormat.yMMMMd`: ru-skeleton добавляет суффикс « г.» («22 июля 2026
+/// г.»), которого спека не хочет; явный паттерн даёт ровно ожидаемый вид и
+/// держит ru/en визуально одинаковыми (день-месяц-[год]).
+String dateSeparatorLabel(
+  DateTime ts, {
+  DateTime? now,
+  required NsgL10n l10n,
+  required Locale locale,
+}) {
+  final kind = dateSeparatorKind(ts, now: now);
+  final tsLocal = ts.toLocal();
+  final localeName = locale.toString();
+  switch (kind) {
+    case DateSeparatorKind.today:
+      return l10n.chatDateSeparatorToday;
+    case DateSeparatorKind.yesterday:
+      return l10n.chatDateSeparatorYesterday;
+    case DateSeparatorKind.weekday:
+      return _capitalizeFirst(DateFormat.EEEE(localeName).format(tsLocal));
+    case DateSeparatorKind.thisYear:
+      return DateFormat('d MMMM', localeName).format(tsLocal);
+    case DateSeparatorKind.older:
+      return DateFormat('d MMMM y', localeName).format(tsLocal);
+  }
+}
+
+/// Заглавная первая буква (день недели у intl.ru — строчный «среда», а
+/// standalone-плашка читается лучше с заглавной «Среда»; en уже приходит
+/// заглавным). Работает и для кириллицы (посимвольный `toUpperCase`).
+String _capitalizeFirst(String s) {
+  if (s.isEmpty) return s;
+  return s[0].toUpperCase() + s.substring(1);
 }
 
 /// Текст с относительным временем, который **сам пересчитывается** раз

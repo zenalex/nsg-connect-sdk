@@ -34,6 +34,7 @@ import 'screens/my_tickets_screen.dart';
 import 'screens/object_rooms_catalog_screen.dart';
 import 'screens/support_chat_screen.dart';
 import 'screens/support_team_screen.dart';
+import 'screens/tasks_screen.dart';
 import 'session/auth_retry.dart';
 import 'session/auth_token_store.dart';
 import 'share/share_intake.dart';
@@ -906,6 +907,20 @@ class NsgMessenger {
       MaterialPageRoute<void>(
         builder: (_) =>
             MessengerThemeScope(theme: theme, child: const MyTicketsScreen()),
+      ),
+    );
+  }
+
+  /// **TASK84 итерация 1**: открыть экран «Задачи» — задачи из всех моих
+  /// активных комнат (вкладки «Все» / «Я инициатор»). Роль «участник», в
+  /// отличие от «Мои обращений» ([openMyTickets], роль «заявитель»); оба входа
+  /// живут в профиле рядом.
+  static Future<void> openTasks(BuildContext context) async {
+    final theme = MessengerRuntime.instance.theme;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            MessengerThemeScope(theme: theme, child: const TasksScreen()),
       ),
     );
   }

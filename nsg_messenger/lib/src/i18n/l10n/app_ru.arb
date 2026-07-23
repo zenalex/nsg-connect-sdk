@@ -17,6 +17,8 @@
   "chatScreenEmpty": "Сообщений пока нет — напиши первое",
   "chatScreenLoadFailed": "Не удалось загрузить сообщения",
   "chatJumpToLatestTooltip": "К последнему сообщению",
+  "chatDateSeparatorToday": "Сегодня",
+  "chatDateSeparatorYesterday": "Вчера",
   "chatScreenSendHint": "Сообщение…",
   "chatScreenSendTooltip": "Отправить",
 
@@ -652,5 +654,11 @@
   "taskStageNew": "Новая",
   "taskStageInProgress": "В работе",
   "taskStageAccepted": "Принята",
-  "taskStageRejected": "Отклонена"
+  "taskStageRejected": "Отклонена",
+  "tasksScreenTitle": "Задачи",
+  "tasksTabAll": "Все",
+  "tasksTabInitiator": "Я инициатор",
+  "tasksEmptyAll": "В ваших комнатах пока нет задач.",
+  "tasksEmptyInitiator": "Вы ещё не заводили задач.",
+  "tasksLoadError": "Не удалось загрузить задачи"
 }

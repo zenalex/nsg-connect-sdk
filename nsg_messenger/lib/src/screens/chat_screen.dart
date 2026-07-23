@@ -49,6 +49,8 @@ import '../rooms/participant_action_sheet.dart' show formatWriteBanUntil;
 import '../presence/last_seen_format.dart';
 import '../session/auth_retry.dart' show withAuthRetry;
 import '../runtime/messenger_connection_state.dart';
+import '../utils/relative_time.dart'
+    show dateSeparatorLabel, localDayKey;
 import '../theme/nsg_messenger_theme.dart' show NsgMessageBubbleTokens;
 import '../widgets/nsg_avatar_image.dart';
 import 'group_settings_screen.dart';
@@ -455,6 +457,42 @@ class _ChatScreenState extends State<ChatScreen>
   /// с pageSize 50 + paginate.
   final Map<String, GlobalKey> _itemKeys = {};
 
+  /// **TASK86**: ключ самого `ListView` — по нему берём верхнюю кромку
+  /// вьюпорта (global Y) для расчёта «липкой» даты. Стабилен между
+  /// ребилдами (лента пересобирается на каждый state-notify).
+  final GlobalKey _listViewportKey = GlobalKey();
+
+  /// **TASK86**: GlobalKey на плашку-разделитель КАЖДОГО локального дня.
+  /// Нужен, чтобы в [_updateStickyDate] прочитать geometry плашек
+  /// (`localToGlobal`) и понять, к какому дню относится верх видимой
+  /// области. Ключи стабильны (один на день) — иначе reverse-ListView при
+  /// каждом ребилде терял бы currentContext. Растёт по числу
+  /// показанных дней (как `_itemKeys` по сообщениям) — приемлемо.
+  final Map<DateTime, GlobalKey> _separatorKeys = {};
+
+  GlobalKey _separatorKeyFor(DateTime day) =>
+      _separatorKeys.putIfAbsent(day, GlobalKey.new);
+
+  /// **TASK86**: дата верхней видимой группы для «липкой» плашки. null —
+  /// ещё не посчитана / пустая лента.
+  final ValueNotifier<DateTime?> _stickyDate = ValueNotifier<DateTime?>(null);
+
+  /// **TASK86**: показывать ли «липкую» плашку. Как индикаторы набора —
+  /// появляется при скролле, прячется в покое (таймер бездействия ниже).
+  final ValueNotifier<bool> _stickyVisible = ValueNotifier<bool>(false);
+
+  /// **TASK86**: гасит «липкую» плашку через [_kStickyIdleHide] после
+  /// последнего скролл-события (Telegram-манера: в покое даты не видно).
+  Timer? _stickyHideTimer;
+
+  /// **TASK86**: сколько «тишины» после скролла держим плашку показанной.
+  /// ~1.5с — как таймеры бездействия прочих оверлеев ленты.
+  static const Duration _kStickyIdleHide = Duration(milliseconds: 1500);
+
+  /// **TASK86**: допуск (px) при сравнении «плашка выше кромки вьюпорта».
+  /// Ноль плодил бы дребезг ровно на границе float-координат.
+  static const double _kStickyTolerancePx = 0.5;
+
   /// **B12 (BACKLOG)**: ChatMessage в режиме редактирования (через
   /// ↑-arrow shortcut в composer-е, либо через action sheet «Edit»
   /// — TASK37). Composer pre-populate-ит body и отправляет через
@@ -837,6 +875,10 @@ class _ChatScreenState extends State<ChatScreen>
     unawaited(_mentionInserts.close());
     _editTarget.dispose();
     _albumEditTarget.dispose();
+    // **TASK86**: гаснем «липкую» дату и её ресурсы.
+    _stickyHideTimer?.cancel();
+    _stickyDate.dispose();
+    _stickyVisible.dispose();
     _scrollController.dispose();
     _connSub?.cancel();
     _connSub = null;
@@ -1015,7 +1057,79 @@ class _ChatScreenState extends State<ChatScreen>
         setState(() => _showJumpToLatest = show);
       }
     }
+    // **TASK86**: «липкая» дата — показываем на любое движение, пересчёт
+    // верхней видимой группы + перезапуск таймера бездействия. Отдельно от
+    // кнопки «вниз»: та про уход в историю, эта — про любой скролл.
+    _onScrollSticky();
     return false;
+  }
+
+  /// **TASK86**: реакция «липкой» даты на скролл — показать плашку,
+  /// пересчитать дату верхней группы, взвести таймер её скрытия. Держим
+  /// показ отдельным `ValueNotifier`, чтобы дёргать не весь экран, а только
+  /// оверлей плашки (как у кнопки «вниз»).
+  void _onScrollSticky() {
+    _updateStickyDate();
+    if (!_stickyVisible.value) _stickyVisible.value = true;
+    _stickyHideTimer?.cancel();
+    _stickyHideTimer = Timer(_kStickyIdleHide, () {
+      if (mounted) _stickyVisible.value = false;
+    });
+  }
+
+  /// **TASK86**: дата самого свежего сообщения (низ ленты) — сид для
+  /// «липкой» плашки, когда geometry ещё нечего сказать (лента целиком в
+  /// одном дне, оба разделителя вне досягаемости cacheExtent).
+  DateTime? _newestMessageDay() {
+    final state = _controller.state;
+    if (state is! MessagesReady || state.messages.isEmpty) return null;
+    return localDayKey(state.messages.first.serverTimestamp);
+  }
+
+  /// **TASK86**: определяет дату верхней ВИДИМОЙ группы по geometry
+  /// плашек-разделителей.
+  ///
+  /// Reverse-лента: у каждого дня плашка стоит НАД его группой (в списке
+  /// строк — позже, на экране — выше). Верхняя кромка вьюпорта попадает в
+  /// полосу дня D, когда её пересекает диапазон [plate(D).top,
+  /// plate(новее D).top). Значит искомый день — тот, чья плашка имеет
+  /// НАИБОЛЬШИЙ `top`, всё ещё лежащий на/выше кромки вьюпорта. Плашка на
+  /// границе (той, что вот-вот уедет под кромку) всегда близко к вьюпорту,
+  /// поэтому Listview.builder её уже построил (в пределах cacheExtent) —
+  /// currentContext не null именно там, где нужно.
+  ///
+  /// Если ни одна плашка не разрешилась (мы глубоко внутри длинного
+  /// одного дня — обе его границы за пределами построенного окна), день не
+  /// сменился: держим прошлое значение, а при самом первом показе сидим
+  /// свежайшим днём.
+  void _updateStickyDate() {
+    if (!_scrollController.hasClients) return;
+    final vpObj = _listViewportKey.currentContext?.findRenderObject();
+    if (vpObj is! RenderBox || !vpObj.hasSize) return;
+    final vTop = vpObj.localToGlobal(Offset.zero).dy;
+    DateTime? current; // плашка с наибольшим top <= vTop (искомая полоса)
+    double currentTop = double.negativeInfinity;
+    DateTime? topmost; // самая верхняя построенная плашка (fallback)
+    double topmostTop = double.infinity;
+    _separatorKeys.forEach((day, key) {
+      final obj = key.currentContext?.findRenderObject();
+      if (obj is! RenderBox || !obj.hasSize) return;
+      final top = obj.localToGlobal(Offset.zero).dy;
+      if (top < topmostTop) {
+        topmostTop = top;
+        topmost = day;
+      }
+      if (top <= vTop + _kStickyTolerancePx && top > currentTop) {
+        currentTop = top;
+        current = day;
+      }
+    });
+    final resolved = current ?? topmost;
+    if (resolved != null) {
+      _stickyDate.value = resolved;
+    } else {
+      _stickyDate.value ??= _newestMessageDay();
+    }
   }
 
   /// **Issue #59**: сколько ЧУЖИХ сообщений пришло ниже видимой области,
@@ -2445,6 +2559,10 @@ class _ChatScreenState extends State<ChatScreen>
                         },
                         onToggleSelect: _toggleSelect,
                         scrollController: _scrollController,
+                        // **TASK86**: ключ ленты + фабрика ключей
+                        // разделителей — для «липкой» даты (geometry).
+                        listViewportKey: _listViewportKey,
+                        separatorKeyFor: _separatorKeyFor,
                         itemKeys: _itemKeys,
                         findReplyTarget: _findReplyTarget,
                         onReplyChipTap: _scrollToOriginal,
@@ -2506,6 +2624,37 @@ class _ChatScreenState extends State<ChatScreen>
                       visible: _showJumpToLatest,
                       unreadCount: _jumpBadgeCount(),
                       onTap: _jumpToLatest,
+                    ),
+                  ),
+                ),
+                // **TASK86**: «липкая» дата — плавающая плашка вверху ленты.
+                // Показывает дату верхней видимой группы; появляется при
+                // скролле, гаснет в покое. Тап — no-op (переход к дате —
+                // итерация 2), поэтому IgnorePointer: не перехватываем
+                // жесты по ленте под плашкой.
+                Positioned(
+                  top: 6,
+                  left: 0,
+                  right: 0,
+                  child: IgnorePointer(
+                    child: ValueListenableBuilder<bool>(
+                      valueListenable: _stickyVisible,
+                      builder: (context, visible, child) => AnimatedOpacity(
+                        opacity: visible ? 1 : 0,
+                        duration: const Duration(milliseconds: 180),
+                        curve: Curves.easeOut,
+                        child: child,
+                      ),
+                      child: ValueListenableBuilder<DateTime?>(
+                        valueListenable: _stickyDate,
+                        builder: (context, day, _) => day == null
+                            ? const SizedBox.shrink()
+                            : _DateSeparatorLabel(
+                                key: const Key('chatStickyDate'),
+                                day: day,
+                                margin: EdgeInsets.zero,
+                              ),
+                      ),
                     ),
                   ),
                 ),
@@ -2751,6 +2900,107 @@ void _openChatImageGallery(
   );
 }
 
+/// **TASK86**: строка ленты чата — либо сообщение, либо разделитель даты.
+/// Лента рисуется `ListView.builder(reverse: true)`, поэтому это плоский
+/// список, где index 0 — низ экрана (самое свежее), бо́льшие индексы — выше.
+sealed class ChatFeedRow {
+  const ChatFeedRow();
+}
+
+/// Сообщение. [messageIndex] — индекс в ИСХОДНОМ DESC-списке
+/// `state.messages` (а не позиция строки): вся существующая логика
+/// (альбомы, группировка аватар/имён, GlobalKey прыжка/скролла) оперирует
+/// индексами сообщений — разделители её сдвигать не должны.
+class MessageFeedRow extends ChatFeedRow {
+  const MessageFeedRow(this.messageIndex);
+  final int messageIndex;
+}
+
+/// Разделитель даты. [day] — канонический локальный день группы
+/// (см. [localDayKey]); из него плашка считает текст.
+class DateSeparatorFeedRow extends ChatFeedRow {
+  const DateSeparatorFeedRow(this.day);
+  final DateTime day;
+}
+
+/// **TASK86**: строит модель строк ленты из DESC-списка [messages],
+/// вставляя разделитель ПЕРЕД первым (по времени) сообщением каждого
+/// локального дня.
+///
+/// Тонкость reverse-ленты: `ListView.builder(reverse: true)` кладёт
+/// rows[0] на дно (свежее), а бо́льшие индексы — ВЫШЕ. Чтобы плашка «висела
+/// над» группой дня, её строка должна идти ПОЗЖЕ (выше на экране) самого
+/// старого сообщения этого дня. Поэтому, обходя messages DESC
+/// (свежее→старое), добавляем сообщение, а на границе дня — сразу за самым
+/// старым сообщением дня — его разделитель. Самый старый видимый день
+/// получает плашку последней строкой (в самом верху).
+///
+/// pending/optimistic и tombstone тоже несут дату и участвуют наравне;
+/// пустых разделителей не бывает (строка появляется только рядом с реальным
+/// сообщением). Дни в ленте — непрерывные блоки (messages отсортированы по
+/// времени), поэтому «граница = смена дня у соседей» не плодит дублей.
+@visibleForTesting
+List<ChatFeedRow> buildFeedRows(List<ChatMessage> messages) {
+  final rows = <ChatFeedRow>[];
+  for (var i = 0; i < messages.length; i++) {
+    rows.add(MessageFeedRow(i));
+    final day = localDayKey(messages[i].serverTimestamp);
+    final isOldestOfDay =
+        i == messages.length - 1 ||
+        localDayKey(messages[i + 1].serverTimestamp) != day;
+    if (isOldestOfDay) {
+      rows.add(DateSeparatorFeedRow(day));
+    }
+  }
+  return rows;
+}
+
+/// **TASK86**: плашка-разделитель даты. Один визуал и для встроенного
+/// разделителя между днями, и для «липкой» плашки при скролле — спека
+/// требует одинакового вида. Полупрозрачная тёмная «pill» со светлым
+/// текстом читается поверх цветастых стеклянных обоев (GlassBackground),
+/// как date-плашка в Telegram.
+///
+/// [margin] — у встроенного разделителя вертикальные отступы отделяют его
+/// от пузырей; «липкая» плашка позиционируется сама (`Positioned`), ей
+/// отступ не нужен (`EdgeInsets.zero`).
+class _DateSeparatorLabel extends StatelessWidget {
+  const _DateSeparatorLabel({
+    super.key,
+    required this.day,
+    this.margin = const EdgeInsets.symmetric(vertical: 8),
+  });
+
+  final DateTime day;
+  final EdgeInsets margin;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = NsgL10n.of(context);
+    final locale = Localizations.localeOf(context);
+    final text = dateSeparatorLabel(day, l10n: l, locale: locale);
+    return Center(
+      child: Container(
+        margin: margin,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.28),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          text,
+          style: const TextStyle(
+            color: Color(0xF2FFFFFF),
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            letterSpacing: 0.2,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _Body extends StatelessWidget {
   const _Body({
     required this.state,
@@ -2761,6 +3011,8 @@ class _Body extends StatelessWidget {
     required this.thumbnailRpc,
     required this.fullSizeRpc,
     required this.scrollController,
+    required this.listViewportKey,
+    required this.separatorKeyFor,
     required this.itemKeys,
     required this.findReplyTarget,
     required this.onReplyChipTap,
@@ -2783,6 +3035,13 @@ class _Body extends StatelessWidget {
   });
 
   final MessagesState state;
+
+  /// **TASK86**: ключ самого `ListView` — верхняя кромка вьюпорта для
+  /// «липкой» даты (см. `_ChatScreenState._updateStickyDate`).
+  final GlobalKey listViewportKey;
+
+  /// **TASK86**: фабрика стабильного GlobalKey на плашку-разделитель дня.
+  final GlobalKey Function(DateTime day) separatorKeyFor;
 
   /// **TASK52 итер.2**: визитка собеседника для интро-карточки в пустом
   /// direct-чате (null → показываем обычный empty-state).
@@ -2868,6 +3127,8 @@ class _Body extends StatelessWidget {
                 thumbnailRpc: thumbnailRpc,
                 fullSizeRpc: fullSizeRpc,
                 scrollController: scrollController,
+                listViewportKey: listViewportKey,
+                separatorKeyFor: separatorKeyFor,
                 itemKeys: itemKeys,
                 findReplyTarget: findReplyTarget,
                 onReplyChipTap: onReplyChipTap,
@@ -2898,6 +3159,8 @@ class _Body extends StatelessWidget {
         thumbnailRpc: thumbnailRpc,
         fullSizeRpc: fullSizeRpc,
         scrollController: scrollController,
+        listViewportKey: listViewportKey,
+        separatorKeyFor: separatorKeyFor,
         itemKeys: itemKeys,
         findReplyTarget: findReplyTarget,
         onReplyChipTap: onReplyChipTap,
@@ -2932,6 +3195,8 @@ class _Loaded extends StatelessWidget {
     required this.thumbnailRpc,
     required this.fullSizeRpc,
     required this.scrollController,
+    required this.listViewportKey,
+    required this.separatorKeyFor,
     required this.itemKeys,
     required this.findReplyTarget,
     required this.onReplyChipTap,
@@ -2955,6 +3220,11 @@ class _Loaded extends StatelessWidget {
   });
 
   final MessagesReady ready;
+
+  /// **TASK86**: ключ ленты (верхняя кромка вьюпорта) + фабрика ключей
+  /// плашек-разделителей — для «липкой» даты.
+  final GlobalKey listViewportKey;
+  final GlobalKey Function(DateTime day) separatorKeyFor;
   final ContactCardInfo? introCard;
   final int selfMessengerUserId;
   final bool Function(ScrollNotification) onScroll;
@@ -3027,6 +3297,13 @@ class _Loaded extends StatelessWidget {
         albumAnchor[aid] = i;
       }
     }
+    // **TASK86**: плоская модель строк — сообщения + разделители дат.
+    // Разделители НЕ сдвигают индексы сообщений: строка-сообщение несёт
+    // исходный `messageIndex`, и вся логика ниже (альбомы, группировка
+    // аватар/имён, GlobalKey для прыжка/скролла) работает с ним, как и
+    // раньше. Прыжок к `initialTargetEventId` и кнопка «вниз» опираются на
+    // eventId/пиксели, а не на позицию строки — разделители им не мешают.
+    final rows = buildFeedRows(messages);
     return Column(
       children: [
         if (errorBanner != null) ConnectionLostBanner(error: errorBanner!),
@@ -3041,11 +3318,23 @@ class _Loaded extends StatelessWidget {
                   NotificationListener<ScrollNotification>(
                     onNotification: onScroll,
                     child: ListView.builder(
+                      key: listViewportKey,
                       controller: scrollController,
                       reverse: true,
                       physics: const AlwaysScrollableScrollPhysics(),
-                      itemCount: messages.length,
-                      itemBuilder: (_, i) {
+                      itemCount: rows.length,
+                      itemBuilder: (_, rowIndex) {
+                        final row = rows[rowIndex];
+                        // **TASK86**: строка-разделитель даты — центрированная
+                        // плашка НАД первой (по времени) записью дня. Свой
+                        // GlobalKey — чтобы «липкая» дата читала её geometry.
+                        if (row is DateSeparatorFeedRow) {
+                          return _DateSeparatorLabel(
+                            key: separatorKeyFor(row.day),
+                            day: row.day,
+                          );
+                        }
+                        final i = (row as MessageFeedRow).messageIndex;
                         // Не-anchor члены альбома скрыты — они уже нарисованы
                         // мозаикой на anchor-bubble.
                         if (albumSkip.contains(i)) {

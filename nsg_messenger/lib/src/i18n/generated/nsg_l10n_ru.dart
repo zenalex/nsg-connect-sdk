@@ -49,6 +49,12 @@ class NsgL10nRu extends NsgL10n {
   String get chatJumpToLatestTooltip => 'К последнему сообщению';
 
   @override
+  String get chatDateSeparatorToday => 'Сегодня';
+
+  @override
+  String get chatDateSeparatorYesterday => 'Вчера';
+
+  @override
   String get chatScreenSendHint => 'Сообщение…';
 
   @override
@@ -2087,4 +2093,22 @@ class NsgL10nRu extends NsgL10n {
 
   @override
   String get taskStageRejected => 'Отклонена';
+
+  @override
+  String get tasksScreenTitle => 'Задачи';
+
+  @override
+  String get tasksTabAll => 'Все';
+
+  @override
+  String get tasksTabInitiator => 'Я инициатор';
+
+  @override
+  String get tasksEmptyAll => 'В ваших комнатах пока нет задач.';
+
+  @override
+  String get tasksEmptyInitiator => 'Вы ещё не заводили задач.';
+
+  @override
+  String get tasksLoadError => 'Не удалось загрузить задачи';
 }

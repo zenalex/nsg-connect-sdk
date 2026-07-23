@@ -67,6 +67,15 @@
     "description": "Tooltip плавающей кнопки-стрелки в `ChatScreen` (issue #59): появляется, когда пользователь ушёл вверх по истории; тап возвращает к самому свежему сообщению."
   },
 
+  "chatDateSeparatorToday": "Today",
+  "@chatDateSeparatorToday": {
+    "description": "TASK86: плашка-разделитель даты в ленте (и «липкая» дата при скролле) для сообщений сегодняшнего локального дня."
+  },
+  "chatDateSeparatorYesterday": "Yesterday",
+  "@chatDateSeparatorYesterday": {
+    "description": "TASK86: плашка-разделитель даты в ленте (и «липкая» дата при скролле) для сообщений вчерашнего локального дня."
+  },
+
   "chatScreenSendHint": "Message…",
   "@chatScreenSendHint": {
     "description": "Placeholder в `MessageComposer` TextField — подсказка пользователю что писать."
@@ -2493,5 +2502,17 @@
   "taskStageAccepted": "Accepted",
   "@taskStageAccepted": {"description": "TASK83: task stage 'accepted' (done / accepted)."},
   "taskStageRejected": "Rejected",
-  "@taskStageRejected": {"description": "TASK83: task stage 'rejected' (closed without completion)."}
+  "@taskStageRejected": {"description": "TASK83: task stage 'rejected' (closed without completion)."},
+  "tasksScreenTitle": "Tasks",
+  "@tasksScreenTitle": {"description": "TASK84: title of the Tasks screen (tasks from all my active rooms)."},
+  "tasksTabAll": "All",
+  "@tasksTabAll": {"description": "TASK84: tab showing tasks from all my active rooms."},
+  "tasksTabInitiator": "Initiated by me",
+  "@tasksTabInitiator": {"description": "TASK84: tab showing only tasks I filed (createdBy == me)."},
+  "tasksEmptyAll": "No tasks in your rooms yet.",
+  "@tasksEmptyAll": {"description": "TASK84: empty state of the All tab."},
+  "tasksEmptyInitiator": "You haven't filed any tasks yet.",
+  "@tasksEmptyInitiator": {"description": "TASK84: empty state of the Initiated-by-me tab."},
+  "tasksLoadError": "Failed to load tasks",
+  "@tasksLoadError": {"description": "TASK84: error shown when the tasks list fails to load."}
 }
