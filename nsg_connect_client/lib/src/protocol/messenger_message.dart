@@ -44,6 +44,9 @@ abstract class MessengerMessage implements _i1.SerializableModel {
     this.replyToMessageId,
     this.threadReplyCount,
     this.threadLastReplyAt,
+    this.taskStage,
+    this.taskThreadRootEventId,
+    this.taskUrl,
     required this.serverTimestamp,
     this.clientTxnId,
     this.attachment,
@@ -68,6 +71,9 @@ abstract class MessengerMessage implements _i1.SerializableModel {
     String? replyToMessageId,
     int? threadReplyCount,
     DateTime? threadLastReplyAt,
+    String? taskStage,
+    String? taskThreadRootEventId,
+    String? taskUrl,
     required DateTime serverTimestamp,
     String? clientTxnId,
     _i3.AttachmentRef? attachment,
@@ -99,6 +105,10 @@ abstract class MessengerMessage implements _i1.SerializableModel {
           : _i1.DateTimeJsonExtension.fromJson(
               jsonSerialization['threadLastReplyAt'],
             ),
+      taskStage: jsonSerialization['taskStage'] as String?,
+      taskThreadRootEventId:
+          jsonSerialization['taskThreadRootEventId'] as String?,
+      taskUrl: jsonSerialization['taskUrl'] as String?,
       serverTimestamp: _i1.DateTimeJsonExtension.fromJson(
         jsonSerialization['serverTimestamp'],
       ),
@@ -168,6 +178,28 @@ abstract class MessengerMessage implements _i1.SerializableModel {
   int? threadReplyCount;
 
   DateTime? threadLastReplyAt;
+
+  /// **TASK83 значок задачи**: у ИСХОДНОГО сообщения (того, из которого
+  /// завели задачу — `TaskLink.matrixEventId`) — метаданные заведённой
+  /// задачи, чтобы bubble нарисовал значок цвета стадии и по тапу вёл в
+  /// обсуждение. Заполняются батчем в `listMessages`/`listThreadMessages`
+  /// через `MessageIndexService.taskBadges` (цепочка сообщение → TaskLink →
+  /// Ticket). DTO-only (не persisted), как `threadReplyCount`.
+  ///
+  /// `taskStage` — гранулярная стадия тикета (`new`/`in_progress`/`accepted`/
+  /// `rejected`, см. `TicketService`); **null**, когда TaskLink есть, а тикета
+  /// нет (задача заведена во внешней системе, но локального тикета мы не
+  /// завели) — значок рисуется нейтральным «задача заведена». Цвет решает
+  /// клиент (цвета — тема), сервер отдаёт стадию строкой.
+  /// `taskThreadRootEventId` — корень треда задачи (TASK82); есть → тап ведёт
+  /// в тред, нет → в issue-URL (`taskUrl`).
+  /// `taskUrl` — ссылка на issue (fallback-переход и признак «задача есть»).
+  /// Все три null → задачи нет, значка нет (старый клиент поля игнорирует).
+  String? taskStage;
+
+  String? taskThreadRootEventId;
+
+  String? taskUrl;
 
   DateTime serverTimestamp;
 
@@ -266,6 +298,9 @@ abstract class MessengerMessage implements _i1.SerializableModel {
     String? replyToMessageId,
     int? threadReplyCount,
     DateTime? threadLastReplyAt,
+    String? taskStage,
+    String? taskThreadRootEventId,
+    String? taskUrl,
     DateTime? serverTimestamp,
     String? clientTxnId,
     _i3.AttachmentRef? attachment,
@@ -294,6 +329,10 @@ abstract class MessengerMessage implements _i1.SerializableModel {
       if (threadReplyCount != null) 'threadReplyCount': threadReplyCount,
       if (threadLastReplyAt != null)
         'threadLastReplyAt': threadLastReplyAt?.toJson(),
+      if (taskStage != null) 'taskStage': taskStage,
+      if (taskThreadRootEventId != null)
+        'taskThreadRootEventId': taskThreadRootEventId,
+      if (taskUrl != null) 'taskUrl': taskUrl,
       'serverTimestamp': serverTimestamp.toJson(),
       if (clientTxnId != null) 'clientTxnId': clientTxnId,
       if (attachment != null) 'attachment': attachment?.toJson(),
@@ -329,6 +368,9 @@ class _MessengerMessageImpl extends MessengerMessage {
     String? replyToMessageId,
     int? threadReplyCount,
     DateTime? threadLastReplyAt,
+    String? taskStage,
+    String? taskThreadRootEventId,
+    String? taskUrl,
     required DateTime serverTimestamp,
     String? clientTxnId,
     _i3.AttachmentRef? attachment,
@@ -351,6 +393,9 @@ class _MessengerMessageImpl extends MessengerMessage {
          replyToMessageId: replyToMessageId,
          threadReplyCount: threadReplyCount,
          threadLastReplyAt: threadLastReplyAt,
+         taskStage: taskStage,
+         taskThreadRootEventId: taskThreadRootEventId,
+         taskUrl: taskUrl,
          serverTimestamp: serverTimestamp,
          clientTxnId: clientTxnId,
          attachment: attachment,
@@ -379,6 +424,9 @@ class _MessengerMessageImpl extends MessengerMessage {
     Object? replyToMessageId = _Undefined,
     Object? threadReplyCount = _Undefined,
     Object? threadLastReplyAt = _Undefined,
+    Object? taskStage = _Undefined,
+    Object? taskThreadRootEventId = _Undefined,
+    Object? taskUrl = _Undefined,
     DateTime? serverTimestamp,
     Object? clientTxnId = _Undefined,
     Object? attachment = _Undefined,
@@ -412,6 +460,11 @@ class _MessengerMessageImpl extends MessengerMessage {
       threadLastReplyAt: threadLastReplyAt is DateTime?
           ? threadLastReplyAt
           : this.threadLastReplyAt,
+      taskStage: taskStage is String? ? taskStage : this.taskStage,
+      taskThreadRootEventId: taskThreadRootEventId is String?
+          ? taskThreadRootEventId
+          : this.taskThreadRootEventId,
+      taskUrl: taskUrl is String? ? taskUrl : this.taskUrl,
       serverTimestamp: serverTimestamp ?? this.serverTimestamp,
       clientTxnId: clientTxnId is String? ? clientTxnId : this.clientTxnId,
       attachment: attachment is _i3.AttachmentRef?

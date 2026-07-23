@@ -58,6 +58,7 @@ class MessageBubble extends StatelessWidget {
     this.onSenderAvatarTap,
     this.threadReplyCount,
     this.onOpenThread,
+    this.onOpenTask,
   });
 
   final ChatMessage message;
@@ -215,6 +216,17 @@ class MessageBubble extends StatelessWidget {
   /// хуже, чем не обещать — тот же принцип, что у reply-chip-а).
   final VoidCallback? onOpenThread;
 
+  /// **TASK83 значок задачи**: тап по значку задачи на ИСХОДНОМ сообщении.
+  /// Прокидываем корень треда и URL, а КУДА вести (тред vs issue) решает
+  /// экран: `taskThreadRootEventId != null` → тред задачи, иначе → `taskUrl`
+  /// во внешнем браузере. `null` → значок не рисуется (нет обработчика —
+  /// нечем открыть; тот же принцип-гейт, что у [onOpenThread]).
+  ///
+  /// Значок сам берёт данные из [ChatMessage] (`taskStage`/`taskUrl`/
+  /// `taskThreadRootEventId`) — bubble остаётся «глупым», а маршрутизацию
+  /// (и её тесты) держит экран.
+  final void Function(String? threadRootEventId, String? url)? onOpenTask;
+
   /// Ширина левого gutter-а под аватар (avatar + gap). Держим в одном
   /// месте, чтобы avatar и spacer совпадали.
   static const double _kAvatarSize = 28;
@@ -242,8 +254,8 @@ class MessageBubble extends StatelessWidget {
   /// `RoomParticipant.participantKind`; `null` (старый сервер / участник
   /// не в комнатном контексте) трактуем как обычного пользователя.
   bool get _senderIsBot {
-    final kind = participantsByMatrixId?[message.senderMatrixUserId]
-        ?.participantKind;
+    final kind =
+        participantsByMatrixId?[message.senderMatrixUserId]?.participantKind;
     return kind == ParticipantKind.bot ||
         kind == ParticipantKind.integration ||
         kind == ParticipantKind.aiAgent;
@@ -369,6 +381,24 @@ class MessageBubble extends StatelessWidget {
                       crossAxisAlignment: align,
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        // **TASK83 значок задачи**: у ИСХОДНОГО сообщения —
+                        // компактный значок цвета стадии в ВЕРХНЕМ углу пузыря
+                        // (cross-axis align: у своих справа, у чужих слева).
+                        // Намеренно наверху, тогда как тред-ссылка «Обсуждение
+                        // (N)» — внизу: разные вертикальные края, поэтому даже
+                        // на сообщении, которое разом и якорь треда, и источник
+                        // задачи, они не наедут (см. TASK83, «конфликт
+                        // с thread-link»). Рисуется только когда есть данные
+                        // задачи И обработчик перехода.
+                        if (message.hasTaskBadge && onOpenTask != null)
+                          _TaskBadge(
+                            stage: message.taskStage,
+                            color: taskStageColor(message.taskStage, theme),
+                            onTap: () => onOpenTask!(
+                              message.taskThreadRootEventId,
+                              message.taskUrl,
+                            ),
+                          ),
                         // **Issue #39**: «кто написал» — самой первой строкой
                         // пузыря, ДО forwarded/reply-шапок. Раньше подпись
                         // не рисовалась нигде (в группах был только аватар),
@@ -993,6 +1023,79 @@ class _ThreadLink extends StatelessWidget {
             const SizedBox(width: 2),
             Icon(Icons.chevron_right, size: 14, color: accentColor),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// **TASK83 значок задачи**: цвет значка по стадии тикета. Маппинг — в SDK, а
+/// не в данных: цвета это тема, сервер отдаёт стадию строкой.
+///   * `in_progress` — янтарный (в работе);
+///   * `accepted` — зелёный (принято/выполнено);
+///   * `rejected` — красный (закрыто без выполнения);
+///   * `new` и **null** (TaskLink без тикета — «задача заведена») —
+///     нейтральный/приглушённый: задача есть, работа ещё не началась.
+///
+/// `in_progress`/`accepted`/`rejected` намеренно совпадают по цвету с бейджами
+/// экрана «Мои обращения» ([_stageStyle] в `my_tickets_screen.dart`), чтобы
+/// один и тот же статус читался одинаково; `new` здесь приглушён (а не синий,
+/// как там), чтобы значок на своём сообщении не «кричал» до начала работы.
+Color taskStageColor(String? stage, ThemeData theme) => switch (stage) {
+  'in_progress' => Colors.orange,
+  'accepted' => Colors.green,
+  'rejected' => Colors.redAccent,
+  // 'new' и всё неизвестное/пустое → нейтральный «заведена».
+  _ => theme.colorScheme.onSurfaceVariant,
+};
+
+/// **TASK83**: человекочитаемая подпись стадии для тултипа значка (ru/en через
+/// [NsgL10n]). null/неизвестное → «заведена» (TaskLink есть, тикета нет).
+String taskStageLabel(String? stage, NsgL10n l) => switch (stage) {
+  'new' => l.taskStageNew,
+  'in_progress' => l.taskStageInProgress,
+  'accepted' => l.taskStageAccepted,
+  'rejected' => l.taskStageRejected,
+  _ => l.taskStageCreated,
+};
+
+/// **TASK83 значок задачи** на ИСХОДНОМ сообщении: компактная иконка задачи
+/// цвета стадии в углу пузыря. Тап ведёт в обсуждение задачи (или в issue —
+/// решает экран, см. [MessageBubble.onOpenTask]). Подпись стадии — в тултипе
+/// («Задача: <статус>»), чтобы значок оставался маленьким. Ключ [Key]
+/// стабильный (`taskBadge`) — виджет-тесты ищут значок по нему, не завися от
+/// иконки/локали.
+class _TaskBadge extends StatelessWidget {
+  const _TaskBadge({
+    required this.stage,
+    required this.color,
+    required this.onTap,
+  });
+
+  final String? stage;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = NsgL10n.of(context);
+    final label = taskStageLabel(stage, l);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: Tooltip(
+        message: l.taskBadgeTooltip(label),
+        child: InkWell(
+          key: const Key('taskBadge'),
+          onTap: onTap,
+          customBorder: const CircleBorder(),
+          child: Container(
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.assignment_outlined, size: 15, color: color),
+          ),
         ),
       ),
     );

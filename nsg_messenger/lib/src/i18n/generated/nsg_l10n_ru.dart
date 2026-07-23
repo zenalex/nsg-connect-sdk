@@ -2067,4 +2067,24 @@ class NsgL10nRu extends NsgL10n {
   @override
   String get threadScreenEmpty =>
       'Ответов пока нет. Задайте здесь вопрос по задаче.';
+
+  @override
+  String taskBadgeTooltip(String status) {
+    return 'Задача: $status';
+  }
+
+  @override
+  String get taskStageCreated => 'Заведена';
+
+  @override
+  String get taskStageNew => 'Новая';
+
+  @override
+  String get taskStageInProgress => 'В работе';
+
+  @override
+  String get taskStageAccepted => 'Принята';
+
+  @override
+  String get taskStageRejected => 'Отклонена';
 }

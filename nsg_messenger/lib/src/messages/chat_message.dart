@@ -42,6 +42,9 @@ class ChatMessage {
     required this.status,
     this.threadId,
     this.threadReplyCount,
+    this.taskStage,
+    this.taskThreadRootEventId,
+    this.taskUrl,
     this.replyToMessageId,
     this.lastError,
     this.attachment,
@@ -87,6 +90,27 @@ class ChatMessage {
   /// потребитель — бейдж со счётчиком, а лишнее поле пришлось бы
   /// протаскивать через все copy-конструкторы ниже.
   final int? threadReplyCount;
+
+  /// **TASK83 значок задачи**: метаданные задачи, заведённой ИЗ этого
+  /// сообщения (сервер заполняет только у исходного сообщения — того, что
+  /// стало `TaskLink.matrixEventId`). Bubble по ним рисует значок цвета
+  /// стадии, тап ведёт в обсуждение задачи.
+  ///
+  /// `taskStage` — стадия тикета строкой (`new`/`in_progress`/`accepted`/
+  /// `rejected`); цвет решает клиент ([taskStageColor]). **null**, когда
+  /// TaskLink есть, а тикета нет — значок нейтральный «задача заведена».
+  /// `taskThreadRootEventId` — корень треда задачи (TASK82): есть → тап
+  /// открывает тред, нет → открывает `taskUrl` во внешнем браузере.
+  /// `taskUrl` — ссылка на issue (fallback-переход и признак «задача есть»).
+  /// Все три null → задачи нет, значка нет.
+  final String? taskStage;
+  final String? taskThreadRootEventId;
+  final String? taskUrl;
+
+  /// Значок задачи рисуется, когда есть хоть что-то о задаче: стадия (тикет)
+  /// или хотя бы URL (TaskLink без тикета). См. [MessageBubble].
+  bool get hasTaskBadge => taskStage != null || taskUrl != null;
+
   final String? replyToMessageId;
   final ChatMessageStatus status;
 
@@ -243,6 +267,9 @@ class ChatMessage {
       serverTimestamp: m.serverTimestamp,
       threadId: m.threadId,
       threadReplyCount: m.threadReplyCount,
+      taskStage: m.taskStage,
+      taskThreadRootEventId: m.taskThreadRootEventId,
+      taskUrl: m.taskUrl,
       replyToMessageId: m.replyToMessageId,
       status: ChatMessageStatus.sent,
       attachment: m.attachment,
@@ -339,6 +366,9 @@ class ChatMessage {
     serverTimestamp: serverTimestamp,
     threadId: threadId,
     threadReplyCount: threadReplyCount,
+    taskStage: taskStage,
+    taskThreadRootEventId: taskThreadRootEventId,
+    taskUrl: taskUrl,
     replyToMessageId: replyToMessageId,
     status: ChatMessageStatus.failed,
     lastError: error,
@@ -368,6 +398,9 @@ class ChatMessage {
     serverTimestamp: serverTimestamp,
     threadId: threadId,
     threadReplyCount: threadReplyCount,
+    taskStage: taskStage,
+    taskThreadRootEventId: taskThreadRootEventId,
+    taskUrl: taskUrl,
     replyToMessageId: replyToMessageId,
     status: ChatMessageStatus.pending,
     attachment: attachment,
@@ -399,6 +432,9 @@ class ChatMessage {
     serverTimestamp: serverTimestamp,
     threadId: threadId,
     threadReplyCount: threadReplyCount,
+    taskStage: taskStage,
+    taskThreadRootEventId: taskThreadRootEventId,
+    taskUrl: taskUrl,
     replyToMessageId: replyToMessageId,
     status: status,
     attachment: ref,
@@ -431,6 +467,9 @@ class ChatMessage {
     serverTimestamp: serverTimestamp,
     threadId: threadId,
     threadReplyCount: threadReplyCount,
+    taskStage: taskStage,
+    taskThreadRootEventId: taskThreadRootEventId,
+    taskUrl: taskUrl,
     replyToMessageId: replyToMessageId,
     status: status,
     attachment: attachment,
@@ -461,6 +500,9 @@ class ChatMessage {
     // Тред переживает удаление якоря — «Обсуждение (N)» на tombstone
     // остаётся (сама переписка задачи никуда не делась).
     threadReplyCount: threadReplyCount,
+    taskStage: taskStage,
+    taskThreadRootEventId: taskThreadRootEventId,
+    taskUrl: taskUrl,
     replyToMessageId: replyToMessageId,
     status: status,
     attachment: null,

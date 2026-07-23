@@ -2478,5 +2478,20 @@
   "threadScreenTitle": "Task discussion",
   "@threadScreenTitle": {"description": "TASK82: fallback title of the thread screen when the task subject is unknown."},
   "threadScreenEmpty": "No replies yet. Ask a question about the task here.",
-  "@threadScreenEmpty": {"description": "TASK82: empty state of the task thread feed."}
+  "@threadScreenEmpty": {"description": "TASK82: empty state of the task thread feed."},
+  "taskBadgeTooltip": "Task: {status}",
+  "@taskBadgeTooltip": {
+    "description": "TASK83: tooltip on the task badge shown on the source message; {status} is the localized stage label.",
+    "placeholders": {"status": {"type": "String", "example": "In progress"}}
+  },
+  "taskStageCreated": "Filed",
+  "@taskStageCreated": {"description": "TASK83: task stage when a TaskLink exists but no ticket (task filed externally, work not started)."},
+  "taskStageNew": "New",
+  "@taskStageNew": {"description": "TASK83: task stage 'new' (filed, not yet triaged)."},
+  "taskStageInProgress": "In progress",
+  "@taskStageInProgress": {"description": "TASK83: task stage 'in_progress'."},
+  "taskStageAccepted": "Accepted",
+  "@taskStageAccepted": {"description": "TASK83: task stage 'accepted' (done / accepted)."},
+  "taskStageRejected": "Rejected",
+  "@taskStageRejected": {"description": "TASK83: task stage 'rejected' (closed without completion)."}
 }

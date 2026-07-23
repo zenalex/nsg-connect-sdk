@@ -645,5 +645,12 @@
 
   "threadOpenDiscussion": "Обсуждение ({count})",
   "threadScreenTitle": "Обсуждение задачи",
-  "threadScreenEmpty": "Ответов пока нет. Задайте здесь вопрос по задаче."
+  "threadScreenEmpty": "Ответов пока нет. Задайте здесь вопрос по задаче.",
+
+  "taskBadgeTooltip": "Задача: {status}",
+  "taskStageCreated": "Заведена",
+  "taskStageNew": "Новая",
+  "taskStageInProgress": "В работе",
+  "taskStageAccepted": "Принята",
+  "taskStageRejected": "Отклонена"
 }

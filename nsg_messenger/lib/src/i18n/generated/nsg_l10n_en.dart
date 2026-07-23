@@ -2047,4 +2047,24 @@ class NsgL10nEn extends NsgL10n {
   @override
   String get threadScreenEmpty =>
       'No replies yet. Ask a question about the task here.';
+
+  @override
+  String taskBadgeTooltip(String status) {
+    return 'Task: $status';
+  }
+
+  @override
+  String get taskStageCreated => 'Filed';
+
+  @override
+  String get taskStageNew => 'New';
+
+  @override
+  String get taskStageInProgress => 'In progress';
+
+  @override
+  String get taskStageAccepted => 'Accepted';
+
+  @override
+  String get taskStageRejected => 'Rejected';
 }

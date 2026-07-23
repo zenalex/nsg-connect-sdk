@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:nsg_connect_client/nsg_connect_client.dart'
     show
         AttachmentRef,
@@ -133,6 +134,8 @@ class ChatScreen extends StatefulWidget {
     @visibleForTesting this.forwardRoomsLoaderOverride,
     @visibleForTesting this.forwardSourceProbeOverride,
     @visibleForTesting this.openThreadOverride,
+    @visibleForTesting this.openTaskThreadOverride,
+    @visibleForTesting this.openTaskUrlOverride,
   });
 
   final int roomId;
@@ -143,6 +146,20 @@ class ChatScreen extends StatefulWidget {
   /// которому нужен Serverpod-клиент).
   final void Function(BuildContext context, ChatMessage anchor)?
   openThreadOverride;
+
+  /// **TASK83**: visible-for-testing подмена перехода в ТРЕД задачи по тапу на
+  /// значок задачи (у задачи есть тред). Отдельно от [openThreadOverride]:
+  /// там якорь — само сообщение (`anchor.matrixEventId` = корень), а здесь
+  /// корень треда — ДРУГОЕ сообщение (`taskThreadRootEventId`), поэтому
+  /// переиспользовать anchor-сигнатуру нельзя. В production — push
+  /// [ThreadScreen] с этим корнем.
+  final void Function(BuildContext context, String threadRootEventId)?
+  openTaskThreadOverride;
+
+  /// **TASK83**: visible-for-testing подмена открытия issue-URL по тапу на
+  /// значок задачи (у задачи НЕТ треда — fallback во внешний браузер). В
+  /// production — `launchUrl(externalApplication)`.
+  final void Function(String url)? openTaskUrlOverride;
 
   /// **Пересылка (мультивыбор)**: visible-for-testing загрузчик списка чатов
   /// для forward-пикера. Если передан — используется вместо
@@ -1116,6 +1133,49 @@ class _ChatScreenState extends State<ChatScreen>
         ),
       ),
     );
+  }
+
+  /// **TASK83**: тап по значку задачи на ИСХОДНОМ сообщении. Куда ведёт —
+  /// решаем здесь (bubble «глупый»): есть корень треда задачи → открываем
+  /// обсуждение (TASK82); нет треда (старая задача / не-support комната) →
+  /// падаем на issue-URL во внешнем браузере. Открывать issue из мобильного —
+  /// плохой UX, поэтому это именно fallback.
+  void _openTask(String? threadRootEventId, String? url) {
+    if (threadRootEventId != null && threadRootEventId.isNotEmpty) {
+      final override = widget.openTaskThreadOverride;
+      if (override != null) {
+        override(context, threadRootEventId);
+        return;
+      }
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => ThreadScreen(
+            roomId: widget.roomId,
+            threadRootEventId: threadRootEventId,
+          ),
+        ),
+      );
+      return;
+    }
+    if (url == null || url.isEmpty) return;
+    final override = widget.openTaskUrlOverride;
+    if (override != null) {
+      override(url);
+      return;
+    }
+    unawaited(_launchExternalUrl(url));
+  }
+
+  /// Открыть внешний URL (issue задачи) в браузере. Best-effort: невалидный
+  /// URL / отсутствие хендлера не должны ронять чат — тихо логируем в трекер.
+  Future<void> _launchExternalUrl(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (e, st) {
+      _reportActionFailed(e, st, 'openTask');
+    }
   }
 
   /// Отправить в трекер ошибку действия чата, которую увидел пользователь.
@@ -2427,6 +2487,8 @@ class _ChatScreenState extends State<ChatScreen>
                         onMentionSender: _onMentionSenderTap,
                         // **TASK82**: вход в тред задачи с якорного пузыря.
                         onOpenThread: _openThread,
+                        // **TASK83**: тап по значку задачи на исходном сообщении.
+                        onOpenTask: _openTask,
                       ),
                     ),
                   ),
@@ -2717,6 +2779,7 @@ class _Body extends StatelessWidget {
     this.onToggleSelect,
     this.onMentionSender,
     this.onOpenThread,
+    this.onOpenTask,
   });
 
   final MessagesState state;
@@ -2785,6 +2848,9 @@ class _Body extends StatelessWidget {
   /// **TASK82**: тап по строке «Обсуждение (N)» на якоре задачи.
   final void Function(ChatMessage anchor)? onOpenThread;
 
+  /// **TASK83**: тап по значку задачи на исходном сообщении (корень треда, url).
+  final void Function(String? threadRootEventId, String? url)? onOpenTask;
+
   @override
   Widget build(BuildContext context) {
     final s = state;
@@ -2820,6 +2886,7 @@ class _Body extends StatelessWidget {
                 onToggleSelect: onToggleSelect,
                 onMentionSender: onMentionSender,
                 onOpenThread: onOpenThread,
+                onOpenTask: onOpenTask,
                 errorBanner: e,
               ),
       MessagesReady() => _Loaded(
@@ -2849,6 +2916,7 @@ class _Body extends StatelessWidget {
         onToggleSelect: onToggleSelect,
         onMentionSender: onMentionSender,
         onOpenThread: onOpenThread,
+        onOpenTask: onOpenTask,
       ),
     };
   }
@@ -2882,6 +2950,7 @@ class _Loaded extends StatelessWidget {
     this.onToggleSelect,
     this.onMentionSender,
     this.onOpenThread,
+    this.onOpenTask,
     this.errorBanner,
   });
 
@@ -2922,6 +2991,9 @@ class _Loaded extends StatelessWidget {
 
   /// **TASK82**: тап по строке «Обсуждение (N)» на якоре задачи.
   final void Function(ChatMessage anchor)? onOpenThread;
+
+  /// **TASK83**: тап по значку задачи на исходном сообщении (корень треда, url).
+  final void Function(String? threadRootEventId, String? url)? onOpenTask;
   final Object? errorBanner;
 
   @override
@@ -3125,6 +3197,12 @@ class _Loaded extends StatelessWidget {
                             onOpenThread:
                                 (onOpenThread != null && !selectionMode)
                                 ? () => onOpenThread!(m)
+                                : null,
+                            // **TASK83**: значок задачи на исходном сообщении.
+                            // Вне режима выбора (там тап значит «выбрать»);
+                            // маршрут (тред vs issue) решает _openTask.
+                            onOpenTask: (onOpenTask != null && !selectionMode)
+                                ? onOpenTask
                                 : null,
                             // **Пересылка (мультивыбор)**: режим выбора + тоггл.
                             selectionMode: selectionMode,

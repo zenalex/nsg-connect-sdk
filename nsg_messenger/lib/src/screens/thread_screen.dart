@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../i18n/generated/nsg_l10n.dart';
 import '../messages/message_bubble.dart';
@@ -102,6 +103,38 @@ class _ThreadScreenState extends State<ThreadScreen> {
     return false;
   }
 
+  /// **TASK83**: тап по значку задачи на сообщении внутри треда. Исходное
+  /// сообщение задачи в общем случае живёт в основной ленте, но может попасть
+  /// и сюда — тогда: другой корень треда → открываем ТОТ тред; наш же корень →
+  /// no-op (мы уже в нём); нет треда → issue-URL во внешнем браузере.
+  void _openTask(String? threadRootEventId, String? url) {
+    if (threadRootEventId != null &&
+        threadRootEventId.isNotEmpty &&
+        threadRootEventId != widget.threadRootEventId) {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => ThreadScreen(
+            roomId: widget.roomId,
+            threadRootEventId: threadRootEventId,
+          ),
+        ),
+      );
+      return;
+    }
+    if (url == null || url.isEmpty) return;
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    unawaited(_launchExternal(uri));
+  }
+
+  Future<void> _launchExternal(Uri uri) async {
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      // best-effort: невалидный URL / нет хендлера не должны ронять экран.
+    }
+  }
+
   Future<void> _send(
     String body, {
     List<int>? mentionedMessengerUserIds,
@@ -152,6 +185,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
                 controller: _controller,
                 scrollController: _scroll,
                 onScroll: _onScroll,
+                onOpenTask: _openTask,
               ),
             ),
           ),
@@ -176,12 +210,16 @@ class _ThreadBody extends StatelessWidget {
     required this.controller,
     required this.scrollController,
     required this.onScroll,
+    required this.onOpenTask,
   });
 
   final MessagesState state;
   final MessagesController controller;
   final ScrollController scrollController;
   final bool Function(ScrollNotification) onScroll;
+
+  /// **TASK83**: тап по значку задачи на сообщении треда (корень треда, url).
+  final void Function(String? threadRootEventId, String? url) onOpenTask;
 
   @override
   Widget build(BuildContext context) {
@@ -250,6 +288,9 @@ class _ThreadBody extends StatelessWidget {
                       (i == messages.length - 1 ||
                           messages[i + 1].senderMatrixUserId !=
                               m.senderMatrixUserId),
+                  // **TASK83**: значок задачи и здесь (если исходное сообщение
+                  // попало в тред) — тот же колбэк маршрутизации.
+                  onOpenTask: onOpenTask,
                 );
               },
             ),

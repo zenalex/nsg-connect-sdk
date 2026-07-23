@@ -3726,6 +3726,42 @@ abstract class NsgL10n {
   /// In en, this message translates to:
   /// **'No replies yet. Ask a question about the task here.'**
   String get threadScreenEmpty;
+
+  /// TASK83: tooltip on the task badge shown on the source message; {status} is the localized stage label.
+  ///
+  /// In en, this message translates to:
+  /// **'Task: {status}'**
+  String taskBadgeTooltip(String status);
+
+  /// TASK83: task stage when a TaskLink exists but no ticket (task filed externally, work not started).
+  ///
+  /// In en, this message translates to:
+  /// **'Filed'**
+  String get taskStageCreated;
+
+  /// TASK83: task stage 'new' (filed, not yet triaged).
+  ///
+  /// In en, this message translates to:
+  /// **'New'**
+  String get taskStageNew;
+
+  /// TASK83: task stage 'in_progress'.
+  ///
+  /// In en, this message translates to:
+  /// **'In progress'**
+  String get taskStageInProgress;
+
+  /// TASK83: task stage 'accepted' (done / accepted).
+  ///
+  /// In en, this message translates to:
+  /// **'Accepted'**
+  String get taskStageAccepted;
+
+  /// TASK83: task stage 'rejected' (closed without completion).
+  ///
+  /// In en, this message translates to:
+  /// **'Rejected'**
+  String get taskStageRejected;
 }
 
 class _NsgL10nDelegate extends LocalizationsDelegate<NsgL10n> {
