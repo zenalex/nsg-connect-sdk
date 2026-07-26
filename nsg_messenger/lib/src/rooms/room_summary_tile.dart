@@ -6,6 +6,7 @@ import 'package:timeago/timeago.dart' as timeago;
 import '../i18n/generated/nsg_l10n.dart';
 import '../theme/nsg_messenger_theme.dart';
 import '../utils/relative_time.dart';
+import '../widgets/nsg_bot_badge.dart';
 
 /// Один элемент списка чатов. Тестируется отдельно от
 /// [ChatsListScreen] (см. ревью b89bfd9 подсказка b).
@@ -50,10 +51,22 @@ class RoomSummaryTile extends StatelessWidget {
           url: room.avatarUrl,
           size: tileTokens.avatarSize,
         ),
-        title: Text(
-          room.name ?? NsgL10n.of(context).roomSummaryNoName,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+        // TASK77 довесок A: direct-чат с ботом помечен иконкой (compact —
+        // в строке списка и так тесно от имени, времени и превью).
+        title: Row(
+          children: [
+            Flexible(
+              child: Text(
+                room.name ?? NsgL10n.of(context).roomSummaryNoName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (NsgBotBadge.isNonHuman(room.directPeerKind)) ...[
+              const SizedBox(width: 4),
+              NsgBotBadge(kind: room.directPeerKind, compact: true),
+            ],
+          ],
         ),
         subtitle: Padding(
           // TASK22 Phase2 Chunk 1: title→subtitle spacing через top-padding

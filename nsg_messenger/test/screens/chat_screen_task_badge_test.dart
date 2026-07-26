@@ -10,6 +10,7 @@ import 'package:nsg_messenger/src/messages/messages_rpc.dart';
 import 'package:nsg_messenger/src/rooms/room_summary_tile.dart'
     show registerTimeagoLocales;
 import 'package:nsg_messenger/src/screens/chat_screen.dart';
+import 'package:nsg_messenger/src/screens/tasks_header_button.dart';
 
 /// **TASK83**: маршрут тапа по значку задачи в [ChatScreen] — тред задачи
 /// (если у неё есть корень треда) или issue-URL (fallback). Экран, не bubble,
@@ -78,6 +79,8 @@ void main() {
     required MessengerMessage seeded,
     void Function(BuildContext, String)? onThread,
     void Function(String)? onUrl,
+    Future<RoomTaskStats> Function(int roomId)? statsFetcher,
+    void Function(BuildContext, int roomId)? onOpenRoomTasks,
   }) async {
     final rpc = _FakeRpc();
     rpc.listMessagesHandler = (_, _, _) =>
@@ -102,6 +105,8 @@ void main() {
           roomDetailsOverride: details(),
           openTaskThreadOverride: onThread,
           openTaskUrlOverride: onUrl,
+          roomTaskStatsFetcherOverride: statsFetcher,
+          openRoomTasksOverride: onOpenRoomTasks,
         ),
       ),
     );
@@ -152,6 +157,59 @@ void main() {
     expect(find.byKey(const Key('taskBadge')), findsNothing);
     await tester.pumpWidget(const SizedBox.shrink());
   });
+
+  // ── TASK88: иконка задач в шапке чата ──────────────────────────────────
+
+  testWidgets('TASK88: у комнаты есть задачи → иконка в шапке с бейджем', (
+    tester,
+  ) async {
+    await pumpChat(
+      tester,
+      seeded: msg(),
+      onThread: (_, _) {},
+      onUrl: (_) {},
+      statsFetcher: (_) async => RoomTaskStats(active: 2, total: 3),
+    );
+    await tester.pump(); // применить setState после fetcher.
+    expect(find.byKey(const Key('roomTasksButton')), findsOneWidget);
+    expect(find.byType(TasksHeaderButton), findsOneWidget);
+    expect(find.text('2'), findsOneWidget, reason: 'бейдж активных');
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('TASK88: нет задач в комнате → иконки в шапке нет', (
+    tester,
+  ) async {
+    await pumpChat(
+      tester,
+      seeded: msg(),
+      onThread: (_, _) {},
+      onUrl: (_) {},
+      statsFetcher: (_) async => RoomTaskStats(active: 0, total: 0),
+    );
+    await tester.pump();
+    expect(find.byKey(const Key('roomTasksButton')), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('TASK88: тап по иконке → задачи ЭТОЙ комнаты (roomId)', (
+    tester,
+  ) async {
+    int? openedRoomId;
+    await pumpChat(
+      tester,
+      seeded: msg(),
+      onThread: (_, _) {},
+      onUrl: (_) {},
+      statsFetcher: (_) async => RoomTaskStats(active: 1, total: 1),
+      onOpenRoomTasks: (_, id) => openedRoomId = id,
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('roomTasksButton')));
+    await tester.pump();
+    expect(openedRoomId, 7);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 }
 
 class _FakeRpc implements MessagesRpc {
@@ -173,6 +231,7 @@ class _FakeRpc implements MessagesRpc {
   Future<bool> markRead({
     required int roomId,
     required String matrixEventId,
+    String? threadRootEventId,
   }) async => true;
 
   @override

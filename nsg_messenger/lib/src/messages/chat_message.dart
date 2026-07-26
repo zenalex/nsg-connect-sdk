@@ -450,6 +450,46 @@ class ChatMessage {
     localMimeType: localMimeType,
   );
 
+  /// **TASK87**: применить realtime-значок задачи (`taskBadgeUpdated`) —
+  /// заменяет ТОЛЬКО метаданные задачи (`taskStage`/`taskThreadRootEventId`/
+  /// `taskUrl`), остальное сохраняется. Значок — состояние: последнее событие
+  /// побеждает (регистрация → сразу смена стадии оба применяются, конечный
+  /// вид верный). Используется `MessagesController._onEvent` для точечного
+  /// обновления пузыря без перезахода.
+  ChatMessage withTaskBadge({
+    required String? taskStage,
+    required String? taskThreadRootEventId,
+    required String? taskUrl,
+  }) => ChatMessage(
+    clientTxnId: clientTxnId,
+    matrixEventId: matrixEventId,
+    senderMatrixUserId: senderMatrixUserId,
+    senderMessengerUserId: senderMessengerUserId,
+    body: body,
+    msgType: msgType,
+    serverTimestamp: serverTimestamp,
+    status: status,
+    threadId: threadId,
+    threadReplyCount: threadReplyCount,
+    taskStage: taskStage,
+    taskThreadRootEventId: taskThreadRootEventId,
+    taskUrl: taskUrl,
+    replyToMessageId: replyToMessageId,
+    lastError: lastError,
+    attachment: attachment,
+    editedAt: editedAt,
+    deletedAt: deletedAt,
+    mentionedMessengerUserIds: mentionedMessengerUserIds,
+    senderDisplayName: senderDisplayName,
+    albumId: albumId,
+    forwardedFromName: forwardedFromName,
+    forwardedFromMessengerUserId: forwardedFromMessengerUserId,
+    forwardedSource: forwardedSource,
+    statusCard: statusCard,
+    localImageBytes: localImageBytes,
+    localMimeType: localMimeType,
+  );
+
   /// **TASK37**: применить edit — body заменяется, `editedAt`
   /// populated. Использует и optimistic-update в controller, и
   /// `messageUpdated` reactor для realtime apply.
@@ -529,12 +569,28 @@ class ChatMessage {
         other.senderMatrixUserId == senderMatrixUserId &&
         other.body == body &&
         other.serverTimestamp == serverTimestamp &&
-        other.status == status;
+        other.status == status &&
+        // **TASK87**: значок задачи — часть визуальной идентичности сообщения.
+        // Без него realtime-перекраска (меняется ТОЛЬКО стадия/URL, не body)
+        // считалась бы «тем же сообщением», `MessagesReady`==-diff гасил бы
+        // обновление (listEquals → ValueNotifier не нотифает), и пузырь не
+        // перерисовывался бы до перезахода.
+        other.taskStage == taskStage &&
+        other.taskThreadRootEventId == taskThreadRootEventId &&
+        other.taskUrl == taskUrl;
   }
 
   @override
-  int get hashCode =>
-      Object.hash(clientTxnId, matrixEventId, body, serverTimestamp, status);
+  int get hashCode => Object.hash(
+    clientTxnId,
+    matrixEventId,
+    body,
+    serverTimestamp,
+    status,
+    taskStage,
+    taskThreadRootEventId,
+    taskUrl,
+  );
 
   @override
   String toString() =>

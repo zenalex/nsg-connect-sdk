@@ -153,19 +153,81 @@ void main() {
 
     expect(find.text('Вы ещё не заводили задач.'), findsOneWidget);
   });
+
+  // ── TASK88: room-scoped режим (задачи одной комнаты) ───────────────────
+
+  testWidgets('TASK88: roomId → один список без вкладок, заголовок '
+      '«Задачи: <комната>», RPC зовётся с roomId', (tester) async {
+    final rpc = _FakeRpc({
+      'all': [task(1, stage: 'in_progress', title: 'Заявка A')],
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('ru'),
+        localizationsDelegates: const [
+          NsgL10n.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: NsgL10n.supportedLocales,
+        home: TasksScreen(
+          roomId: 555,
+          roomTitle: 'Поддержка',
+          rpcOverride: rpc,
+          onOpenRoom: (_, _) {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Заголовок «Задачи: <комната>».
+    expect(find.text('Задачи: Поддержка'), findsOneWidget);
+    // Один список без вкладок «Все»/«Я инициатор».
+    expect(find.text('Я инициатор'), findsNothing);
+    // RPC вызван строго с этим roomId (membership-скоуп на сервере).
+    expect(rpc.roomIdCalls, [555]);
+    expect(find.text('Заявка A'), findsOneWidget);
+  });
+
+  testWidgets('TASK88: roomId без имени комнаты → общий заголовок «Задачи»', (
+    tester,
+  ) async {
+    final rpc = _FakeRpc({'all': const []});
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('ru'),
+        localizationsDelegates: const [
+          NsgL10n.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: NsgL10n.supportedLocales,
+        home: TasksScreen(roomId: 7, rpcOverride: rpc, onOpenRoom: (_, _) {}),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Задачи'), findsOneWidget);
+    expect(rpc.roomIdCalls, [7]);
+  });
 }
 
 /// Fake RPC: отдаёт заранее заданный список под каждый фильтр и ЗАПОМИНАЕТ, с
-/// какими фильтрами его звали (проверка «вкладка → нужный filter»).
+/// какими фильтрами его звали (проверка «вкладка → нужный filter»). **TASK88**:
+/// также запоминает `roomId` каждого вызова (room-scoped-режим).
 class _FakeRpc implements MyTasksRpc {
   _FakeRpc(this._byFilter);
 
   final Map<String, List<TicketView>> _byFilter;
   final List<String> calls = [];
+  final List<int?> roomIdCalls = [];
 
   @override
-  Future<List<TicketView>> listMyTasks(String filter) async {
+  Future<List<TicketView>> listMyTasks(String filter, {int? roomId}) async {
     calls.add(filter);
+    roomIdCalls.add(roomId);
     return _byFilter[filter] ?? const [];
   }
 }

@@ -9,6 +9,7 @@ import '../rooms/role_badge.dart';
 import '../widgets/nsg_avatar_image.dart';
 import 'banned_users_screen.dart';
 import 'contact_profile_screen.dart';
+import '../widgets/nsg_bot_badge.dart';
 
 /// **TASK29 Chunk 2**: список участников комнаты с role badges +
 /// long-press → admin action sheet (kick/ban/promote/demote).
@@ -169,10 +170,22 @@ class _ParticipantsScreenState extends State<ParticipantsScreen> {
                       fallbackName: p.displayName ?? p.matrixUserId,
                       size: 40,
                     ),
-                    title: Text(
-                      p.displayName ?? p.matrixUserId,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    // TASK77 довесок A: бот в составе комнаты помечен явно —
+                    // видно ДО того, как он что-то напишет.
+                    title: Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            p.displayName ?? p.matrixUserId,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (NsgBotBadge.isNonHuman(p.participantKind)) ...[
+                          const SizedBox(width: 6),
+                          NsgBotBadge(kind: p.participantKind),
+                        ],
+                      ],
                     ),
                     subtitle: Text(
                       p.matrixUserId,

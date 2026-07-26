@@ -189,4 +189,42 @@ void main() {
     );
     expect(tip.message, 'Задача: В работе');
   });
+
+  // ── TASK88: подпись «Задача» у значка ──────────────────────────────────
+
+  testWidgets('TASK88: подпись «Задача» рисуется рядом со значком (ru)', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      bubble(
+        src(stage: 'in_progress', url: 'https://x/1'),
+        onOpenTask: (_, _) {},
+        locale: const Locale('ru'),
+      ),
+    );
+    expect(find.byKey(const Key('taskBadgeLabel')), findsOneWidget);
+    expect(find.text('Задача'), findsOneWidget);
+  });
+
+  testWidgets('TASK88: подпись «Task» на en', (tester) async {
+    await tester.pumpWidget(
+      bubble(src(stage: 'accepted', url: 'https://x/1'), onOpenTask: (_, _) {}),
+    );
+    expect(find.text('Task'), findsOneWidget);
+  });
+
+  testWidgets('TASK88: подпись в цвет стадии (accepted → green)', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      bubble(src(stage: 'accepted', url: 'https://x/1'), onOpenTask: (_, _) {}),
+    );
+    final label = tester.widget<Text>(find.byKey(const Key('taskBadgeLabel')));
+    expect(label.style?.color, Colors.green);
+  });
+
+  testWidgets('TASK88: нет задачи → подписи нет', (tester) async {
+    await tester.pumpWidget(bubble(src(), onOpenTask: (_, _) {}));
+    expect(find.byKey(const Key('taskBadgeLabel')), findsNothing);
+  });
 }

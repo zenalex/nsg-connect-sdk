@@ -706,6 +706,11 @@
     }
   },
 
+  "botCommandsTypeaheadHeader": "Bot commands",
+  "@botCommandsTypeaheadHeader": {
+    "description": "TASK77 итер.1: header в /-typeahead композера — объясняет, что это объявленные ботами комнаты slash-команды, а не автодополнение текста."
+  },
+
   "roleBadgeOwner": "Owner",
   "@roleBadgeOwner": {
     "description": "TASK29 Chunk 2: tooltip для crown-badge у owner-роли в participant tile."
@@ -1617,6 +1622,19 @@
     "description": "TASK36: подзаголовок бота без единого гранта (может только слушать)."
   },
 
+  "botsAdminNoCommands": "no commands declared",
+  "@botsAdminNoCommands": {
+    "description": "TASK77 итер.1: подзаголовок бота, который не объявил ни одной slash-команды через setMyCommands — пользователи не увидят его в подсказке по «/»."
+  },
+
+  "botsAdminCommandsLabel": "Commands: {commands}",
+  "@botsAdminCommandsLabel": {
+    "description": "TASK77 итер.1: строка admin-тайла со списком объявленных ботом команд («/deploy, /status»).",
+    "placeholders": {
+      "commands": {"type": "String"}
+    }
+  },
+
   "botsAdminTokenTitle": "Bot access token",
   "@botsAdminTokenTitle": {
     "description": "TASK36: заголовок диалога с access-токеном бота (после создания или ротации)."
@@ -2068,6 +2086,11 @@
     "description": "TASK60: вариант периода — 15 минут."
   },
 
+  "pulsePeriod30m": "30 min",
+  "@pulsePeriod30m": {
+    "description": "Вариант периода — 30 минут (шаг планировщиков «раз в полчаса»)."
+  },
+
   "pulsePeriod1h": "1 hour",
   "@pulsePeriod1h": {
     "description": "TASK60: вариант периода — 1 час."
@@ -2287,6 +2310,91 @@
   "pulseLevel1Helper": "Comma-separated messenger user ids to DM on escalation.",
   "@pulseLevel1Helper": {
     "description": "TASK60: подсказка под полем level1UserIds (CSV MUID)."
+  },
+
+  "pulseMembers": "Members",
+  "@pulseMembers": {
+    "description": "TASK79: кнопка/заголовок раздела участников папки или монитора."
+  },
+
+  "pulseMembersOf": "Members · {name}",
+  "@pulseMembersOf": {
+    "description": "TASK79: заголовок экрана участников с именем объекта.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+
+  "pulseAddMember": "Add member",
+  "@pulseAddMember": {
+    "description": "TASK79: кнопка добавления участника к папке/монитору."
+  },
+
+  "pulseRemoveMember": "Revoke access",
+  "@pulseRemoveMember": {
+    "description": "TASK79: действие «убрать участника» в списке участников."
+  },
+
+  "pulseNoMembers": "No members yet",
+  "@pulseNoMembers": {
+    "description": "TASK79: пустой список участников."
+  },
+
+  "pulseRoleOwner": "Owner",
+  "@pulseRoleOwner": {
+    "description": "TASK79: роль владельца объекта мониторинга."
+  },
+
+  "pulseRoleAdmin": "Admin",
+  "@pulseRoleAdmin": {
+    "description": "TASK79: роль администратора объекта мониторинга."
+  },
+
+  "pulseRoleViewer": "Viewer",
+  "@pulseRoleViewer": {
+    "description": "TASK79: роль наблюдателя — видит статусы и инциденты, ничего не меняет."
+  },
+
+  "pulseRoleLabel": "Role",
+  "@pulseRoleLabel": {
+    "description": "TASK79: подпись выпадашки выбора роли."
+  },
+
+  "pulseRoleInherited": "Inherited from folder",
+  "@pulseRoleInherited": {
+    "description": "TASK79: пометка унаследованного членства — убирать участника надо в папке-предке."
+  },
+
+  "pulseMemberInheritedHint": "Access comes from a parent folder. Change it there.",
+  "@pulseMemberInheritedHint": {
+    "description": "TASK79: подсказка при попытке изменить унаследованное членство."
+  },
+
+  "pulseLastOwnerError": "The last owner cannot be removed or demoted.",
+  "@pulseLastOwnerError": {
+    "description": "TASK79: сервер отклонил снятие последнего владельца (LastOwnerCannotDemoteException)."
+  },
+
+  "pulsePickMember": "Pick a person",
+  "@pulsePickMember": {
+    "description": "TASK79: заголовок выбора пользователя при добавлении участника."
+  },
+
+  "pulseMemberSearchHint": "Email or nickname",
+  "@pulseMemberSearchHint": {
+    "description": "TASK79: подсказка в поле поиска пользователя."
+  },
+
+  "pulseMemberSearchEmpty": "Nobody found",
+  "@pulseMemberSearchEmpty": {
+    "description": "TASK79: поиск пользователей ничего не нашёл."
+  },
+
+  "pulseReadOnlyHint": "You have view-only access",
+  "@pulseReadOnlyHint": {
+    "description": "TASK79: подпись в карточке монитора для роли viewer — управление скрыто."
   },
 
   "pulseRuleSummary": "≥ {severity} → room {room}",
@@ -2514,5 +2622,20 @@
   "tasksEmptyInitiator": "You haven't filed any tasks yet.",
   "@tasksEmptyInitiator": {"description": "TASK84: empty state of the Initiated-by-me tab."},
   "tasksLoadError": "Failed to load tasks",
-  "@tasksLoadError": {"description": "TASK84: error shown when the tasks list fails to load."}
+  "@tasksLoadError": {"description": "TASK84: error shown when the tasks list fails to load."},
+  "taskLabel": "Task",
+  "@taskLabel": {"description": "TASK88: short label shown next to the task badge on a source message (in the stage color)."},
+  "tasksScreenTitleForRoom": "Tasks: {room}",
+  "@tasksScreenTitleForRoom": {
+    "description": "TASK88: title of the Tasks screen scoped to one room (tap on the header task icon); {room} is the room name.",
+    "placeholders": {"room": {"type": "String", "example": "Support"}}
+  },
+  "supportInboxProjectFilterLabel": "Project:",
+  "@supportInboxProjectFilterLabel": {"description": "TASK75: caption next to the project filter chip in the support inbox folder header."},
+  "supportInboxProjectFilterAll": "All projects",
+  "@supportInboxProjectFilterAll": {"description": "TASK75: support inbox project filter — no project selected (reset value)."},
+  "supportInboxProjectFilterTitle": "Filter by project",
+  "@supportInboxProjectFilterTitle": {"description": "TASK75: title of the bottom sheet that picks a project for the support inbox filter."},
+  "supportInboxEmpty": "No requests",
+  "@supportInboxEmpty": {"description": "TASK75: empty state of the support inbox (no open support chats, or none match the project filter)."}
 }

@@ -35,6 +35,7 @@ abstract class Bot implements _i1.SerializableModel {
     required this.accessToken,
     required this.capabilities,
     bool? enabled,
+    this.commandsJson,
     bool? discoverable,
     required this.createdAt,
   }) : enabled = enabled ?? true,
@@ -50,6 +51,7 @@ abstract class Bot implements _i1.SerializableModel {
     required String accessToken,
     required String capabilities,
     bool? enabled,
+    String? commandsJson,
     bool? discoverable,
     required DateTime createdAt,
   }) = _BotImpl;
@@ -67,6 +69,7 @@ abstract class Bot implements _i1.SerializableModel {
       enabled: jsonSerialization['enabled'] == null
           ? null
           : _i1.BoolJsonExtension.fromJson(jsonSerialization['enabled']),
+      commandsJson: jsonSerialization['commandsJson'] as String?,
       discoverable: jsonSerialization['discoverable'] == null
           ? null
           : _i1.BoolJsonExtension.fromJson(jsonSerialization['discoverable']),
@@ -111,6 +114,25 @@ abstract class Bot implements _i1.SerializableModel {
   /// gated-action (бот не может постить/управлять). Чтение остаётся.
   bool enabled;
 
+  /// **TASK77 итер.1**: реестр slash-команд бота — JSON-массив
+  /// `[{"command":"deploy","description":"..."}]`, ровно
+  /// `BotCommand.toJson()` (симметрично парсится и на сервере
+  /// `BotService.decodeCommands`, и на клиенте `decodeBotCommands`).
+  /// `null`/пусто = бот команд не объявил.
+  ///
+  /// **Почему JSON-строка, а не CSV и не отдельная таблица.** CSV (как у
+  /// `capabilities`) здесь не годится принципиально: значение — ПАРА, а
+  /// описание — свободный текст с пробелами и запятыми, любой разделитель
+  /// пришлось бы экранировать, т.е. изобретать формат. Отдельная таблица
+  /// `bot_commands` (FK + индекс + поле порядка + CRUD) — оплата
+  /// реляционной модели там, где реляционного доступа нет: список всегда
+  /// читается и пишется ЦЕЛИКОМ (`setMyCommands` — полная замена, ≤32
+  /// записи), «найди ботов с командой /deploy» никому не нужно, а порядок
+  /// элементов — часть UX бота и в JSON-массиве он бесплатный. Это
+  /// документ, а не сущность. Плюс миграция: nullable-колонка добавляется
+  /// безопасно, без backfill-а существующих ботов.
+  String? commandsJson;
+
   /// **Issue #49 (открытая платформа)**: видимость в `searchUsers`.
   /// `false` (дефолт) — бот НЕ находится поиском, добавить его в чужую
   /// комнату «с улицы» нельзя; публичность — осознанный выбор владельца.
@@ -134,6 +156,7 @@ abstract class Bot implements _i1.SerializableModel {
     String? accessToken,
     String? capabilities,
     bool? enabled,
+    String? commandsJson,
     bool? discoverable,
     DateTime? createdAt,
   });
@@ -150,6 +173,7 @@ abstract class Bot implements _i1.SerializableModel {
       'accessToken': accessToken,
       'capabilities': capabilities,
       'enabled': enabled,
+      if (commandsJson != null) 'commandsJson': commandsJson,
       'discoverable': discoverable,
       'createdAt': createdAt.toJson(),
     };
@@ -174,6 +198,7 @@ class _BotImpl extends Bot {
     required String accessToken,
     required String capabilities,
     bool? enabled,
+    String? commandsJson,
     bool? discoverable,
     required DateTime createdAt,
   }) : super._(
@@ -186,6 +211,7 @@ class _BotImpl extends Bot {
          accessToken: accessToken,
          capabilities: capabilities,
          enabled: enabled,
+         commandsJson: commandsJson,
          discoverable: discoverable,
          createdAt: createdAt,
        );
@@ -204,6 +230,7 @@ class _BotImpl extends Bot {
     String? accessToken,
     String? capabilities,
     bool? enabled,
+    Object? commandsJson = _Undefined,
     bool? discoverable,
     DateTime? createdAt,
   }) {
@@ -217,6 +244,7 @@ class _BotImpl extends Bot {
       accessToken: accessToken ?? this.accessToken,
       capabilities: capabilities ?? this.capabilities,
       enabled: enabled ?? this.enabled,
+      commandsJson: commandsJson is String? ? commandsJson : this.commandsJson,
       discoverable: discoverable ?? this.discoverable,
       createdAt: createdAt ?? this.createdAt,
     );

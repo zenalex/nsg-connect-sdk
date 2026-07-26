@@ -20,6 +20,7 @@ void main() {
     String caps = 'send_messages',
     bool enabled = true,
     String token = 'bot_secret_token',
+    String? commandsJson,
   }) => Bot(
     id: id,
     messengerUserId: 100 + id,
@@ -29,6 +30,7 @@ void main() {
     accessToken: token,
     capabilities: caps,
     enabled: enabled,
+    commandsJson: commandsJson,
     createdAt: DateTime.utc(2026, 7, 1),
   );
 
@@ -108,6 +110,60 @@ void main() {
       findsNothing,
       reason: 'токен виден только в момент выдачи, не в списке',
     );
+  });
+
+  // **TASK77 итер.1**: команды бот объявляет сам (`setMyCommands`), а админ
+  // должен видеть его витрину — иначе «почему в чате нет подсказки по /»
+  // не диагностируется ничем, кроме запроса в БД.
+  group('TASK77: slash-команды в admin-тайле', () {
+    testWidgets('объявленные команды видны списком', (tester) async {
+      await tester.pumpWidget(
+        wrapL10n(
+          BotsAdminScreen(
+            adminOverride: makeAdmin(
+              onList: () async => [
+                bot(
+                  commandsJson:
+                      '[{"command":"deploy","description":"выкатить"},'
+                      '{"command":"status","description":"статус"}]',
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Commands: /deploy, /status'), findsOneWidget);
+    });
+
+    testWidgets('бот без команд помечен «no commands declared»', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapL10n(
+          BotsAdminScreen(
+            adminOverride: makeAdmin(onList: () async => [bot()]),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('no commands declared'), findsOneWidget);
+    });
+
+    testWidgets('битый commandsJson не роняет экран', (tester) async {
+      await tester.pumpWidget(
+        wrapL10n(
+          BotsAdminScreen(
+            adminOverride: makeAdmin(
+              onList: () async => [bot(commandsJson: '{not json')],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('DeployBot'), findsOneWidget);
+      expect(find.text('no commands declared'), findsOneWidget);
+    });
   });
 
   testWidgets('выключенный бот помечен бейджем', (tester) async {
@@ -205,7 +261,9 @@ void main() {
     );
   });
 
-  testWidgets('создание disabled, пока не выбран ни один грант', (tester) async {
+  testWidgets('создание disabled, пока не выбран ни один грант', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       wrapL10n(BotsAdminScreen(adminOverride: makeAdmin())),
     );
@@ -362,9 +420,7 @@ void main() {
   testWidgets('журнал: пустое состояние', (tester) async {
     await tester.pumpWidget(
       wrapL10n(
-        BotsAdminScreen(
-          adminOverride: makeAdmin(onList: () async => [bot()]),
-        ),
+        BotsAdminScreen(adminOverride: makeAdmin(onList: () async => [bot()])),
       ),
     );
     await tester.pumpAndSettle();

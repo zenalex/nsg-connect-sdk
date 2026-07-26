@@ -11,13 +11,17 @@ import 'my_tasks_state.dart';
 /// и тестируемо: fake-RPC видит, с каким [filter] пришли). `ChangeNotifier` +
 /// sealed state — как `MyTicketsController`.
 class MyTasksController extends ChangeNotifier {
-  MyTasksController({required MyTasksRpc rpc, required this.filter})
+  MyTasksController({required MyTasksRpc rpc, required this.filter, this.roomId})
     : _rpc = rpc;
 
   final MyTasksRpc _rpc;
 
   /// Фильтр этой вкладки — прокидывается в RPC как есть (`all` | `initiator`).
   final String filter;
+
+  /// **TASK88**: опциональное сужение до одной комнаты (иконка задач в шапке
+  /// чата). null → задачи всех моих комнат. Прокидывается в RPC как есть.
+  final int? roomId;
 
   MyTasksState _state = const MyTasksLoading();
   MyTasksState get state => _state;
@@ -35,7 +39,7 @@ class MyTasksController extends ChangeNotifier {
 
   Future<void> _load() async {
     try {
-      final tasks = await _rpc.listMyTasks(filter);
+      final tasks = await _rpc.listMyTasks(filter, roomId: roomId);
       _emit(MyTasksReady(tasks: tasks));
     } catch (e) {
       _emit(MyTasksUnavailable(error: e));

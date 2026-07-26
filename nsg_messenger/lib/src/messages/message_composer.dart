@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart' show Uint8List, kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:nsg_connect_client/nsg_connect_client.dart'
-    show RoomParticipant;
+    show BotCommand, RoomBotCommands, RoomParticipant;
 import 'package:pasteboard/pasteboard.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
@@ -47,6 +47,13 @@ const int kMessageBodyMaxChars = 4096;
 /// рядом с виджетом, чтобы регрессия «фон снова прозрачный» ловилась
 /// тестом, а не глазами на скриншоте.
 const Key kMentionTypeaheadPopupKey = ValueKey('mention-typeahead-popup');
+
+/// Ключ подложки попапа подсказок slash-команд ботов (**TASK77 итер.1**).
+///
+/// Отдельный ключ от [kMentionTypeaheadPopupKey], хотя оверлей и механика
+/// общие: тесты должны различать «открылся @-typeahead» и «открылся
+/// /-typeahead» — иначе регрессия «не тот триггер» прошла бы незамеченной.
+const Key kCommandTypeaheadPopupKey = ValueKey('command-typeahead-popup');
 
 /// Bottom-bar композер для ChatScreen (TASK15 Chunk 2).
 ///
@@ -100,6 +107,7 @@ class MessageComposer extends StatefulWidget {
     this.albumThumbnailRpc,
     this.albumFullSizeRpc,
     this.mentionInsertRequests,
+    this.botCommands,
   });
 
   /// **TASK16-A**: signature расширена `mentionedMessengerUserIds`.
@@ -235,6 +243,12 @@ class MessageComposer extends StatefulWidget {
   /// (action-sheet) и на тап по аватару собеседника. `null` → фича off.
   final Stream<RoomParticipant>? mentionInsertRequests;
 
+  /// **TASK77 итер.1**: команды ботов этой комнаты (`messenger
+  /// .listRoomBotCommands`) — источник данных для «/»-typeahead. `null`,
+  /// пустой список или боты без команд → подсказка не появляется вообще
+  /// (пустой попап хуже отсутствия попапа).
+  final List<RoomBotCommands>? botCommands;
+
   @override
   State<MessageComposer> createState() => _MessageComposerState();
 }
@@ -296,6 +310,12 @@ class _MessageComposerState extends State<MessageComposer> {
   /// первый вариант — у него нет доступа к локальному `filtered` из
   /// `_showTypeahead`. Сбрасывается в `_hideTypeahead`.
   List<RoomParticipant> _typeaheadFiltered = const [];
+
+  /// **TASK77 итер.1**: текущий отфильтрованный список команд ботов. Роль
+  /// та же, что у [_typeaheadFiltered] у упоминаний (в т.ч. Tab-
+  /// автодополнение из `_globalKeyHandler`). Непусто ⟺ открыт именно
+  /// /-typeahead: оверлей один, режимы взаимоисключающи.
+  List<_BotCommandEntry> _commandTypeaheadFiltered = const [];
 
   /// **TASK16-A**: накопленные mentions в текущем drafte. Каждый раз когда
   /// user выбирает item из typeahead — добавляем messengerUserId сюда.
@@ -621,37 +641,85 @@ class _MessageComposerState extends State<MessageComposer> {
     return query;
   }
 
+  /// **TASK77 итер.1**: текущий `/<query>` — префикс команды перед кареткой,
+  /// либо `null`, если каретка не в command-контексте.
+  ///
+  /// Триггер намеренно узкий: «/» ТОЛЬКО в самом начале ввода и каретка
+  /// внутри первого слова. Команда — это первое слово сообщения, а «/»
+  /// в середине текста встречается в обычной переписке постоянно («а/б»,
+  /// «км/ч», ссылки) — оверлей там мешал бы писать.
+  String? _currentSlashQuery() {
+    final selection = _ctl.selection;
+    if (!selection.isValid || !selection.isCollapsed) return null;
+    final caret = selection.start;
+    if (caret < 1) return null; // каретка перед «/» — подсказывать нечего.
+    final text = _ctl.text;
+    if (!text.startsWith('/')) return null;
+    final query = text.substring(1, caret);
+    // Пробел означает, что первое слово уже дописано и пошли аргументы —
+    // подсказка команды больше не нужна.
+    if (_kWhitespaceRe.hasMatch(query)) return null;
+    return query;
+  }
+
+  /// Команды всех ботов комнаты, отфильтрованные по префиксу [query]
+  /// (регистронезависимо). Именно префикс, а не подстрока как у
+  /// упоминаний: команду набирают с начала, и «lo» не должно вытаскивать
+  /// `/reload`.
+  List<_BotCommandEntry> _filterCommands(String query) {
+    final source = widget.botCommands;
+    if (source == null || source.isEmpty) return const [];
+    final ql = query.toLowerCase();
+    final result = <_BotCommandEntry>[];
+    for (final bot in source) {
+      for (final command in bot.commands) {
+        if (ql.isEmpty || command.command.toLowerCase().startsWith(ql)) {
+          result.add(_BotCommandEntry(botName: bot.botName, command: command));
+        }
+      }
+    }
+    return result;
+  }
+
   void _syncTypeahead() {
     _typeaheadDebounce?.cancel();
     _typeaheadDebounce = Timer(const Duration(milliseconds: 100), () {
-      final query = _currentMentionQuery();
-      final participants = widget.participants;
-      if (query == null ||
-          participants == null ||
-          participants.isEmpty ||
-          !_focus.hasFocus) {
+      if (!_focus.hasFocus) {
         _hideTypeahead();
         return;
       }
-      _showTypeahead(query, participants);
+      // Приоритет у упоминаний: их триггер (`@`) и command-триггер (`/`
+      // в начале) взаимоисключающи по тексту, порядок здесь — защита от
+      // экзотики вроде «/@».
+      final mentionQuery = _currentMentionQuery();
+      final participants = widget.participants;
+      if (mentionQuery != null &&
+          participants != null &&
+          participants.isNotEmpty) {
+        _showTypeahead(mentionQuery, participants);
+        return;
+      }
+      // **TASK77 итер.1**: «/» в начале ввода → команды ботов комнаты.
+      // Ни одного совпадения (в комнате нет ботов, они не объявили команд
+      // или префикс не подходит) → оверлея нет: молча, без пустого попапа.
+      final slashQuery = _currentSlashQuery();
+      if (slashQuery != null) {
+        final commands = _filterCommands(slashQuery);
+        if (commands.isNotEmpty) {
+          _showCommandTypeahead(commands);
+          return;
+        }
+      }
+      _hideTypeahead();
     });
   }
 
-  void _showTypeahead(String query, List<RoomParticipant> participants) {
-    final ql = query.toLowerCase();
-    final filtered = participants.where((p) {
-      final dn = (p.displayName ?? '').toLowerCase();
-      final lp = _matrixLocalpart(p.matrixUserId)?.toLowerCase() ?? '';
-      // **TASK69 2A**: фильтруем и по публичному @username — раз мы его
-      // показываем, набор `@handle` должен находить участника.
-      final un = (p.username ?? '').toLowerCase();
-      return ql.isEmpty ||
-          dn.contains(ql) ||
-          lp.contains(ql) ||
-          un.contains(ql);
-    }).toList();
-    _typeaheadFiltered = filtered;
-
+  /// Общая обёртка оверлея-подсказки: позиционирование над композером
+  /// ([_typeaheadAnchor]), непрозрачная карточка, ограничение высоты.
+  /// Вынесена, чтобы @-подсказки (TASK16-A) и /-подсказки (TASK77) жили в
+  /// ОДНОМ оверлее с одинаковым поведением — второй механизм здесь был бы
+  /// вторым набором граблей (фокус, прозрачный фон, скрытие).
+  void _insertTypeaheadOverlay({required Key key, required Widget child}) {
     _typeaheadOverlay?.remove();
     _typeaheadOverlay = OverlayEntry(
       builder: (ctx) => Positioned(
@@ -669,19 +737,14 @@ class _MessageComposerState extends State<MessageComposer> {
           // должен выглядеть как всплывшая карточка, а не как текст,
           // напечатанный поверх чата.
           child: Material(
-            key: kMentionTypeaheadPopupKey,
+            key: key,
             color: kOverlaySurface,
             elevation: 8,
             borderRadius: const BorderRadius.all(Radius.circular(12)),
             clipBehavior: Clip.antiAlias,
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 240),
-              child: _TypeaheadList(
-                filtered: filtered,
-                totalShown: participants.length,
-                totalAll: widget.totalParticipants ?? participants.length,
-                onPick: _onPickMention,
-              ),
+              child: child,
             ),
           ),
         ),
@@ -690,10 +753,74 @@ class _MessageComposerState extends State<MessageComposer> {
     Overlay.of(context).insert(_typeaheadOverlay!);
   }
 
+  /// **TASK77 итер.1**: показать список команд ботов.
+  void _showCommandTypeahead(List<_BotCommandEntry> commands) {
+    _commandTypeaheadFiltered = commands;
+    _typeaheadFiltered = const [];
+    _insertTypeaheadOverlay(
+      key: kCommandTypeaheadPopupKey,
+      child: _CommandTypeaheadList(entries: commands, onPick: _onPickCommand),
+    );
+  }
+
+  void _showTypeahead(String query, List<RoomParticipant> participants) {
+    final ql = query.toLowerCase();
+    final filtered = participants.where((p) {
+      final dn = (p.displayName ?? '').toLowerCase();
+      final lp = _matrixLocalpart(p.matrixUserId)?.toLowerCase() ?? '';
+      // **TASK69 2A**: фильтруем и по публичному @username — раз мы его
+      // показываем, набор `@handle` должен находить участника.
+      final un = (p.username ?? '').toLowerCase();
+      return ql.isEmpty ||
+          dn.contains(ql) ||
+          lp.contains(ql) ||
+          un.contains(ql);
+    }).toList();
+    _typeaheadFiltered = filtered;
+    _commandTypeaheadFiltered = const [];
+
+    _insertTypeaheadOverlay(
+      key: kMentionTypeaheadPopupKey,
+      child: _TypeaheadList(
+        filtered: filtered,
+        totalShown: participants.length,
+        totalAll: widget.totalParticipants ?? participants.length,
+        onPick: _onPickMention,
+      ),
+    );
+  }
+
   void _hideTypeahead() {
     _typeaheadOverlay?.remove();
     _typeaheadOverlay = null;
     _typeaheadFiltered = const [];
+    _commandTypeaheadFiltered = const [];
+  }
+
+  /// **TASK77 итер.1**: выбор команды = ПОДСТАНОВКА `/команда ` в поле, а
+  /// НЕ отправка. У команд бывают аргументы (`/deploy prod`), и решение
+  /// «отправлять» остаётся за пользователем — кнопкой, как обычно.
+  ///
+  /// Уже набранные аргументы (текст после первого слова) сохраняются:
+  /// подсказка правит только саму команду. Каретка — сразу после пробела,
+  /// то есть в позиции первого аргумента.
+  void _onPickCommand(_BotCommandEntry entry) {
+    final text = _ctl.text;
+    // Первое слово — сама команда, его и заменяем; остальное (аргументы)
+    // оставляем как есть.
+    final breakMatch = _kWhitespaceRe.firstMatch(text);
+    final rest = breakMatch == null
+        ? ''
+        : text.substring(breakMatch.start).trimLeft();
+    final replacement = '/${entry.command.command} ';
+    _ctl.value = TextEditingValue(
+      text: '$replacement$rest',
+      selection: TextSelection.collapsed(offset: replacement.length),
+    );
+    _hideTypeahead();
+    // Тот же возврат фокуса, что и после выбора упоминания (на web тап по
+    // оверлею мог его кратко увести).
+    if (!_focus.hasFocus) _focus.requestFocus();
   }
 
   void _onPickMention(RoomParticipant p) {
@@ -786,18 +913,24 @@ class _MessageComposerState extends State<MessageComposer> {
     final isAlt = keyboard.isAltPressed;
     final key = event.logicalKey;
 
-    // **B12 Tab-autocomplete**: при открытом mention-typeahead Tab выбирает
-    // первый отфильтрованный вариант (без перемещения фокуса). Закрытый
-    // typeahead — Tab работает как обычная focus-навигация (пропускаем).
+    // **B12 Tab-autocomplete**: при открытом typeahead Tab выбирает первый
+    // отфильтрованный вариант (без перемещения фокуса). Закрытый typeahead
+    // — Tab работает как обычная focus-навигация (пропускаем).
+    // **TASK77 итер.1**: то же и для команд — один оверлей, одна привычка.
     if (key == LogicalKeyboardKey.tab &&
         !isShift &&
         !isCtrl &&
         !isMeta &&
         !isAlt &&
-        _typeaheadOverlay != null &&
-        _typeaheadFiltered.isNotEmpty) {
-      _onPickMention(_typeaheadFiltered.first);
-      return true; // intercept — НЕ дать Tab увести фокус
+        _typeaheadOverlay != null) {
+      if (_typeaheadFiltered.isNotEmpty) {
+        _onPickMention(_typeaheadFiltered.first);
+        return true; // intercept — НЕ дать Tab увести фокус
+      }
+      if (_commandTypeaheadFiltered.isNotEmpty) {
+        _onPickCommand(_commandTypeaheadFiltered.first);
+        return true;
+      }
     }
 
     // **B12 markdown-wrapping**: Ctrl/Cmd+B → `**bold**`, Ctrl/Cmd+I →
@@ -2039,6 +2172,78 @@ class _TypeaheadList extends StatelessWidget {
     final lp = _matrixLocalpart(p.matrixUserId);
     if (lp != null && lp.isNotEmpty) return '@$lp';
     return p.matrixUserId;
+  }
+}
+
+/// **TASK77 итер.1**: одна строка /-подсказки — команда плюс имя бота,
+/// который её объявил (в комнате может быть несколько ботов, и видеть,
+/// чью команду выбираешь, важно).
+class _BotCommandEntry {
+  const _BotCommandEntry({required this.botName, required this.command});
+
+  final String botName;
+  final BotCommand command;
+}
+
+/// **TASK77 итер.1**: содержимое /-подсказки. Пустым не рисуется — при
+/// отсутствии совпадений оверлей вообще не показывается (см.
+/// `_syncTypeahead`), поэтому empty-state здесь не нужен.
+class _CommandTypeaheadList extends StatelessWidget {
+  const _CommandTypeaheadList({required this.entries, required this.onPick});
+
+  final List<_BotCommandEntry> entries;
+  final void Function(_BotCommandEntry) onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = NsgL10n.of(context);
+    final theme = Theme.of(context);
+    final dimmed = theme.colorScheme.onSurface.withValues(alpha: 0.6);
+    return ListView(
+      shrinkWrap: true,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+          child: Text(
+            l.botCommandsTypeaheadHeader,
+            style: TextStyle(
+              color: dimmed,
+              fontSize: 11,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ),
+        for (final e in entries)
+          ListTile(
+            dense: true,
+            leading: const Icon(Icons.smart_toy_outlined, size: 24),
+            title: Text(
+              '/${e.command.command}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            subtitle: Text(
+              e.command.description,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 11),
+            ),
+            // Имя бота — справа и приглушённо: это контекст, а не выбор.
+            trailing: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 96),
+              child: Text(
+                e.botName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.right,
+                style: TextStyle(fontSize: 11, color: dimmed),
+              ),
+            ),
+            onTap: () => onPick(e),
+          ),
+      ],
+    );
   }
 }
 

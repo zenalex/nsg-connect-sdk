@@ -2693,7 +2693,11 @@ class _CapturingSendRpc implements MessagesRpc {
   }
 
   @override
-  Future<bool> markRead({required int roomId, required String matrixEventId}) =>
+  Future<bool> markRead({
+    required int roomId,
+    required String matrixEventId,
+    String? threadRootEventId,
+  }) =>
       _inner.markRead(roomId: roomId, matrixEventId: matrixEventId);
 
   @override
@@ -3023,7 +3027,11 @@ class _FakeRpc implements MessagesRpc {
   }
 
   @override
-  Future<bool> markRead({required int roomId, required String matrixEventId}) {
+  Future<bool> markRead({
+    required int roomId,
+    required String matrixEventId,
+    String? threadRootEventId,
+  }) {
     final h = markReadHandler;
     if (h == null) return Future.value(true);
     return h(roomId, matrixEventId);

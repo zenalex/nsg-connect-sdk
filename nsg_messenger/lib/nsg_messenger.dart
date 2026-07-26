@@ -192,6 +192,12 @@ export 'src/messages/composer_album_edit.dart'
 // MessagesRpc — visible-for-testing для host-app integration tests
 // (подмена RPC слоя на in-memory fake без поднятия Serverpod).
 export 'src/messages/messages_rpc.dart' show MessagesRpc, ClientMessagesRpc;
+// **TASK83/TASK75**: цвет и подпись стадии тикета (`new` / `in_progress` /
+// `accepted` / `rejected`). Публичны, потому что стадия красится в ДВУХ
+// местах: значок задачи в ленте (SDK) и строка support-инбокса в host-app
+// (Chatista). Один источник маппинга — иначе один статус читался бы разным
+// цветом в ленте и в списке.
+export 'src/messages/message_bubble.dart' show taskStageColor, taskStageLabel;
 
 // **TASK46 (SDK)**: голосовые звонки 1:1. CallController (ChangeNotifier)
 // + sealed CallState — готовы к UI-биндингу (overlay — отдельная задача).
@@ -310,6 +316,12 @@ export 'package:nsg_connect_client/nsg_connect_client.dart'
         BotIntegrationCreated,
         Bot,
         WebhookSubscription,
+        // **TASK77 итер.1**: реестр slash-команд ботов — команда и её
+        // описание (`BotCommand`) + команды одного бота в контексте комнаты
+        // (`RoomBotCommands`, ответ `listRoomBotCommands`). Нужны host-app-у,
+        // который прокидывает подсказку по «/» своими RPC.
+        BotCommand,
+        RoomBotCommands,
         // TASK78 п.3: платформенная админка секретов тенантов — статус
         // tenant-а и журнал операций с ключами.
         ConnectTenantStatus,

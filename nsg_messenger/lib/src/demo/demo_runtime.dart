@@ -426,6 +426,7 @@ class _DemoMessagesRpc implements MessagesRpc {
   Future<bool> markRead({
     required int roomId,
     required String matrixEventId,
+    String? threadRootEventId,
   }) async {
     // Silent no-op so the auto-mark-as-read in ChatScreen does not
     // throw and clog the console.

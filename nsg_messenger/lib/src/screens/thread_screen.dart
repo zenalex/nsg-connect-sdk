@@ -58,6 +58,16 @@ class _ThreadScreenState extends State<ThreadScreen> {
   late final bool _ownsController;
   final ScrollController _scroll = ScrollController();
 
+  /// **TASK89 (unread-in-thread)**: авто-markRead при просмотре треда. Раньше
+  /// `ThreadScreen` не помечал прочитанным ничего — ответ бота в треде растил
+  /// `unreadCount` комнаты, и «непрочитано» не снималось, пока не открыть
+  /// основной чат. Помечаем новейшее РЕАЛЬНОЕ сообщение треда (markRead
+  /// комнатный, обнуляет счётчик), debounce как в ChatScreen. Дедуп по
+  /// последнему помеченному eventId — без лишних RPC.
+  Timer? _markReadTimer;
+  String? _lastMarkedEventId;
+  static const Duration _markReadDebounce = Duration(milliseconds: 500);
+
   /// Порог подгрузки OLDER-страницы от верха reversed-списка. Тред
   /// короткий, hardcode достаточно (в чате он тюнится через конфиг из-за
   /// длинной истории — здесь такой нужды нет).
@@ -85,15 +95,41 @@ class _ThreadScreenState extends State<ThreadScreen> {
       );
       _ownsController = true;
     }
+    _controller.stateListenable.addListener(_scheduleMarkRead);
     unawaited(_controller.init());
   }
 
   @override
   void dispose() {
+    _controller.stateListenable.removeListener(_scheduleMarkRead);
+    _markReadTimer?.cancel();
     _scroll.dispose();
     // Чужой (инжектированный) контроллер не наш — его освобождает хозяин.
     if (_ownsController) unawaited(_controller.dispose());
     super.dispose();
+  }
+
+  /// Debounced авто-markRead новейшего реального сообщения треда. Пока экран
+  /// открыт — пользователь видит тред, значит прочитал. Пропускаем pending/
+  /// failed (у них нет серверного eventId) и повторные пометки того же события.
+  void _scheduleMarkRead() {
+    final state = _controller.stateListenable.value;
+    if (state is! MessagesReady) return;
+    String? newest;
+    for (final m in state.messages) {
+      final id = m.matrixEventId;
+      if (m.isPending || m.isFailed || id == null || id.isEmpty) continue;
+      newest = id; // сообщения новые→старые: первое реальное — оно
+      break;
+    }
+    if (newest == null || newest == _lastMarkedEventId) return;
+    _markReadTimer?.cancel();
+    final target = newest;
+    _markReadTimer = Timer(_markReadDebounce, () {
+      if (!mounted) return;
+      _lastMarkedEventId = target;
+      unawaited(_controller.markRead(target));
+    });
   }
 
   bool _onScroll(ScrollNotification n) {

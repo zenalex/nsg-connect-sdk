@@ -187,6 +187,7 @@ class _StubRpc implements MessagesRpc {
   Future<bool> markRead({
     required int roomId,
     required String matrixEventId,
+    String? threadRootEventId,
   }) async => true;
 
   @override

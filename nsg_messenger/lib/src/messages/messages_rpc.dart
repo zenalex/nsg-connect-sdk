@@ -103,7 +103,14 @@ abstract class MessagesRpc {
   /// обновился; `false` — older write rejected monotonic guard
   /// (другое устройство уже прочитало дальше). Не throws на
   /// regression — guard handled server-side как silent noop.
-  Future<bool> markRead({required int roomId, required String matrixEventId});
+  /// [threadRootEventId] — корень треда, если помечается сообщение ВНУТРИ
+  /// треда: иначе квитанция уйдёт основной ленте и в треде «прочитано» не
+  /// появится (threaded receipts). null — обычное сообщение комнаты.
+  Future<bool> markRead({
+    required int roomId,
+    required String matrixEventId,
+    String? threadRootEventId,
+  });
 
   /// **TASK37**: edit own message через Matrix `m.replace`. Returns
   /// updated [MessengerMessage] с `matrixEventId = original` (NOT
@@ -286,14 +293,18 @@ class ClientMessagesRpc implements MessagesRpc {
   );
 
   @override
-  Future<bool> markRead({required int roomId, required String matrixEventId}) =>
-      withAuthRetry(
-        () => _client.messenger.markRead(
-          roomId: roomId,
-          matrixEventId: matrixEventId,
-        ),
-        _session,
-      );
+  Future<bool> markRead({
+    required int roomId,
+    required String matrixEventId,
+    String? threadRootEventId,
+  }) => withAuthRetry(
+    () => _client.messenger.markRead(
+      roomId: roomId,
+      matrixEventId: matrixEventId,
+      threadRootEventId: threadRootEventId,
+    ),
+    _session,
+  );
 
   @override
   Future<AttachmentRef> uploadAttachment({

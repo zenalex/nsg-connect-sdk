@@ -491,6 +491,9 @@ class NsgL10nRu extends NsgL10n {
   }
 
   @override
+  String get botCommandsTypeaheadHeader => 'Команды ботов';
+
+  @override
   String get roleBadgeOwner => 'Владелец';
 
   @override
@@ -1162,6 +1165,14 @@ class NsgL10nRu extends NsgL10n {
   String get botsAdminNoCapabilities => 'без прав';
 
   @override
+  String get botsAdminNoCommands => 'команды не объявлены';
+
+  @override
+  String botsAdminCommandsLabel(String commands) {
+    return 'Команды: $commands';
+  }
+
+  @override
   String get botsAdminTokenTitle => 'Токен доступа бота';
 
   @override
@@ -1446,6 +1457,9 @@ class NsgL10nRu extends NsgL10n {
   String get pulsePeriod15m => '15 мин';
 
   @override
+  String get pulsePeriod30m => '30 мин';
+
+  @override
   String get pulsePeriod1h => '1 час';
 
   @override
@@ -1575,6 +1589,58 @@ class NsgL10nRu extends NsgL10n {
   @override
   String get pulseLevel1Helper =>
       'ID пользователей мессенджера через запятую — им уйдёт личка при эскалации.';
+
+  @override
+  String get pulseMembers => 'Участники';
+
+  @override
+  String pulseMembersOf(String name) {
+    return 'Участники · $name';
+  }
+
+  @override
+  String get pulseAddMember => 'Добавить участника';
+
+  @override
+  String get pulseRemoveMember => 'Отозвать доступ';
+
+  @override
+  String get pulseNoMembers => 'Участников пока нет';
+
+  @override
+  String get pulseRoleOwner => 'Владелец';
+
+  @override
+  String get pulseRoleAdmin => 'Администратор';
+
+  @override
+  String get pulseRoleViewer => 'Наблюдатель';
+
+  @override
+  String get pulseRoleLabel => 'Роль';
+
+  @override
+  String get pulseRoleInherited => 'Унаследовано от папки';
+
+  @override
+  String get pulseMemberInheritedHint =>
+      'Доступ идёт от папки-предка — меняйте его там.';
+
+  @override
+  String get pulseLastOwnerError =>
+      'Последнего владельца нельзя убрать или понизить.';
+
+  @override
+  String get pulsePickMember => 'Выберите человека';
+
+  @override
+  String get pulseMemberSearchHint => 'Email или ник';
+
+  @override
+  String get pulseMemberSearchEmpty => 'Никого не нашлось';
+
+  @override
+  String get pulseReadOnlyHint => 'У вас доступ только на просмотр';
 
   @override
   String pulseRuleSummary(String severity, String room) {
@@ -2111,4 +2177,24 @@ class NsgL10nRu extends NsgL10n {
 
   @override
   String get tasksLoadError => 'Не удалось загрузить задачи';
+
+  @override
+  String get taskLabel => 'Задача';
+
+  @override
+  String tasksScreenTitleForRoom(String room) {
+    return 'Задачи: $room';
+  }
+
+  @override
+  String get supportInboxProjectFilterLabel => 'Проект:';
+
+  @override
+  String get supportInboxProjectFilterAll => 'Все проекты';
+
+  @override
+  String get supportInboxProjectFilterTitle => 'Фильтр по проекту';
+
+  @override
+  String get supportInboxEmpty => 'Нет обращений';
 }

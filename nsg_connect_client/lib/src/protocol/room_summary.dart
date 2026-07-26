@@ -12,6 +12,7 @@
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod_client/serverpod_client.dart' as _i1;
 import 'enums/room_type.dart' as _i2;
+import 'enums/participant_kind.dart' as _i3;
 
 /// Lightweight DTO для `listRooms` — оптимизирован под рендер списка
 /// чатов в SDK без отдельного RPC за каждой комнатой. См. TASK13.
@@ -33,9 +34,11 @@ abstract class RoomSummary implements _i1.SerializableModel {
     this.productEntityId,
     required this.roomType,
     this.directPeerMessengerUserId,
+    this.directPeerKind,
     this.supportRequesterName,
     this.productKey,
     this.productName,
+    this.supportTicketStage,
     this.supportAwaitingSince,
     this.dismissedUntilMessage,
     this.autoCleanupTtlSeconds,
@@ -55,9 +58,11 @@ abstract class RoomSummary implements _i1.SerializableModel {
     String? productEntityId,
     required _i2.RoomType roomType,
     int? directPeerMessengerUserId,
+    _i3.ParticipantKind? directPeerKind,
     String? supportRequesterName,
     String? productKey,
     String? productName,
+    String? supportTicketStage,
     DateTime? supportAwaitingSince,
     bool? dismissedUntilMessage,
     int? autoCleanupTtlSeconds,
@@ -85,10 +90,16 @@ abstract class RoomSummary implements _i1.SerializableModel {
       ),
       directPeerMessengerUserId:
           jsonSerialization['directPeerMessengerUserId'] as int?,
+      directPeerKind: jsonSerialization['directPeerKind'] == null
+          ? null
+          : _i3.ParticipantKind.fromJson(
+              (jsonSerialization['directPeerKind'] as String),
+            ),
       supportRequesterName:
           jsonSerialization['supportRequesterName'] as String?,
       productKey: jsonSerialization['productKey'] as String?,
       productName: jsonSerialization['productName'] as String?,
+      supportTicketStage: jsonSerialization['supportTicketStage'] as String?,
       supportAwaitingSince: jsonSerialization['supportAwaitingSince'] == null
           ? null
           : _i1.DateTimeJsonExtension.fromJson(
@@ -144,6 +155,13 @@ abstract class RoomSummary implements _i1.SerializableModel {
   /// заметка / метки) прямо из списка чатов или шапки диалога.
   int? directPeerMessengerUserId;
 
+  /// **TASK77 довесок A — бот-бейдж.** Тип peer-а в direct-комнате
+  /// (`RoomMembership.participantKind`): по нему список чатов рисует плашку
+  /// «Бот», не догружая участников комнаты. Анти-имперсонация: пользователь
+  /// видит, что переписывается с программой, ещё до открытия чата.
+  /// null — peer-человек, не-direct комната или старая запись без kind.
+  _i3.ParticipantKind? directPeerKind;
+
   /// **TASK75 — support-инбокс.** Ниже поля значимы ТОЛЬКО для
   /// support-комнат (roomType == support); у прочих типов остаются
   /// null / default. Server резолвит их в `RoomService._toSummary`,
@@ -161,6 +179,15 @@ abstract class RoomSummary implements _i1.SerializableModel {
   /// `Product.displayName` продукта комнаты. Вторичная (мелкая) подпись
   /// проекта в support-строке.
   String? productName;
+
+  /// **TASK75** стадия тикета обращения (`TicketService.effectiveStage`):
+  /// `new` / `in_progress` / `accepted` / `rejected`. По ней клиент красит
+  /// цветовую метку строки support-инбокса — той же семантикой, что значок
+  /// задачи в ленте (TASK83), чтобы один статус не был двух цветов.
+  /// null — тикета у комнаты ещё нет (обращение открыто, но заявитель не
+  /// написал ни одного сообщения: тикет создаётся лениво) либо комната
+  /// не support.
+  String? supportTicketStage;
 
   /// `Room.awaitingOperatorSince` — момент, с которого support-чат ждёт
   /// ответа человека-оператора (null = никто не ждёт / оператор ответил).
@@ -197,9 +224,11 @@ abstract class RoomSummary implements _i1.SerializableModel {
     String? productEntityId,
     _i2.RoomType? roomType,
     int? directPeerMessengerUserId,
+    _i3.ParticipantKind? directPeerKind,
     String? supportRequesterName,
     String? productKey,
     String? productName,
+    String? supportTicketStage,
     DateTime? supportAwaitingSince,
     bool? dismissedUntilMessage,
     int? autoCleanupTtlSeconds,
@@ -222,10 +251,12 @@ abstract class RoomSummary implements _i1.SerializableModel {
       'roomType': roomType.toJson(),
       if (directPeerMessengerUserId != null)
         'directPeerMessengerUserId': directPeerMessengerUserId,
+      if (directPeerKind != null) 'directPeerKind': directPeerKind?.toJson(),
       if (supportRequesterName != null)
         'supportRequesterName': supportRequesterName,
       if (productKey != null) 'productKey': productKey,
       if (productName != null) 'productName': productName,
+      if (supportTicketStage != null) 'supportTicketStage': supportTicketStage,
       if (supportAwaitingSince != null)
         'supportAwaitingSince': supportAwaitingSince?.toJson(),
       if (dismissedUntilMessage != null)
@@ -258,9 +289,11 @@ class _RoomSummaryImpl extends RoomSummary {
     String? productEntityId,
     required _i2.RoomType roomType,
     int? directPeerMessengerUserId,
+    _i3.ParticipantKind? directPeerKind,
     String? supportRequesterName,
     String? productKey,
     String? productName,
+    String? supportTicketStage,
     DateTime? supportAwaitingSince,
     bool? dismissedUntilMessage,
     int? autoCleanupTtlSeconds,
@@ -278,9 +311,11 @@ class _RoomSummaryImpl extends RoomSummary {
          productEntityId: productEntityId,
          roomType: roomType,
          directPeerMessengerUserId: directPeerMessengerUserId,
+         directPeerKind: directPeerKind,
          supportRequesterName: supportRequesterName,
          productKey: productKey,
          productName: productName,
+         supportTicketStage: supportTicketStage,
          supportAwaitingSince: supportAwaitingSince,
          dismissedUntilMessage: dismissedUntilMessage,
          autoCleanupTtlSeconds: autoCleanupTtlSeconds,
@@ -304,9 +339,11 @@ class _RoomSummaryImpl extends RoomSummary {
     Object? productEntityId = _Undefined,
     _i2.RoomType? roomType,
     Object? directPeerMessengerUserId = _Undefined,
+    Object? directPeerKind = _Undefined,
     Object? supportRequesterName = _Undefined,
     Object? productKey = _Undefined,
     Object? productName = _Undefined,
+    Object? supportTicketStage = _Undefined,
     Object? supportAwaitingSince = _Undefined,
     Object? dismissedUntilMessage = _Undefined,
     Object? autoCleanupTtlSeconds = _Undefined,
@@ -335,11 +372,17 @@ class _RoomSummaryImpl extends RoomSummary {
       directPeerMessengerUserId: directPeerMessengerUserId is int?
           ? directPeerMessengerUserId
           : this.directPeerMessengerUserId,
+      directPeerKind: directPeerKind is _i3.ParticipantKind?
+          ? directPeerKind
+          : this.directPeerKind,
       supportRequesterName: supportRequesterName is String?
           ? supportRequesterName
           : this.supportRequesterName,
       productKey: productKey is String? ? productKey : this.productKey,
       productName: productName is String? ? productName : this.productName,
+      supportTicketStage: supportTicketStage is String?
+          ? supportTicketStage
+          : this.supportTicketStage,
       supportAwaitingSince: supportAwaitingSince is DateTime?
           ? supportAwaitingSince
           : this.supportAwaitingSince,

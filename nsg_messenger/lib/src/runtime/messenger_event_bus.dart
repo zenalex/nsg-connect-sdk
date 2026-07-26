@@ -206,6 +206,9 @@ class MessengerEventBus {
         'presence',
         'pinned-messages',
         'conference',
+        // **TASK87**: realtime-значок задачи (`taskBadgeUpdated`); современный
+        // клиент и так покрыт knownEventTypes ниже, capability — легаси-контракт.
+        'task-badge',
       ],
       // **Forward-compat**: объявляем серверу ВСЕ известные этой сборке
       // типы событий — новые серверные типы автоматически вырезаются на

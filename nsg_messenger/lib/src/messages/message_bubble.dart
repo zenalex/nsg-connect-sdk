@@ -238,10 +238,18 @@ class MessageBubble extends StatelessWidget {
   /// **TASK69 2C**: если задан [onSenderAvatarTap] — аватар кликабелен (тап →
   /// «Упомянуть» этого участника, гейт/меню — на стороне ChatScreen). В режиме
   /// выбора ([selectionMode]) тап по аватару не перехватываем.
-  /// Человекочитаемое имя отправителя: displayName участника → matrix
-  /// localpart (`@bob:home` → `bob`) → сырой mxid. Общий резолвер для
-  /// аватара и подписи (issue #39), чтобы они не расходились.
+  /// Человекочитаемое имя отправителя. Приоритет — как задокументировано в
+  /// [ChatMessage.senderDisplayName]:
+  ///   1) `senderDisplayName` — server-fresh, корректно даже для ex-members
+  ///      И в контекстах без participants-карты (лента треда, поиск, пины —
+  ///      там `participantsByMatrixId` не прокидывается, иначе имя падало бы
+  ///      до matrix-localpart, напр. `nsg-nsg-…` вместо «Chatista Support Bot»);
+  ///   2) `participants[mxid].displayName` — резерв, если серверное поле null;
+  ///   3) matrix-localpart (`@bob:home` → `bob`); 4) сырой mxid.
+  /// Общий резолвер для аватара и подписи (issue #39), чтобы не расходились.
   String _resolveSenderName() {
+    final serverDn = message.senderDisplayName;
+    if (serverDn != null && serverDn.isNotEmpty) return serverDn;
     final p = participantsByMatrixId?[message.senderMatrixUserId];
     final dn = p?.displayName;
     if (dn != null && dn.isNotEmpty) return dn;
@@ -1059,12 +1067,16 @@ String taskStageLabel(String? stage, NsgL10n l) => switch (stage) {
   _ => l.taskStageCreated,
 };
 
-/// **TASK83 значок задачи** на ИСХОДНОМ сообщении: компактная иконка задачи
+/// **TASK83 значок задачи** на ИСХОДНОМ сообщении: компактный чип задачи
 /// цвета стадии в углу пузыря. Тап ведёт в обсуждение задачи (или в issue —
-/// решает экран, см. [MessageBubble.onOpenTask]). Подпись стадии — в тултипе
-/// («Задача: <статус>»), чтобы значок оставался маленьким. Ключ [Key]
-/// стабильный (`taskBadge`) — виджет-тесты ищут значок по нему, не завися от
-/// иконки/локали.
+/// решает экран, см. [MessageBubble.onOpenTask]).
+///
+/// **TASK88**: рядом с иконкой — короткая подпись «Задача» ([NsgL10n.taskLabel])
+/// в цвет стадии, чтобы функцию было видно, а не угадывать. Полная подпись
+/// стадии — по-прежнему в тултипе («Задача: <статус>»). Компактно (Row
+/// `mainAxisSize.min`), не ломая перенос пузыря и соседство с «Обсуждение (N)».
+/// Ключи [Key] стабильны: `taskBadge` (сам чип, тесты ищут значок), а
+/// `taskBadgeLabel` (подпись) — не завися от иконки/локали.
 class _TaskBadge extends StatelessWidget {
   const _TaskBadge({
     required this.stage,
@@ -1087,14 +1099,29 @@ class _TaskBadge extends StatelessWidget {
         child: InkWell(
           key: const Key('taskBadge'),
           onTap: onTap,
-          customBorder: const CircleBorder(),
+          borderRadius: BorderRadius.circular(10),
           child: Container(
-            padding: const EdgeInsets.all(3),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.15),
-              shape: BoxShape.circle,
+              borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(Icons.assignment_outlined, size: 15, color: color),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.assignment_outlined, size: 14, color: color),
+                const SizedBox(width: 4),
+                Text(
+                  l.taskLabel,
+                  key: const Key('taskBadgeLabel'),
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

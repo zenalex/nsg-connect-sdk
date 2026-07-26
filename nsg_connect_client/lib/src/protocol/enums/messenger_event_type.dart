@@ -131,7 +131,20 @@ enum MessengerEventType implements _i1.SerializableModel {
   /// Эмитится ВСЕМ участникам комнаты (состав конференции им legitimate
   /// виден — они могут присоединиться). Гейтится capability `conference`
   /// (легаси-путь; современный клиент покрыт knownEventTypes).
-  conferenceUpdated;
+  conferenceUpdated,
+
+  /// **TASK87**: значок задачи на сообщении-носителе появился/перекрасился
+  /// в реальном времени. Payload — `taskBadgeEventId` (matrixEventId
+  /// сообщения-носителя = `TaskLink.matrixEventId`), `taskStage`,
+  /// `taskThreadRootEventId`, `taskUrl`. Эмитится ВСЕМ участникам комнаты
+  /// (значок легитимно виден всем) при регистрации задачи
+  /// (`linkExistingTask`/`createTaskFromMessage`) и при смене стадии тикета
+  /// (GitHub webhook). SDK находит сообщение по `taskBadgeEventId` в ленте и
+  /// обновляет значок (нет в памяти → no-op, подтянется в listMessages).
+  /// Гейтится capability `task-badge` (легаси-путь; современный клиент покрыт
+  /// knownEventTypes-фильтром — новое enum-значение старый клиент не
+  /// десериализует и уронил бы стрим; урок callNegotiate/presence/conference).
+  taskBadgeUpdated;
 
   static MessengerEventType fromJson(String name) {
     switch (name) {
@@ -195,6 +208,8 @@ enum MessengerEventType implements _i1.SerializableModel {
         return MessengerEventType.pinnedMessagesChanged;
       case 'conferenceUpdated':
         return MessengerEventType.conferenceUpdated;
+      case 'taskBadgeUpdated':
+        return MessengerEventType.taskBadgeUpdated;
       default:
         throw ArgumentError(
           'Value "$name" cannot be converted to "MessengerEventType"',

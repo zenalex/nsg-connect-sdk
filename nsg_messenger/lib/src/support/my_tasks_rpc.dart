@@ -22,7 +22,10 @@ const String tasksFilterInitiator = 'initiator';
 /// не тащит дубль-enum, который придётся синхронизировать.
 abstract class MyTasksRpc {
   /// Задачи из моих комнат под фильтр [filter], свежие сверху.
-  Future<List<TicketView>> listMyTasks(String filter);
+  ///
+  /// **TASK88**: [roomId] опционально сужает выборку до ОДНОЙ комнаты (иконка
+  /// задач в шапке чата → отфильтрованный список). null → все мои комнаты.
+  Future<List<TicketView>> listMyTasks(String filter, {int? roomId});
 }
 
 /// Продакшн-реализация: generated Serverpod-client через `withAuthRetry`
@@ -36,8 +39,9 @@ class ClientMyTasksRpc implements MyTasksRpc {
       MessengerRuntime.instance.sessionManager;
 
   @override
-  Future<List<TicketView>> listMyTasks(String filter) => withAuthRetry(
-    () => _client.messenger.listMyTasks(filter: filter),
-    _session,
-  );
+  Future<List<TicketView>> listMyTasks(String filter, {int? roomId}) =>
+      withAuthRetry(
+        () => _client.messenger.listMyTasks(filter: filter, roomId: roomId),
+        _session,
+      );
 }

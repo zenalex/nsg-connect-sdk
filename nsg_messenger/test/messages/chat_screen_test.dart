@@ -527,7 +527,11 @@ class _FakeRpc implements MessagesRpc {
   }
 
   @override
-  Future<bool> markRead({required int roomId, required String matrixEventId}) {
+  Future<bool> markRead({
+    required int roomId,
+    required String matrixEventId,
+    String? threadRootEventId,
+  }) {
     markReadCalls.add(matrixEventId);
     final h = markReadHandler;
     if (h == null) return Future.value(true);

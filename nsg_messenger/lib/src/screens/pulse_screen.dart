@@ -9,6 +9,7 @@ import '../pulse/nsg_messenger_pulse.dart';
 import '../theme/overlay_surface.dart';
 import '../utils/relative_time.dart';
 import 'integrations_screen.dart' show CopyableField;
+import 'pulse_members_screen.dart';
 
 /// Ошибка действия Пульса, которую увидел пользователь → в трекер, ПЕРЕД
 /// снеком. Тег [action] здесь не украшение: `pulseActionFailed` — ОДИН снек
@@ -33,9 +34,18 @@ void _reportPulseActionFailed(Object e, StackTrace st, String action) {
 /// точечно обновляет узел в локальном стейте (без refetch дерева). На ошибке
 /// стрима — тихая переподписка с backoff (5 c); плюс pull-to-refresh.
 ///
-/// Все эндпоинты gate-ятся server-side (PULSE_ADMIN_EMAILS). Не-админ получает
-/// [MessengerNotAuthenticatedException] → показываем дружелюбный state «нет
-/// доступа». Пункт входа виден всем — сервер гейтит по факту.
+/// **TASK79 — роль-модель.** Сервер отдаёт только доступные объекты и
+/// отдельным списком ([NsgMessengerPulse.listMyAccess]) — эффективную роль
+/// каллера на каждом из них. По ней прячем кнопки: `viewer` не видит
+/// «Пересоздать токен»/«Пауза», не-`owner` — «Удалить» и управление
+/// составом. Это подсказка интерфейсу, а не защита: сервер проверяет права
+/// на каждом вызове сам.
+///
+/// Папка без роли — «путь»: она пришла только чтобы доступный монитор
+/// внутри было где отрисовать, поэтому меню управления у неё нет.
+///
+/// State «нет доступа» остаётся для старых серверов: новый не-члену
+/// вернёт пустое дерево, а не [MessengerNotAuthenticatedException].
 class PulseScreen extends StatefulWidget {
   const PulseScreen({super.key});
 
@@ -48,6 +58,9 @@ class _PulseScreenState extends State<PulseScreen> {
 
   List<PulseFolder> _folders = const [];
   List<PulseMonitor> _monitors = const [];
+
+  /// Мои роли на объектах дерева (TASK79). Пустая карта = кнопок нет.
+  PulseAccessMap _access = const PulseAccessMap.empty();
 
   bool _loading = true;
   bool _noAccess = false;
@@ -82,11 +95,21 @@ class _PulseScreenState extends State<PulseScreen> {
       final results = await Future.wait<Object>([
         _pulse.listFolders(),
         _pulse.listMonitors(),
+        // Роли грузим тем же заходом: дерево без них отрисовалось бы с
+        // кнопками, которые сервер отклонит.
+        _pulse.listMyAccess().catchError(
+          // Старый сервер такого метода не знает — деградируем до дерева
+          // без управления, а не до пустого экрана.
+          (_) => const <PulseAccessEntry>[],
+        ),
       ]);
       if (!mounted) return;
       setState(() {
         _folders = results[0] as List<PulseFolder>;
         _monitors = results[1] as List<PulseMonitor>;
+        _access = PulseAccessMap.fromEntries(
+          results[2] as List<PulseAccessEntry>,
+        );
         _loading = false;
       });
       // Realtime подписываем только после успешной загрузки (иначе стрим
@@ -147,9 +170,9 @@ class _PulseScreenState extends State<PulseScreen> {
   // ── Мутации ────────────────────────────────────────────────────────
 
   void _snack(String text) {
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-      SnackBar(content: Text(text)),
-    );
+    ScaffoldMessenger.maybeOf(
+      context,
+    )?.showSnackBar(SnackBar(content: Text(text)));
   }
 
   Future<void> _addFolder({int? parentId}) async {
@@ -223,11 +246,8 @@ class _PulseScreenState extends State<PulseScreen> {
     final l = NsgL10n.of(context);
     final result = await showDialog<_NewMonitor>(
       context: context,
-      builder: (ctx) => _NewMonitorDialog(
-        l: l,
-        folders: _folders,
-        initialFolderId: folderId,
-      ),
+      builder: (ctx) =>
+          _NewMonitorDialog(l: l, folders: _folders, initialFolderId: folderId),
     );
     if (result == null || !mounted) return;
     PulseMonitorCreated created;
@@ -323,9 +343,36 @@ class _PulseScreenState extends State<PulseScreen> {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (ctx) => _MonitorDetailSheet(pulse: _pulse, monitor: monitor),
+      builder: (ctx) => _MonitorDetailSheet(
+        pulse: _pulse,
+        monitor: monitor,
+        role: _access.monitorRole(monitor.id),
+      ),
     );
     // Стрим уже мог обновить пауза/статус; для delete/rotate — перечитываем.
+    if (mounted) await _load();
+  }
+
+  /// Экран участников объекта. `canManage` = я владелец: сервер отдаст
+  /// список любому участнику, но менять состав может только `owner`.
+  Future<void> _openMembers({
+    int? folderId,
+    int? monitorId,
+    required String name,
+    required bool canManage,
+  }) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PulseMembersScreen(
+          pulse: _pulse,
+          folderId: folderId,
+          monitorId: monitorId,
+          title: name,
+          canManage: canManage,
+        ),
+      ),
+    );
+    // Мог отдать владение или отозвать доступ себе — дерево перечитываем.
     if (mounted) await _load();
   }
 
@@ -398,11 +445,17 @@ class _PulseScreenState extends State<PulseScreen> {
               itemBuilder: (ctx) => [
                 PopupMenuItem(
                   value: _AddKind.folder,
-                  child: _menuRow(Icons.create_new_folder_outlined, l.pulseAddFolder),
+                  child: _menuRow(
+                    Icons.create_new_folder_outlined,
+                    l.pulseAddFolder,
+                  ),
                 ),
                 PopupMenuItem(
                   value: _AddKind.monitor,
-                  child: _menuRow(Icons.monitor_heart_outlined, l.pulseAddMonitor),
+                  child: _menuRow(
+                    Icons.monitor_heart_outlined,
+                    l.pulseAddMonitor,
+                  ),
                 ),
               ],
             ),
@@ -417,10 +470,7 @@ class _PulseScreenState extends State<PulseScreen> {
       return const Center(child: CircularProgressIndicator());
     }
     if (_noAccess) {
-      return _CenteredMessage(
-        icon: Icons.lock_outline,
-        text: l.pulseNoAccess,
-      );
+      return _CenteredMessage(icon: Icons.lock_outline, text: l.pulseNoAccess);
     }
     if (_error != null) {
       return RefreshIndicator(
@@ -450,7 +500,9 @@ class _PulseScreenState extends State<PulseScreen> {
     for (final list in childFolders.values) {
       list.sort((a, b) {
         final c = a.sortOrder.compareTo(b.sortOrder);
-        return c != 0 ? c : a.name.toLowerCase().compareTo(b.name.toLowerCase());
+        return c != 0
+            ? c
+            : a.name.toLowerCase().compareTo(b.name.toLowerCase());
       });
     }
     for (final list in childMonitors.values) {
@@ -478,8 +530,7 @@ class _PulseScreenState extends State<PulseScreen> {
               children: [
                 for (final f in rootFolders)
                   _buildFolderTile(context, l, f, childFolders, childMonitors),
-                for (final m in rootMonitors)
-                  _buildMonitorTile(context, l, m),
+                for (final m in rootMonitors) _buildMonitorTile(context, l, m),
               ],
             ),
     );
@@ -498,6 +549,10 @@ class _PulseScreenState extends State<PulseScreen> {
         : _rollupStatus(fid, childFolders, childMonitors);
     final subFolders = childFolders[fid] ?? const [];
     final subMonitors = childMonitors[fid] ?? const [];
+    // Роли нет — папка пришла лишь как путь к доступному монитору внутри.
+    final canRead = _access.folderRole(fid) != null;
+    final canAdmin = _access.folderAtLeast(fid, PulseClientRoles.admin);
+    final canOwn = _access.folderAtLeast(fid, PulseClientRoles.owner);
     return ExpansionTile(
       key: PageStorageKey<String>('pulse-folder-${folder.id}'),
       leading: _StatusDot(color: _statusColor(context, rollup)),
@@ -511,48 +566,70 @@ class _PulseScreenState extends State<PulseScreen> {
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
           ),
-          IconButton(
-            tooltip: l.pulseAlerts,
-            visualDensity: VisualDensity.compact,
-            icon: const Icon(Icons.notifications_none, size: 20),
-            onPressed: () => _openAlerts(folderId: fid, scopeName: folder.name),
-          ),
-          PopupMenuButton<_FolderAction>(
-            onSelected: (action) {
-              switch (action) {
-                case _FolderAction.addMonitor:
-                  _addMonitor(folderId: fid);
-                case _FolderAction.addFolder:
-                  _addFolder(parentId: fid);
-                case _FolderAction.rename:
-                  _renameFolder(folder);
-                case _FolderAction.delete:
-                  _deleteFolder(folder);
-              }
-            },
-            itemBuilder: (ctx) => [
-              PopupMenuItem(
-                value: _FolderAction.addMonitor,
-                child: _menuRow(Icons.monitor_heart_outlined, l.pulseAddMonitor),
-              ),
-              PopupMenuItem(
-                value: _FolderAction.addFolder,
-                child: _menuRow(Icons.create_new_folder_outlined, l.pulseAddFolder),
-              ),
-              PopupMenuItem(
-                value: _FolderAction.rename,
-                child: _menuRow(Icons.edit_outlined, l.pulseRename),
-              ),
-              PopupMenuItem(
-                value: _FolderAction.delete,
-                child: _menuRow(
-                  Icons.delete_outline,
-                  l.pulseDelete,
-                  color: Theme.of(ctx).colorScheme.error,
+          if (canAdmin)
+            IconButton(
+              tooltip: l.pulseAlerts,
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.notifications_none, size: 20),
+              onPressed: () =>
+                  _openAlerts(folderId: fid, scopeName: folder.name),
+            ),
+          if (canRead)
+            PopupMenuButton<_FolderAction>(
+              onSelected: (action) {
+                switch (action) {
+                  case _FolderAction.addMonitor:
+                    _addMonitor(folderId: fid);
+                  case _FolderAction.addFolder:
+                    _addFolder(parentId: fid);
+                  case _FolderAction.rename:
+                    _renameFolder(folder);
+                  case _FolderAction.members:
+                    _openMembers(
+                      folderId: fid,
+                      name: folder.name,
+                      canManage: canOwn,
+                    );
+                  case _FolderAction.delete:
+                    _deleteFolder(folder);
+                }
+              },
+              itemBuilder: (ctx) => [
+                if (canAdmin) ...[
+                  PopupMenuItem(
+                    value: _FolderAction.addMonitor,
+                    child: _menuRow(
+                      Icons.monitor_heart_outlined,
+                      l.pulseAddMonitor,
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: _FolderAction.addFolder,
+                    child: _menuRow(
+                      Icons.create_new_folder_outlined,
+                      l.pulseAddFolder,
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: _FolderAction.rename,
+                    child: _menuRow(Icons.edit_outlined, l.pulseRename),
+                  ),
+                ],
+                PopupMenuItem(
+                  value: _FolderAction.members,
+                  child: _menuRow(Icons.people_outline, l.pulseMembers),
                 ),
-              ),
-            ],
-          ),
+                if (canOwn)
+                  PopupMenuItem(
+                    value: _FolderAction.delete,
+                    child: _menuRow(
+                      Icons.delete_outline,
+                      l.pulseDelete,
+                      color: Theme.of(ctx).colorScheme.error,
+                    ),
+                  ),
+              ],
+            ),
         ],
       ),
       childrenPadding: const EdgeInsets.only(left: 16),
@@ -673,7 +750,7 @@ class _PulseScreenState extends State<PulseScreen> {
 
 enum _AddKind { folder, monitor }
 
-enum _FolderAction { addMonitor, addFolder, rename, delete }
+enum _FolderAction { addMonitor, addFolder, rename, members, delete }
 
 // ─────────────────────────────────────────────────────────────────────
 // Monitor detail sheet
@@ -683,10 +760,18 @@ enum _FolderAction { addMonitor, addFolder, rename, delete }
 /// (с «Взять в работу») и действия (пауза/возобновить, пересоздать токен,
 /// алерты, удалить).
 class _MonitorDetailSheet extends StatefulWidget {
-  const _MonitorDetailSheet({required this.pulse, required this.monitor});
+  const _MonitorDetailSheet({
+    required this.pulse,
+    required this.monitor,
+    required this.role,
+  });
 
   final NsgMessengerPulse pulse;
   final PulseMonitor monitor;
+
+  /// Моя эффективная роль на этом мониторе (TASK79). null — роли нет;
+  /// такой монитор в дереве вообще не появляется, но защищаемся и здесь.
+  final String? role;
 
   @override
   State<_MonitorDetailSheet> createState() => _MonitorDetailSheetState();
@@ -696,6 +781,11 @@ class _MonitorDetailSheetState extends State<_MonitorDetailSheet> {
   late PulseMonitor _monitor;
   late Future<List<PulseIncident>> _incidentsFuture;
   bool _busy = false;
+
+  bool get _canAdmin =>
+      PulseClientRoles.atLeast(widget.role, PulseClientRoles.admin);
+  bool get _canOwn =>
+      PulseClientRoles.atLeast(widget.role, PulseClientRoles.owner);
 
   @override
   void initState() {
@@ -711,9 +801,9 @@ class _MonitorDetailSheetState extends State<_MonitorDetailSheet> {
   }
 
   void _snack(String text) {
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-      SnackBar(content: Text(text)),
-    );
+    ScaffoldMessenger.maybeOf(
+      context,
+    )?.showSnackBar(SnackBar(content: Text(text)));
   }
 
   Future<void> _togglePause() async {
@@ -893,10 +983,7 @@ class _MonitorDetailSheetState extends State<_MonitorDetailSheet> {
                         ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Text(
-                      m.name,
-                      style: theme.textTheme.titleMedium,
-                    ),
+                    child: Text(m.name, style: theme.textTheme.titleMedium),
                   ),
                 ],
               ),
@@ -915,49 +1002,76 @@ class _MonitorDetailSheetState extends State<_MonitorDetailSheet> {
               _DetailRow(label: l.pulseLastSignalLabel, value: lastSignal),
               const SizedBox(height: 12),
 
-              // Действия.
+              // Действия. Прячем по роли: показать кнопку, которую сервер
+              // отклонит, — худший способ объяснить, что прав нет.
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  OutlinedButton.icon(
-                    onPressed: _busy ? null : _togglePause,
-                    icon: Icon(
-                      m.paused
-                          ? Icons.play_circle_outline
-                          : Icons.pause_circle_outline,
-                      size: 18,
+                  if (_canAdmin) ...[
+                    OutlinedButton.icon(
+                      onPressed: _busy ? null : _togglePause,
+                      icon: Icon(
+                        m.paused
+                            ? Icons.play_circle_outline
+                            : Icons.pause_circle_outline,
+                        size: 18,
+                      ),
+                      label: Text(m.paused ? l.pulseResume : l.pulsePause),
                     ),
-                    label: Text(m.paused ? l.pulseResume : l.pulsePause),
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: _busy ? null : _rotate,
-                    icon: const Icon(Icons.autorenew, size: 18),
-                    label: Text(l.pulseRotateToken),
-                  ),
+                    OutlinedButton.icon(
+                      onPressed: _busy ? null : _rotate,
+                      icon: const Icon(Icons.autorenew, size: 18),
+                      label: Text(l.pulseRotateToken),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => _PulseAlertsScreen(
+                            pulse: widget.pulse,
+                            scopeMonitorId: m.id,
+                            scopeName: m.name,
+                          ),
+                        ),
+                      ),
+                      icon: const Icon(Icons.notifications_none, size: 18),
+                      label: Text(l.pulseAlerts),
+                    ),
+                  ],
                   OutlinedButton.icon(
                     onPressed: () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
-                        builder: (_) => _PulseAlertsScreen(
+                        builder: (_) => PulseMembersScreen(
                           pulse: widget.pulse,
-                          scopeMonitorId: m.id,
-                          scopeName: m.name,
+                          monitorId: m.id,
+                          title: m.name,
+                          canManage: _canOwn,
                         ),
                       ),
                     ),
-                    icon: const Icon(Icons.notifications_none, size: 18),
-                    label: Text(l.pulseAlerts),
+                    icon: const Icon(Icons.people_outline, size: 18),
+                    label: Text(l.pulseMembers),
                   ),
-                  OutlinedButton.icon(
-                    onPressed: _busy ? null : _delete,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: theme.colorScheme.error,
+                  if (_canOwn)
+                    OutlinedButton.icon(
+                      onPressed: _busy ? null : _delete,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: theme.colorScheme.error,
+                      ),
+                      icon: const Icon(Icons.delete_outline, size: 18),
+                      label: Text(l.pulseDelete),
                     ),
-                    icon: const Icon(Icons.delete_outline, size: 18),
-                    label: Text(l.pulseDelete),
-                  ),
                 ],
               ),
+              if (!_canAdmin) ...[
+                const SizedBox(height: 8),
+                Text(
+                  l.pulseReadOnlyHint,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
+                ),
+              ],
               const SizedBox(height: 16),
               Text(l.pulseIncidents, style: theme.textTheme.titleSmall),
               const SizedBox(height: 4),
@@ -990,7 +1104,12 @@ class _MonitorDetailSheetState extends State<_MonitorDetailSheet> {
                         _IncidentRow(
                           incident: inc,
                           lang: lang,
-                          onAck: inc.resolvedAt == null && inc.ackedAt == null
+                          // Ack — обязательство «я разбираюсь»; наблюдателю
+                          // его не предлагаем (сервер всё равно откажет).
+                          onAck:
+                              _canAdmin &&
+                                  inc.resolvedAt == null &&
+                                  inc.ackedAt == null
                               ? () => _ack(inc)
                               : null,
                         ),
@@ -1031,6 +1150,8 @@ String _periodLabel(NsgL10n l, int seconds) {
       return l.pulsePeriod5m;
     case 900:
       return l.pulsePeriod15m;
+    case 1800:
+      return l.pulsePeriod30m;
     case 3600:
       return l.pulsePeriod1h;
     case 86400:
@@ -1090,10 +1211,7 @@ class _IncidentRow extends StatelessWidget {
             ),
           ),
           if (onAck != null)
-            FilledButton.tonal(
-              onPressed: onAck,
-              child: Text(l.pulseAck),
-            ),
+            FilledButton.tonal(onPressed: onAck, child: Text(l.pulseAck)),
         ],
       ),
     );
@@ -1123,9 +1241,7 @@ class _DetailRow extends StatelessWidget {
               ),
             ),
           ),
-          Expanded(
-            child: Text(value, style: theme.textTheme.bodyMedium),
-          ),
+          Expanded(child: Text(value, style: theme.textTheme.bodyMedium)),
         ],
       ),
     );
@@ -1181,9 +1297,9 @@ class _PulseAlertsScreenState extends State<_PulseAlertsScreen> {
   }
 
   void _snack(String text) {
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-      SnackBar(content: Text(text)),
-    );
+    ScaffoldMessenger.maybeOf(
+      context,
+    )?.showSnackBar(SnackBar(content: Text(text)));
   }
 
   Future<void> _addRule() async {
@@ -1293,8 +1409,10 @@ class _PulseAlertsScreenState extends State<_PulseAlertsScreen> {
                   ),
                   subtitle: r.escalateAfterMinutes == null
                       ? null
-                      : Text('${l.pulseEscalateAfterLabel}: '
-                          '${r.escalateAfterMinutes}'),
+                      : Text(
+                          '${l.pulseEscalateAfterLabel}: '
+                          '${r.escalateAfterMinutes}',
+                        ),
                   trailing: IconButton(
                     icon: Icon(
                       Icons.delete_outline,
@@ -1430,12 +1548,18 @@ class _NewRuleDialogState extends State<_NewRuleDialog> {
                 border: const OutlineInputBorder(),
               ),
               items: [
-                DropdownMenuItem(value: 'warn', child: Text(l.pulseSeverityWarn)),
+                DropdownMenuItem(
+                  value: 'warn',
+                  child: Text(l.pulseSeverityWarn),
+                ),
                 DropdownMenuItem(
                   value: 'error',
                   child: Text(l.pulseSeverityError),
                 ),
-                DropdownMenuItem(value: 'down', child: Text(l.pulseSeverityDown)),
+                DropdownMenuItem(
+                  value: 'down',
+                  child: Text(l.pulseSeverityDown),
+                ),
               ],
               onChanged: (v) => setState(() => _severity = v ?? 'warn'),
             ),
@@ -1609,6 +1733,10 @@ class _NewMonitorDialogState extends State<_NewMonitorDialog> {
                 DropdownMenuItem(value: 60, child: Text(l.pulsePeriod60s)),
                 DropdownMenuItem(value: 300, child: Text(l.pulsePeriod5m)),
                 DropdownMenuItem(value: 900, child: Text(l.pulsePeriod15m)),
+                // 30 мин — шаг планировщиков «раз в полчаса» (Task Scheduler /
+                // cron). Без этого пресета такие сервисы приходилось ставить на
+                // «1 час», и пропущенный прогон подсвечивался только через час.
+                DropdownMenuItem(value: 1800, child: Text(l.pulsePeriod30m)),
                 DropdownMenuItem(value: 3600, child: Text(l.pulsePeriod1h)),
                 DropdownMenuItem(value: 86400, child: Text(l.pulsePeriod24h)),
               ],
@@ -1669,7 +1797,8 @@ class _NamePromptDialogState extends State<_NamePromptDialog> {
   @override
   void initState() {
     super.initState();
-    _ctl = TextEditingController(text: widget.initial ?? '')..addListener(_sync);
+    _ctl = TextEditingController(text: widget.initial ?? '')
+      ..addListener(_sync);
   }
 
   void _sync() => setState(() {});
@@ -1755,11 +1884,7 @@ class _Badge extends StatelessWidget {
 }
 
 class _CenteredMessage extends StatelessWidget {
-  const _CenteredMessage({
-    required this.icon,
-    required this.text,
-    this.detail,
-  });
+  const _CenteredMessage({required this.icon, required this.text, this.detail});
 
   final IconData icon;
   final String text;

@@ -75,6 +75,24 @@ typedef ListPulseIncidentsRpc =
 typedef AckPulseIncidentRpc =
     Future<PulseIncident> Function({required int incidentId});
 
+// ── Доступ и участники (TASK79) ─────────────────────────────────────────
+typedef ListPulseMyAccessRpc = Future<List<PulseAccessEntry>> Function();
+typedef ListPulseMembersRpc =
+    Future<List<PulseMemberView>> Function({int? folderId, int? monitorId});
+typedef SetPulseMemberRpc =
+    Future<void> Function({
+      int? folderId,
+      int? monitorId,
+      required int messengerUserId,
+      required String role,
+    });
+typedef RemovePulseMemberRpc =
+    Future<void> Function({
+      int? folderId,
+      int? monitorId,
+      required int messengerUserId,
+    });
+
 class NsgMessengerPulse {
   NsgMessengerPulse._({
     required PulseStatusStreamRpc statusStreamRpc,
@@ -92,6 +110,10 @@ class NsgMessengerPulse {
     required DeletePulseRuleRpc deleteRuleRpc,
     required ListPulseIncidentsRpc listIncidentsRpc,
     required AckPulseIncidentRpc ackIncidentRpc,
+    required ListPulseMyAccessRpc listMyAccessRpc,
+    required ListPulseMembersRpc listMembersRpc,
+    required SetPulseMemberRpc setMemberRpc,
+    required RemovePulseMemberRpc removeMemberRpc,
   }) : _statusStreamRpc = statusStreamRpc,
        _listFoldersRpc = listFoldersRpc,
        _createFolderRpc = createFolderRpc,
@@ -106,7 +128,11 @@ class NsgMessengerPulse {
        _createRuleRpc = createRuleRpc,
        _deleteRuleRpc = deleteRuleRpc,
        _listIncidentsRpc = listIncidentsRpc,
-       _ackIncidentRpc = ackIncidentRpc;
+       _ackIncidentRpc = ackIncidentRpc,
+       _listMyAccessRpc = listMyAccessRpc,
+       _listMembersRpc = listMembersRpc,
+       _setMemberRpc = setMemberRpc,
+       _removeMemberRpc = removeMemberRpc;
 
   final PulseStatusStreamRpc _statusStreamRpc;
   final ListPulseFoldersRpc _listFoldersRpc;
@@ -123,6 +149,10 @@ class NsgMessengerPulse {
   final DeletePulseRuleRpc _deleteRuleRpc;
   final ListPulseIncidentsRpc _listIncidentsRpc;
   final AckPulseIncidentRpc _ackIncidentRpc;
+  final ListPulseMyAccessRpc _listMyAccessRpc;
+  final ListPulseMembersRpc _listMembersRpc;
+  final SetPulseMemberRpc _setMemberRpc;
+  final RemovePulseMemberRpc _removeMemberRpc;
 
   /// Дефолтный лимит истории инцидентов в detail-листе монитора.
   static const int kDefaultIncidentsLimit = 20;
@@ -146,10 +176,8 @@ class NsgMessengerPulse {
             () => client.pulse.renameFolder(id: id, name: name),
             session(),
           ),
-      deleteFolderRpc: ({required int id}) => withAuthRetry(
-        () => client.pulse.deleteFolder(id: id),
-        session(),
-      ),
+      deleteFolderRpc: ({required int id}) =>
+          withAuthRetry(() => client.pulse.deleteFolder(id: id), session()),
       listMonitorsRpc: () =>
           withAuthRetry(() => client.pulse.listMonitors(), session()),
       createMonitorRpc:
@@ -167,18 +195,14 @@ class NsgMessengerPulse {
             ),
             session(),
           ),
-      rotateTokenRpc: ({required int id}) => withAuthRetry(
-        () => client.pulse.rotateToken(id: id),
-        session(),
-      ),
+      rotateTokenRpc: ({required int id}) =>
+          withAuthRetry(() => client.pulse.rotateToken(id: id), session()),
       setPausedRpc: ({required int id, required bool paused}) => withAuthRetry(
         () => client.pulse.setPaused(id: id, paused: paused),
         session(),
       ),
-      deleteMonitorRpc: ({required int id}) => withAuthRetry(
-        () => client.pulse.deleteMonitor(id: id),
-        session(),
-      ),
+      deleteMonitorRpc: ({required int id}) =>
+          withAuthRetry(() => client.pulse.deleteMonitor(id: id), session()),
       listRulesRpc: () =>
           withAuthRetry(() => client.pulse.listRules(), session()),
       createRuleRpc:
@@ -204,22 +228,50 @@ class NsgMessengerPulse {
             ),
             session(),
           ),
-      deleteRuleRpc: ({required int id}) => withAuthRetry(
-        () => client.pulse.deleteRule(id: id),
-        session(),
-      ),
+      deleteRuleRpc: ({required int id}) =>
+          withAuthRetry(() => client.pulse.deleteRule(id: id), session()),
       listIncidentsRpc: ({required int monitorId, required int limit}) =>
           withAuthRetry(
-            () => client.pulse.listIncidents(
-              monitorId: monitorId,
-              limit: limit,
-            ),
+            () =>
+                client.pulse.listIncidents(monitorId: monitorId, limit: limit),
             session(),
           ),
       ackIncidentRpc: ({required int incidentId}) => withAuthRetry(
         () => client.pulse.ackIncident(incidentId: incidentId),
         session(),
       ),
+      listMyAccessRpc: () =>
+          withAuthRetry(() => client.pulse.listMyAccess(), session()),
+      listMembersRpc: ({int? folderId, int? monitorId}) => withAuthRetry(
+        () =>
+            client.pulse.listMembers(folderId: folderId, monitorId: monitorId),
+        session(),
+      ),
+      setMemberRpc:
+          ({
+            int? folderId,
+            int? monitorId,
+            required int messengerUserId,
+            required String role,
+          }) => withAuthRetry(
+            () => client.pulse.setMember(
+              folderId: folderId,
+              monitorId: monitorId,
+              messengerUserId: messengerUserId,
+              role: role,
+            ),
+            session(),
+          ),
+      removeMemberRpc:
+          ({int? folderId, int? monitorId, required int messengerUserId}) =>
+              withAuthRetry(
+                () => client.pulse.removeMember(
+                  folderId: folderId,
+                  monitorId: monitorId,
+                  messengerUserId: messengerUserId,
+                ),
+                session(),
+              ),
     );
   }
 
@@ -240,6 +292,10 @@ class NsgMessengerPulse {
     required DeletePulseRuleRpc deleteRuleRpc,
     required ListPulseIncidentsRpc listIncidentsRpc,
     required AckPulseIncidentRpc ackIncidentRpc,
+    required ListPulseMyAccessRpc listMyAccessRpc,
+    required ListPulseMembersRpc listMembersRpc,
+    required SetPulseMemberRpc setMemberRpc,
+    required RemovePulseMemberRpc removeMemberRpc,
   }) => NsgMessengerPulse._(
     statusStreamRpc: statusStreamRpc,
     listFoldersRpc: listFoldersRpc,
@@ -256,6 +312,10 @@ class NsgMessengerPulse {
     deleteRuleRpc: deleteRuleRpc,
     listIncidentsRpc: listIncidentsRpc,
     ackIncidentRpc: ackIncidentRpc,
+    listMyAccessRpc: listMyAccessRpc,
+    listMembersRpc: listMembersRpc,
+    setMemberRpc: setMemberRpc,
+    removeMemberRpc: removeMemberRpc,
   );
 
   // ───────────────────────────────────────────────────────────────────
@@ -340,4 +400,106 @@ class NsgMessengerPulse {
   /// «Взять в работу» — останавливает эскалацию инцидента.
   Future<PulseIncident> ackIncident({required int incidentId}) =>
       _ackIncidentRpc(incidentId: incidentId);
+
+  // ── Доступ и участники (TASK79) ────────────────────────────────────
+
+  /// Эффективные роли текущего пользователя на всех доступных объектах.
+  /// По ним UI прячет кнопки; сервер всё равно проверяет права сам —
+  /// это подсказка интерфейсу, а не гейт.
+  Future<List<PulseAccessEntry>> listMyAccess() => _listMyAccessRpc();
+
+  /// Состав участников папки ИЛИ монитора (ровно один из аргументов).
+  /// Строки с `inherited == true` пришли от папки-предка и здесь
+  /// read-only — убирать участника надо там, где его добавили.
+  Future<List<PulseMemberView>> listMembers({int? folderId, int? monitorId}) =>
+      _listMembersRpc(folderId: folderId, monitorId: monitorId);
+
+  /// Добавить участника или сменить ему роль (upsert). Доступно `owner`-у.
+  Future<void> setMember({
+    int? folderId,
+    int? monitorId,
+    required int messengerUserId,
+    required String role,
+  }) => _setMemberRpc(
+    folderId: folderId,
+    monitorId: monitorId,
+    messengerUserId: messengerUserId,
+    role: role,
+  );
+
+  /// Отозвать доступ. Доступно `owner`-у; последнего владельца сервер
+  /// снять не даст ([LastOwnerCannotDemoteException]).
+  Future<void> removeMember({
+    int? folderId,
+    int? monitorId,
+    required int messengerUserId,
+  }) => _removeMemberRpc(
+    folderId: folderId,
+    monitorId: monitorId,
+    messengerUserId: messengerUserId,
+  );
+}
+
+/// Роли мониторинга на стороне клиента — зеркало серверных `PulseRoles`.
+///
+/// Строки, а не enum: сервер хранит роль строкой и может добавить новую
+/// без пересборки клиентов. Незнакомую роль трактуем как «прав нет»
+/// (fail-closed): показать кнопку, которую сервер всё равно отклонит,
+/// хуже, чем не показать.
+class PulseClientRoles {
+  const PulseClientRoles._();
+
+  static const String owner = 'owner';
+  static const String admin = 'admin';
+  static const String viewer = 'viewer';
+
+  static int rank(String? role) => switch (role) {
+    owner => 3,
+    admin => 2,
+    viewer => 1,
+    _ => 0,
+  };
+
+  static bool atLeast(String? role, String required) =>
+      rank(role) > 0 && rank(role) >= rank(required);
+}
+
+/// Карта «объект → моя роль», построенная из [NsgMessengerPulse.listMyAccess].
+/// Живёт рядом с API, а не в экране: тем же ответом пользуются и дерево, и
+/// detail-лист монитора, и экран участников.
+class PulseAccessMap {
+  const PulseAccessMap(this._folders, this._monitors);
+
+  const PulseAccessMap.empty() : _folders = const {}, _monitors = const {};
+
+  factory PulseAccessMap.fromEntries(List<PulseAccessEntry> entries) {
+    final folders = <int, String>{};
+    final monitors = <int, String>{};
+    for (final e in entries) {
+      final target = e.targetKind == 'folder' ? folders : monitors;
+      final prev = target[e.targetId];
+      if (prev == null ||
+          PulseClientRoles.rank(e.role) > PulseClientRoles.rank(prev)) {
+        target[e.targetId] = e.role;
+      }
+    }
+    return PulseAccessMap(folders, monitors);
+  }
+
+  final Map<int, String> _folders;
+  final Map<int, String> _monitors;
+
+  /// null = роли нет. Для папки это ещё и «папка показана лишь как путь
+  /// к доступному монитору» — управление ею скрыто.
+  String? folderRole(int? folderId) =>
+      folderId == null ? null : _folders[folderId];
+
+  String? monitorRole(int? monitorId) =>
+      monitorId == null ? null : _monitors[monitorId];
+
+  bool folderAtLeast(int? folderId, String role) =>
+      PulseClientRoles.atLeast(folderRole(folderId), role);
+
+  bool monitorAtLeast(int? monitorId, String role) =>
+      PulseClientRoles.atLeast(monitorRole(monitorId), role);
 }

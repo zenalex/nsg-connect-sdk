@@ -24,10 +24,21 @@ import 'thread_screen.dart';
 class TasksScreen extends StatefulWidget {
   const TasksScreen({
     super.key,
+    this.roomId,
+    this.roomTitle,
     @visibleForTesting this.rpcOverride,
     @visibleForTesting this.onOpenRoom,
     @visibleForTesting this.onOpenThread,
   });
+
+  /// **TASK88**: если задан — экран показывает задачи ТОЛЬКО этой комнаты
+  /// (тап по иконке задач в шапке чата), одним списком без вкладок. null →
+  /// обычный режим «все мои задачи» (две вкладки Все/Я инициатор).
+  final int? roomId;
+
+  /// **TASK88**: имя комнаты для заголовка «Задачи: <комната>» в
+  /// room-scoped-режиме. null → падаем на общий заголовок «Задачи».
+  final String? roomTitle;
 
   /// Visible-for-testing — подмена RPC без Serverpod-клиента.
   final MyTasksRpc? rpcOverride;
@@ -56,6 +67,30 @@ class _TasksScreenState extends State<TasksScreen> {
   @override
   Widget build(BuildContext context) {
     final l = NsgL10n.of(context);
+    // **TASK88** room-scoped: задачи одной комнаты — один список без вкладок
+    // (фильтр `all`, но в рамках комнаты), заголовок «Задачи: <комната>».
+    final roomId = widget.roomId;
+    if (roomId != null) {
+      final title = widget.roomTitle;
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(
+            (title != null && title.trim().isNotEmpty)
+                ? l.tasksScreenTitleForRoom(title)
+                : l.tasksScreenTitle,
+          ),
+        ),
+        body: _TasksTab(
+          key: const Key('tasksTab_room'),
+          rpc: _rpc,
+          filter: tasksFilterAll,
+          roomId: roomId,
+          emptyText: l.tasksEmptyAll,
+          onOpenRoom: widget.onOpenRoom,
+          onOpenThread: widget.onOpenThread,
+        ),
+      );
+    }
     // Две вкладки живут в одном экране (DefaultTabController — без ручного
     // TabController/жизненного цикла). Каждая вкладка ([_TasksTab]) — свой
     // контроллер под свой фильтр, инициализируется лениво при первом показе.
@@ -106,12 +141,16 @@ class _TasksTab extends StatefulWidget {
     required this.rpc,
     required this.filter,
     required this.emptyText,
+    this.roomId,
     this.onOpenRoom,
     this.onOpenThread,
   });
 
   final MyTasksRpc rpc;
   final String filter;
+
+  /// **TASK88**: сужение до одной комнаты (room-scoped-режим). null → все мои.
+  final int? roomId;
   final String emptyText;
   final void Function(BuildContext context, int roomId)? onOpenRoom;
   final void Function(BuildContext context, TicketView task)? onOpenThread;
@@ -131,7 +170,11 @@ class _TasksTabState extends State<_TasksTab>
   @override
   void initState() {
     super.initState();
-    _controller = MyTasksController(rpc: widget.rpc, filter: widget.filter);
+    _controller = MyTasksController(
+      rpc: widget.rpc,
+      filter: widget.filter,
+      roomId: widget.roomId,
+    );
     unawaited(_controller.init());
   }
 

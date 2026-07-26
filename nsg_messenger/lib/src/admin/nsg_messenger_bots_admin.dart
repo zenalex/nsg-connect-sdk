@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:nsg_connect_client/nsg_connect_client.dart';
 
 import '../messenger_runtime.dart';
@@ -106,6 +108,40 @@ class NsgMessengerBotsAdmin {
     capManageRoom,
     capWebhookTarget,
   ];
+
+  /// **TASK77 итер.1**: объявленные ботом slash-команды из `Bot
+  /// .commandsJson`. Реестр хранится JSON-строкой (обоснование — в
+  /// `bot.spy.yaml`), поэтому клиенту нужен разбор; держим его ЕДИНСТВЕННЫМ
+  /// местом в SDK, чтобы формат не расползся по экранам.
+  ///
+  /// Формат — плоский `[{"command":"deploy","description":"..."}]`,
+  /// симметрично серверному `BotService.encodeCommands`. Битое значение →
+  /// пустой список: админ-экран не должен падать из-за правки в БД руками
+  /// (та же терпимость, что у серверного `decodeCommands`).
+  static List<BotCommand> commandsOf(Bot bot) {
+    final raw = bot.commandsJson;
+    if (raw == null || raw.trim().isEmpty) return const <BotCommand>[];
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return const <BotCommand>[];
+      final result = <BotCommand>[];
+      for (final item in decoded) {
+        if (item is! Map) continue;
+        final name = item['command'];
+        final description = item['description'];
+        if (name is! String || name.isEmpty) continue;
+        result.add(
+          BotCommand(
+            command: name,
+            description: description is String ? description : '',
+          ),
+        );
+      }
+      return result;
+    } catch (_) {
+      return const <BotCommand>[];
+    }
+  }
 
   /// Production-фабрика: привязка к `client.botAdmin.*`, каждый под
   /// [withAuthRetry]. `session()` резолвит session-manager лениво из

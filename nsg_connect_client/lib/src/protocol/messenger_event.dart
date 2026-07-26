@@ -66,6 +66,10 @@ abstract class MessengerEvent implements _i1.SerializableModel {
     this.conferenceConfId,
     this.conferenceMembers,
     this.pinnedEventIds,
+    this.taskBadgeEventId,
+    this.taskStage,
+    this.taskThreadRootEventId,
+    this.taskUrl,
   });
 
   factory MessengerEvent({
@@ -108,6 +112,10 @@ abstract class MessengerEvent implements _i1.SerializableModel {
     String? conferenceConfId,
     List<_i5.ConferenceMember>? conferenceMembers,
     List<String>? pinnedEventIds,
+    String? taskBadgeEventId,
+    String? taskStage,
+    String? taskThreadRootEventId,
+    String? taskUrl,
   }) = _MessengerEventImpl;
 
   factory MessengerEvent.fromJson(Map<String, dynamic> jsonSerialization) {
@@ -196,6 +204,11 @@ abstract class MessengerEvent implements _i1.SerializableModel {
           : _i6.Protocol().deserialize<List<String>>(
               jsonSerialization['pinnedEventIds'],
             ),
+      taskBadgeEventId: jsonSerialization['taskBadgeEventId'] as String?,
+      taskStage: jsonSerialization['taskStage'] as String?,
+      taskThreadRootEventId:
+          jsonSerialization['taskThreadRootEventId'] as String?,
+      taskUrl: jsonSerialization['taskUrl'] as String?,
     );
   }
 
@@ -410,6 +423,27 @@ abstract class MessengerEvent implements _i1.SerializableModel {
   /// событий его не несут (backward compat).
   List<String>? pinnedEventIds;
 
+  /// **TASK87** — realtime-значок задачи (`taskBadgeUpdated`). Носитель =
+  /// сообщение по `taskBadgeEventId` (matrixEventId = `TaskLink.matrixEventId`)
+  /// в комнате `roomId`; SDK находит его в ленте и обновляет значок теми же
+  /// полями, что несёт `ChatMessage` (см. `matrix_message_service` →
+  /// `taskBadges`):
+  ///   * `taskStage` — стадия тикета строкой (`new`/`in_progress`/`accepted`/
+  ///     `rejected`); **null**, когда TaskLink есть, а тикета нет (значок
+  ///     нейтральный «задача заведена»);
+  ///   * `taskThreadRootEventId` — корень треда задачи (TASK82; null у старых
+  ///     тикетов без якоря);
+  ///   * `taskUrl` — ссылка на issue (fallback-переход + признак «задача есть»).
+  /// `roomId` обязательно задан. Все nullable — прочие типы событий их не несут
+  /// (backward compat).
+  String? taskBadgeEventId;
+
+  String? taskStage;
+
+  String? taskThreadRootEventId;
+
+  String? taskUrl;
+
   /// Returns a shallow copy of this [MessengerEvent]
   /// with some or all fields replaced by the given arguments.
   @_i1.useResult
@@ -453,6 +487,10 @@ abstract class MessengerEvent implements _i1.SerializableModel {
     String? conferenceConfId,
     List<_i5.ConferenceMember>? conferenceMembers,
     List<String>? pinnedEventIds,
+    String? taskBadgeEventId,
+    String? taskStage,
+    String? taskThreadRootEventId,
+    String? taskUrl,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -514,6 +552,11 @@ abstract class MessengerEvent implements _i1.SerializableModel {
           valueToJson: (v) => v.toJson(),
         ),
       if (pinnedEventIds != null) 'pinnedEventIds': pinnedEventIds?.toJson(),
+      if (taskBadgeEventId != null) 'taskBadgeEventId': taskBadgeEventId,
+      if (taskStage != null) 'taskStage': taskStage,
+      if (taskThreadRootEventId != null)
+        'taskThreadRootEventId': taskThreadRootEventId,
+      if (taskUrl != null) 'taskUrl': taskUrl,
     };
   }
 
@@ -566,6 +609,10 @@ class _MessengerEventImpl extends MessengerEvent {
     String? conferenceConfId,
     List<_i5.ConferenceMember>? conferenceMembers,
     List<String>? pinnedEventIds,
+    String? taskBadgeEventId,
+    String? taskStage,
+    String? taskThreadRootEventId,
+    String? taskUrl,
   }) : super._(
          eventType: eventType,
          serverTimestamp: serverTimestamp,
@@ -606,6 +653,10 @@ class _MessengerEventImpl extends MessengerEvent {
          conferenceConfId: conferenceConfId,
          conferenceMembers: conferenceMembers,
          pinnedEventIds: pinnedEventIds,
+         taskBadgeEventId: taskBadgeEventId,
+         taskStage: taskStage,
+         taskThreadRootEventId: taskThreadRootEventId,
+         taskUrl: taskUrl,
        );
 
   /// Returns a shallow copy of this [MessengerEvent]
@@ -652,6 +703,10 @@ class _MessengerEventImpl extends MessengerEvent {
     Object? conferenceConfId = _Undefined,
     Object? conferenceMembers = _Undefined,
     Object? pinnedEventIds = _Undefined,
+    Object? taskBadgeEventId = _Undefined,
+    Object? taskStage = _Undefined,
+    Object? taskThreadRootEventId = _Undefined,
+    Object? taskUrl = _Undefined,
   }) {
     return MessengerEvent(
       eventType: eventType ?? this.eventType,
@@ -743,6 +798,14 @@ class _MessengerEventImpl extends MessengerEvent {
       pinnedEventIds: pinnedEventIds is List<String>?
           ? pinnedEventIds
           : this.pinnedEventIds?.map((e0) => e0).toList(),
+      taskBadgeEventId: taskBadgeEventId is String?
+          ? taskBadgeEventId
+          : this.taskBadgeEventId,
+      taskStage: taskStage is String? ? taskStage : this.taskStage,
+      taskThreadRootEventId: taskThreadRootEventId is String?
+          ? taskThreadRootEventId
+          : this.taskThreadRootEventId,
+      taskUrl: taskUrl is String? ? taskUrl : this.taskUrl,
     );
   }
 }

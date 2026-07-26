@@ -9,6 +9,7 @@ import 'package:nsg_connect_client/nsg_connect_client.dart'
         WriteBannedException,
         EscalationResult,
         ContactCardInfo,
+        RoomBotCommands,
         RoomDetails,
         RoomParticipant,
         RoomMemberRole,
@@ -17,6 +18,7 @@ import 'package:nsg_connect_client/nsg_connect_client.dart'
         ParticipantKind,
         RoomSummary,
         RoomType,
+        RoomTaskStats,
         RoomUnavailableException,
         AttachmentRejectedException,
         AttachmentRejectReason;
@@ -44,6 +46,8 @@ import '../messenger_runtime.dart';
 import 'chat_route.dart';
 import 'contact_profile_screen.dart';
 import 'nsg_route_observer.dart';
+import 'tasks_header_button.dart';
+import 'tasks_screen.dart';
 import 'thread_screen.dart';
 import '../rooms/participant_action_sheet.dart' show formatWriteBanUntil;
 import '../presence/last_seen_format.dart';
@@ -54,6 +58,7 @@ import '../utils/relative_time.dart'
 import '../theme/nsg_messenger_theme.dart' show NsgMessageBubbleTokens;
 import '../widgets/nsg_avatar_image.dart';
 import 'group_settings_screen.dart';
+import '../widgets/nsg_bot_badge.dart';
 
 /// **TASK45 фаза 2**: productEntityType объектовой комнаты. Синхронно с
 /// server-side `RoomService.objectRoomEntityType` ('object'). По нему
@@ -138,9 +143,27 @@ class ChatScreen extends StatefulWidget {
     @visibleForTesting this.openThreadOverride,
     @visibleForTesting this.openTaskThreadOverride,
     @visibleForTesting this.openTaskUrlOverride,
+    @visibleForTesting this.roomTaskStatsFetcherOverride,
+    @visibleForTesting this.openRoomTasksOverride,
+    @visibleForTesting this.botCommandsOverride,
   });
 
   final int roomId;
+
+  /// **TASK77 итер.1**: visible-for-testing подмена команд ботов комнаты
+  /// (обычно грузятся через `client.messenger.listRoomBotCommands`, который
+  /// в test-mode skip-ается — как и `_fetchRoomDetails`). Прокидываются в
+  /// [MessageComposer.botCommands] для «/»-подсказки.
+  final List<RoomBotCommands>? botCommandsOverride;
+
+  /// **TASK88**: visible-for-testing загрузчик сводки задач комнаты (иконка в
+  /// шапке). Если передан — вместо `client.messenger.roomTaskStats`, чтобы
+  /// widget-тест иконки не поднимал runtime. В production не передаётся.
+  final Future<RoomTaskStats> Function(int roomId)? roomTaskStatsFetcherOverride;
+
+  /// **TASK88**: visible-for-testing подмена перехода к задачам комнаты по
+  /// тапу на иконку в шапке. В production — push [TasksScreen] с `roomId`.
+  final void Function(BuildContext context, int roomId)? openRoomTasksOverride;
 
   /// **TASK82**: visible-for-testing подмена перехода в тред задачи. В
   /// production — push [ThreadScreen]; тест подменяет, чтобы проверить сам
@@ -418,6 +441,12 @@ class _ChatScreenState extends State<ChatScreen>
   /// no-mention-styling (acceptable degraded UX).
   RoomDetails? _roomDetails;
 
+  /// **TASK77 итер.1**: команды ботов этой комнаты — источник «/»-подсказки
+  /// в композере. Грузятся один раз при открытии чата (список меняется
+  /// только когда бот сам его переобъявит — realtime тут не нужен). Пусто
+  /// = ботов с командами нет ⇒ подсказки не будет.
+  List<RoomBotCommands> _botCommands = const [];
+
   /// **TASK55 итер.1**: last seen собеседника (только direct). null —
   /// не загружен / нет данных / не direct.
   DateTime? _peerLastSeen;
@@ -444,6 +473,11 @@ class _ChatScreenState extends State<ChatScreen>
   /// direct-чате («вы только что познакомились, вот кто это»). Best-effort;
   /// null = нет визитки / не direct / не загрузилась.
   ContactCardInfo? _introCard;
+
+  /// **TASK88**: сводка по задачам комнаты для иконки в шапке. null — ещё не
+  /// загружена / нет данных / best-effort сбой (иконки нет). Грузится разово
+  /// при входе в чат (realtime-обновление счётчика — скоуп-аут TASK88).
+  RoomTaskStats? _roomTaskStats;
 
   /// **TASK16-A**: ScrollController используем чтобы реализовать
   /// best-effort scroll-to-original при tap по reply chip. Per Q1 —
@@ -570,6 +604,14 @@ class _ChatScreenState extends State<ChatScreen>
     final overrideDetails = widget.roomDetailsOverride;
     if (overrideDetails != null) _applyRoomDetails(overrideDetails);
     _fetchRoomDetails();
+    // **TASK77 итер.1**: команды ботов комнаты для «/»-подсказки. Тест
+    // задаёт их напрямую (боевой fetch в test-mode skip-ается).
+    final overrideCommands = widget.botCommandsOverride;
+    if (overrideCommands != null) _botCommands = overrideCommands;
+    unawaited(_fetchBotCommands());
+    // **TASK88**: best-effort загрузка сводки задач комнаты для иконки в
+    // шапке (нет задач → иконки нет). Не блокирует открытие чата.
+    unawaited(_loadRoomTaskStats());
     // **TASK51 (UI)**: разово освежить знание о живой конференции комнаты
     // (плашка «идёт групповой звонок»): события шины шлются только на
     // ИЗМЕНЕНИЯ состава — о конференции, начавшейся до нашего подключения,
@@ -786,6 +828,31 @@ class _ChatScreenState extends State<ChatScreen>
     } catch (_) {
       // Tolerable: bubble без mention-styling, composer без typeahead.
       // Reply / send всё ещё работают.
+    }
+  }
+
+  /// **TASK77 итер.1**: подгрузка объявленных ботами slash-команд для
+  /// «/»-подсказки в композере. Один RPC при открытии чата (сервер отдаёт
+  /// сразу всех ботов комнаты, см. `listRoomBotCommands`).
+  ///
+  /// Best-effort и не блокирует render: ошибка/офлайн → подсказки просто
+  /// нет, отправка команды руками работает как раньше. Не участник комнаты
+  /// / нет ботов → сервер вернёт пустой список (без исключения).
+  Future<void> _fetchBotCommands() async {
+    // В test-mode (`controllerOverride` set) runtime может быть не поднят —
+    // тот же гард, что в `_fetchRoomDetails`.
+    if (widget.controllerOverride != null) return;
+    try {
+      final commands = await withAuthRetry(
+        () => MessengerRuntime.instance.client.messenger.listRoomBotCommands(
+          roomId: widget.roomId,
+        ),
+        MessengerRuntime.instance.sessionManager,
+      );
+      if (!mounted || commands.isEmpty) return;
+      setState(() => _botCommands = commands);
+    } catch (_) {
+      // Терпимо: композер без «/»-подсказки.
     }
   }
 
@@ -1278,6 +1345,59 @@ class _ChatScreenState extends State<ChatScreen>
       return;
     }
     unawaited(_launchExternalUrl(url));
+  }
+
+  /// **TASK88**: best-effort загрузка сводки задач комнаты (иконка в шапке).
+  /// Через override (тест) или боевой RPC `roomTaskStats`. Сбой/недоступность
+  /// — тихо (иконка просто не покажется, чат не ломается). В чистом
+  /// controllerOverride-тесте без override RPC не зовём (runtime не поднят).
+  Future<void> _loadRoomTaskStats() async {
+    try {
+      final override = widget.roomTaskStatsFetcherOverride;
+      final RoomTaskStats stats;
+      if (override != null) {
+        stats = await override(widget.roomId);
+      } else if (widget.controllerOverride == null) {
+        stats = await withAuthRetry(
+          () => MessengerRuntime.instance.client.messenger.roomTaskStats(
+            roomId: widget.roomId,
+          ),
+          MessengerRuntime.instance.sessionManager,
+        );
+      } else {
+        return; // test-mode без override — иконку не грузим.
+      }
+      if (!mounted) return;
+      setState(() => _roomTaskStats = stats);
+    } catch (e, st) {
+      // Best-effort: значок задач второстепенен, не роняем чат.
+      if (widget.controllerOverride == null) {
+        MessengerRuntime.instance.reportError(
+          e,
+          st,
+          tags: {'chat.action': 'roomTaskStats'},
+        );
+      }
+    }
+  }
+
+  /// **TASK88**: тап по иконке задач в шапке → список задач ЭТОЙ комнаты
+  /// (TASK84 [TasksScreen] с `roomId`). Заголовок — «Задачи: <комната>» из
+  /// имени комнаты (если известно). Тест подменяет через [openRoomTasksOverride].
+  void _openRoomTasks() {
+    final override = widget.openRoomTasksOverride;
+    if (override != null) {
+      override(context, widget.roomId);
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => TasksScreen(
+          roomId: widget.roomId,
+          roomTitle: _roomDetails?.name,
+        ),
+      ),
+    );
   }
 
   /// Открыть внешний URL (issue задачи) в браузере. Best-effort: невалидный
@@ -2428,6 +2548,13 @@ class _ChatScreenState extends State<ChatScreen>
                     tooltip: NsgL10n.of(context).conferenceStartTooltip,
                     onPressed: _startConferenceCall,
                   ),
+                // **TASK88**: иконка задач комнаты — видна только когда у
+                // комнаты есть задачи (сам виджет прячется при пустой сводке);
+                // при активных — бейдж с числом. Тап → список задач комнаты.
+                TasksHeaderButton(
+                  stats: _roomTaskStats,
+                  onTap: _openRoomTasks,
+                ),
                 if (widget.controllerOverride == null)
                   IconButton(
                     icon: const Icon(Icons.search),
@@ -2748,6 +2875,9 @@ class _ChatScreenState extends State<ChatScreen>
                                     participants: _roomDetails?.participants,
                                     totalParticipants:
                                         _roomDetails?.totalParticipants,
+                                    // **TASK77 итер.1**: «/» → команды ботов
+                                    // этой комнаты.
+                                    botCommands: _botCommands,
                                     replyTargetSenderName: senderName,
                                     // **B12** edit-mode wiring.
                                     editTarget: effectiveEdit,
@@ -3670,10 +3800,35 @@ class _RoomTitle extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                name.isEmpty ? '—' : name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              // TASK77 довесок A: 1:1 с ботом — плашка рядом с именем в шапке.
+              // В direct участников двое, и сам пользователь ботом быть не
+              // может, поэтому любой non-human участник здесь — это peer.
+              // В группе плашку в заголовок не ставим: там несколько
+              // собеседников, маркировка живёт в списке участников и у
+              // сообщений.
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      name.isEmpty ? '—' : name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (details!.participants.any(
+                    (p) => NsgBotBadge.isNonHuman(p.participantKind),
+                  )) ...[
+                    const SizedBox(width: 6),
+                    NsgBotBadge(
+                      kind: details!.participants
+                          .firstWhere(
+                            (p) => NsgBotBadge.isNonHuman(p.participantKind),
+                          )
+                          .participantKind,
+                    ),
+                  ],
+                ],
               ),
               if (seen != null)
                 Text(

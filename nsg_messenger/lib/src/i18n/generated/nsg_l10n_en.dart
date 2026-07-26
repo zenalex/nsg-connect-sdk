@@ -486,6 +486,9 @@ class NsgL10nEn extends NsgL10n {
   }
 
   @override
+  String get botCommandsTypeaheadHeader => 'Bot commands';
+
+  @override
   String get roleBadgeOwner => 'Owner';
 
   @override
@@ -1143,6 +1146,14 @@ class NsgL10nEn extends NsgL10n {
   String get botsAdminNoCapabilities => 'no capabilities';
 
   @override
+  String get botsAdminNoCommands => 'no commands declared';
+
+  @override
+  String botsAdminCommandsLabel(String commands) {
+    return 'Commands: $commands';
+  }
+
+  @override
   String get botsAdminTokenTitle => 'Bot access token';
 
   @override
@@ -1425,6 +1436,9 @@ class NsgL10nEn extends NsgL10n {
   String get pulsePeriod15m => '15 min';
 
   @override
+  String get pulsePeriod30m => '30 min';
+
+  @override
   String get pulsePeriod1h => '1 hour';
 
   @override
@@ -1554,6 +1568,58 @@ class NsgL10nEn extends NsgL10n {
   @override
   String get pulseLevel1Helper =>
       'Comma-separated messenger user ids to DM on escalation.';
+
+  @override
+  String get pulseMembers => 'Members';
+
+  @override
+  String pulseMembersOf(String name) {
+    return 'Members · $name';
+  }
+
+  @override
+  String get pulseAddMember => 'Add member';
+
+  @override
+  String get pulseRemoveMember => 'Revoke access';
+
+  @override
+  String get pulseNoMembers => 'No members yet';
+
+  @override
+  String get pulseRoleOwner => 'Owner';
+
+  @override
+  String get pulseRoleAdmin => 'Admin';
+
+  @override
+  String get pulseRoleViewer => 'Viewer';
+
+  @override
+  String get pulseRoleLabel => 'Role';
+
+  @override
+  String get pulseRoleInherited => 'Inherited from folder';
+
+  @override
+  String get pulseMemberInheritedHint =>
+      'Access comes from a parent folder. Change it there.';
+
+  @override
+  String get pulseLastOwnerError =>
+      'The last owner cannot be removed or demoted.';
+
+  @override
+  String get pulsePickMember => 'Pick a person';
+
+  @override
+  String get pulseMemberSearchHint => 'Email or nickname';
+
+  @override
+  String get pulseMemberSearchEmpty => 'Nobody found';
+
+  @override
+  String get pulseReadOnlyHint => 'You have view-only access';
 
   @override
   String pulseRuleSummary(String severity, String room) {
@@ -2091,4 +2157,24 @@ class NsgL10nEn extends NsgL10n {
 
   @override
   String get tasksLoadError => 'Failed to load tasks';
+
+  @override
+  String get taskLabel => 'Task';
+
+  @override
+  String tasksScreenTitleForRoom(String room) {
+    return 'Tasks: $room';
+  }
+
+  @override
+  String get supportInboxProjectFilterLabel => 'Project:';
+
+  @override
+  String get supportInboxProjectFilterAll => 'All projects';
+
+  @override
+  String get supportInboxProjectFilterTitle => 'Filter by project';
+
+  @override
+  String get supportInboxEmpty => 'No requests';
 }

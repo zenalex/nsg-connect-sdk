@@ -50,6 +50,9 @@ class _FakeRpc implements MessagesRpc {
   String? lastSentThreadId;
   String? lastSentBody;
 
+  /// eventId-ы, помеченные прочитанными (авто-markRead при просмотре треда).
+  final markReadEvents = <String>[];
+
   @override
   Future<MessengerMessageListPage> listMessages({
     required int roomId,
@@ -119,7 +122,11 @@ class _FakeRpc implements MessagesRpc {
   Future<bool> markRead({
     required int roomId,
     required String matrixEventId,
-  }) async => true;
+    String? threadRootEventId,
+  }) async {
+    markReadEvents.add(matrixEventId);
+    return true;
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -270,4 +277,33 @@ void main() {
     expect(rpc.lastSentBody, 'проверил, ок');
     expect(rpc.lastSentThreadId, _root);
   });
+
+  testWidgets(
+    'ThreadScreen: просмотр треда авто-помечает новейшее сообщение прочитанным',
+    (tester) async {
+      final rpc = _FakeRpc()
+        ..threadPage = [
+          _msg(eventId: 'r1', body: 'починилось?', threadId: _root),
+          _msg(eventId: _root, body: 'Задача создана'),
+        ];
+      final controller = make(rpc, threadRootEventId: _root);
+
+      await tester.pumpWidget(
+        wrap(
+          ThreadScreen(
+            roomId: _room,
+            threadRootEventId: _root,
+            controllerOverride: controller,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      // До окончания debounce markRead ещё не ушёл.
+      expect(rpc.markReadEvents, isEmpty);
+      // После debounce (500ms) помечается новейшее реальное сообщение треда.
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(rpc.markReadEvents, contains('r1'));
+    },
+  );
 }

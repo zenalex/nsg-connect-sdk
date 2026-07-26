@@ -943,6 +943,12 @@ abstract class NsgL10n {
   /// **'Showing {shown} of {total}'**
   String mentionTypeaheadShowingHeader(int shown, int total);
 
+  /// TASK77 итер.1: header в /-typeahead композера — объясняет, что это объявленные ботами комнаты slash-команды, а не автодополнение текста.
+  ///
+  /// In en, this message translates to:
+  /// **'Bot commands'**
+  String get botCommandsTypeaheadHeader;
+
   /// TASK29 Chunk 2: tooltip для crown-badge у owner-роли в participant tile.
   ///
   /// In en, this message translates to:
@@ -2107,6 +2113,18 @@ abstract class NsgL10n {
   /// **'no capabilities'**
   String get botsAdminNoCapabilities;
 
+  /// TASK77 итер.1: подзаголовок бота, который не объявил ни одной slash-команды через setMyCommands — пользователи не увидят его в подсказке по «/».
+  ///
+  /// In en, this message translates to:
+  /// **'no commands declared'**
+  String get botsAdminNoCommands;
+
+  /// TASK77 итер.1: строка admin-тайла со списком объявленных ботом команд («/deploy, /status»).
+  ///
+  /// In en, this message translates to:
+  /// **'Commands: {commands}'**
+  String botsAdminCommandsLabel(String commands);
+
   /// TASK36: заголовок диалога с access-токеном бота (после создания или ротации).
   ///
   /// In en, this message translates to:
@@ -2629,6 +2647,12 @@ abstract class NsgL10n {
   /// **'15 min'**
   String get pulsePeriod15m;
 
+  /// Вариант периода — 30 минут (шаг планировщиков «раз в полчаса»).
+  ///
+  /// In en, this message translates to:
+  /// **'30 min'**
+  String get pulsePeriod30m;
+
   /// TASK60: вариант периода — 1 час.
   ///
   /// In en, this message translates to:
@@ -2874,6 +2898,102 @@ abstract class NsgL10n {
   /// In en, this message translates to:
   /// **'Comma-separated messenger user ids to DM on escalation.'**
   String get pulseLevel1Helper;
+
+  /// TASK79: кнопка/заголовок раздела участников папки или монитора.
+  ///
+  /// In en, this message translates to:
+  /// **'Members'**
+  String get pulseMembers;
+
+  /// TASK79: заголовок экрана участников с именем объекта.
+  ///
+  /// In en, this message translates to:
+  /// **'Members · {name}'**
+  String pulseMembersOf(String name);
+
+  /// TASK79: кнопка добавления участника к папке/монитору.
+  ///
+  /// In en, this message translates to:
+  /// **'Add member'**
+  String get pulseAddMember;
+
+  /// TASK79: действие «убрать участника» в списке участников.
+  ///
+  /// In en, this message translates to:
+  /// **'Revoke access'**
+  String get pulseRemoveMember;
+
+  /// TASK79: пустой список участников.
+  ///
+  /// In en, this message translates to:
+  /// **'No members yet'**
+  String get pulseNoMembers;
+
+  /// TASK79: роль владельца объекта мониторинга.
+  ///
+  /// In en, this message translates to:
+  /// **'Owner'**
+  String get pulseRoleOwner;
+
+  /// TASK79: роль администратора объекта мониторинга.
+  ///
+  /// In en, this message translates to:
+  /// **'Admin'**
+  String get pulseRoleAdmin;
+
+  /// TASK79: роль наблюдателя — видит статусы и инциденты, ничего не меняет.
+  ///
+  /// In en, this message translates to:
+  /// **'Viewer'**
+  String get pulseRoleViewer;
+
+  /// TASK79: подпись выпадашки выбора роли.
+  ///
+  /// In en, this message translates to:
+  /// **'Role'**
+  String get pulseRoleLabel;
+
+  /// TASK79: пометка унаследованного членства — убирать участника надо в папке-предке.
+  ///
+  /// In en, this message translates to:
+  /// **'Inherited from folder'**
+  String get pulseRoleInherited;
+
+  /// TASK79: подсказка при попытке изменить унаследованное членство.
+  ///
+  /// In en, this message translates to:
+  /// **'Access comes from a parent folder. Change it there.'**
+  String get pulseMemberInheritedHint;
+
+  /// TASK79: сервер отклонил снятие последнего владельца (LastOwnerCannotDemoteException).
+  ///
+  /// In en, this message translates to:
+  /// **'The last owner cannot be removed or demoted.'**
+  String get pulseLastOwnerError;
+
+  /// TASK79: заголовок выбора пользователя при добавлении участника.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a person'**
+  String get pulsePickMember;
+
+  /// TASK79: подсказка в поле поиска пользователя.
+  ///
+  /// In en, this message translates to:
+  /// **'Email or nickname'**
+  String get pulseMemberSearchHint;
+
+  /// TASK79: поиск пользователей ничего не нашёл.
+  ///
+  /// In en, this message translates to:
+  /// **'Nobody found'**
+  String get pulseMemberSearchEmpty;
+
+  /// TASK79: подпись в карточке монитора для роли viewer — управление скрыто.
+  ///
+  /// In en, this message translates to:
+  /// **'You have view-only access'**
+  String get pulseReadOnlyHint;
 
   /// TASK60: строка правила в списке — минимальная severity и комната.
   ///
@@ -3810,6 +3930,42 @@ abstract class NsgL10n {
   /// In en, this message translates to:
   /// **'Failed to load tasks'**
   String get tasksLoadError;
+
+  /// TASK88: short label shown next to the task badge on a source message (in the stage color).
+  ///
+  /// In en, this message translates to:
+  /// **'Task'**
+  String get taskLabel;
+
+  /// TASK88: title of the Tasks screen scoped to one room (tap on the header task icon); {room} is the room name.
+  ///
+  /// In en, this message translates to:
+  /// **'Tasks: {room}'**
+  String tasksScreenTitleForRoom(String room);
+
+  /// TASK75: caption next to the project filter chip in the support inbox folder header.
+  ///
+  /// In en, this message translates to:
+  /// **'Project:'**
+  String get supportInboxProjectFilterLabel;
+
+  /// TASK75: support inbox project filter — no project selected (reset value).
+  ///
+  /// In en, this message translates to:
+  /// **'All projects'**
+  String get supportInboxProjectFilterAll;
+
+  /// TASK75: title of the bottom sheet that picks a project for the support inbox filter.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter by project'**
+  String get supportInboxProjectFilterTitle;
+
+  /// TASK75: empty state of the support inbox (no open support chats, or none match the project filter).
+  ///
+  /// In en, this message translates to:
+  /// **'No requests'**
+  String get supportInboxEmpty;
 }
 
 class _NsgL10nDelegate extends LocalizationsDelegate<NsgL10n> {

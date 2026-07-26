@@ -321,7 +321,9 @@ class _BotAdminTile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            bot.capabilities.isEmpty ? l.botsAdminNoCapabilities : bot.capabilities,
+            bot.capabilities.isEmpty
+                ? l.botsAdminNoCapabilities
+                : bot.capabilities,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.bodySmall,
@@ -329,6 +331,18 @@ class _BotAdminTile extends StatelessWidget {
           Text(
             bot.ownerEmail,
             maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(color: dimmed),
+          ),
+          // **TASK77 итер.1**: что бот сам о себе объявил через
+          // `setMyCommands`. Админ должен видеть витрину бота — иначе
+          // «почему в чате не всплывает подсказка» не диагностируется
+          // ничем, кроме заглядывания в БД. Команды задаёт САМ бот, здесь
+          // они только показываются (правки отсюда быть не должно: это его
+          // самообслуживание).
+          Text(
+            _commandsLine(l),
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.bodySmall?.copyWith(color: dimmed),
           ),
@@ -371,6 +385,18 @@ class _BotAdminTile extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  /// **TASK77 итер.1**: строка со slash-командами бота — `«Команды:
+  /// /deploy, /status»` либо «команды не объявлены». Только имена: описания
+  /// в тайл не влезают, а важен сам факт витрины (полный список видит
+  /// пользователь в подсказке по «/»).
+  String _commandsLine(NsgL10n l) {
+    final commands = NsgMessengerBotsAdmin.commandsOf(bot);
+    if (commands.isEmpty) return l.botsAdminNoCommands;
+    return l.botsAdminCommandsLabel(
+      commands.map((c) => '/${c.command}').join(', '),
     );
   }
 

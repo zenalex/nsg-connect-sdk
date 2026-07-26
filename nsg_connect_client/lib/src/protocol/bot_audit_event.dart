@@ -71,7 +71,10 @@ abstract class BotAuditEvent implements _i1.SerializableModel {
   ///   'enabled'           — включён (setBotEnabled true);
   ///   'disabled'          — выключен, kill-switch (setBotEnabled false);
   ///   'added_to_room'     — добавлен в комнату (addBotToRoom);
-  ///   'capability_denied' — действие отклонено гейтом (abuse-сигнал).
+  ///   'capability_denied' — действие отклонено гейтом (abuse-сигнал);
+  ///   'commands_set'      — бот заменил свой список slash-команд
+  ///                         (TASK77: список видят все участники комнат
+  ///                         бота, поэтому его смена — след для владельца).
   String action;
 
   /// MUID инициатора. Для admin-действий — админ; для 'capability_denied'

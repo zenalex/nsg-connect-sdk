@@ -1442,7 +1442,13 @@ class MessagesController {
   Future<void> markRead(String matrixEventId) async {
     if (_disposed) return;
     try {
-      await _rpc.markRead(roomId: _roomId, matrixEventId: matrixEventId);
+      // В тред-режиме квитанция должна нести корень треда, иначе прочтение
+      // засчитается основной ленте и в треде «прочитано» не появится.
+      await _rpc.markRead(
+        roomId: _roomId,
+        matrixEventId: matrixEventId,
+        threadRootEventId: _threadRootEventId,
+      );
     } catch (e) {
       // Тихо: failure не блокирует chat-UX. Auto-debounce следующим
       // event-ом перекроет horizon. `onSendError` намеренно НЕ
@@ -1764,6 +1770,31 @@ class MessagesController {
     _state.value = current.copyWith(messages: updated);
   }
 
+  /// **TASK87**: применить realtime `taskBadgeUpdated` — найти сообщение-
+  /// носитель по `taskBadgeEventId` в ленте и обновить его значок задачи
+  /// (`taskStage`/`taskThreadRootEventId`/`taskUrl`). Bubble перерисуется
+  /// существующим механизмом (`_state.value = ...`). Нет сообщения в памяти
+  /// (ещё не подгружено / другая страница) → no-op: значок подтянется при
+  /// `listMessages` (там сервер его уже обогащает). Значок — состояние:
+  /// последнее событие побеждает (регистрация → сразу смена стадии).
+  void _handleTaskBadgeUpdated(MessengerEvent e) {
+    final carrierEventId = e.taskBadgeEventId;
+    if (carrierEventId == null) return;
+    final current = _state.value;
+    if (current is! MessagesReady) return; // ещё грузимся → подтянется списком.
+    final idx = current.messages.indexWhere(
+      (c) => c.matrixEventId == carrierEventId,
+    );
+    if (idx < 0) return; // нет в памяти → no-op.
+    final updated = List<ChatMessage>.of(current.messages);
+    updated[idx] = current.messages[idx].withTaskBadge(
+      taskStage: e.taskStage,
+      taskThreadRootEventId: e.taskThreadRootEventId,
+      taskUrl: e.taskUrl,
+    );
+    _state.value = current.copyWith(messages: updated);
+  }
+
   /// **Emoji reactions**: применить realtime `reactionChanged` event к
   /// агрегату. Два случая:
   ///   * add (`reactionRedacted != true`): по
@@ -1878,6 +1909,14 @@ class MessagesController {
     if (event.eventType == MessengerEventType.pinnedMessagesChanged) {
       if (event.roomId != _roomId) return;
       _handlePinnedChanged(event);
+      return;
+    }
+
+    // **TASK87**: значок задачи появился/перекрасился в реальном времени.
+    // Payload — taskBadgeEventId (носитель) + стадия/корень/URL, message=null.
+    if (event.eventType == MessengerEventType.taskBadgeUpdated) {
+      if (event.roomId != _roomId) return;
+      _handleTaskBadgeUpdated(event);
       return;
     }
 
