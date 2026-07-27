@@ -21,7 +21,9 @@ import 'attachments/attachment_picker.dart';
 import 'attachments/clipboard_image.dart';
 import 'attachments/mxc_image_provider.dart';
 import 'chat_message.dart';
+import 'code_paste_detector.dart';
 import 'composer_album_edit.dart';
+import 'message_splitter.dart' show splitMessageBody;
 
 /// True на mobile-платформах (iOS/Android). На desktop / web Enter
 /// обрабатываем через `HardwareKeyboard.addHandler` + Shortcuts, и
@@ -39,6 +41,10 @@ final bool _kIsMobile = !kIsWeb && (Platform.isIOS || Platform.isAndroid);
 /// Сервер тоже валидирует и кидает `MessageBodyTooLargeException`
 /// (anti-abuse + защита от malformed клиентов).
 const int kMessageBodyMaxChars = 4096;
+
+/// Со скольких частей спрашиваем подтверждение перед отправкой (issue #57).
+/// До трёх включительно шлём молча: столько получается при обычной вставке.
+const int kSplitConfirmThreshold = 3;
 
 /// Ключ подложки попапа @-подсказок (issue #43).
 ///
@@ -946,6 +952,12 @@ class _MessageComposerState extends State<MessageComposer> {
         _wrapSelection('_');
         return true;
       }
+      // **issue #70**: Ctrl/Cmd+Shift+C — код. С Shift, потому что без
+      // него это копирование.
+      if (key == LogicalKeyboardKey.keyC && isShift) {
+        _wrapSelectionAsCode();
+        return true;
+      }
       // **Desktop paste картинки (2026-07-13)**: Ctrl/Cmd+V — если в
       // системном буфере картинка (скриншот/копия из проводника), кладём
       // её во вложения. НЕ перехватываем событие (return false ниже):
@@ -954,6 +966,11 @@ class _MessageComposerState extends State<MessageComposer> {
       // покрыт отдельным listener-ом (`ClipboardImageListener`).
       if (key == LogicalKeyboardKey.keyV && !isShift) {
         unawaited(_tryPasteImageDesktop());
+        // **issue #70**: вставили код — оформляем блоком. Событие НЕ
+        // перехватываем: вставку делает сам TextField, а мы разбираемся
+        // уже с результатом (решение «код или нет» требует чтения буфера,
+        // то есть асинхронное, — синхронно его тут не принять).
+        unawaited(_maybeFormatPastedCode());
       }
     }
 
@@ -1037,6 +1054,40 @@ class _MessageComposerState extends State<MessageComposer> {
     );
   }
 
+  /// **issue #70**: обернуть выделение как КОД.
+  ///
+  /// Однострочное выделение → inline `` `code` ``; многострочное — блок
+  /// ```` ``` ````. Разные вещи по смыслу: имя переменной посреди фразы
+  /// не должно разрывать абзац на три части, а вставленный из редактора
+  /// фрагмент обязан сохранить отступы и переносы.
+  void _wrapSelectionAsCode() {
+    final value = _ctl.value;
+    final sel = value.selection;
+    if (!sel.isValid) return;
+    final text = value.text;
+    final selected = text.substring(sel.start, sel.end);
+    if (!selected.contains('\n')) {
+      _wrapSelection('`');
+      return;
+    }
+    // Блок начинается со своей строки и заканчивается своей — иначе
+    // ограждение прилипнет к соседнему тексту и перестанет быть блоком.
+    final body = selected.trim();
+    final prefix = sel.start > 0 && text[sel.start - 1] != '\n' ? '\n' : '';
+    final suffix = sel.end < text.length && text[sel.end] != '\n' ? '\n' : '';
+    final wrapped = '$prefix```\n$body\n```$suffix';
+    final newText = text.replaceRange(sel.start, sel.end, wrapped);
+    final bodyStart = sel.start + prefix.length + 4; // '```' + '\n'
+    _ctl.value = value.copyWith(
+      text: newText,
+      selection: TextSelection(
+        baseOffset: bodyStart,
+        extentOffset: bodyStart + body.length,
+      ),
+      composing: TextRange.empty,
+    );
+  }
+
   void _submit() {
     if (!widget.enabled || _uploading) return;
 
@@ -1050,15 +1101,11 @@ class _MessageComposerState extends State<MessageComposer> {
     final trimmed = _ctl.text.trim();
     // Отправлять нечего только если и текст пуст, и вложений нет.
     if (trimmed.isEmpty && _pending.isEmpty) return;
-    // Defensive clamp: TextField.maxLength=enforced уже не даёт превысить
-    // лимит, но платформенные edge-case-ы (web IME, программная вставка
-    // мимо formatter-а) теоретически могут просочиться. Гарантируем, что
-    // server никогда не увидит > kMessageBodyMaxChars и не вернёт
-    // MessageBodyTooLargeException (→ silent failed-send). Counter под
-    // полем уже визуально предупреждал пользователя о пределе.
-    final body = trimmed.length > kMessageBodyMaxChars
-        ? trimmed.substring(0, kMessageBodyMaxChars)
-        : trimmed;
+    // **issue #57**: в лимит вписываемся РАЗБИВКОЙ, а не отсечением.
+    // `body` — первая часть, `tail` — остальные (обычно пусто).
+    final parts = splitMessageBody(trimmed);
+    final body = parts.isEmpty ? '' : parts.first;
+    final tail = parts.length > 1 ? parts.sublist(1) : const <String>[];
     // Snapshot mentions ПЕРЕД clear-ом (clear сбрасывает state).
     final mentions = _pendingMentions.isEmpty
         ? null
@@ -1070,6 +1117,19 @@ class _MessageComposerState extends State<MessageComposer> {
     if (editing != null && onEdit != null) {
       final eventId = editing.matrixEventId;
       if (eventId == null) return; // sanity — non-sent в edit не попадёт
+      // Правка — ОДНО событие, разбить её нельзя. Раньше хвост молча
+      // отсекался; теперь правку не применяем, текст остаётся в поле, и
+      // пользователь решает сам, что сократить.
+      if (trimmed.length > kMessageBodyMaxChars) {
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          SnackBar(
+            content: Text(
+              NsgL10n.of(context).composerEditTooLong(kMessageBodyMaxChars),
+            ),
+          ),
+        );
+        return;
+      }
       _ctl.clear();
       _pendingMentions.clear();
       _hideTypeahead();
@@ -1097,13 +1157,73 @@ class _MessageComposerState extends State<MessageComposer> {
       } else {
         unawaited(_sendPendingThenText(pending, body, mentions));
       }
+      // Подпись альбома тоже ограничена лимитом: хвост уходит следом
+      // обычными сообщениями, а не теряется (issue #57).
+      if (tail.isNotEmpty) unawaited(_sendTailAfterAlbum(tail));
       return;
+    }
+    if (tail.isEmpty) {
+      _ctl.clear();
+      _pendingMentions.clear();
+      _hideTypeahead();
+      _hasTextVN.value = false;
+      widget.onSend(body, mentionedMessengerUserIds: mentions);
+      return;
+    }
+    unawaited(_sendSplit(parts, mentions));
+  }
+
+  /// **issue #57**: текст не влез в одно сообщение — шлём частями.
+  ///
+  /// Спрашиваем только когда частей БОЛЬШЕ [kSplitConfirmThreshold]: две-три
+  /// части при вставке — обычное дело, и диалог там мешал бы работе, а вот
+  /// «сейчас улетит десять сообщений» пользователь должен узнать заранее.
+  /// Отказ ничего не отправляет и НЕ чистит поле: текст остаётся у автора.
+  Future<void> _sendSplit(List<String> parts, List<int>? mentions) async {
+    if (parts.length > kSplitConfirmThreshold) {
+      final ok = await _confirmSplit(parts.length);
+      if (!ok || !mounted) return;
     }
     _ctl.clear();
     _pendingMentions.clear();
     _hideTypeahead();
     _hasTextVN.value = false;
-    widget.onSend(body, mentionedMessengerUserIds: mentions);
+    // Последовательно и с ожиданием: порядок частей — часть смысла текста,
+    // параллельная отправка перемешала бы их в чате.
+    for (var i = 0; i < parts.length; i++) {
+      await widget.onSend(
+        parts[i],
+        mentionedMessengerUserIds: i == 0 ? mentions : null,
+      );
+    }
+  }
+
+  Future<void> _sendTailAfterAlbum(List<String> tail) async {
+    for (final part in tail) {
+      await widget.onSend(part);
+    }
+  }
+
+  Future<bool> _confirmSplit(int count) async {
+    final l = NsgL10n.of(context);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l.composerSplitTitle),
+        content: Text(l.composerSplitBody(count)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(l.commonCancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(l.composerSplitConfirm),
+          ),
+        ],
+      ),
+    );
+    return ok ?? false;
   }
 
   /// **Редактирование альбома**: собрать дифф и отдать хосту через
@@ -1216,6 +1336,66 @@ class _MessageComposerState extends State<MessageComposer> {
         mimeType: 'image/png',
         originalFilename:
             'clipboard-${DateTime.now().millisecondsSinceEpoch}.png',
+      ),
+    );
+  }
+
+  /// **issue #70**: только что вставленный код оформить блоком.
+  ///
+  /// Работаем ПОСЛЕ вставки, а не вместо неё: перехватывать Ctrl+V нельзя —
+  /// решение «код или не код» требует чтения буфера, то есть асинхронное,
+  /// а обработчик клавиш синхронный. Поэтому даём TextField вставить как
+  /// обычно и, если вставленный фрагмент действительно похож на код,
+  /// заменяем его на тот же текст в ограждениях.
+  ///
+  /// Молча переоформлять чужой текст нельзя — показываем снекбар с
+  /// «Отменить»: эвристика по определению ошибается, и у пользователя
+  /// должен быть один клик назад, а не ручная правка ограждений.
+  Future<void> _maybeFormatPastedCode() async {
+    if (!widget.enabled || _uploading) return;
+    ClipboardData? data;
+    try {
+      data = await Clipboard.getData(Clipboard.kTextPlain);
+    } catch (_) {
+      return; // нет доступа к буферу — просто не вмешиваемся
+    }
+    final clip = data?.text;
+    if (clip == null || clip.isEmpty || !looksLikeCode(clip)) return;
+    // Ждём кадр: вставку в поле делает сам TextField.
+    await Future<void>.delayed(Duration.zero);
+    if (!mounted) return;
+    final value = _ctl.value;
+    final caret = value.selection.baseOffset;
+    if (caret < clip.length) return;
+    final start = caret - clip.length;
+    if (value.text.substring(start, caret) != clip) {
+      return; // вставили не то/не туда — не трогаем текст пользователя
+    }
+    final wrapped = wrapAsCodeBlock(clip);
+    _ctl.value = value.copyWith(
+      text: value.text.replaceRange(start, caret, wrapped),
+      selection: TextSelection.collapsed(offset: start + wrapped.length),
+      composing: TextRange.empty,
+    );
+    if (!mounted) return;
+    final l = NsgL10n.of(context);
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      SnackBar(
+        content: Text(l.composerPastedAsCode),
+        action: SnackBarAction(
+          label: l.commonUndo,
+          onPressed: () {
+            if (!mounted) return;
+            final v = _ctl.value;
+            final idx = v.text.indexOf(wrapped, start > 0 ? start - 1 : 0);
+            if (idx < 0) return; // текст успели поменять — не мешаем
+            _ctl.value = v.copyWith(
+              text: v.text.replaceRange(idx, idx + wrapped.length, clip),
+              selection: TextSelection.collapsed(offset: idx + clip.length),
+              composing: TextRange.empty,
+            );
+          },
+        ),
       ),
     );
   }
@@ -1562,9 +1742,17 @@ class _MessageComposerState extends State<MessageComposer> {
                                 // вводе/paste. Mid-IME-обрезка для лимита 4096
                                 // практически невозможна (никто не композит
                                 // 4096 символов за один IME-сеанс).
+                                // **issue #57**: `enforced` молча резал
+                                // вставку на 4096 — постановщик вставил
+                                // длинный текст и потерял хвост, не заметив
+                                // (счётчик не спасает: текст режется уже В
+                                // МОМЕНТ вставки). Теперь лимит держим не
+                                // отсечением, а разбивкой при отправке
+                                // (`splitMessageBody`), поэтому вводу и
+                                // вставке не мешаем.
                                 maxLength: kMessageBodyMaxChars,
                                 maxLengthEnforcement:
-                                    MaxLengthEnforcement.enforced,
+                                    MaxLengthEnforcement.none,
                                 // **newline ВЕЗДЕ** (issue #27). Раньше на
                                 // mobile стоял `TextInputAction.send`:
                                 // soft-клавиатура показывала «Отправить»
@@ -1619,6 +1807,16 @@ class _MessageComposerState extends State<MessageComposer> {
                                         onPressed: () {
                                           editableState.hideToolbar();
                                           _wrapSelection('_');
+                                        },
+                                      ),
+                                      // **issue #70**: код — из меню, а не
+                                      // только шорткатом: на мобильном
+                                      // клавиатурных сочетаний нет.
+                                      ContextMenuButtonItem(
+                                        label: l.composerFormatCode,
+                                        onPressed: () {
+                                          editableState.hideToolbar();
+                                          _wrapSelectionAsCode();
                                         },
                                       ),
                                     ]);

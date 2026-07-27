@@ -8,6 +8,7 @@ import '../rooms/participant_action_sheet.dart';
 import '../rooms/role_badge.dart';
 import '../widgets/nsg_avatar_image.dart';
 import 'banned_users_screen.dart';
+import 'bot_card_screen.dart';
 import 'contact_profile_screen.dart';
 import '../widgets/nsg_bot_badge.dart';
 
@@ -210,13 +211,25 @@ class _ParticipantsScreenState extends State<ParticipantsScreen> {
                     onLongPress: () => _onLongPress(details, p),
                     // **TASK63**: тап по участнику (не по себе) — профиль
                     // контакта: своё имя / заметка / метки.
+                    //
+                    // **TASK77 итер.3**: у бота профиля контакта нет (метки
+                    // и заметки про программу бессмысленны) — вместо него
+                    // карточка бота: описание, владелец, команды и, главное,
+                    // режим чтения. Ветвимся ДО push-а профиля.
                     onTap: isSelf
                         ? null
                         : () => Navigator.of(context).push(
                             MaterialPageRoute<void>(
-                              builder: (_) => ContactProfileScreen(
-                                contactMessengerUserId: p.messengerUserId,
-                              ),
+                              builder: (_) =>
+                                  NsgBotBadge.isNonHuman(p.participantKind)
+                                  ? BotCardScreen(
+                                      botMessengerUserId: p.messengerUserId,
+                                      roomId: widget.roomId,
+                                    )
+                                  : ContactProfileScreen(
+                                      contactMessengerUserId:
+                                          p.messengerUserId,
+                                    ),
                             ),
                           ),
                   ),

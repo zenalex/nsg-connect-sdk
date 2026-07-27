@@ -21,6 +21,7 @@ import 'contact_card/nsg_messenger_contact_cards.dart';
 import 'contacts/nsg_messenger_contacts.dart';
 import 'admin/nsg_messenger_bots_admin.dart';
 import 'admin/nsg_messenger_platform_admin.dart';
+import 'bots/nsg_messenger_bot_catalog.dart';
 import 'bots/nsg_messenger_my_bots.dart';
 import 'integrations/nsg_messenger_integrations.dart';
 import 'messages/messages_rpc.dart';
@@ -85,6 +86,9 @@ class MessengerRuntime with WidgetsBindingObserver {
   NsgMessengerPlatformAdmin? _platformAdmin;
   // **Issue #49**: self-service «Мои боты» (owner-scoped, без админ-гейта).
   NsgMessengerMyBots? _myBots;
+  // **TASK77 итер.3**: каталог ботов + подключение бота в свою комнату
+  // (гейт — админ комнаты, не владелец бота и не админ платформы).
+  NsgMessengerBotCatalog? _botCatalog;
   // **TASK60**: контроллер дашборда мониторинга Connect Pulse.
   NsgMessengerPulse? _pulse;
   NsgMessengerContacts? _contacts;
@@ -349,6 +353,26 @@ class MessengerRuntime with WidgetsBindingObserver {
     _theme = theme;
   }
 
+  /// **TASK64**: сменить локаль интерфейса в рантайме (host-app с
+  /// переключателем языка). Кроме самого SDK обновляет её и на сервере —
+  /// от `uiLocale` зависит, на каком языке пользователь увидит ЧУЖИЕ
+  /// имена и поля профиля. Без этого шага переключение языка меняло бы
+  /// только подписи кнопок, а собеседники до перезапуска оставались бы
+  /// на прежнем языке (resolution падал бы на английский/базу).
+  ///
+  /// Серверная часть — fire-and-forget (как на `init`): локаль не
+  /// критична, сбой сети не должен ронять переключение языка в UI.
+  void updateLocale(NsgMessengerLocale locale) {
+    _locale = locale;
+    final client = _client;
+    if (client == null) return; // до init — уедет вместе с init
+    unawaited(
+      client.messenger
+          .setUiLocale(locale: locale.locale.languageCode)
+          .catchError((_) {}),
+    );
+  }
+
   /// **TASK22-Phase2 Chunk 1-B**: behavior config (scroll thresholds и
   /// пр.). Если host-app не передал config в `init(config: ...)` —
   /// возвращается [NsgMessengerConfig.fallback] с дефолтами (200 px
@@ -562,6 +586,21 @@ class MessengerRuntime with WidgetsBindingObserver {
     return b;
   }
 
+  /// **TASK77 итер.3**: публичный API каталога ботов и self-service-
+  /// подключения бота в свою комнату (гейт «админ комнаты» — на сервере).
+  /// Доступен через `NsgMessenger.botCatalog`; используется
+  /// `BotCatalogScreen` и карточкой бота.
+  NsgMessengerBotCatalog get botCatalog {
+    final c = _botCatalog;
+    if (c == null) {
+      throw StateError(
+        'NsgMessengerBotCatalog отсутствует. NsgMessenger.init() не вызван '
+        'или dispose() уже отработал.',
+      );
+    }
+    return c;
+  }
+
   /// **TASK60**: публичный API дашборда мониторинга Connect Pulse. Доступен
   /// через `NsgMessenger.pulse`; используется `PulseScreen`. Все эндпоинты
   /// gate-ятся server-side (PULSE_ADMIN_EMAILS) — non-admin получает
@@ -735,6 +774,9 @@ class MessengerRuntime with WidgetsBindingObserver {
     // **Issue #49**: «Мои боты» — такой же stateless-прокси (над
     // `client.myBots.*`) — attach сразу, до session.init().
     _myBots = NsgMessengerMyBots.attach(client: _client!);
+    // **TASK77 итер.3**: каталог ботов — такой же stateless-прокси (над
+    // `client.botCatalog.*`) — attach сразу, до session.init().
+    _botCatalog = NsgMessengerBotCatalog.attach(client: _client!);
     // **TASK60**: контроллер дашборда мониторинга Pulse. Stateless-прокси над
     // `client.pulse.*` — attach сразу, до session.init().
     _pulse = NsgMessengerPulse.attach(client: _client!);
@@ -1360,6 +1402,7 @@ class MessengerRuntime with WidgetsBindingObserver {
     _platformAdmin = null;
     // **Issue #49**: «Мои боты» — тоже stateless-прокси.
     _myBots = null;
+    _botCatalog = null;
     // **TASK60**: контроллер Pulse — тоже stateless-прокси (стрим-подписку
     // держит UI, не runtime); сбрасываем ссылку.
     _pulse = null;

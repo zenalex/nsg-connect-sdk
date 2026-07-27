@@ -1916,6 +1916,26 @@ class _FakeWebRtc implements WebRtcAdapter {
     lastStream = s;
     return s;
   }
+
+  // **TASK80**: 1:1-звонки демонстрацию экрана не поддерживают (она
+  // живёт в конференции) — платформа объявлена «без захвата».
+  @override
+  bool get supportsScreenShare => false;
+
+  @override
+  bool get screenShareNeedsSourcePicker => false;
+
+  @override
+  Future<List<ScreenShareSource>> listScreenShareSources() async => const [];
+
+  @override
+  Future<RtcMediaStream> getDisplayMedia({
+    required ScreenShareCaps caps,
+    String? sourceId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<RtcVideoRenderer> createVideoRenderer() => throw UnimplementedError();
 }
 
 class _FakePc implements RtcPeerConnection {
@@ -1952,7 +1972,16 @@ class _FakePc implements RtcPeerConnection {
   set onRemoteTrack(void Function()? cb) => _onRemote = cb;
 
   @override
+  set onRemoteVideoStream(void Function(RtcMediaStream stream)? cb) {}
+
+  @override
   Future<void> addLocalStream(RtcMediaStream stream) async {}
+
+  @override
+  Future<RtcVideoSender?> addVideoTrack(RtcMediaStream stream) async => null;
+
+  @override
+  Future<void> removeVideoSender(RtcVideoSender sender) async {}
 
   @override
   Future<RtcSdp> createOffer({bool iceRestart = false}) async {
@@ -1989,6 +2018,9 @@ class _FakeStream implements RtcMediaStream {
 
   @override
   List<MediaAudioTrack> get audioTracks => tracks;
+
+  @override
+  List<MediaVideoTrack> get videoTracks => const [];
 
   @override
   Future<void> dispose() async => disposed = true;

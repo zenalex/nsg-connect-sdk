@@ -96,6 +96,32 @@
     "description": "Fallback subtitle в `RoomSummaryTile` когда `lastMessagePreview == null` (комната создана но никто не написал)."
   },
 
+  "composerSplitTitle": "Long text",
+  "@composerSplitTitle": {
+    "description": "issue #57: заголовок подтверждения перед отправкой текста, который не влезает в одно сообщение."
+  },
+  "composerSplitBody": "{count, plural, one{Will be sent as {count} message} other{Will be sent as {count} messages}}",
+  "@composerSplitBody": {
+    "description": "issue #57: спрашиваем ТОЛЬКО когда частей больше трёх — до трёх шлём молча, иначе диалог мешает обычной работе.",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "composerSplitConfirm": "Send",
+  "@composerSplitConfirm": {
+    "description": "issue #57: подтверждение отправки несколькими сообщениями."
+  },
+  "composerEditTooLong": "The edit exceeds the {limit}-character limit — shorten it",
+  "@composerEditTooLong": {
+    "description": "issue #57: правка — это ОДНО событие, разбить её нельзя. Раньше хвост молча отсекался; теперь правка не применяется, а текст остаётся в поле.",
+    "placeholders": { "limit": { "type": "int" } }
+  },
+  "composerPastedAsCode": "Formatted as code",
+  "@composerPastedAsCode": {
+    "description": "issue #70: снекбар после автоформатирования вставленного кода. Обязателен вместе с «Отменить»: молча переоформить чужой текст нельзя."
+  },
+  "commonUndo": "Undo",
+  "@commonUndo": {
+    "description": "Общее действие «отменить» в снекбарах."
+  },
   "commonCancel": "Cancel",
   "@commonCancel": {
     "description": "Cancel-button в confirm-диалогах. TASK42: leave-confirm + future destructive actions."
@@ -419,6 +445,32 @@
     }
   },
 
+  "fileActionPreview": "Preview",
+  "@fileActionPreview": {
+    "description": "issue #69: пункт листа действий по файловому вложению — показать текст внутри приложения (.md/.txt/.json и пр.)."
+  },
+  "fileActionOpenExternal": "Open in external app",
+  "@fileActionOpenExternal": {
+    "description": "issue #69: отдать файл ОС (desktop — url_launcher по file://; mobile/web — системный share sheet)."
+  },
+  "fileActionSave": "Save to disk",
+  "@fileActionSave": {
+    "description": "issue #69: сохранить вложение (desktop — каталог «Загрузки»; mobile/web — системный sheet)."
+  },
+  "fileSavedTo": "Saved: {path}",
+  "@fileSavedTo": {
+    "description": "issue #69: snackbar после сохранения на десктопе — показываем полный путь, иначе файл «исчезает».",
+    "placeholders": { "path": { "type": "String" } }
+  },
+  "fileNoHandler": "No app to open \"{filename}\"",
+  "@fileNoHandler": {
+    "description": "issue #69: ОС отказалась открывать файл (нет ассоциации с расширением) — это не сбой загрузки.",
+    "placeholders": { "filename": { "type": "String" } }
+  },
+  "fileOpenFailed": "Could not open the file",
+  "@fileOpenFailed": {
+    "description": "issue #69: не удалось загрузить/открыть вложение (сеть, сервер, права)."
+  },
   "attachUnnamedFallback": "Unnamed file",
   "@attachUnnamedFallback": {
     "description": "TASK19 Chunk 3: fallback в `_FileRow` когда `AttachmentRef.originalFilename == ''` (defensive — server обычно non-empty)."
@@ -605,6 +657,10 @@
   "composerFormatBold": "Bold",
   "@composerFormatBold": {
     "description": "B19: text-selection context-menu action — wrap selection in **bold** markdown."
+  },
+  "composerFormatCode": "Code",
+  "@composerFormatCode": {
+    "description": "issue #70: пункт меню выделения — оформить как код. Однострочное выделение даёт inline-код, многострочное — блок ```: имя переменной посреди фразы не должно рвать абзац, а вставка из редактора обязана сохранить отступы."
   },
   "composerFormatItalic": "Italic",
   "@composerFormatItalic": {
@@ -800,6 +856,16 @@
     "description": "B25: toast after a successful re-invite from the banned-users screen."
   },
 
+  "roomParticipantsCount": "{count, plural, one{{count} participant} other{{count} participants}}",
+  "@roomParticipantsCount": {
+    "description": "issue #63: подпись под названием ГРУППЫ в шапке чата — сколько участников (у 1:1 на этом месте «был(а) в сети…»).",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "participantsHoverMore": "{count, plural, one{{count} more} other{{count} more}}",
+  "@participantsHoverMore": {
+    "description": "issue #63: в hover-карточке состава — сколько участников НЕ влезло: сервер отдаёт превью (participantsPreviewSize=30), а totalParticipants настоящий. Молча показать 30 из 200 нельзя.",
+    "placeholders": { "count": { "type": "int" } }
+  },
   "participantsTitle": "Participants",
   "@participantsTitle": {
     "description": "TASK29 Chunk 2: AppBar title для ParticipantsScreen."
@@ -926,6 +992,51 @@
   "supportTeamActionFailed": "Action failed — please try again",
   "@supportTeamActionFailed": {
     "description": "TASK43: generic error snackbar for add/remove failures."
+  },
+
+  "supportTeamLeaveAction": "Leave team",
+  "@supportTeamLeaveAction": {
+    "description": "TASK73: action that removes the current user from the support team."
+  },
+
+  "supportTeamLeaveConfirmTitle": "Leave the support team?",
+  "@supportTeamLeaveConfirmTitle": {
+    "description": "TASK73: title of the confirmation dialog for leaving the support team."
+  },
+
+  "supportTeamLeaveConfirmBody": "You will stop receiving requests for this product and will be removed from its support chats. The team owner can add you back.",
+  "@supportTeamLeaveConfirmBody": {
+    "description": "TASK73: body of the confirmation dialog for leaving the support team."
+  },
+
+  "supportTeamLeaveLastOwner": "You are the only owner of this team. Make someone else an administrator first — otherwise nobody could manage the team.",
+  "@supportTeamLeaveLastOwner": {
+    "description": "TASK73: refusal shown when the last owner tries to leave the team (server LastOwnerCannotDemoteException)."
+  },
+
+  "supportTeamRemoveConfirmTitle": "Remove from the team?",
+  "@supportTeamRemoveConfirmTitle": {
+    "description": "TASK73: title of the confirmation dialog shown before the owner removes an operator."
+  },
+
+  "supportTeamRemoveConfirmBody": "{name} will stop receiving requests for this product and will be removed from its support chats.",
+  "@supportTeamRemoveConfirmBody": {
+    "description": "TASK73: body of the confirmation dialog shown before the owner removes an operator.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+
+  "supportTeamAddNotFound": "No user with that email. They must sign in to the app at least once first.",
+  "@supportTeamAddNotFound": {
+    "description": "TASK73: shown when addSupportTeamMember cannot resolve the email (server PeerUnavailableException) — retrying will not help."
+  },
+
+  "supportTeamRetry": "Retry",
+  "@supportTeamRetry": {
+    "description": "TASK73: retry button shown when the team failed to load for a transient reason (not the membership gate)."
   },
 
   "escalateToDevelopersAction": "Contact developers",
@@ -1125,6 +1236,57 @@
   "conferencePairFailed": "No connection",
   "@conferencePairFailed": {
     "description": "TASK51 (UI): status on a participant tile whose pairwise link failed permanently (conference continues without audio from them)."
+  },
+
+  "conferenceShareScreen": "Share screen",
+  "@conferenceShareScreen": {
+    "description": "TASK80 (UI): button that starts screen sharing in a conference. Shown only on platforms that can capture (desktop/web)."
+  },
+  "conferenceStopScreenShare": "Stop sharing",
+  "@conferenceStopScreenShare": {
+    "description": "TASK80 (UI): button that stops the viewer's own screen share."
+  },
+  "conferenceSelfPresenting": "You are sharing your screen",
+  "@conferenceSelfPresenting": {
+    "description": "TASK80 (UI): permanent banner shown to the presenter so an active screen share can never be forgotten."
+  },
+  "conferencePresenting": "{name} is sharing their screen",
+  "@conferencePresenting": {
+    "description": "TASK80 (UI): header above the presenter's screen for everyone else.",
+    "placeholders": {
+      "name": { "type": "String", "example": "Alice" }
+    }
+  },
+  "conferenceShareBusy": "{name} is sharing right now",
+  "@conferenceShareBusy": {
+    "description": "TASK80 (UI): explicit refusal for a second would-be presenter (one presenter at a time, arbitrated by the server).",
+    "placeholders": {
+      "name": { "type": "String", "example": "Alice" }
+    }
+  },
+  "conferenceShowParticipants": "Participants",
+  "@conferenceShowParticipants": {
+    "description": "TASK80 (UI): toggle switching the conference overlay from the shared screen back to the participant list."
+  },
+  "conferenceShowScreen": "Presenter's screen",
+  "@conferenceShowScreen": {
+    "description": "TASK80 (UI): toggle switching the conference overlay from the participant list to the shared screen."
+  },
+  "conferencePickSourceTitle": "What do you want to share?",
+  "@conferencePickSourceTitle": {
+    "description": "TASK80 (UI): title of the in-app source list shown on desktop, where flutter_webrtc provides no system picker."
+  },
+  "conferencePickSourceEmpty": "No sources found",
+  "@conferencePickSourceEmpty": {
+    "description": "TASK80 (UI): shown when the desktop capturer returned no screens or windows."
+  },
+  "conferenceSourceScreen": "Screen",
+  "@conferenceSourceScreen": {
+    "description": "TASK80 (UI): label for a whole-screen capture source in the picker."
+  },
+  "conferenceSourceWindow": "Window",
+  "@conferenceSourceWindow": {
+    "description": "TASK80 (UI): label for a single-window capture source in the picker."
   },
 
   "messageActionForward": "Forward",
@@ -1635,6 +1797,51 @@
     }
   },
 
+  "botsAdminReadModeLabel": "What the bot reads",
+  "@botsAdminReadModeLabel": {
+    "description": "TASK77 итер.2: заголовок секции выбора режима чтения в диалоге создания бота."
+  },
+
+  "botsAdminReadModeAll": "Reads ALL messages",
+  "@botsAdminReadModeAll": {
+    "description": "TASK77 итер.2: режим read_all — trust-сигнал, формулировка должна настораживать (бот видит всю переписку своих чатов)."
+  },
+
+  "botsAdminReadModeAllHint": "The bot sees every message in the chats it belongs to — including messages not addressed to it",
+  "@botsAdminReadModeAllHint": {
+    "description": "TASK77 итер.2: пояснение к режиму read_all (подзаголовок в диалоге создания и в тайле бота)."
+  },
+
+  "botsAdminReadModeAddressed": "Reads only messages addressed to it",
+  "@botsAdminReadModeAddressed": {
+    "description": "TASK77 итер.2: режим read_addressed — дефолт для новых ботов (privacy by default)."
+  },
+
+  "botsAdminReadModeAddressedHint": "Mentions, «/» commands, replies to its messages, discussions it takes part in and 1:1 chats. The rest of the conversation is never delivered to the bot",
+  "@botsAdminReadModeAddressedHint": {
+    "description": "TASK77 итер.2: пояснение к режиму read_addressed — перечисление того, что считается обращением к боту."
+  },
+
+  "botsAdminReadModeAllowAll": "Allow reading all messages",
+  "@botsAdminReadModeAllowAll": {
+    "description": "TASK77 итер.2: пункт ⋯-меню — переключить бота в read_all."
+  },
+
+  "botsAdminReadModeRestrict": "Limit reading to messages addressed to it",
+  "@botsAdminReadModeRestrict": {
+    "description": "TASK77 итер.2: пункт ⋯-меню — переключить бота в read_addressed."
+  },
+
+  "botsAdminReadModeConfirmTitle": "Let the bot read everything?",
+  "@botsAdminReadModeConfirmTitle": {
+    "description": "TASK77 итер.2: заголовок confirm-диалога перед включением read_all."
+  },
+
+  "botsAdminReadModeConfirmBody": "The bot will see every message in the chats it belongs to — including messages not addressed to it. Enable this only for bots you trust.",
+  "@botsAdminReadModeConfirmBody": {
+    "description": "TASK77 итер.2: тело confirm-диалога включения read_all — включение всевидящего чтения должно быть осознанным."
+  },
+
   "botsAdminTokenTitle": "Bot access token",
   "@botsAdminTokenTitle": {
     "description": "TASK36: заголовок диалога с access-токеном бота (после создания или ротации)."
@@ -1767,6 +1974,33 @@
     "description": "Issue #49: журнал — действие 'discoverable_disabled'."
   },
 
+  "botsAdminAuditReadModeSet": "Reading mode changed",
+  "@botsAdminAuditReadModeSet": {
+    "description": "TASK77 итер.2: журнал — действие 'read_mode_set' (сменён режим чтения бота; сам режим — в деталях записи, mode=read_all|read_addressed)."
+  },
+
+  "platformAdminCreateTenant": "New tenant",
+  "@platformAdminCreateTenant": {
+    "description": "Провижн tenant-а из UI: раньше tenant и продукт заводились только SQL-ом на проде, а экран «Платформа» умел лишь включать issued-token у уже существующего."
+  },
+  "platformAdminCreateProduct": "New product",
+  "@platformAdminCreateProduct": {
+    "description": "Продукт внутри тенанта; его externalKey — тот самый productExternalKey из MessengerAuthContext."
+  },
+  "platformAdminKeyLabel": "Key (lowercase latin, digits, _ and -)",
+  "@platformAdminKeyLabel": {
+    "description": "Ключ попадает в URL-ы, конфиги интеграторов и в localpart matrix-пользователей — отсюда ограничения."
+  },
+  "platformAdminNameLabel": "Name",
+  "@platformAdminNameLabel": { "description": "Человекочитаемое имя тенанта/продукта." },
+  "platformAdminCreateAction": "Create",
+  "@platformAdminCreateAction": { "description": "Подтверждение создания." },
+  "platformAdminKeyInvalid": "Invalid key: lowercase latin, digits, _ and -, at least 2 characters",
+  "@platformAdminKeyInvalid": { "description": "Отказ сервера InvalidExternalKeyException." },
+  "platformAdminAlreadyExists": "That key is already taken",
+  "@platformAdminAlreadyExists": { "description": "Дубль tenant-а/продукта: молча вернуть существующий нельзя — вызывающий решил бы, что завёл новый." },
+  "platformAdminCreated": "Created",
+  "@platformAdminCreated": { "description": "Снекбар об успешном создании." },
   "platformAdminTitle": "Platform",
   "@platformAdminTitle": {
     "description": "TASK78 п.3: заголовок платформенной админки секретов тенантов + пункт входа в настройках (виден только админам из PLATFORM_ADMIN_EMAILS)."
@@ -1976,6 +2210,139 @@
     "description": "Issue #49: человекочитаемая ошибка лимита ботов (BotLimitExceededException).",
     "placeholders": {
       "limit": {
+        "type": "int"
+      }
+    }
+  },
+
+  "myBotsDescription": "Description",
+  "@myBotsDescription": {
+    "description": "TASK77 итер.3: заголовок поля описания бота в «Моих ботах» — текст, который читают в каталоге."
+  },
+  "myBotsDescriptionEmpty": "No description — the catalog will show this bot without explaining what it does",
+  "@myBotsDescriptionEmpty": {
+    "description": "TASK77 итер.3: подсказка «Моих ботов», когда описание не задано."
+  },
+  "myBotsEditDescription": "Edit description",
+  "@myBotsEditDescription": {
+    "description": "TASK77 итер.3: пункт меню бота — открыть диалог редактирования описания."
+  },
+  "myBotsDescriptionHint": "What does this bot do",
+  "@myBotsDescriptionHint": {
+    "description": "TASK77 итер.3: placeholder текстового поля описания бота."
+  },
+
+  "botCatalogTitle": "Add a bot",
+  "@botCatalogTitle": {
+    "description": "TASK77 итер.3: заголовок мини-каталога ботов, открываемого из настроек чата (гейт — админ чата)."
+  },
+  "botCatalogIntro": "The bot will get access to this chat. Check what it reads — that is the main thing to verify before letting someone else's program in.",
+  "@botCatalogIntro": {
+    "description": "TASK77 итер.3: вводный текст каталога — режим чтения как главный trust-сигнал."
+  },
+  "botCatalogEmpty": "No public bots yet. A bot appears in the catalog only when its owner turns on search visibility.",
+  "@botCatalogEmpty": {
+    "description": "TASK77 итер.3: пустой каталог (в тенанте нет discoverable-ботов)."
+  },
+  "botCatalogLoadFailed": "Could not load the bot catalog",
+  "@botCatalogLoadFailed": {
+    "description": "TASK77 итер.3: ошибка загрузки каталога ботов."
+  },
+  "botCatalogConnect": "Connect",
+  "@botCatalogConnect": {
+    "description": "TASK77 итер.3: кнопка подключения бота из каталога в текущий чат."
+  },
+  "botCatalogConnected": "Bot «{name}» connected to the chat",
+  "@botCatalogConnected": {
+    "description": "TASK77 итер.3: снекбар после успешного подключения бота из каталога.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "botCatalogNoDescription": "The author added no description",
+  "@botCatalogNoDescription": {
+    "description": "TASK77 итер.3: заглушка вместо описания бота в каталоге/карточке."
+  },
+
+  "botCardTitle": "Bot",
+  "@botCardTitle": {
+    "description": "TASK77 итер.3: заголовок карточки бота (тап по боту в участниках / шапке 1:1)."
+  },
+  "botCardOwner": "Owner: {owner}",
+  "@botCardOwner": {
+    "description": "TASK77 итер.3: владелец бота в карточке — отображаемое имя либо email.",
+    "placeholders": {
+      "owner": {
+        "type": "String"
+      }
+    }
+  },
+  "botCardCommandsTitle": "Commands",
+  "@botCardCommandsTitle": {
+    "description": "TASK77 итер.3: подзаголовок списка slash-команд в карточке бота."
+  },
+  "botCardAddToRoom": "Add to a chat…",
+  "@botCardAddToRoom": {
+    "description": "TASK77 итер.3: кнопка карточки — выбрать чат, куда подключить бота (только чаты, где caller админ)."
+  },
+  "botCardRemoveFromRoom": "Disconnect from this chat",
+  "@botCardRemoveFromRoom": {
+    "description": "TASK77 итер.3: кнопка карточки — отключить бота от текущего чата (гейт — админ чата)."
+  },
+  "botCardRemoveConfirmTitle": "Disconnect the bot?",
+  "@botCardRemoveConfirmTitle": {
+    "description": "TASK77 итер.3: заголовок confirm-диалога отключения бота от чата."
+  },
+  "botCardRemoveConfirmBody": "«{name}» will leave the chat and stop receiving its messages. What the bot already wrote stays.",
+  "@botCardRemoveConfirmBody": {
+    "description": "TASK77 итер.3: тело confirm-диалога отключения бота.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "botCardRemoveAction": "Disconnect",
+  "@botCardRemoveAction": {
+    "description": "TASK77 итер.3: подтверждающая кнопка отключения бота от чата."
+  },
+  "botCardRemoved": "Bot disconnected from the chat",
+  "@botCardRemoved": {
+    "description": "TASK77 итер.3: снекбар после отключения бота от чата."
+  },
+  "botCardUnavailable": "This bot is not available",
+  "@botCardUnavailable": {
+    "description": "TASK77 итер.3: карточка не открылась — бот непубличный и не в общих чатах, либо чужой тенант."
+  },
+  "botCardAddedToRoom": "Bot added to «{room}»",
+  "@botCardAddedToRoom": {
+    "description": "TASK77 итер.3: снекбар после подключения бота в выбранный из карточки чат.",
+    "placeholders": {
+      "room": {
+        "type": "String"
+      }
+    }
+  },
+  "botCardPickRoomTitle": "Which chat to add it to",
+  "@botCardPickRoomTitle": {
+    "description": "TASK77 итер.3: заголовок пикера чатов в карточке бота."
+  },
+  "botCardNoAdminRooms": "No chats where you are the owner or an admin — only a chat admin can connect a bot",
+  "@botCardNoAdminRooms": {
+    "description": "TASK77 итер.3: пустой пикер чатов — caller нигде не админ, подключать некуда."
+  },
+
+  "botsPrivacyUnboundTitle": "Privacy will not apply everywhere",
+  "@botsPrivacyUnboundTitle": {
+    "description": "TASK77 итер.3: заголовок предупреждения о webhook-подписках без botId, которые режим чтения не фильтрует."
+  },
+  "botsPrivacyUnboundBody": "{count, plural, one{One event subscription was created by the platform administrator and is not bound to the bot, so the read mode does not apply to it.} other{{count} event subscriptions were created by the platform administrator and are not bound to the bot, so the read mode does not apply to them.}} History reading is restricted for the bot, but the event stream will keep flowing in full.",
+  "@botsPrivacyUnboundBody": {
+    "description": "TASK77 итер.3: честное предупреждение при сужении режима чтения — где приватность не сработает (follow-up итер.2, найденный на проде).",
+    "placeholders": {
+      "count": {
         "type": "int"
       }
     }
@@ -2564,8 +2931,48 @@
   "@peopleBatchLabelTitle": {"placeholders": {"count": {"type": "int"}}},
 
   "profileLangBase": "Primary",
+  "@profileLangBase": {
+    "description": "TASK64. Chip for the base profile when its language is unknown (profileLocale is null). When it is known, profileLangDefault is used instead."
+  },
+  "profileLangDefault": "Default · {locale}",
+  "@profileLangDefault": {
+    "description": "TASK64. Chip for the base profile: it is what everyone falls back to, and the locale tells the owner which language it is written in.",
+    "placeholders": {"locale": {"type": "String", "example": "EN"}}
+  },
+  "profileLangMakeDefault": "Make the default profile",
+  "@profileLangMakeDefault": {
+    "description": "TASK64. Long-press action on a language chip: this version becomes the base one everybody sees when their own language is missing."
+  },
+  "profileLangMakeDefaultHint": "People whose language is not filled in will see this version",
+  "@profileLangMakeDefaultHint": {
+    "description": "TASK64. Subtitle under profileLangMakeDefault explaining who is affected."
+  },
+  "profileLangDelete": "Delete the {locale} version",
+  "@profileLangDelete": {
+    "description": "TASK64. Long-press action on a language chip: drop this translation entirely.",
+    "placeholders": {"locale": {"type": "String", "example": "DE"}}
+  },
+  "profileLangDeleted": "{locale} version deleted",
+  "@profileLangDeleted": {
+    "description": "TASK64. Snack bar shown after a translation was removed.",
+    "placeholders": {"locale": {"type": "String", "example": "DE"}}
+  },
+  "profileLangDefaultUpdated": "Default profile updated",
+  "@profileLangDefaultUpdated": {
+    "description": "TASK64. Snack bar shown after the base profile language was switched."
+  },
+  "profileLangActionFailed": "Could not complete the action",
+  "@profileLangActionFailed": {
+    "description": "TASK64. Snack bar shown when making a language default or deleting it failed."
+  },
   "profileLangAdd": "+ Language",
+  "@profileLangAdd": {
+    "description": "TASK64. Chip that opens the language picker for the profile."
+  },
   "profileLangAddTitle": "Add profile language",
+  "@profileLangAddTitle": {
+    "description": "TASK64. Title of the language picker dialog."
+  },
   "profileLangHelper": "People using {locale} will see these fields. Empty fields fall back to the English or primary version.",
   "@profileLangHelper": {"placeholders": {"locale": {"type": "String"}}},
   "profileLangSaved": "{locale} version saved",

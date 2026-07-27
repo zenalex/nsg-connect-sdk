@@ -22,8 +22,9 @@ import 'package:serverpod_client/serverpod_client.dart' as _i1;
 ///
 /// Enforcement: action-сайты (`sendMessage` / room-management) зовут
 /// `BotService.requireCapability` — для людей (botFor==null) no-op, для
-/// бота — проверка `enabled` + наличие capability в CSV. Чтение
-/// (userEventStream) всегда разрешено для enabled-ботов.
+/// бота — проверка `enabled` + наличие capability в CSV. **ЧТЕНИЕ**
+/// гейтится отдельной осью — `readMode` (TASK77 итер.2): capabilities
+/// решают, что боту можно ДЕЛАТЬ, `readMode` — что он вправе ВИДЕТЬ.
 abstract class Bot implements _i1.SerializableModel {
   Bot._({
     this.id,
@@ -36,6 +37,8 @@ abstract class Bot implements _i1.SerializableModel {
     required this.capabilities,
     bool? enabled,
     this.commandsJson,
+    this.readMode,
+    this.description,
     bool? discoverable,
     required this.createdAt,
   }) : enabled = enabled ?? true,
@@ -52,6 +55,8 @@ abstract class Bot implements _i1.SerializableModel {
     required String capabilities,
     bool? enabled,
     String? commandsJson,
+    String? readMode,
+    String? description,
     bool? discoverable,
     required DateTime createdAt,
   }) = _BotImpl;
@@ -70,6 +75,8 @@ abstract class Bot implements _i1.SerializableModel {
           ? null
           : _i1.BoolJsonExtension.fromJson(jsonSerialization['enabled']),
       commandsJson: jsonSerialization['commandsJson'] as String?,
+      readMode: jsonSerialization['readMode'] as String?,
+      description: jsonSerialization['description'] as String?,
       discoverable: jsonSerialization['discoverable'] == null
           ? null
           : _i1.BoolJsonExtension.fromJson(jsonSerialization['discoverable']),
@@ -133,6 +140,51 @@ abstract class Bot implements _i1.SerializableModel {
   /// безопасно, без backfill-а существующих ботов.
   String? commandsJson;
 
+  /// **TASK77 итер.2 (privacy mode)**: что боту вообще ДОСТАВЛЯЕТСЯ и что он
+  /// вправе вычитать из истории. Значения — `BotService.readModeAll`
+  /// (`read_all`, вся переписка комнат бота) и
+  /// `BotService.readModeAddressed` (`read_addressed`, только обращения:
+  /// упоминание, `/команда`, reply на сообщение бота, тред с участием бота,
+  /// 1:1 с ботом). Гейтится и push (webhook/`userEventStream`), и pull
+  /// (`listMessages`/поиск/вложения) — см. `BotReadFilter`.
+  ///
+  /// **Почему строка, а не enum.** Соседи по записи — тоже строки
+  /// (`capabilities` CSV, `commandsJson` JSON), и режим чтения ровно того же
+  /// сорта: хранимая политика, которую сервер сравнивает с константой.
+  /// Enum-колонка дала бы типизацию, но и жёсткость: любое НЕизвестное
+  /// значение (ручная правка, откат кода) сломало бы десериализацию строки
+  /// целиком, тогда как со строкой мы деградируем осознанно — неизвестное
+  /// значение трактуется как `read_addressed` (fail closed, приватность
+  /// важнее удобства). Плюс режим не едет новым enum-ом в клиентский
+  /// протокол — старые клиенты просто игнорируют лишний ключ.
+  ///
+  /// **Почему nullable, а не `default=read_addressed`.** `NULL` = «бот
+  /// заведён до TASK77 итер.2» и означает grandfathered `read_all` (решение
+  /// владельца платформы): миграция — чистый `ADD COLUMN` без backfill-а,
+  /// и живой support-бот, который отвечает на КАЖДОЕ сообщение своей
+  /// комнаты, не слепнет в момент деплоя. `default=read_addressed` пришлось
+  /// бы либо задавать всем существующим строкам (ослепив их), либо
+  /// сопровождать data-скриптом-контрмерой — лишний шаг с тем же итогом.
+  /// Новым ботам режим пишет явно `BotService.createBot`
+  /// (дефолт — `read_addressed`, privacy by default).
+  String? readMode;
+
+  /// **TASK77 итер.3**: свободное описание «что этот бот делает» — то, что
+  /// читает человек в каталоге «Добавить бота» и в карточке бота ПЕРЕД тем,
+  /// как пустить программу в свою группу. Имени и списка команд для этого
+  /// решения мало: команды говорят «что можно попросить», а не «что бот
+  /// делает с тем, что видит».
+  ///
+  /// Задаётся владельцем (`myBots.setDescription`) либо самим ботом своим
+  /// токеном (`messenger.setMyDescription`, симметрично `setMyCommands`
+  /// итер.1 — автор бота описывает свою программу из её же кода, без
+  /// похода в UI). `null`/пусто = описания нет, каталог показывает бота
+  /// без него.
+  ///
+  /// Nullable-колонка → миграция чистым `ADD COLUMN`, существующие боты не
+  /// трогаются.
+  String? description;
+
   /// **Issue #49 (открытая платформа)**: видимость в `searchUsers`.
   /// `false` (дефолт) — бот НЕ находится поиском, добавить его в чужую
   /// комнату «с улицы» нельзя; публичность — осознанный выбор владельца.
@@ -157,6 +209,8 @@ abstract class Bot implements _i1.SerializableModel {
     String? capabilities,
     bool? enabled,
     String? commandsJson,
+    String? readMode,
+    String? description,
     bool? discoverable,
     DateTime? createdAt,
   });
@@ -174,6 +228,8 @@ abstract class Bot implements _i1.SerializableModel {
       'capabilities': capabilities,
       'enabled': enabled,
       if (commandsJson != null) 'commandsJson': commandsJson,
+      if (readMode != null) 'readMode': readMode,
+      if (description != null) 'description': description,
       'discoverable': discoverable,
       'createdAt': createdAt.toJson(),
     };
@@ -199,6 +255,8 @@ class _BotImpl extends Bot {
     required String capabilities,
     bool? enabled,
     String? commandsJson,
+    String? readMode,
+    String? description,
     bool? discoverable,
     required DateTime createdAt,
   }) : super._(
@@ -212,6 +270,8 @@ class _BotImpl extends Bot {
          capabilities: capabilities,
          enabled: enabled,
          commandsJson: commandsJson,
+         readMode: readMode,
+         description: description,
          discoverable: discoverable,
          createdAt: createdAt,
        );
@@ -231,6 +291,8 @@ class _BotImpl extends Bot {
     String? capabilities,
     bool? enabled,
     Object? commandsJson = _Undefined,
+    Object? readMode = _Undefined,
+    Object? description = _Undefined,
     bool? discoverable,
     DateTime? createdAt,
   }) {
@@ -245,6 +307,8 @@ class _BotImpl extends Bot {
       capabilities: capabilities ?? this.capabilities,
       enabled: enabled ?? this.enabled,
       commandsJson: commandsJson is String? ? commandsJson : this.commandsJson,
+      readMode: readMode is String? ? readMode : this.readMode,
+      description: description is String? ? description : this.description,
       discoverable: discoverable ?? this.discoverable,
       createdAt: createdAt ?? this.createdAt,
     );

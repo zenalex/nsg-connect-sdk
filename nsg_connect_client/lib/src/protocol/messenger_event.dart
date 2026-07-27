@@ -65,6 +65,8 @@ abstract class MessengerEvent implements _i1.SerializableModel {
     this.callSdpType,
     this.conferenceConfId,
     this.conferenceMembers,
+    this.conferenceScreenSharingMessengerUserId,
+    this.conferenceScreenSharingPartyId,
     this.pinnedEventIds,
     this.taskBadgeEventId,
     this.taskStage,
@@ -111,6 +113,8 @@ abstract class MessengerEvent implements _i1.SerializableModel {
     String? callSdpType,
     String? conferenceConfId,
     List<_i5.ConferenceMember>? conferenceMembers,
+    int? conferenceScreenSharingMessengerUserId,
+    String? conferenceScreenSharingPartyId,
     List<String>? pinnedEventIds,
     String? taskBadgeEventId,
     String? taskStage,
@@ -199,6 +203,10 @@ abstract class MessengerEvent implements _i1.SerializableModel {
           : _i6.Protocol().deserialize<List<_i5.ConferenceMember>>(
               jsonSerialization['conferenceMembers'],
             ),
+      conferenceScreenSharingMessengerUserId:
+          jsonSerialization['conferenceScreenSharingMessengerUserId'] as int?,
+      conferenceScreenSharingPartyId:
+          jsonSerialization['conferenceScreenSharingPartyId'] as String?,
       pinnedEventIds: jsonSerialization['pinnedEventIds'] == null
           ? null
           : _i6.Protocol().deserialize<List<String>>(
@@ -413,6 +421,16 @@ abstract class MessengerEvent implements _i1.SerializableModel {
 
   List<_i5.ConferenceMember>? conferenceMembers;
 
+  /// **TASK80 итерация 1** — для `conferenceUpdated`: кто сейчас
+  /// показывает экран. Едет тем же событием, что и состав (одна
+  /// поверхность правды — SDK не надо склеивать два потока): смена
+  /// докладчика/остановка показа тоже эмитит `conferenceUpdated`.
+  /// null = показа нет (в т.ч. «докладчик только что остановил»).
+  /// Оба nullable — прочие типы событий их не несут (backward compat).
+  int? conferenceScreenSharingMessengerUserId;
+
+  String? conferenceScreenSharingPartyId;
+
   /// **Issue #35 — закрепление сообщений**: для `pinnedMessagesChanged`.
   /// Полный НОВЫЙ список закреплённых `matrixEventId` комнаты (в порядке
   /// закрепления, oldest-first) — override, не diff, как `typingMatrixUserIds`.
@@ -486,6 +504,8 @@ abstract class MessengerEvent implements _i1.SerializableModel {
     String? callSdpType,
     String? conferenceConfId,
     List<_i5.ConferenceMember>? conferenceMembers,
+    int? conferenceScreenSharingMessengerUserId,
+    String? conferenceScreenSharingPartyId,
     List<String>? pinnedEventIds,
     String? taskBadgeEventId,
     String? taskStage,
@@ -551,6 +571,11 @@ abstract class MessengerEvent implements _i1.SerializableModel {
         'conferenceMembers': conferenceMembers?.toJson(
           valueToJson: (v) => v.toJson(),
         ),
+      if (conferenceScreenSharingMessengerUserId != null)
+        'conferenceScreenSharingMessengerUserId':
+            conferenceScreenSharingMessengerUserId,
+      if (conferenceScreenSharingPartyId != null)
+        'conferenceScreenSharingPartyId': conferenceScreenSharingPartyId,
       if (pinnedEventIds != null) 'pinnedEventIds': pinnedEventIds?.toJson(),
       if (taskBadgeEventId != null) 'taskBadgeEventId': taskBadgeEventId,
       if (taskStage != null) 'taskStage': taskStage,
@@ -608,6 +633,8 @@ class _MessengerEventImpl extends MessengerEvent {
     String? callSdpType,
     String? conferenceConfId,
     List<_i5.ConferenceMember>? conferenceMembers,
+    int? conferenceScreenSharingMessengerUserId,
+    String? conferenceScreenSharingPartyId,
     List<String>? pinnedEventIds,
     String? taskBadgeEventId,
     String? taskStage,
@@ -652,6 +679,9 @@ class _MessengerEventImpl extends MessengerEvent {
          callSdpType: callSdpType,
          conferenceConfId: conferenceConfId,
          conferenceMembers: conferenceMembers,
+         conferenceScreenSharingMessengerUserId:
+             conferenceScreenSharingMessengerUserId,
+         conferenceScreenSharingPartyId: conferenceScreenSharingPartyId,
          pinnedEventIds: pinnedEventIds,
          taskBadgeEventId: taskBadgeEventId,
          taskStage: taskStage,
@@ -702,6 +732,8 @@ class _MessengerEventImpl extends MessengerEvent {
     Object? callSdpType = _Undefined,
     Object? conferenceConfId = _Undefined,
     Object? conferenceMembers = _Undefined,
+    Object? conferenceScreenSharingMessengerUserId = _Undefined,
+    Object? conferenceScreenSharingPartyId = _Undefined,
     Object? pinnedEventIds = _Undefined,
     Object? taskBadgeEventId = _Undefined,
     Object? taskStage = _Undefined,
@@ -795,6 +827,13 @@ class _MessengerEventImpl extends MessengerEvent {
       conferenceMembers: conferenceMembers is List<_i5.ConferenceMember>?
           ? conferenceMembers
           : this.conferenceMembers?.map((e0) => e0.copyWith()).toList(),
+      conferenceScreenSharingMessengerUserId:
+          conferenceScreenSharingMessengerUserId is int?
+          ? conferenceScreenSharingMessengerUserId
+          : this.conferenceScreenSharingMessengerUserId,
+      conferenceScreenSharingPartyId: conferenceScreenSharingPartyId is String?
+          ? conferenceScreenSharingPartyId
+          : this.conferenceScreenSharingPartyId,
       pinnedEventIds: pinnedEventIds is List<String>?
           ? pinnedEventIds
           : this.pinnedEventIds?.map((e0) => e0).toList(),

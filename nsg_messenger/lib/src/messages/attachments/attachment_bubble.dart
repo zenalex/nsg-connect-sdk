@@ -5,6 +5,8 @@ import 'package:photo_view/photo_view.dart';
 
 import '../../i18n/generated/nsg_l10n.dart';
 import 'audio_player_row.dart';
+import 'file_actions.dart';
+import 'file_open_sheet.dart';
 import 'mxc_image_provider.dart';
 import '../../theme/glass_blur.dart';
 
@@ -97,6 +99,7 @@ class AttachmentBubble extends StatelessWidget {
         attachment: attachment,
         leading: Icons.play_circle_outline,
         textColor: textColor,
+        fullSizeRpc: fullSizeRpc,
       );
     }
     // Image без thumbnail (HEIC/HEIF без Dart-side decoder) → file_row
@@ -110,6 +113,7 @@ class AttachmentBubble extends StatelessWidget {
           ? Icons.image_outlined
           : Icons.insert_drive_file_outlined,
       textColor: textColor,
+      fullSizeRpc: fullSizeRpc,
     );
   }
 }
@@ -508,18 +512,30 @@ class _FileRow extends StatelessWidget {
     required this.attachment,
     required this.leading,
     required this.textColor,
+    required this.fullSizeRpc,
   });
 
   final AttachmentRef attachment;
   final IconData leading;
   final Color textColor;
 
+  /// Загрузка байт по тапу. **issue #69**: до этого у строки файла не было
+  /// обработчика вовсе — тап по .md, .pdf, видео не делал ничего, и понять
+  /// это можно было только потыкав. Картинки и альбомы тап обрабатывали.
+  final DownloadAttachmentRpc fullSizeRpc;
+
   @override
   Widget build(BuildContext context) {
     final l = NsgL10n.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
+      child: InkWell(
+        onTap: () => openAttachment(
+          context,
+          attachment: attachment,
+          actions: FileActions.fromDownloader(fullSizeRpc),
+        ),
+        child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(leading, size: 28, color: textColor.withValues(alpha: 0.85)),
@@ -545,9 +561,10 @@ class _FileRow extends StatelessWidget {
                   ),
                 ),
               ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

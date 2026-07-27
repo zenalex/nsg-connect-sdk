@@ -211,6 +211,42 @@ abstract class NsgL10n {
   /// **'No messages'**
   String get roomSummaryNoMessages;
 
+  /// issue #57: заголовок подтверждения перед отправкой текста, который не влезает в одно сообщение.
+  ///
+  /// In en, this message translates to:
+  /// **'Long text'**
+  String get composerSplitTitle;
+
+  /// issue #57: спрашиваем ТОЛЬКО когда частей больше трёх — до трёх шлём молча, иначе диалог мешает обычной работе.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{Will be sent as {count} message} other{Will be sent as {count} messages}}'**
+  String composerSplitBody(int count);
+
+  /// issue #57: подтверждение отправки несколькими сообщениями.
+  ///
+  /// In en, this message translates to:
+  /// **'Send'**
+  String get composerSplitConfirm;
+
+  /// issue #57: правка — это ОДНО событие, разбить её нельзя. Раньше хвост молча отсекался; теперь правка не применяется, а текст остаётся в поле.
+  ///
+  /// In en, this message translates to:
+  /// **'The edit exceeds the {limit}-character limit — shorten it'**
+  String composerEditTooLong(int limit);
+
+  /// issue #70: снекбар после автоформатирования вставленного кода. Обязателен вместе с «Отменить»: молча переоформить чужой текст нельзя.
+  ///
+  /// In en, this message translates to:
+  /// **'Formatted as code'**
+  String get composerPastedAsCode;
+
+  /// Общее действие «отменить» в снекбарах.
+  ///
+  /// In en, this message translates to:
+  /// **'Undo'**
+  String get commonUndo;
+
   /// Cancel-button в confirm-диалогах. TASK42: leave-confirm + future destructive actions.
   ///
   /// In en, this message translates to:
@@ -541,6 +577,42 @@ abstract class NsgL10n {
   /// **'Can\'t send “{filename}” — the file is larger than {maxMb} MB'**
   String attachRejectedTooLarge(String filename, int maxMb);
 
+  /// issue #69: пункт листа действий по файловому вложению — показать текст внутри приложения (.md/.txt/.json и пр.).
+  ///
+  /// In en, this message translates to:
+  /// **'Preview'**
+  String get fileActionPreview;
+
+  /// issue #69: отдать файл ОС (desktop — url_launcher по file://; mobile/web — системный share sheet).
+  ///
+  /// In en, this message translates to:
+  /// **'Open in external app'**
+  String get fileActionOpenExternal;
+
+  /// issue #69: сохранить вложение (desktop — каталог «Загрузки»; mobile/web — системный sheet).
+  ///
+  /// In en, this message translates to:
+  /// **'Save to disk'**
+  String get fileActionSave;
+
+  /// issue #69: snackbar после сохранения на десктопе — показываем полный путь, иначе файл «исчезает».
+  ///
+  /// In en, this message translates to:
+  /// **'Saved: {path}'**
+  String fileSavedTo(String path);
+
+  /// issue #69: ОС отказалась открывать файл (нет ассоциации с расширением) — это не сбой загрузки.
+  ///
+  /// In en, this message translates to:
+  /// **'No app to open \"{filename}\"'**
+  String fileNoHandler(String filename);
+
+  /// issue #69: не удалось загрузить/открыть вложение (сеть, сервер, права).
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open the file'**
+  String get fileOpenFailed;
+
   /// TASK19 Chunk 3: fallback в `_FileRow` когда `AttachmentRef.originalFilename == ''` (defensive — server обычно non-empty).
   ///
   /// In en, this message translates to:
@@ -786,6 +858,12 @@ abstract class NsgL10n {
   /// In en, this message translates to:
   /// **'Bold'**
   String get composerFormatBold;
+
+  /// issue #70: пункт меню выделения — оформить как код. Однострочное выделение даёт inline-код, многострочное — блок ```: имя переменной посреди фразы не должно рвать абзац, а вставка из редактора обязана сохранить отступы.
+  ///
+  /// In en, this message translates to:
+  /// **'Code'**
+  String get composerFormatCode;
 
   /// B19: text-selection context-menu action — wrap selection in _italic_ markdown.
   ///
@@ -1069,6 +1147,18 @@ abstract class NsgL10n {
   /// **'Invitation sent'**
   String get bannedUsersReinviteSuccess;
 
+  /// issue #63: подпись под названием ГРУППЫ в шапке чата — сколько участников (у 1:1 на этом месте «был(а) в сети…»).
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{{count} participant} other{{count} participants}}'**
+  String roomParticipantsCount(int count);
+
+  /// issue #63: в hover-карточке состава — сколько участников НЕ влезло: сервер отдаёт превью (participantsPreviewSize=30), а totalParticipants настоящий. Молча показать 30 из 200 нельзя.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{{count} more} other{{count} more}}'**
+  String participantsHoverMore(int count);
+
   /// TASK29 Chunk 2: AppBar title для ParticipantsScreen.
   ///
   /// In en, this message translates to:
@@ -1254,6 +1344,54 @@ abstract class NsgL10n {
   /// In en, this message translates to:
   /// **'Action failed — please try again'**
   String get supportTeamActionFailed;
+
+  /// TASK73: action that removes the current user from the support team.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave team'**
+  String get supportTeamLeaveAction;
+
+  /// TASK73: title of the confirmation dialog for leaving the support team.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave the support team?'**
+  String get supportTeamLeaveConfirmTitle;
+
+  /// TASK73: body of the confirmation dialog for leaving the support team.
+  ///
+  /// In en, this message translates to:
+  /// **'You will stop receiving requests for this product and will be removed from its support chats. The team owner can add you back.'**
+  String get supportTeamLeaveConfirmBody;
+
+  /// TASK73: refusal shown when the last owner tries to leave the team (server LastOwnerCannotDemoteException).
+  ///
+  /// In en, this message translates to:
+  /// **'You are the only owner of this team. Make someone else an administrator first — otherwise nobody could manage the team.'**
+  String get supportTeamLeaveLastOwner;
+
+  /// TASK73: title of the confirmation dialog shown before the owner removes an operator.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from the team?'**
+  String get supportTeamRemoveConfirmTitle;
+
+  /// TASK73: body of the confirmation dialog shown before the owner removes an operator.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} will stop receiving requests for this product and will be removed from its support chats.'**
+  String supportTeamRemoveConfirmBody(String name);
+
+  /// TASK73: shown when addSupportTeamMember cannot resolve the email (server PeerUnavailableException) — retrying will not help.
+  ///
+  /// In en, this message translates to:
+  /// **'No user with that email. They must sign in to the app at least once first.'**
+  String get supportTeamAddNotFound;
+
+  /// TASK73: retry button shown when the team failed to load for a transient reason (not the membership gate).
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get supportTeamRetry;
 
   /// TASK45 phase 2: app-bar / overflow action in an object room that connects the whole NSG support team. Visible to every participant of the object chat.
   ///
@@ -1512,6 +1650,72 @@ abstract class NsgL10n {
   /// In en, this message translates to:
   /// **'No connection'**
   String get conferencePairFailed;
+
+  /// TASK80 (UI): button that starts screen sharing in a conference. Shown only on platforms that can capture (desktop/web).
+  ///
+  /// In en, this message translates to:
+  /// **'Share screen'**
+  String get conferenceShareScreen;
+
+  /// TASK80 (UI): button that stops the viewer's own screen share.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop sharing'**
+  String get conferenceStopScreenShare;
+
+  /// TASK80 (UI): permanent banner shown to the presenter so an active screen share can never be forgotten.
+  ///
+  /// In en, this message translates to:
+  /// **'You are sharing your screen'**
+  String get conferenceSelfPresenting;
+
+  /// TASK80 (UI): header above the presenter's screen for everyone else.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} is sharing their screen'**
+  String conferencePresenting(String name);
+
+  /// TASK80 (UI): explicit refusal for a second would-be presenter (one presenter at a time, arbitrated by the server).
+  ///
+  /// In en, this message translates to:
+  /// **'{name} is sharing right now'**
+  String conferenceShareBusy(String name);
+
+  /// TASK80 (UI): toggle switching the conference overlay from the shared screen back to the participant list.
+  ///
+  /// In en, this message translates to:
+  /// **'Participants'**
+  String get conferenceShowParticipants;
+
+  /// TASK80 (UI): toggle switching the conference overlay from the participant list to the shared screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Presenter\'s screen'**
+  String get conferenceShowScreen;
+
+  /// TASK80 (UI): title of the in-app source list shown on desktop, where flutter_webrtc provides no system picker.
+  ///
+  /// In en, this message translates to:
+  /// **'What do you want to share?'**
+  String get conferencePickSourceTitle;
+
+  /// TASK80 (UI): shown when the desktop capturer returned no screens or windows.
+  ///
+  /// In en, this message translates to:
+  /// **'No sources found'**
+  String get conferencePickSourceEmpty;
+
+  /// TASK80 (UI): label for a whole-screen capture source in the picker.
+  ///
+  /// In en, this message translates to:
+  /// **'Screen'**
+  String get conferenceSourceScreen;
+
+  /// TASK80 (UI): label for a single-window capture source in the picker.
+  ///
+  /// In en, this message translates to:
+  /// **'Window'**
+  String get conferenceSourceWindow;
 
   /// Forward: action-sheet item — переслать сообщение/альбом в другой чат (внутренний пикер).
   ///
@@ -2125,6 +2329,60 @@ abstract class NsgL10n {
   /// **'Commands: {commands}'**
   String botsAdminCommandsLabel(String commands);
 
+  /// TASK77 итер.2: заголовок секции выбора режима чтения в диалоге создания бота.
+  ///
+  /// In en, this message translates to:
+  /// **'What the bot reads'**
+  String get botsAdminReadModeLabel;
+
+  /// TASK77 итер.2: режим read_all — trust-сигнал, формулировка должна настораживать (бот видит всю переписку своих чатов).
+  ///
+  /// In en, this message translates to:
+  /// **'Reads ALL messages'**
+  String get botsAdminReadModeAll;
+
+  /// TASK77 итер.2: пояснение к режиму read_all (подзаголовок в диалоге создания и в тайле бота).
+  ///
+  /// In en, this message translates to:
+  /// **'The bot sees every message in the chats it belongs to — including messages not addressed to it'**
+  String get botsAdminReadModeAllHint;
+
+  /// TASK77 итер.2: режим read_addressed — дефолт для новых ботов (privacy by default).
+  ///
+  /// In en, this message translates to:
+  /// **'Reads only messages addressed to it'**
+  String get botsAdminReadModeAddressed;
+
+  /// TASK77 итер.2: пояснение к режиму read_addressed — перечисление того, что считается обращением к боту.
+  ///
+  /// In en, this message translates to:
+  /// **'Mentions, «/» commands, replies to its messages, discussions it takes part in and 1:1 chats. The rest of the conversation is never delivered to the bot'**
+  String get botsAdminReadModeAddressedHint;
+
+  /// TASK77 итер.2: пункт ⋯-меню — переключить бота в read_all.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow reading all messages'**
+  String get botsAdminReadModeAllowAll;
+
+  /// TASK77 итер.2: пункт ⋯-меню — переключить бота в read_addressed.
+  ///
+  /// In en, this message translates to:
+  /// **'Limit reading to messages addressed to it'**
+  String get botsAdminReadModeRestrict;
+
+  /// TASK77 итер.2: заголовок confirm-диалога перед включением read_all.
+  ///
+  /// In en, this message translates to:
+  /// **'Let the bot read everything?'**
+  String get botsAdminReadModeConfirmTitle;
+
+  /// TASK77 итер.2: тело confirm-диалога включения read_all — включение всевидящего чтения должно быть осознанным.
+  ///
+  /// In en, this message translates to:
+  /// **'The bot will see every message in the chats it belongs to — including messages not addressed to it. Enable this only for bots you trust.'**
+  String get botsAdminReadModeConfirmBody;
+
   /// TASK36: заголовок диалога с access-токеном бота (после создания или ротации).
   ///
   /// In en, this message translates to:
@@ -2286,6 +2544,60 @@ abstract class NsgL10n {
   /// In en, this message translates to:
   /// **'Hidden from search'**
   String get botsAdminAuditDiscoverableOff;
+
+  /// TASK77 итер.2: журнал — действие 'read_mode_set' (сменён режим чтения бота; сам режим — в деталях записи, mode=read_all|read_addressed).
+  ///
+  /// In en, this message translates to:
+  /// **'Reading mode changed'**
+  String get botsAdminAuditReadModeSet;
+
+  /// Провижн tenant-а из UI: раньше tenant и продукт заводились только SQL-ом на проде, а экран «Платформа» умел лишь включать issued-token у уже существующего.
+  ///
+  /// In en, this message translates to:
+  /// **'New tenant'**
+  String get platformAdminCreateTenant;
+
+  /// Продукт внутри тенанта; его externalKey — тот самый productExternalKey из MessengerAuthContext.
+  ///
+  /// In en, this message translates to:
+  /// **'New product'**
+  String get platformAdminCreateProduct;
+
+  /// Ключ попадает в URL-ы, конфиги интеграторов и в localpart matrix-пользователей — отсюда ограничения.
+  ///
+  /// In en, this message translates to:
+  /// **'Key (lowercase latin, digits, _ and -)'**
+  String get platformAdminKeyLabel;
+
+  /// Человекочитаемое имя тенанта/продукта.
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
+  String get platformAdminNameLabel;
+
+  /// Подтверждение создания.
+  ///
+  /// In en, this message translates to:
+  /// **'Create'**
+  String get platformAdminCreateAction;
+
+  /// Отказ сервера InvalidExternalKeyException.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid key: lowercase latin, digits, _ and -, at least 2 characters'**
+  String get platformAdminKeyInvalid;
+
+  /// Дубль tenant-а/продукта: молча вернуть существующий нельзя — вызывающий решил бы, что завёл новый.
+  ///
+  /// In en, this message translates to:
+  /// **'That key is already taken'**
+  String get platformAdminAlreadyExists;
+
+  /// Снекбар об успешном создании.
+  ///
+  /// In en, this message translates to:
+  /// **'Created'**
+  String get platformAdminCreated;
 
   /// TASK78 п.3: заголовок платформенной админки секретов тенантов + пункт входа в настройках (виден только админам из PLATFORM_ADMIN_EMAILS).
   ///
@@ -2520,6 +2832,162 @@ abstract class NsgL10n {
   /// In en, this message translates to:
   /// **'Bot limit reached ({limit}). Rotate a token or reuse an existing bot instead of creating a new one.'**
   String myBotsLimitReached(int limit);
+
+  /// TASK77 итер.3: заголовок поля описания бота в «Моих ботах» — текст, который читают в каталоге.
+  ///
+  /// In en, this message translates to:
+  /// **'Description'**
+  String get myBotsDescription;
+
+  /// TASK77 итер.3: подсказка «Моих ботов», когда описание не задано.
+  ///
+  /// In en, this message translates to:
+  /// **'No description — the catalog will show this bot without explaining what it does'**
+  String get myBotsDescriptionEmpty;
+
+  /// TASK77 итер.3: пункт меню бота — открыть диалог редактирования описания.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit description'**
+  String get myBotsEditDescription;
+
+  /// TASK77 итер.3: placeholder текстового поля описания бота.
+  ///
+  /// In en, this message translates to:
+  /// **'What does this bot do'**
+  String get myBotsDescriptionHint;
+
+  /// TASK77 итер.3: заголовок мини-каталога ботов, открываемого из настроек чата (гейт — админ чата).
+  ///
+  /// In en, this message translates to:
+  /// **'Add a bot'**
+  String get botCatalogTitle;
+
+  /// TASK77 итер.3: вводный текст каталога — режим чтения как главный trust-сигнал.
+  ///
+  /// In en, this message translates to:
+  /// **'The bot will get access to this chat. Check what it reads — that is the main thing to verify before letting someone else\'s program in.'**
+  String get botCatalogIntro;
+
+  /// TASK77 итер.3: пустой каталог (в тенанте нет discoverable-ботов).
+  ///
+  /// In en, this message translates to:
+  /// **'No public bots yet. A bot appears in the catalog only when its owner turns on search visibility.'**
+  String get botCatalogEmpty;
+
+  /// TASK77 итер.3: ошибка загрузки каталога ботов.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load the bot catalog'**
+  String get botCatalogLoadFailed;
+
+  /// TASK77 итер.3: кнопка подключения бота из каталога в текущий чат.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect'**
+  String get botCatalogConnect;
+
+  /// TASK77 итер.3: снекбар после успешного подключения бота из каталога.
+  ///
+  /// In en, this message translates to:
+  /// **'Bot «{name}» connected to the chat'**
+  String botCatalogConnected(String name);
+
+  /// TASK77 итер.3: заглушка вместо описания бота в каталоге/карточке.
+  ///
+  /// In en, this message translates to:
+  /// **'The author added no description'**
+  String get botCatalogNoDescription;
+
+  /// TASK77 итер.3: заголовок карточки бота (тап по боту в участниках / шапке 1:1).
+  ///
+  /// In en, this message translates to:
+  /// **'Bot'**
+  String get botCardTitle;
+
+  /// TASK77 итер.3: владелец бота в карточке — отображаемое имя либо email.
+  ///
+  /// In en, this message translates to:
+  /// **'Owner: {owner}'**
+  String botCardOwner(String owner);
+
+  /// TASK77 итер.3: подзаголовок списка slash-команд в карточке бота.
+  ///
+  /// In en, this message translates to:
+  /// **'Commands'**
+  String get botCardCommandsTitle;
+
+  /// TASK77 итер.3: кнопка карточки — выбрать чат, куда подключить бота (только чаты, где caller админ).
+  ///
+  /// In en, this message translates to:
+  /// **'Add to a chat…'**
+  String get botCardAddToRoom;
+
+  /// TASK77 итер.3: кнопка карточки — отключить бота от текущего чата (гейт — админ чата).
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnect from this chat'**
+  String get botCardRemoveFromRoom;
+
+  /// TASK77 итер.3: заголовок confirm-диалога отключения бота от чата.
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnect the bot?'**
+  String get botCardRemoveConfirmTitle;
+
+  /// TASK77 итер.3: тело confirm-диалога отключения бота.
+  ///
+  /// In en, this message translates to:
+  /// **'«{name}» will leave the chat and stop receiving its messages. What the bot already wrote stays.'**
+  String botCardRemoveConfirmBody(String name);
+
+  /// TASK77 итер.3: подтверждающая кнопка отключения бота от чата.
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnect'**
+  String get botCardRemoveAction;
+
+  /// TASK77 итер.3: снекбар после отключения бота от чата.
+  ///
+  /// In en, this message translates to:
+  /// **'Bot disconnected from the chat'**
+  String get botCardRemoved;
+
+  /// TASK77 итер.3: карточка не открылась — бот непубличный и не в общих чатах, либо чужой тенант.
+  ///
+  /// In en, this message translates to:
+  /// **'This bot is not available'**
+  String get botCardUnavailable;
+
+  /// TASK77 итер.3: снекбар после подключения бота в выбранный из карточки чат.
+  ///
+  /// In en, this message translates to:
+  /// **'Bot added to «{room}»'**
+  String botCardAddedToRoom(String room);
+
+  /// TASK77 итер.3: заголовок пикера чатов в карточке бота.
+  ///
+  /// In en, this message translates to:
+  /// **'Which chat to add it to'**
+  String get botCardPickRoomTitle;
+
+  /// TASK77 итер.3: пустой пикер чатов — caller нигде не админ, подключать некуда.
+  ///
+  /// In en, this message translates to:
+  /// **'No chats where you are the owner or an admin — only a chat admin can connect a bot'**
+  String get botCardNoAdminRooms;
+
+  /// TASK77 итер.3: заголовок предупреждения о webhook-подписках без botId, которые режим чтения не фильтрует.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy will not apply everywhere'**
+  String get botsPrivacyUnboundTitle;
+
+  /// TASK77 итер.3: честное предупреждение при сужении режима чтения — где приватность не сработает (follow-up итер.2, найденный на проде).
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{One event subscription was created by the platform administrator and is not bound to the bot, so the read mode does not apply to it.} other{{count} event subscriptions were created by the platform administrator and are not bound to the bot, so the read mode does not apply to them.}} History reading is restricted for the bot, but the event stream will keep flowing in full.'**
+  String botsPrivacyUnboundBody(int count);
 
   /// TASK60: заголовок дашборда мониторинга Connect Pulse + пункт входа в настройках.
   ///
@@ -3733,19 +4201,61 @@ abstract class NsgL10n {
   /// **'Assign label · {count}'**
   String peopleBatchLabelTitle(int count);
 
-  /// No description provided for @profileLangBase.
+  /// TASK64. Chip for the base profile when its language is unknown (profileLocale is null). When it is known, profileLangDefault is used instead.
   ///
   /// In en, this message translates to:
   /// **'Primary'**
   String get profileLangBase;
 
-  /// No description provided for @profileLangAdd.
+  /// TASK64. Chip for the base profile: it is what everyone falls back to, and the locale tells the owner which language it is written in.
+  ///
+  /// In en, this message translates to:
+  /// **'Default · {locale}'**
+  String profileLangDefault(String locale);
+
+  /// TASK64. Long-press action on a language chip: this version becomes the base one everybody sees when their own language is missing.
+  ///
+  /// In en, this message translates to:
+  /// **'Make the default profile'**
+  String get profileLangMakeDefault;
+
+  /// TASK64. Subtitle under profileLangMakeDefault explaining who is affected.
+  ///
+  /// In en, this message translates to:
+  /// **'People whose language is not filled in will see this version'**
+  String get profileLangMakeDefaultHint;
+
+  /// TASK64. Long-press action on a language chip: drop this translation entirely.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete the {locale} version'**
+  String profileLangDelete(String locale);
+
+  /// TASK64. Snack bar shown after a translation was removed.
+  ///
+  /// In en, this message translates to:
+  /// **'{locale} version deleted'**
+  String profileLangDeleted(String locale);
+
+  /// TASK64. Snack bar shown after the base profile language was switched.
+  ///
+  /// In en, this message translates to:
+  /// **'Default profile updated'**
+  String get profileLangDefaultUpdated;
+
+  /// TASK64. Snack bar shown when making a language default or deleting it failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not complete the action'**
+  String get profileLangActionFailed;
+
+  /// TASK64. Chip that opens the language picker for the profile.
   ///
   /// In en, this message translates to:
   /// **'+ Language'**
   String get profileLangAdd;
 
-  /// No description provided for @profileLangAddTitle.
+  /// TASK64. Title of the language picker dialog.
   ///
   /// In en, this message translates to:
   /// **'Add profile language'**

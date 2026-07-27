@@ -271,7 +271,9 @@ class _PulseScreenState extends State<PulseScreen> {
   /// One-time диалог с beat-URL + готовым curl-сниппетом (токен виден один раз).
   Future<void> _showBeatUrlDialog(String beatUrl) {
     final l = NsgL10n.of(context);
-    final curl = 'curl -fsS $beatUrl';
+    // Beat-роут принимает ТОЛЬКО POST (PulseBeatRoute methods: {Method.post}) —
+    // без -X POST скопированный сниппет уходит GET-ом и молча не работает.
+    final curl = 'curl -fsS -X POST $beatUrl';
     return showDialog<void>(
       context: context,
       builder: (ctx) {
@@ -846,7 +848,9 @@ class _MonitorDetailSheetState extends State<_MonitorDetailSheet> {
 
   Future<void> _showBeatUrlDialog(String beatUrl) {
     final l = NsgL10n.of(context);
-    final curl = 'curl -fsS $beatUrl';
+    // Beat-роут принимает ТОЛЬКО POST (PulseBeatRoute methods: {Method.post}) —
+    // без -X POST скопированный сниппет уходит GET-ом и молча не работает.
+    final curl = 'curl -fsS -X POST $beatUrl';
     return showDialog<void>(
       context: context,
       builder: (ctx) {

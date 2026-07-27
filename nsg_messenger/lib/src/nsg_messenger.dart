@@ -13,6 +13,7 @@ import 'contact_card/nsg_messenger_contact_cards.dart';
 import 'contacts/nsg_messenger_contacts.dart';
 import 'admin/nsg_messenger_bots_admin.dart';
 import 'admin/nsg_messenger_platform_admin.dart';
+import 'bots/nsg_messenger_bot_catalog.dart';
 import 'bots/nsg_messenger_my_bots.dart';
 import 'integrations/nsg_messenger_integrations.dart';
 import 'messages/messages_controller.dart';
@@ -320,6 +321,16 @@ class NsgMessenger {
   /// и виден всем.
   static NsgMessengerMyBots get myBots => MessengerRuntime.instance.myBots;
 
+  /// **TASK77 итер.3 (self-service подключение бота)**: API каталога ботов
+  /// и подключения бота в СВОЙ чат — listAvailableBots/getBotCard/
+  /// listMyAdminRooms/addBotToMyRoom/removeBotFromMyRoom. Гейт решает
+  /// сервер: каталог — публичные боты своего тенанта, подключение — только
+  /// в чаты, где caller владелец/админ (прецедент TASK59, НЕ
+  /// `BOT_ADMIN_EMAILS`). См. [NsgMessengerBotCatalog]; экраны —
+  /// `BotCatalogScreen` (из настроек чата) и `BotCardScreen` (тап по боту).
+  static NsgMessengerBotCatalog get botCatalog =>
+      MessengerRuntime.instance.botCatalog;
+
   /// **TASK58**: базовый URL для отображаемого webhook-URL
   /// (`<hooksBaseUrl>/<token>`). Дефолт выводится из `apiBaseUrl` (dev →
   /// `localhost:5570/hooks`, прод `api.X` → `https://hooks.X`); override —
@@ -537,12 +548,35 @@ class NsgMessenger {
     company: company,
   );
 
+  /// **TASK64**: удалить языковую версию профиля целиком. Идемпотентно.
+  static Future<void> deleteProfileTranslation(String locale) =>
+      MessengerRuntime.instance.client.messenger.deleteProfileTranslation(
+        locale: locale,
+      );
+
+  /// **TASK64**: локаль базового профиля (`null` — не указана). Редактор
+  /// подписывает ею чип «По умолчанию·<локаль>». Отдельный запрос, а не
+  /// поле сессии: `setDefaultProfileLocale` меняет её прямо в редакторе.
+  static Future<String?> myProfileLocale() =>
+      MessengerRuntime.instance.client.messenger.myProfileLocale();
+
   /// **TASK64**: пометить язык профилем по умолчанию (перевод ↔ база
   /// меняются местами, см. TASK64.md §3).
   static Future<void> setDefaultProfileLocale(String locale) =>
       MessengerRuntime.instance.client.messenger.setDefaultProfileLocale(
         locale: locale,
       );
+
+  /// **TASK64**: сообщить серверу локаль интерфейса — по ней он выбирает
+  /// языковые версии ЧУЖИХ профилей для этого пользователя.
+  ///
+  /// SDK шлёт её сам на `init()`; отдельный вызов нужен host-app-у с
+  /// переключателем языка В РАБОТЕ (без переинициализации): без него
+  /// сервер до следующего запуска продолжал бы отдавать имена на старом
+  /// языке. См. [MessengerRuntime.updateLocale] — оно и локаль SDK
+  /// обновит, и дёрнет этот RPC.
+  static Future<void> setUiLocale(String locale) =>
+      MessengerRuntime.instance.client.messenger.setUiLocale(locale: locale);
 
   /// **B17 phase 2**: кросс-room keyword-поиск по сообщениям ВСЕХ комнат
   /// пользователя (Matrix `/search` без room-фильтра). Каждый
@@ -812,19 +846,27 @@ class NsgMessenger {
   ///
   /// `productExternalKey` — ключ продукта (напр. `titan_control`),
   /// команда резолвится в tenant-е текущего пользователя.
-  static Future<void> openSupportTeam(
+  ///
+  /// **TASK73**: возвращает `true`, если пользователь ВЫШЕЛ из команды
+  /// («Покинуть команду»). Host-app по этому флагу может сбросить кэш
+  /// членства — но полагаться на него не обязан: состав мог измениться и
+  /// без участия смотрящего (владелец удалил его, пока экран был открыт),
+  /// поэтому Chatista перечитывает членство после закрытия экрана в любом
+  /// случае.
+  static Future<bool> openSupportTeam(
     BuildContext context, {
     required String productExternalKey,
   }) async {
     final theme = MessengerRuntime.instance.theme;
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
+    final left = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
         builder: (_) => MessengerThemeScope(
           theme: theme,
           child: SupportTeamScreen(productExternalKey: productExternalKey),
         ),
       ),
     );
+    return left ?? false;
   }
 
   /// **TASK45 фаза 1 п.5**: открыть каталог объектовых комнат продукта для

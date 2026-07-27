@@ -94,6 +94,15 @@ export 'src/bots/nsg_messenger_my_bots.dart' show NsgMessengerMyBots;
 export 'src/screens/bots_admin_screen.dart' show BotsAdminScreen;
 export 'src/screens/my_bots_screen.dart' show MyBotsScreen;
 
+// **TASK77 итер.3 (self-service подключение бота)**: каталог публичных ботов
+// тенанта + карточка бота. Гейт — админ КОНКРЕТНОГО чата (на сервере), а не
+// платформенный allowlist: каталог открывается из настроек чата, карточка —
+// тапом по боту в участниках / шапке 1:1.
+export 'src/bots/nsg_messenger_bot_catalog.dart'
+    show NsgMessengerBotCatalog;
+export 'src/screens/bot_card_screen.dart' show BotCardScreen;
+export 'src/screens/bot_catalog_screen.dart' show BotCatalogScreen;
+
 // **TASK78 п.3 (админка секретов тенантов)**: платформенное управление
 // issued-token-режимом — API + экран. Виден только админам из серверного
 // `PLATFORM_ADMIN_EMAILS`.
@@ -113,6 +122,10 @@ export 'src/contact_card/contact_card_view.dart'
     show ContactCardView, ContactCardSize;
 export 'src/screens/contact_card_editor_screen.dart'
     show ContactCardEditorScreen;
+// TASK64: список языков профиля — общий для редактора визитки (SDK) и
+// редактора имени (host-app), чтобы наборы не разъезжались.
+export 'src/i18n/profile_locales.dart'
+    show kProfileLocaleNames, profileLocaleLabel;
 export 'src/screens/pulse_screen.dart' show PulseScreen;
 
 // Admin/moderation widgets (TASK29 Chunk 2).
@@ -262,7 +275,17 @@ export 'src/calls/webrtc_adapter.dart'
         RtcIce,
         SdpType,
         RtcConnState,
-        MicPermissionDeniedException;
+        MicPermissionDeniedException,
+        // **TASK80**: типы демонстрации экрана. Без них host-app физически не
+        // может реализовать WebRtcAdapter — интерфейс требует то, чего не
+        // видно снаружи пакета (поймано тестом Chatista, где свой фейк
+        // адаптера перестал компилироваться).
+        MediaVideoTrack,
+        RtcVideoSender,
+        RtcVideoRenderer,
+        ScreenShareCaps,
+        ScreenShareSource,
+        ScreenSharePermissionDeniedException;
 
 // Re-export Serverpod-моделей, которые встречаются в публичных API
 // (MessengerAuthContext, MessengerSession, IdentityProvider). Так
@@ -322,6 +345,17 @@ export 'package:nsg_connect_client/nsg_connect_client.dart'
         // который прокидывает подсказку по «/» своими RPC.
         BotCommand,
         RoomBotCommands,
+        // **TASK77 итер.3**: запись каталога / карточка бота
+        // (`AvailableBot` — имя, аватар, описание, владелец, команды,
+        // разрешённый режим чтения) + ответ смены режима чтения
+        // (`BotReadModeResult` — бот + число подписок, к которым фильтр
+        // приватности не применяется).
+        AvailableBot,
+        BotReadModeResult,
+        // Тип участника: host-app-у он нужен, чтобы отличить бота от
+        // человека на своих поверхностях (тот же признак, что у
+        // `NsgBotBadge`).
+        ParticipantKind,
         // TASK78 п.3: платформенная админка секретов тенантов — статус
         // tenant-а и журнал операций с ключами.
         ConnectTenantStatus,

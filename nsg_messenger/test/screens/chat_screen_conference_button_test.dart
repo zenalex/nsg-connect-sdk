@@ -292,6 +292,16 @@ class _NoopConferenceRpc implements ConferenceRpc {
 
   @override
   Future<ConferenceState?> getConference({required int roomId}) async => null;
+
+  // **TASK80**: показ экрана в этих тестах не используется.
+  @override
+  Future<ConferenceState> startScreenShare({
+    required int roomId,
+    required String partyId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<void> stopScreenShare({required int roomId}) async {}
 }
 
 class _NoopCallRpc implements CallRpc {
@@ -328,6 +338,26 @@ class _NoopWebRtc implements WebRtcAdapter {
 
   @override
   Future<void> setSpeakerphone(bool enabled) async {}
+
+  // **TASK80**: демонстрация экрана в этих тестах не участвует —
+  // платформа «не умеет захват», кнопки нет.
+  @override
+  bool get supportsScreenShare => false;
+
+  @override
+  bool get screenShareNeedsSourcePicker => false;
+
+  @override
+  Future<List<ScreenShareSource>> listScreenShareSources() async => const [];
+
+  @override
+  Future<RtcMediaStream> getDisplayMedia({
+    required ScreenShareCaps caps,
+    String? sourceId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<RtcVideoRenderer> createVideoRenderer() => throw UnimplementedError();
 }
 
 class _FakeRpc implements MessagesRpc {

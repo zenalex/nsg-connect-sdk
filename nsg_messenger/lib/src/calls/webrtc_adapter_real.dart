@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart' show BoxFit, Widget;
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 
 import '../auth_token_provider.dart' show ErrorReporter;
@@ -61,6 +62,113 @@ class RealWebRtcAdapter implements WebRtcAdapter {
     }
   }
 
+  // ── TASK80: демонстрация экрана ─────────────────────────────────
+
+  /// Захват экрана есть на web (`getDisplayMedia` браузера) и на
+  /// desktop-нативе (flutter_webrtc `common/cpp` для Windows/Linux,
+  /// `RTCDesktopCapturer`/ScreenCaptureKit для macOS). На iOS/Android
+  /// плагин формально умеет `getDisplayMedia`, но ТОЛЬКО с нативной
+  /// обвязкой (iOS — Broadcast Upload Extension + App Group; Android —
+  /// MediaProjection + foreground-service `mediaProjection`), которой у
+  /// нас нет. Возвращать здесь true = кнопка, которая не работает —
+  /// прямо запрещено DoD. Смотреть чужой показ мобильные умеют и без
+  /// этого (входящий трек рендерится везде).
+  @override
+  bool get supportsScreenShare =>
+      kIsWeb ||
+      defaultTargetPlatform == TargetPlatform.windows ||
+      defaultTargetPlatform == TargetPlatform.macOS ||
+      defaultTargetPlatform == TargetPlatform.linux;
+
+  /// На web источник выбирает системный диалог браузера — свой список
+  /// не рисуем. На desktop-нативе flutter_webrtc 1.5.2 системного
+  /// диалога не показывает: `getDisplayMedia` там ищет источник в
+  /// списке, наполняемом `getDesktopSources`, и без `deviceId.exact`
+  /// отвечает `source not found`. Значит список — на нас.
+  @override
+  bool get screenShareNeedsSourcePicker => !kIsWeb;
+
+  @override
+  Future<List<ScreenShareSource>> listScreenShareSources() async {
+    if (kIsWeb) return const [];
+    final sources = await rtc.desktopCapturer.getSources(
+      types: const [rtc.SourceType.Screen, rtc.SourceType.Window],
+    );
+    return [
+      for (final s in sources)
+        ScreenShareSource(
+          id: s.id,
+          name: s.name,
+          isWindow: s.type == rtc.SourceType.Window,
+        ),
+    ];
+  }
+
+  @override
+  Future<RtcMediaStream> getDisplayMedia({
+    required ScreenShareCaps caps,
+    String? sourceId,
+  }) async {
+    try {
+      final stream = await rtc.navigator.mediaDevices.getDisplayMedia(
+        _displayMediaConstraints(caps, sourceId),
+      );
+      return _RealMediaStream(stream);
+    } catch (e) {
+      // Как и у микрофона: «запретил», «закрыл диалог», «источник
+      // пропал» платформы разделяют по-разному и ненадёжно. Для UI это
+      // один случай — показ не начался, роль докладчика надо вернуть.
+      if (kDebugMode) {
+        debugPrint('[RealWebRtcAdapter] getDisplayMedia failed: $e');
+      }
+      throw ScreenSharePermissionDeniedException(e);
+    }
+  }
+
+  /// Constraints захвата. Формы РАЗНЫЕ:
+  ///   * web — стандартные MediaTrackConstraints (`width/height/
+  ///     frameRate` с `ideal`/`max`), их применяет сам браузер;
+  ///   * native — flutter_webrtc читает ровно два места:
+  ///     `video.deviceId.exact` (какой экран/окно) и
+  ///     `video.mandatory.frameRate` (частота захвата); остальное
+  ///     уезжает в `ParseMediaConstraints` как есть.
+  static Map<String, dynamic> _displayMediaConstraints(
+    ScreenShareCaps caps,
+    String? sourceId,
+  ) {
+    if (kIsWeb) {
+      return <String, dynamic>{
+        // Системный звук не берём: спека про экран, а лишний
+        // audio-трек ломал бы mute-семантику микрофона.
+        'audio': false,
+        'video': {
+          'width': {'ideal': caps.maxWidth, 'max': caps.maxWidth},
+          'height': {'ideal': caps.maxHeight, 'max': caps.maxHeight},
+          'frameRate': {'ideal': caps.maxFramerate, 'max': caps.maxFramerate},
+        },
+      };
+    }
+    return <String, dynamic>{
+      'audio': false,
+      'video': {
+        if (sourceId != null) 'deviceId': {'exact': sourceId},
+        'mandatory': {
+          'frameRate': caps.maxFramerate.toDouble(),
+          'maxWidth': caps.maxWidth,
+          'maxHeight': caps.maxHeight,
+          'maxFrameRate': caps.maxFramerate,
+        },
+      },
+    };
+  }
+
+  @override
+  Future<RtcVideoRenderer> createVideoRenderer() async {
+    final renderer = _RealVideoRenderer();
+    await renderer.initialize();
+    return renderer;
+  }
+
   @override
   Future<void> setSpeakerphone(bool enabled) async {
     // Маршрутизация вывода есть только на мобильных: `Helper
@@ -110,6 +218,11 @@ class _RealPeerConnection implements RtcPeerConnection {
     };
     _pc.onTrack = (rtc.RTCTrackEvent event) {
       _onRemoteTrack?.call();
+      // **TASK80**: видео-трек собеседника = он начал показ экрана.
+      // Отдаём поток целиком — рендереру нужен `MediaStream`.
+      if (event.track.kind == 'video' && event.streams.isNotEmpty) {
+        _onRemoteVideo?.call(_RealMediaStream(event.streams.first));
+      }
       final info =
           'kind=${event.track.kind} streams=${event.streams.length} '
           'enabled=${event.track.enabled}';
@@ -126,6 +239,7 @@ class _RealPeerConnection implements RtcPeerConnection {
   void Function(RtcIce candidate)? _onIce;
   void Function(RtcConnState state)? _onConn;
   void Function()? _onRemoteTrack;
+  void Function(RtcMediaStream stream)? _onRemoteVideo;
 
   /// **Диагностика**: копилка данных по этому звонку (SDP + статы + трек).
   final CallMediaCollector _diag = CallMediaCollector();
@@ -163,10 +277,35 @@ class _RealPeerConnection implements RtcPeerConnection {
   set onRemoteTrack(void Function()? cb) => _onRemoteTrack = cb;
 
   @override
+  set onRemoteVideoStream(void Function(RtcMediaStream stream)? cb) =>
+      _onRemoteVideo = cb;
+
+  @override
   Future<void> addLocalStream(RtcMediaStream stream) async {
     final real = stream as _RealMediaStream;
     for (final track in real.stream.getAudioTracks()) {
       await _pc.addTrack(track, real.stream);
+    }
+  }
+
+  @override
+  Future<RtcVideoSender?> addVideoTrack(RtcMediaStream stream) async {
+    final real = stream as _RealMediaStream;
+    final tracks = real.stream.getVideoTracks();
+    if (tracks.isEmpty) return null;
+    // Стрим захвата — ровно один видео-трек (см. getDisplayMedia).
+    final sender = await _pc.addTrack(tracks.first, real.stream);
+    return _RealVideoSender(sender);
+  }
+
+  @override
+  Future<void> removeVideoSender(RtcVideoSender sender) async {
+    final real = sender as _RealVideoSender;
+    try {
+      await _pc.removeTrack(real.sender);
+    } catch (e) {
+      // Pc уже закрыт / трек снят — не повод ронять остановку показа.
+      if (kDebugMode) debugPrint('[RealWebRtcAdapter] removeTrack failed: $e');
     }
   }
 
@@ -205,8 +344,19 @@ class _RealPeerConnection implements RtcPeerConnection {
   /// **TASK46**: оттюнить Opus в локальном SDP (FEC/DTX/моно/битрейт) —
   /// применяем к offer и answer перед их отдачей контроллеру (тот делает
   /// `setLocalDescription`). Идемпотентно; если Opus в SDP нет — no-op.
-  static RtcSdp _tuneOpus(RtcSdp sdp) =>
-      RtcSdp(type: sdp.type, sdp: tuneOpusSdp(sdp.sdp));
+  ///
+  /// **TASK80**: тем же проходом кладём потолок битрейта на видео-m-line
+  /// (демонстрация экрана). Тут, а не в контроллере: любой SDP,
+  /// уезжающий в setLocalDescription, обязан быть с cap-ом — включая
+  /// negotiate-offer/answer при добавлении показа в идущий звонок. Если
+  /// видео в SDP нет (обычный аудио-звонок) — no-op.
+  static RtcSdp _tuneOpus(RtcSdp sdp) => RtcSdp(
+    type: sdp.type,
+    sdp: capVideoBitrateSdp(
+      tuneOpusSdp(sdp.sdp),
+      maxKbps: kScreenShareCaps.maxBitrateKbps,
+    ),
+  );
 
   @override
   Future<void> setLocalDescription(RtcSdp sdp) {
@@ -426,9 +576,21 @@ class _RealMediaStream implements RtcMediaStream {
   _RealMediaStream(this.stream);
   final rtc.MediaStream stream;
 
+  /// Обёртки видео-треков кэшируем (в отличие от аудио): на видео-трек
+  /// вешается `onEnded` — «пользователь нажал системную остановку», и
+  /// свежая обёртка на каждый геттер этот колбэк теряла бы.
+  final Map<String, _RealVideoTrack> _videoWrappers = {};
+
   @override
   List<MediaAudioTrack> get audioTracks =>
       stream.getAudioTracks().map(_RealAudioTrack.new).toList();
+
+  @override
+  List<MediaVideoTrack> get videoTracks => [
+    for (final t in stream.getVideoTracks())
+      _videoWrappers.putIfAbsent(t.id ?? '${t.hashCode}', () =>
+          _RealVideoTrack(t)),
+  ];
 
   @override
   Future<void> dispose() async {
@@ -448,4 +610,100 @@ class _RealAudioTrack implements MediaAudioTrack {
 
   @override
   set enabled(bool value) => _track.enabled = value;
+}
+
+/// **TASK80**: видео-трек демонстрации. `onEnded` — единственный
+/// сигнал о системной остановке захвата («Прекратить показ» в плашке
+/// браузера, закрытие расшаренного окна, отзыв разрешения ОС).
+class _RealVideoTrack implements MediaVideoTrack {
+  _RealVideoTrack(this._track);
+  final rtc.MediaStreamTrack _track;
+
+  @override
+  bool get enabled => _track.enabled;
+
+  @override
+  set enabled(bool value) => _track.enabled = value;
+
+  @override
+  set onEnded(void Function()? cb) => _track.onEnded = cb;
+}
+
+/// **TASK80**: ручка отправителя видео + применение рамок качества.
+class _RealVideoSender implements RtcVideoSender {
+  _RealVideoSender(this.sender);
+  final rtc.RTCRtpSender sender;
+
+  @override
+  Future<void> applyScreenShareCaps(ScreenShareCaps caps) async {
+    try {
+      final params = sender.parameters;
+      // `contentHint: 'detail'` в API flutter_webrtc 1.5.2 не выведен
+      // (ни в `MediaStreamTrack`, ни в `Helper`). Его смысл — «при
+      // нехватке полосы режь fps, не разрешение» — задаём напрямую тем
+      // же, во что libwebrtc транслирует detail/text: degradation
+      // preference = maintain-resolution.
+      params.degradationPreference =
+          rtc.RTCDegradationPreference.MAINTAIN_RESOLUTION;
+      final encodings = params.encodings;
+      if (encodings == null || encodings.isEmpty) {
+        params.encodings = [
+          rtc.RTCRtpEncoding(
+            maxBitrate: caps.maxBitrateBps,
+            maxFramerate: caps.maxFramerate,
+          ),
+        ];
+      } else {
+        for (final e in encodings) {
+          e.maxBitrate = caps.maxBitrateBps;
+          e.maxFramerate = caps.maxFramerate;
+          // Разрешение не даунскейлим сверх захвата — чёткость важнее
+          // (см. kScreenShareCaps).
+          e.scaleResolutionDownBy = 1.0;
+        }
+      }
+      await sender.setParameters(params);
+    } catch (e) {
+      // Best-effort: часть платформ игнорирует часть параметров.
+      // Жёсткий потолок всё равно стоит в SDP (`b=AS:`).
+      if (kDebugMode) {
+        debugPrint('[RealWebRtcAdapter] applyScreenShareCaps failed: $e');
+      }
+    }
+  }
+}
+
+/// **TASK80**: обёртка `RTCVideoRenderer` + `RTCVideoView`.
+class _RealVideoRenderer implements RtcVideoRenderer {
+  final rtc.RTCVideoRenderer _renderer = rtc.RTCVideoRenderer();
+  bool _initialized = false;
+
+  @override
+  Future<void> initialize() async {
+    if (_initialized) return;
+    await _renderer.initialize();
+    _initialized = true;
+  }
+
+  @override
+  set srcObject(RtcMediaStream? stream) {
+    _renderer.srcObject = stream == null
+        ? null
+        : (stream as _RealMediaStream).stream;
+  }
+
+  @override
+  Widget buildView({BoxFit fit = BoxFit.contain}) => rtc.RTCVideoView(
+    _renderer,
+    objectFit: fit == BoxFit.cover
+        ? rtc.RTCVideoViewObjectFit.RTCVideoViewObjectFitCover
+        : rtc.RTCVideoViewObjectFit.RTCVideoViewObjectFitContain,
+  );
+
+  @override
+  Future<void> dispose() async {
+    _renderer.srcObject = null;
+    await _renderer.dispose();
+    _initialized = false;
+  }
 }

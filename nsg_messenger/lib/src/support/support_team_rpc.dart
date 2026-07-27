@@ -53,6 +53,12 @@ abstract class SupportTeamRpc {
     required int targetMessengerUserId,
     required SupportTeamRole role,
   });
+
+  /// **TASK73**: выйти из команды самому. Owner-ом быть не нужно. View не
+  /// возвращается — после выхода caller уже не участник. Throws
+  /// [LastOwnerCannotDemoteException] (последний владелец: сперва назначьте
+  /// другого администратора) / [NotSupportTeamMemberException].
+  Future<void> leaveTeam({required String productExternalKey});
 }
 
 /// Продакшн-реализация: ходит в generated Serverpod-client через
@@ -147,6 +153,14 @@ class ClientSupportTeamRpc implements SupportTeamRpc {
       productExternalKey: productExternalKey,
       targetMessengerUserId: targetMessengerUserId,
       role: role,
+    ),
+    _session,
+  );
+
+  @override
+  Future<void> leaveTeam({required String productExternalKey}) => withAuthRetry(
+    () => _client.messenger.leaveSupportTeam(
+      productExternalKey: productExternalKey,
     ),
     _session,
   );

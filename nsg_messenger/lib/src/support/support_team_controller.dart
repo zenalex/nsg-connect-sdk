@@ -58,7 +58,13 @@ class SupportTeamController extends ChangeNotifier {
   /// Добавить оператора по email (owner-only). Возвращает `true` при
   /// успехе. Ошибку прокидывает через `false` + не роняет state (UI
   /// показывает snackbar). Пустой email — no-op `false`.
+  ///
+  /// **TASK73**: «email не резолвится» ([PeerUnavailableException]) —
+  /// НЕ временный сбой, и генеричное «попробуйте ещё раз» тут вредный
+  /// совет: повтор не поможет, пока человек хоть раз не войдёт в
+  /// приложение. Взводим [lastAddNotFound], чтобы экран сказал это прямо.
   Future<bool> addMember(String email, {int tier = 1}) async {
+    lastAddNotFound = false;
     final trimmed = email.trim();
     if (trimmed.isEmpty) return false;
     final current = _state;
@@ -72,12 +78,21 @@ class SupportTeamController extends ChangeNotifier {
       );
       _emit(SupportTeamReady(view: view));
       return true;
+    } on PeerUnavailableException {
+      lastAddNotFound = true;
+      _emit(current.copyWith(busy: false));
+      return false;
     } catch (e) {
       // Возвращаем в не-busy состояние с прежним view.
       _emit(current.copyWith(busy: false));
       return false;
     }
   }
+
+  /// **TASK73**: последний [addMember] провалился именно потому, что email
+  /// не резолвится в пользователя (а не из-за сети/прав). Читается сразу
+  /// после `addMember() == false`.
+  bool lastAddNotFound = false;
 
   /// **TASK48**: сменить тир участника (owner-only). `true` при успехе.
   Future<bool> setMemberTier(int targetMessengerUserId, int tier) async {
@@ -141,6 +156,34 @@ class SupportTeamController extends ChangeNotifier {
     }
   }
 
+  /// **TASK73**: выйти из команды самому. Owner-ом быть не нужно.
+  ///
+  /// Ошибку различаем, а не схлопываем в `false`: «вы последний владелец»
+  /// — это не сбой, а инструкция (сперва назначьте администратора), и
+  /// генеричное «не удалось, попробуйте ещё раз» отправило бы человека
+  /// жать кнопку по кругу.
+  ///
+  /// При успехе state НЕ переводим в `Unavailable`: экран сразу
+  /// закрывается, а `refresh()` здесь означал бы гарантированный
+  /// `NotSupportTeamMemberException` и мигание «команда недоступна» на
+  /// уходящем экране.
+  Future<SupportTeamLeaveResult> leave() async {
+    final current = _state;
+    if (current is! SupportTeamReady) return SupportTeamLeaveResult.failed;
+    _emit(current.copyWith(busy: true));
+    try {
+      await _rpc.leaveTeam(productExternalKey: productExternalKey);
+      _emit(current.copyWith(busy: false));
+      return SupportTeamLeaveResult.ok;
+    } on LastOwnerCannotDemoteException {
+      _emit(current.copyWith(busy: false));
+      return SupportTeamLeaveResult.lastOwner;
+    } catch (e) {
+      _emit(current.copyWith(busy: false));
+      return SupportTeamLeaveResult.failed;
+    }
+  }
+
   /// Убрать оператора по messengerUserId (owner-only). `true` при успехе.
   Future<bool> removeMember(int targetMessengerUserId) async {
     final current = _state;
@@ -170,4 +213,18 @@ class SupportTeamController extends ChangeNotifier {
     _disposed = true;
     super.dispose();
   }
+}
+
+/// **TASK73**: исход [SupportTeamController.leave]. Отдельный тип, а не
+/// `bool`, потому что у отказа «последний владелец» своя реплика в UI.
+enum SupportTeamLeaveResult {
+  /// Вышел — экран закрывается.
+  ok,
+
+  /// Последний владелец: сперва назначить другого администратора
+  /// (серверный [LastOwnerCannotDemoteException]).
+  lastOwner,
+
+  /// Прочий сбой (сеть, гейт) — генеричный снекбар + retry.
+  failed,
 }

@@ -18,6 +18,25 @@ import 'room_summary_tile.dart';
 /// [roomsLoader] по умолчанию тянет `MessengerRuntime.instance.rooms.list`
 /// (сортировка по активности — `lastMessageAt`, cursor v2 из TASK42); тест
 /// подменяет его in-memory списком.
+/// **issue #68**: поднять текущий чат первой строкой.
+///
+/// Пользователь пересылает сообщение В ТОТ ЖЕ чат (процитировать, вынести
+/// наверх, скопировать себе) — а список отсортирован по активности, и
+/// текущая комната теряется среди прочих. Из списка её при этом НЕ
+/// исключаем: пересылка в свой же чат — валидный сценарий, именно с него
+/// и пришла просьба.
+///
+/// Чистая функция — тестируется без виджетов. Порядок остальных строк
+/// сохраняется (сортировка по активности с сервера).
+List<RoomSummary> pinRoomFirst(List<RoomSummary> rooms, int? pinnedId) {
+  if (pinnedId == null) return rooms;
+  final idx = rooms.indexWhere((r) => r.id == pinnedId);
+  if (idx <= 0) return rooms; // нет в списке или уже первый
+  final out = List<RoomSummary>.of(rooms);
+  out.insert(0, out.removeAt(idx));
+  return out;
+}
+
 Future<RoomSummary?> showRoomPicker({
   required BuildContext context,
   required String title,
@@ -27,6 +46,7 @@ Future<RoomSummary?> showRoomPicker({
   Future<List<RoomSummary>> Function()? roomsLoader,
   Set<int> disabledRoomIds = const <int>{},
   String? disabledBadge,
+  int? pinnedRoomId,
 }) {
   final loader =
       roomsLoader ?? () => MessengerRuntime.instance.rooms.list(limit: 100);
@@ -42,6 +62,7 @@ Future<RoomSummary?> showRoomPicker({
       errorText: errorText,
       disabledRoomIds: disabledRoomIds,
       disabledBadge: disabledBadge,
+      pinnedRoomId: pinnedRoomId,
     ),
   );
 }
@@ -58,6 +79,7 @@ Future<List<RoomSummary>?> showMultiRoomPicker({
   required String errorText,
   required String Function(int count) confirmLabel,
   Future<List<RoomSummary>> Function()? roomsLoader,
+  int? pinnedRoomId,
 }) {
   final loader =
       roomsLoader ?? () => MessengerRuntime.instance.rooms.list(limit: 100);
@@ -73,6 +95,7 @@ Future<List<RoomSummary>?> showMultiRoomPicker({
       errorText: errorText,
       multiSelect: true,
       confirmLabel: confirmLabel,
+      pinnedRoomId: pinnedRoomId,
     ),
   );
 }
@@ -88,6 +111,7 @@ class _RoomPickerBody extends StatefulWidget {
     this.confirmLabel,
     this.disabledRoomIds = const <int>{},
     this.disabledBadge,
+    this.pinnedRoomId,
   });
 
   final Future<List<RoomSummary>> Function() loader;
@@ -105,6 +129,10 @@ class _RoomPickerBody extends StatefulWidget {
   /// Текст-бейдж у отключённых строк (обязателен по смыслу, если
   /// [disabledRoomIds] непуст).
   final String? disabledBadge;
+
+  /// **issue #68**: комната, которую поднимаем первой строкой (обычно —
+  /// та, из которой открыли пересылку). См. [pinRoomFirst].
+  final int? pinnedRoomId;
 
   /// **F1**: режим мультивыбора (чекбоксы + кнопка подтверждения).
   final bool multiSelect;
@@ -152,6 +180,7 @@ class _RoomPickerBodyState extends State<_RoomPickerBody> {
   }
 
   List<RoomSummary> _filter(List<RoomSummary> rooms) {
+    rooms = pinRoomFirst(rooms, widget.pinnedRoomId);
     if (_query.isEmpty) return rooms;
     return rooms
         .where((r) => (r.name ?? '').toLowerCase().contains(_query))

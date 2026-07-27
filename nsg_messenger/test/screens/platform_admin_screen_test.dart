@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:nsg_connect_client/nsg_connect_client.dart';
 import 'package:nsg_messenger/nsg_messenger.dart';
 
 import '../test_helpers.dart';
@@ -12,6 +14,7 @@ import '../test_helpers.dart';
 /// с ним нельзя закрыть случайным тапом мимо — потерянный секрет не
 /// восстановить (в БД только sha256).
 void main() {
+  _provisionTests();
   ConnectTenantStatus tenant({
     String key = 'nsg',
     String name = 'NSG',
@@ -46,8 +49,22 @@ void main() {
     Future<String> Function(String key, int? graceSeconds)? onRotate,
     Future<void> Function(String key)? onDisable,
     Future<List<ConnectKeyAuditEvent>> Function(String key)? onAudit,
+    Future<ConnectTenantStatus> Function(String key, String name)? onCreateTenant,
+    Future<void> Function(String tenantKey, String key, String name)?
+    onCreateProduct,
   }) => NsgMessengerPlatformAdmin.withRpcs(
     isPlatformAdminRpc: () async => true,
+    createTenantRpc: ({required String externalKey, required String name}) =>
+        onCreateTenant?.call(externalKey, name) ??
+        Future.value(ConnectTenantStatus(enabled: false, hasSecret: false)),
+    createProductRpc:
+        ({
+          required String tenantExternalKey,
+          required String externalKey,
+          required String displayName,
+        }) =>
+            onCreateProduct?.call(tenantExternalKey, externalKey, displayName) ??
+            Future.value(),
     listTenantsRpc: () =>
         onList?.call() ?? Future.value(const <ConnectTenantStatus>[]),
     enableAndGenerateRpc: ({required String tenantExternalKey}) =>
@@ -265,5 +282,109 @@ void main() {
     expect(find.textContaining('admin@test.local'), findsOneWidget);
     expect(find.textContaining('system'), findsOneWidget);
     expect(find.textContaining('grace=300s'), findsOneWidget);
+  });
+}
+
+// ── провижн из UI (раньше tenant/продукт заводились только SQL-ом) ────────
+void _provisionTests() {
+  Widget wrap(Widget child) => MaterialApp(
+    locale: const Locale('ru'),
+    localizationsDelegates: const [
+      NsgL10n.delegate,
+      GlobalMaterialLocalizations.delegate,
+      GlobalWidgetsLocalizations.delegate,
+      GlobalCupertinoLocalizations.delegate,
+    ],
+    supportedLocales: NsgL10n.supportedLocales,
+    home: child,
+  );
+
+  testWidgets('создание тенанта доходит до сервера ключом и именем', (
+    tester,
+  ) async {
+    final calls = <List<String>>[];
+    final admin = NsgMessengerPlatformAdmin.withRpcs(
+      isPlatformAdminRpc: () async => true,
+      listTenantsRpc: () async => const <ConnectTenantStatus>[],
+      createTenantRpc: ({required String externalKey, required String name}) {
+        calls.add([externalKey, name]);
+        return Future.value(
+          ConnectTenantStatus(enabled: false, hasSecret: false),
+        );
+      },
+      createProductRpc:
+          ({
+            required String tenantExternalKey,
+            required String externalKey,
+            required String displayName,
+          }) async {},
+      enableAndGenerateRpc: ({required String tenantExternalKey}) async => '',
+      rotateSecretRpc:
+          ({required String tenantExternalKey, int? graceSeconds}) async => '',
+      disableRpc: ({required String tenantExternalKey}) async {},
+      statusRpc: ({required String tenantExternalKey}) =>
+          throw UnimplementedError(),
+      listAuditEventsRpc:
+          ({required String tenantExternalKey, required int limit}) async =>
+              const <ConnectKeyAuditEvent>[],
+    );
+
+    await tester.pumpWidget(wrap(PlatformAdminScreen(adminOverride: admin)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Новый тенант'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).at(0), 'titan');
+    await tester.enterText(find.byType(TextField).at(1), 'Titan');
+    await tester.tap(find.text('Создать'));
+    await tester.pumpAndSettle();
+
+    expect(calls, [
+      ['titan', 'Titan'],
+    ]);
+  });
+
+  testWidgets('занятый ключ объясняется словами, а не «действие не удалось»', (
+    tester,
+  ) async {
+    // «Ключ не годится» и «занято» — разные проблемы, и делать с ними надо
+    // разное: во втором случае менять ключ, а не чинить формат.
+    final admin = NsgMessengerPlatformAdmin.withRpcs(
+      isPlatformAdminRpc: () async => true,
+      listTenantsRpc: () async => const <ConnectTenantStatus>[],
+      createTenantRpc: ({required String externalKey, required String name}) =>
+          Future.error(TenantAlreadyExistsException(tenantExternalKey: 'x')),
+      createProductRpc:
+          ({
+            required String tenantExternalKey,
+            required String externalKey,
+            required String displayName,
+          }) async {},
+      enableAndGenerateRpc: ({required String tenantExternalKey}) async => '',
+      rotateSecretRpc:
+          ({required String tenantExternalKey, int? graceSeconds}) async => '',
+      disableRpc: ({required String tenantExternalKey}) async {},
+      statusRpc: ({required String tenantExternalKey}) =>
+          throw UnimplementedError(),
+      listAuditEventsRpc:
+          ({required String tenantExternalKey, required int limit}) async =>
+              const <ConnectKeyAuditEvent>[],
+    );
+
+    await tester.pumpWidget(wrap(PlatformAdminScreen(adminOverride: admin)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Новый тенант'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).at(0), 'titan');
+    await tester.enterText(find.byType(TextField).at(1), 'Titan');
+    await tester.tap(find.text('Создать'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Такой ключ уже занят'), findsOneWidget);
   });
 }

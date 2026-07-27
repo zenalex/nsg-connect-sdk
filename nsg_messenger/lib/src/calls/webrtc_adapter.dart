@@ -13,8 +13,14 @@
 /// Сигнатуры зеркалят `flutter_webrtc` в минимально-необходимом объёме
 /// для аудио 1:1 (MVP): создать pc с ICE-серверами, взять микрофон,
 /// offer/answer, trickle ICE, mute (toggle track.enabled), teardown.
-/// Видео / data-channel / статистика — вне scope MVP.
+///
+/// **TASK80 итерация 1** добавила сюда видео РОВНО в объёме демонстрации
+/// экрана: захват ([WebRtcAdapter.getDisplayMedia]), добавление/снятие
+/// видео-трека в живом pc ([RtcPeerConnection.addVideoTrack]) и рендер
+/// входящего видео ([RtcVideoRenderer]). Камеры по-прежнему нет.
 library;
+
+import 'package:flutter/widgets.dart' show BoxFit, Widget, immutable;
 
 /// Роль SDP-дескриптора — offer (исходящий invite) или answer
 /// (входящий accept). Зеркалит `RTCSessionDescription.type`.
@@ -67,6 +73,10 @@ abstract class RtcMediaStream {
   /// Все audio-треки стрима (MVP — обычно один).
   List<MediaAudioTrack> get audioTracks;
 
+  /// **TASK80**: видео-треки стрима. Для микрофонного стрима — пусто;
+  /// для стрима демонстрации экрана — один трек.
+  List<MediaVideoTrack> get videoTracks;
+
   /// Остановить и освободить все треки (release микрофона).
   Future<void> dispose();
 }
@@ -76,6 +86,114 @@ abstract class RtcMediaStream {
 abstract class MediaAudioTrack {
   bool get enabled;
   set enabled(bool value);
+}
+
+/// **TASK80**: один видео-трек (у нас — только демонстрация экрана).
+abstract class MediaVideoTrack {
+  bool get enabled;
+  set enabled(bool value);
+
+  /// **Приватность, п.5 спеки**: захват прекращён ВНЕ нашего UI —
+  /// пользователь нажал системную кнопку «Прекратить показ» (плашка
+  /// браузера / панель ОС / закрылось расшаренное окно). Без этого
+  /// хука UI остался бы врать «показ идёт», а докладчик считал бы, что
+  /// его всё ещё видят.
+  set onEnded(void Function()? cb);
+}
+
+/// **TASK80**: рамки качества демонстрации экрана. Mesh множит
+/// исходящий поток на число собеседников (при 4 участниках — ×3),
+/// поэтому cap здесь не «настройка на потом», а обязательное условие
+/// работоспособности (см. TASK80 «Главный вопрос — пропускная
+/// способность»). Значения — в [kScreenShareCaps].
+@immutable
+class ScreenShareCaps {
+  const ScreenShareCaps({
+    required this.maxWidth,
+    required this.maxHeight,
+    required this.maxFramerate,
+    required this.maxBitrateBps,
+  });
+
+  final int maxWidth;
+  final int maxHeight;
+  final int maxFramerate;
+  final int maxBitrateBps;
+
+  /// Потолок битрейта в кбит/с — форма для SDP-строки `b=AS:`.
+  int get maxBitrateKbps => (maxBitrateBps / 1000).round();
+}
+
+/// **Рамки демонстрации экрана итерации 1 — обязательные, не «настроим
+/// потом».** Арифметика mesh: докладчик шлёт СВОЮ копию каждому, при 4
+/// участниках это 3 исходящих потока. Со «свободным» видео (1–3 Мбит/с)
+/// это до ~9 Мбит/с upstream — столько нет ни у кого из команды, а через
+/// TURN-relay эти же мегабиты множатся ещё раз. Отсюда цифры:
+///
+///   * **720p** — потолок разрешения. Текст/код на 1080p→720p читаемы,
+///     а полоса падает вдвое.
+///   * **15 fps** — демонстрация экрана не кино: это верх «плавности»,
+///     который нам нужен. Деградация при плохом канале снижает fps
+///     дальше (до ~5), но НЕ разрешение — см. ниже.
+///   * **800 кбит/с на поток** → при 4 участниках ~2.4 Мбит/с upstream
+///     вместо ~9. Это то, что реально уезжает с ноутбука на Wi-Fi.
+///   * **degradation preference = maintain-resolution** — это ровно то,
+///     во что libwebrtc транслирует `contentHint: 'detail'`: при
+///     нехватке полосы жертвуем ЧАСТОТОЙ КАДРОВ, а не чёткостью.
+///     Для текста/кода замыленный кадр бесполезен, а «слайд-шоу» —
+///     вполне рабочий режим. (Сам `contentHint` в API flutter_webrtc
+///     1.5.2 не выведен — см. `webrtc_adapter_real.dart`.)
+const ScreenShareCaps kScreenShareCaps = ScreenShareCaps(
+  maxWidth: 1280,
+  maxHeight: 720,
+  maxFramerate: 15,
+  maxBitrateBps: 800000,
+);
+
+/// Экран/окно, доступное для захвата ([WebRtcAdapter.listScreenShareSources]).
+@immutable
+class ScreenShareSource {
+  const ScreenShareSource({
+    required this.id,
+    required this.name,
+    required this.isWindow,
+  });
+
+  /// Платформенный id источника (уходит в `video.deviceId.exact`).
+  final String id;
+
+  /// Человекочитаемое имя: заголовок окна либо «Screen 1».
+  final String name;
+
+  /// true — окно приложения, false — экран целиком.
+  final bool isWindow;
+}
+
+/// Отправитель видео-трека в конкретном pc — ручка, за которую трек
+/// снимают ([RtcPeerConnection.removeVideoSender]) и через которую
+/// накладывают рамки качества.
+abstract class RtcVideoSender {
+  /// Применить [caps] к этому отправителю (encoding parameters:
+  /// maxBitrate/maxFramerate + degradation preference). Best-effort:
+  /// платформа может не поддержать часть параметров — страховкой
+  /// работает SDP-cap (`b=AS:` на видео-m-line, см. `sdp_tuning.dart`).
+  Future<void> applyScreenShareCaps(ScreenShareCaps caps);
+}
+
+/// Рендерер видео-трека. Абстракция нужна ровно затем же, зачем весь
+/// этот файл: `RTCVideoRenderer`/`RTCVideoView` требуют нативного
+/// плагина, а виджет-тесты оверлея конференции гоняются без него.
+abstract class RtcVideoRenderer {
+  /// Завести текстуру/элемент. Звать до первого [buildView].
+  Future<void> initialize();
+
+  /// Привязать поток (null — отвязать, картинка гаснет).
+  set srcObject(RtcMediaStream? stream);
+
+  /// Виджет с картинкой текущего [srcObject].
+  Widget buildView({BoxFit fit = BoxFit.contain});
+
+  Future<void> dispose();
 }
 
 /// Абстракция `RTCPeerConnection`. Создаётся через
@@ -95,8 +213,23 @@ abstract class RtcPeerConnection {
   /// сам рендеринг аудио делает нативный слой автоматически.
   set onRemoteTrack(void Function()? cb);
 
+  /// **TASK80**: callback на входящий УДАЛЁННЫЙ видео-поток (собеседник
+  /// начал показ экрана). Отдаёт поток целиком — его скармливают
+  /// [RtcVideoRenderer.srcObject].
+  set onRemoteVideoStream(void Function(RtcMediaStream stream)? cb);
+
   /// Добавить локальные audio-треки [stream] в pc (перед offer/answer).
   Future<void> addLocalStream(RtcMediaStream stream);
+
+  /// **TASK80**: добавить видео-трек(и) [stream] (демонстрация экрана) в
+  /// УЖЕ ЖИВОЙ pc. Возвращает ручку отправителя (null — в стриме нет
+  /// видео). После этого сессию надо переустановить через negotiate:
+  /// новый трек = новая m-line в SDP.
+  Future<RtcVideoSender?> addVideoTrack(RtcMediaStream stream);
+
+  /// **TASK80**: снять ранее добавленный видео-трек (конец показа).
+  /// Тоже требует negotiate.
+  Future<void> removeVideoSender(RtcVideoSender sender);
 
   /// `createOffer` → возвращает local SDP offer (ещё НЕ set-нутый).
   /// [iceRestart] — сгенерировать offer с новым ICE ufrag/pwd (ICE restart
@@ -161,4 +294,58 @@ abstract class WebRtcAdapter {
   /// Best-effort: на платформах без маршрутизации (desktop/web) — no-op;
   /// ошибка маршрутизации не должна ронять сам звонок.
   Future<void> setSpeakerphone(bool enabled);
+
+  // ── TASK80: демонстрация экрана ──────────────────────────────────
+
+  /// **Умеет ли эта платформа ЗАХВАТЫВАТЬ экран.** Смотреть чужой показ
+  /// умеют все (входящий видео-трек рендерится где угодно), делиться —
+  /// только desktop (Windows/macOS/Linux) и web: на мобильных захват
+  /// требует Broadcast Upload Extension (iOS) / MediaProjection +
+  /// foreground-service (Android) — отдельная нативная работа, вне
+  /// итерации 1. UI обязан по этому флагу СКРЫВАТЬ кнопку, а не
+  /// показывать неработающую (DoD: «не нажал — ничего»).
+  bool get supportsScreenShare;
+
+  /// **Нужен ли НАШ список источников.** Браузер по `getDisplayMedia`
+  /// сам показывает системный диалог выбора экрана/окна — своего поверх
+  /// него не рисуем (спека, п.5). На desktop-нативе flutter_webrtc 1.5.2
+  /// системного диалога НЕ показывает вовсе: он требует, чтобы
+  /// приложение перечислило источники (`getDesktopSources`) и передало
+  /// `deviceId.exact`. Рисовать свой список там — не «поверх
+  /// системного», а вместо отсутствующего.
+  bool get screenShareNeedsSourcePicker;
+
+  /// Перечислить экраны и окна, доступные для захвата. Валидно только
+  /// когда [screenShareNeedsSourcePicker] == true.
+  Future<List<ScreenShareSource>> listScreenShareSources();
+
+  /// `getDisplayMedia` — взять поток захвата экрана/окна.
+  /// [sourceId] обязателен на платформах с [screenShareNeedsSourcePicker];
+  /// на web игнорируется (источник выбирает пользователь в системном
+  /// диалоге браузера).
+  ///
+  /// Бросает [ScreenSharePermissionDeniedException] — в т.ч. когда
+  /// пользователь просто закрыл системный диалог (отличить «отказ» от
+  /// «передумал» платформы не дают, и для UI это одно и то же: показ не
+  /// начался).
+  Future<RtcMediaStream> getDisplayMedia({
+    required ScreenShareCaps caps,
+    String? sourceId,
+  });
+
+  /// Создать рендерер для показа видео-трека (свой превью или экран
+  /// докладчика).
+  Future<RtcVideoRenderer> createVideoRenderer();
+}
+
+/// **TASK80**: захват экрана не состоялся — пользователь отказал в
+/// разрешении, закрыл системный диалог выбора источника, либо
+/// платформа/источник недоступны. Для UI все эти случаи эквивалентны:
+/// показ не начался, роль докладчика надо освободить.
+class ScreenSharePermissionDeniedException implements Exception {
+  const ScreenSharePermissionDeniedException([this.cause]);
+  final Object? cause;
+  @override
+  String toString() =>
+      'ScreenSharePermissionDeniedException(захват экрана не начат: $cause)';
 }

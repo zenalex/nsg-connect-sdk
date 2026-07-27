@@ -80,20 +80,182 @@ Future<bool> confirmBotTokenRotation(BuildContext context) async {
 }
 
 /// Результат [BotCreateDialog]: имя, email владельца (null, когда поле
-/// не показывалось — myBots-путь, там владелец всегда caller), гранты и
-/// видимость в поиске.
+/// не показывалось — myBots-путь, там владелец всегда caller), гранты,
+/// видимость в поиске и режим чтения.
 class BotCreateRequest {
   const BotCreateRequest({
     required this.name,
     required this.ownerEmail,
     required this.capabilities,
     required this.discoverable,
+    required this.readMode,
   });
 
   final String name;
   final String? ownerEmail;
   final List<String> capabilities;
   final bool discoverable;
+
+  /// **TASK77 итер.2**: `read_addressed` (дефолт) либо `read_all`.
+  final String readMode;
+}
+
+/// **TASK77 итер.2**: строка «что бот читает» для тайла бота — крупно и
+/// словами, а не техническим `read_all`. Это trust-сигнал: пользователь
+/// должен понимать, видит ли программа всю его переписку. Для `read_all`
+/// формулировка настораживающая и подсвечена error-цветом.
+///
+/// Общий виджет для админки, «Моих ботов», каталога и карточки бота
+/// (TASK77 итер.3): разъехавшиеся формулировки одного и того же режима —
+/// худшее, что может случиться с trust-сигналом, поэтому третьей версии
+/// этой строки в SDK нет.
+class BotReadModeLine extends StatelessWidget {
+  /// Режим бота из админского/owner-списка ([Bot.readMode] с правилом
+  /// grandfathering-а: `NULL` = `read_all`).
+  BotReadModeLine({super.key, required Bot bot, this.prominent = false})
+    : readsAll = NsgMessengerBotsAdmin.readsAllMessages(bot);
+
+  /// **TASK77 итер.3**: тот же виджет для уже разрешённого режима —
+  /// каталог и карточка получают `readMode` строкой в [AvailableBot], где
+  /// grandfathering применён сервером.
+  const BotReadModeLine.readsAll({
+    super.key,
+    required this.readsAll,
+    this.prominent = false,
+  });
+
+  /// `true` — бот читает всю переписку своих комнат.
+  final bool readsAll;
+
+  /// **TASK77 итер.3**: «крупно» — в каталоге и карточке эта строка не
+  /// подпись под тайлом, а то, ради чего человек в карточку и зашёл: он
+  /// решает, пускать ли чужую программу в свою группу. Плюс поясняющий
+  /// hint-подзаголовок.
+  final bool prominent;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = NsgL10n.of(context);
+    final theme = Theme.of(context);
+    final color = readsAll
+        ? theme.colorScheme.error
+        : theme.colorScheme.onSurface.withValues(alpha: prominent ? 0.85 : 0.6);
+    final title = readsAll
+        ? l.botsAdminReadModeAll
+        : l.botsAdminReadModeAddressed;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          readsAll ? Icons.visibility_outlined : Icons.shield_outlined,
+          size: prominent ? 22 : 16,
+          color: color,
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                // В «крупном» режиме не обрезаем: недосказанное «читает
+                // ВСЕ…» — ровно тот случай, когда экономия строки стоит
+                // дороже места.
+                maxLines: prominent ? 3 : 2,
+                overflow: TextOverflow.ellipsis,
+                style:
+                    (prominent
+                            ? theme.textTheme.titleSmall
+                            : theme.textTheme.bodySmall)
+                        ?.copyWith(
+                          color: color,
+                          fontWeight: readsAll || prominent
+                              ? FontWeight.w600
+                              : null,
+                        ),
+              ),
+              if (prominent)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    readsAll
+                        ? l.botsAdminReadModeAllHint
+                        : l.botsAdminReadModeAddressedHint,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurface.withValues(
+                        alpha: 0.6,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// **TASK77 итер.2**: confirm перед включением `read_all`. `true` —
+/// подтверждено. Обратное переключение (в `read_addressed`) подтверждения
+/// не требует: сужение доступа безопасно.
+Future<bool> confirmBotReadsEverything(BuildContext context) async {
+  final l = NsgL10n.of(context);
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text(l.botsAdminReadModeConfirmTitle),
+      content: Text(l.botsAdminReadModeConfirmBody),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(false),
+          child: Text(l.commonCancel),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(ctx).pop(true),
+          child: Text(l.botsAdminReadModeAllowAll),
+        ),
+      ],
+    ),
+  );
+  return confirmed ?? false;
+}
+
+/// **TASK77 итер.3 (закрытие follow-up-а итер.2)**: сказать вслух, что
+/// приватность подействует не везде.
+///
+/// Фильтр режима чтения на push-пути применяется только к webhook-подпискам,
+/// привязанным к боту (`botId`). Подписку уровня тенанта/продукта, заведённую
+/// администратором платформы, фильтровать нечем — у неё нет владельца-бота, и
+/// поток событий уйдёт в неё целиком. Сервер возвращает число таких подписок
+/// в [BotReadModeResult.unboundSubscriptionCount]; если промолчать, человек
+/// будет уверен, что включил приватность, а она работает только на половине
+/// путей.
+///
+/// Показываем только при сужении до `read_addressed` и только когда такие
+/// подписки есть: при `read_all` предупреждать не о чем.
+Future<void> warnPrivacyPartiallyEffective(
+  BuildContext context,
+  BotReadModeResult result,
+) async {
+  if (result.unboundSubscriptionCount <= 0) return;
+  if (NsgMessengerBotsAdmin.readsAllMessages(result.bot)) return;
+  final l = NsgL10n.of(context);
+  await showDialog<void>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text(l.botsPrivacyUnboundTitle),
+      content: Text(
+        l.botsPrivacyUnboundBody(result.unboundSubscriptionCount),
+      ),
+      actions: [
+        FilledButton(
+          onPressed: () => Navigator.of(ctx).pop(),
+          child: Text(l.commonOk),
+        ),
+      ],
+    ),
+  );
 }
 
 /// Диалог создания бота: имя (+ email владельца в админке) + чекбоксы
@@ -128,6 +290,10 @@ class _BotCreateDialogState extends State<BotCreateDialog> {
   late final TextEditingController _emailCtl;
   final Set<String> _caps = {NsgMessengerBotsAdmin.capSendMessages};
   bool _discoverable = false;
+
+  /// **TASK77 итер.2**: privacy by default — «читает всё» включается только
+  /// осознанно, здесь, при создании.
+  String _readMode = NsgMessengerBotsAdmin.readModeAddressed;
 
   @override
   void initState() {
@@ -179,9 +345,16 @@ class _BotCreateDialogState extends State<BotCreateDialog> {
             .where(_caps.contains)
             .toList(),
         discoverable: _discoverable,
+        readMode: _readMode,
       ),
     );
   }
+
+  /// Человекочитаемое название режима чтения + пояснение.
+  (String, String) _readModeLabels(NsgL10n l, String mode) =>
+      mode == NsgMessengerBotsAdmin.readModeAll
+      ? (l.botsAdminReadModeAll, l.botsAdminReadModeAllHint)
+      : (l.botsAdminReadModeAddressed, l.botsAdminReadModeAddressedHint);
 
   @override
   Widget build(BuildContext context) {
@@ -258,6 +431,53 @@ class _BotCreateDialogState extends State<BotCreateDialog> {
                   ),
                   onChanged: (on) => setState(() => _discoverable = on),
                 ),
+              const SizedBox(height: 12),
+              // **TASK77 итер.2**: режим ЧТЕНИЯ — отдельная ось от
+              // capabilities (те про действия). Радио, а не переключатель:
+              // «читает всё» должно выбираться явно, рядом с описанием
+              // последствий, а не угадываться по положению тумблера.
+              Text(
+                l.botsAdminReadModeLabel,
+                style: Theme.of(context).textTheme.labelMedium,
+              ),
+              for (final mode in NsgMessengerBotsAdmin.kAllReadModes)
+                Builder(
+                  builder: (ctx) {
+                    final (title, hint) = _readModeLabels(l, mode);
+                    final risky = mode == NsgMessengerBotsAdmin.readModeAll;
+                    final selected = _readMode == mode;
+                    // Свой radio-ряд (иконка + tap), а не RadioListTile:
+                    // groupValue/onChanged у него deprecated в текущем
+                    // Flutter, а тянуть RadioGroup ради двух пунктов
+                    // незачем.
+                    return ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(
+                        selected
+                            ? Icons.radio_button_checked
+                            : Icons.radio_button_unchecked,
+                        color: selected && risky
+                            ? Theme.of(ctx).colorScheme.error
+                            : null,
+                      ),
+                      title: Text(
+                        title,
+                        style: risky
+                            ? TextStyle(
+                                color: Theme.of(ctx).colorScheme.error,
+                                fontWeight: FontWeight.w600,
+                              )
+                            : null,
+                      ),
+                      subtitle: Text(
+                        hint,
+                        style: Theme.of(ctx).textTheme.bodySmall,
+                      ),
+                      onTap: () => setState(() => _readMode = mode),
+                    );
+                  },
+                ),
             ],
           ),
         ),
@@ -317,6 +537,9 @@ class _BotAuditSheetState extends State<BotAuditSheet> {
     'removed_from_room' => l.botsAdminAuditRemovedFromRoom,
     'discoverable_enabled' => l.botsAdminAuditDiscoverableOn,
     'discoverable_disabled' => l.botsAdminAuditDiscoverableOff,
+    // TASK77 итер.2: смена режима чтения (сам режим — в `details`,
+    // `mode=read_all|read_addressed`).
+    'read_mode_set' => l.botsAdminAuditReadModeSet,
     _ => action,
   };
 

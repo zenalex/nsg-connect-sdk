@@ -9,6 +9,7 @@ import '../messenger_runtime.dart';
 import '../rooms/nsg_messenger_rooms.dart';
 import '../widgets/nsg_avatar_image.dart';
 import 'add_members_to_group_screen.dart';
+import 'bot_catalog_screen.dart';
 import 'integrations_screen.dart';
 import 'participants_screen.dart';
 
@@ -518,6 +519,23 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
                         MaterialPageRoute<void>(
                           builder: (_) =>
                               IntegrationsScreen(roomId: widget.roomId),
+                        ),
+                      );
+                    },
+                  ),
+                // **TASK77 итер.3**: «Добавить бота» — мини-каталог
+                // публичных ботов тенанта. Рядом с «Интеграциями» и под тем
+                // же гейтом: подключить программу в чат вправе только его
+                // владелец/админ (server enforces — `botCatalog`).
+                if (isAdmin)
+                  ListTile(
+                    leading: const Icon(Icons.smart_toy_outlined),
+                    title: Text(NsgL10n.of(context).botCatalogTitle),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) =>
+                              BotCatalogScreen(roomId: widget.roomId),
                         ),
                       );
                     },

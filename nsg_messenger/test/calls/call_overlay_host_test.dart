@@ -672,4 +672,24 @@ class _NoopWebRtc implements WebRtcAdapter {
 
   @override
   Future<void> setSpeakerphone(bool enabled) async {}
+
+  // **TASK80**: демонстрация экрана в этих тестах не участвует —
+  // платформа «не умеет захват», кнопки нет.
+  @override
+  bool get supportsScreenShare => false;
+
+  @override
+  bool get screenShareNeedsSourcePicker => false;
+
+  @override
+  Future<List<ScreenShareSource>> listScreenShareSources() async => const [];
+
+  @override
+  Future<RtcMediaStream> getDisplayMedia({
+    required ScreenShareCaps caps,
+    String? sourceId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<RtcVideoRenderer> createVideoRenderer() => throw UnimplementedError();
 }

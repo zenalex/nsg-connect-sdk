@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:fake_async/fake_async.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nsg_connect_client/nsg_connect_client.dart';
 import 'package:nsg_messenger/src/calls/call_rpc.dart';
@@ -851,6 +852,460 @@ void main() {
       await harness.dispose();
     });
   });
+
+  // ═══════════════════════════════════════════════════════════════════
+  // TASK80 итерация 1 — демонстрация экрана
+  // ═══════════════════════════════════════════════════════════════════
+
+  /// Конференция с Alice (1,'pa') и Bob (2,'pb'); обе наши пары
+  /// установлены (пришли answer-ы) — с этой точки можно включать показ.
+  Future<_Harness> activeWithTwoPeers() async {
+    final harness = _Harness();
+    harness.confRpc.members = [member(1, 'pa', 1), member(2, 'pb', 2)];
+    await harness.controller.join(roomId: kRoomId);
+    await pump();
+    for (final entry in {1: 'pa', 2: 'pb'}.entries) {
+      final callId = harness.callRpc.sent
+          .firstWhere(
+            (e) =>
+                e.eventType == CallEventType.invite &&
+                ConferencePairCallId.tryParse(
+                      e.callId,
+                    )!.inviteeMessengerUserId ==
+                    entry.key,
+          )
+          .callId;
+      harness.emit(
+        harness.callEvent(
+          MessengerEventType.callAnswer,
+          roomId: kRoomId,
+          callId: callId,
+          partyId: entry.value,
+          sdp: 'answer-remote-${entry.key}',
+        ),
+      );
+    }
+    await pump();
+    return harness;
+  }
+
+  List<_SentEvent> negotiates(_Harness h) => h.callRpc.sent
+      .where((e) => e.eventType == CallEventType.negotiate)
+      .toList();
+
+  /// Ответить negotiate-answer-ом на все висящие renegotiate-offer-ы —
+  /// как сделал бы живой пир. Без этого пара остаётся «в перезаключении»
+  /// до сторожевого таймера.
+  Future<void> answerNegotiations(_Harness h) async {
+    for (final offer in negotiates(h).where((e) => e.sdpType == 'offer')) {
+      h.emit(
+        h.callEvent(
+          MessengerEventType.callNegotiate,
+          roomId: kRoomId,
+          callId: offer.callId,
+          sdp: 'renegotiate-answer',
+          sdpType: 'answer',
+        ),
+      );
+    }
+    await pump();
+  }
+
+  group('TASK80 — старт показа экрана', () {
+    test('claim роли + захват + видео-трек с cap-ами в КАЖДУЮ пару + '
+        'negotiate-offer каждой', () async {
+      final h = await activeWithTwoPeers();
+      // pc пар запоминаем ДО очистки журнала: `pcForInvitee` ищет по нему.
+      final pairPcs = [h.pcForInvitee(1), h.pcForInvitee(2)];
+      h.callRpc.sent.clear();
+
+      final ok = await h.controller.startScreenShare(sourceId: 'screen:0');
+      await pump();
+
+      expect(ok, isTrue);
+      // Роль докладчика — на сервере (арбитраж), с нашим partyId.
+      expect(h.confRpc.startScreenShareCount, 1);
+      expect(h.confRpc.lastScreenSharePartyId, h.controller.selfPartyId);
+      // Захват — с выбранного источника.
+      expect(h.webrtc.displayMediaSourceIds, ['screen:0']);
+      expect(h.webrtc.displayStreams.length, 1);
+
+      for (final pc in pairPcs) {
+        expect(pc.addedVideoStreams.length, 1, reason: 'видео в каждой паре');
+        expect(
+          pc.videoSenders.single.appliedCaps,
+          [kScreenShareCaps],
+          reason: 'рамки качества применены до renegotiate',
+        );
+      }
+      final negs = negotiates(h);
+      expect(negs.length, 2, reason: 'переустановка каждой пары');
+      expect(negs.every((e) => e.sdpType == 'offer'), isTrue);
+      expect(negs.every((e) => e.partyId == h.controller.selfPartyId), isTrue);
+
+      final s = h.controller.state as ConferenceActive;
+      expect(s.selfPresenting, isTrue);
+      expect(s.presenterMessengerUserId, kSelfUserId);
+      expect(s.screenSharePending, isFalse);
+      expect(
+        s.participants.firstWhere((p) => p.isSelf).isPresenting,
+        isTrue,
+      );
+      await h.dispose();
+    });
+
+    test('второй докладчик получает ЯВНЫЙ отказ «показывает X» и НЕ '
+        'начинает захват', () async {
+      final h = await activeWithTwoPeers();
+      h.confRpc.screenShareBusyBy = 1; // показывает Alice.
+      h.callRpc.sent.clear();
+
+      final ok = await h.controller.startScreenShare(sourceId: 'screen:0');
+      await pump();
+
+      expect(ok, isFalse);
+      expect(h.webrtc.displayStreams, isEmpty, reason: 'захват не начинали');
+      expect(negotiates(h), isEmpty);
+      final s = h.controller.state as ConferenceActive;
+      expect(s.screenShareDeniedBy, 1);
+      expect(s.selfPresenting, isFalse);
+      expect(s.screenSharePending, isFalse);
+      await h.dispose();
+    });
+
+    test('отказ/отмена системного диалога захвата → роль докладчика '
+        'немедленно освобождается', () async {
+      final h = await activeWithTwoPeers();
+      h.webrtc.displayMediaDenied = true;
+
+      final ok = await h.controller.startScreenShare(sourceId: 'screen:0');
+      await pump();
+
+      expect(ok, isFalse);
+      expect(h.confRpc.startScreenShareCount, 1);
+      expect(
+        h.confRpc.stopScreenShareCount,
+        1,
+        reason: 'иначе все видели бы «показывает X» без картинки',
+      );
+      final s = h.controller.state as ConferenceActive;
+      expect(s.selfPresenting, isFalse);
+      expect(s.presenterMessengerUserId, isNull);
+      await h.dispose();
+    });
+
+    test('платформа без захвата: кнопки нет (screenShareSupported=false), '
+        'start — no-op без единого RPC', () async {
+      final h = _Harness();
+      h.webrtc.screenShareSupported = false;
+      await h.controller.join(roomId: kRoomId);
+      await pump();
+
+      final ok = await h.controller.startScreenShare();
+      await pump();
+
+      expect(ok, isFalse);
+      expect(h.confRpc.startScreenShareCount, 0);
+      expect(h.webrtc.displayMediaSourceIds, isEmpty);
+      expect(
+        (h.controller.state as ConferenceActive).screenShareSupported,
+        isFalse,
+      );
+      await h.dispose();
+    });
+
+    test('повторный старт во время показа игнорируется (один показ)',
+        () async {
+      final h = await activeWithTwoPeers();
+      await h.controller.startScreenShare(sourceId: 'screen:0');
+      await pump();
+
+      final again = await h.controller.startScreenShare(sourceId: 'window:7');
+      await pump();
+
+      expect(again, isFalse);
+      expect(h.confRpc.startScreenShareCount, 1);
+      expect(h.webrtc.displayStreams.length, 1);
+      await h.dispose();
+    });
+  });
+
+  group('TASK80 — новый участник во время показа', () {
+    test('пара, где инвайтер МЫ, рождается сразу с видео (без лишнего '
+        'negotiate)', () async {
+      final h = await activeWithTwoPeers();
+      await h.controller.startScreenShare(sourceId: 'screen:0');
+      await pump();
+      h.callRpc.sent.clear();
+
+      // Carol появилась в составе с joinedAt РАНЬШЕ нашего (+10с) →
+      // по конвенции «зовёт поздний» инвайтер — мы.
+      h.emit(
+        h.confUpdated(
+          roomId: kRoomId,
+          members: [
+            member(1, 'pa', 1),
+            member(2, 'pb', 2),
+            member(3, 'pc', 3),
+            member(kSelfUserId, h.controller.selfPartyId, 10),
+          ],
+          screenSharingUserId: kSelfUserId,
+          screenSharingPartyId: h.controller.selfPartyId,
+        ),
+      );
+      await pump();
+
+      final pcCarol = h.pcForInvitee(3);
+      expect(
+        pcCarol.addedVideoStreams.length,
+        1,
+        reason: 'вошедший во время показа сразу получает пару с видео',
+      );
+      final carolCallId = h.callRpc.sent
+          .firstWhere((e) => e.eventType == CallEventType.invite)
+          .callId;
+      expect(
+        negotiates(h).where((e) => e.callId == carolCallId),
+        isEmpty,
+        reason: 'видео уехало первым же offer-ом — renegotiate не нужен',
+      );
+      await h.dispose();
+    });
+
+    test('пара, где инвайтер ПИР, доносит видео отдельным negotiate после '
+        'answer-а', () async {
+      final h = await activeWithTwoPeers();
+      await h.controller.startScreenShare(sourceId: 'screen:0');
+      await pump();
+      h.callRpc.sent.clear();
+
+      final callId = ConferencePairCallId.build(
+        confId: h.confRpc.confId,
+        inviteeMessengerUserId: kSelfUserId,
+        pairId: 'pair-carol',
+      );
+      h.emit(h.confInvite(roomId: kRoomId, callId: callId, partyId: 'pc'));
+      await pump();
+      await pump();
+
+      expect(
+        h.callRpc.sent.any(
+          (e) => e.eventType == CallEventType.answer && e.callId == callId,
+        ),
+        isTrue,
+      );
+      final negs = negotiates(h).where((e) => e.callId == callId).toList();
+      expect(negs.length, 1, reason: 'unified-plan: m-line в answer не добавить');
+      expect(negs.single.sdpType, 'offer');
+      await h.dispose();
+    });
+  });
+
+  group('TASK80 — остановка показа', () {
+    test('stopScreenShare: трек снят из всех пар + negotiate + захват '
+        'остановлен + сервер уведомлён', () async {
+      final h = await activeWithTwoPeers();
+      final pairPcs = [h.pcForInvitee(1), h.pcForInvitee(2)];
+      await h.controller.startScreenShare(sourceId: 'screen:0');
+      await pump();
+      await answerNegotiations(h);
+      h.callRpc.sent.clear();
+
+      await h.controller.stopScreenShare();
+      await pump();
+      await pump();
+
+      for (final pc in pairPcs) {
+        expect(pc.removedVideoSenders.length, 1);
+      }
+      expect(negotiates(h).length, 2);
+      expect(h.webrtc.displayStreams.single.disposed, isTrue);
+      expect(h.confRpc.stopScreenShareCount, 1);
+      final s = h.controller.state as ConferenceActive;
+      expect(s.selfPresenting, isFalse);
+      expect(s.presenterMessengerUserId, isNull);
+      await h.dispose();
+    });
+
+    test('СИСТЕМНАЯ кнопка «Прекратить показ» (onEnded трека) приводит '
+        'состояние в порядок', () async {
+      final h = await activeWithTwoPeers();
+      await h.controller.startScreenShare(sourceId: 'screen:0');
+      await pump();
+
+      h.webrtc.displayStreams.single.videos.single.emitEnded();
+      await pump();
+
+      final s = h.controller.state as ConferenceActive;
+      expect(s.selfPresenting, isFalse, reason: 'UI не врёт «показ идёт»');
+      expect(h.confRpc.stopScreenShareCount, 1);
+      expect(h.pcForInvitee(1).removedVideoSenders.length, 1);
+      expect(h.webrtc.displayStreams.single.disposed, isTrue);
+      await h.dispose();
+    });
+
+    test('выход из конференции ГАСИТ захват экрана', () async {
+      final h = await activeWithTwoPeers();
+      await h.controller.startScreenShare(sourceId: 'screen:0');
+      await pump();
+
+      await h.controller.leave();
+      await pump();
+
+      expect(
+        h.webrtc.displayStreams.single.disposed,
+        isTrue,
+        reason: 'иначе останется работающий screen-capture без зрителей',
+      );
+      expect(h.controller.screenShareRenderer, isNull);
+      await h.dispose();
+    });
+
+    test('смерть конференции (пустой ростер) гасит захват', () async {
+      final h = await activeWithTwoPeers();
+      await h.controller.startScreenShare(sourceId: 'screen:0');
+      await pump();
+
+      h.emit(h.confUpdated(roomId: kRoomId, members: const []));
+      await pump();
+
+      expect(h.webrtc.displayStreams.single.disposed, isTrue);
+      expect(h.controller.state, isA<ConferenceCallEnded>());
+      await h.dispose();
+    });
+
+    test('dispose контроллера (закрытие приложения) гасит захват', () async {
+      final h = await activeWithTwoPeers();
+      await h.controller.startScreenShare(sourceId: 'screen:0');
+      await pump();
+
+      h.controller.dispose();
+      await pump();
+
+      expect(h.webrtc.displayStreams.single.disposed, isTrue);
+      await h.eventCtrl.close();
+    });
+
+    test('аудио НЕ прерывается стартом и остановкой показа', () async {
+      final h = await activeWithTwoPeers();
+      final micStream = h.webrtc.streams.single;
+      final pcAlice = h.pcForInvitee(1);
+      final audioStreamsBefore = pcAlice.addedStreams.length;
+
+      await h.controller.startScreenShare(sourceId: 'screen:0');
+      await pump();
+      await h.controller.stopScreenShare();
+      await pump();
+
+      expect(micStream.disposed, isFalse, reason: 'микрофон живёт');
+      expect(pcAlice.closed, isFalse, reason: 'pc пары не пересоздавался');
+      expect(pcAlice.addedStreams.length, audioStreamsBefore);
+      expect(h.webrtc.pcs.length, 2, reason: 'новых pc не заводили');
+      await h.dispose();
+    });
+  });
+
+  group('TASK80 — приём чужого показа', () {
+    test('ростер назначил докладчика + пришёл его видео-поток → рендерер '
+        'привязан', () async {
+      final h = await activeWithTwoPeers();
+      h.emit(
+        h.confUpdated(
+          roomId: kRoomId,
+          members: [
+            member(1, 'pa', 1),
+            member(2, 'pb', 2),
+            member(kSelfUserId, h.controller.selfPartyId, 10),
+          ],
+          screenSharingUserId: 1,
+          screenSharingPartyId: 'pa',
+        ),
+      );
+      await pump();
+
+      final s = h.controller.state as ConferenceActive;
+      expect(s.presenterMessengerUserId, 1);
+      expect(s.selfPresenting, isFalse);
+      expect(
+        s.participants.firstWhere((p) => p.messengerUserId == 1).isPresenting,
+        isTrue,
+      );
+
+      final remote = _FakeStream(withVideo: true);
+      h.pcForInvitee(1).emitRemoteVideo(remote);
+      await pump();
+
+      expect(h.controller.screenShareRenderer, isNotNull);
+      expect(h.webrtc.renderers.single.bound, same(remote));
+      await h.dispose();
+    });
+
+    test('negotiate-offer докладчика → отвечаем negotiate-answer', () async {
+      final h = await activeWithTwoPeers();
+      final callId = h.callRpc.sent
+          .firstWhere(
+            (e) =>
+                e.eventType == CallEventType.invite &&
+                ConferencePairCallId.tryParse(
+                      e.callId,
+                    )!.inviteeMessengerUserId ==
+                    1,
+          )
+          .callId;
+      final pcAlice = h.pcForInvitee(1);
+      h.callRpc.sent.clear();
+
+      h.emit(
+        h.callEvent(
+          MessengerEventType.callNegotiate,
+          roomId: kRoomId,
+          callId: callId,
+          partyId: 'pa',
+          sdp: 'screen-share-offer',
+          sdpType: 'offer',
+        ),
+      );
+      await pump();
+
+      final sent = h.callRpc.sent.single;
+      expect(sent.eventType, CallEventType.negotiate);
+      expect(sent.sdpType, 'answer');
+      expect(pcAlice.remoteDescriptions.last.sdp, 'screen-share-offer');
+      await h.dispose();
+    });
+
+    test('показ докладчика окончен (ростер без screenSharing*) → рендерер '
+        'отвязан', () async {
+      final h = await activeWithTwoPeers();
+      final members = [
+        member(1, 'pa', 1),
+        member(2, 'pb', 2),
+        member(kSelfUserId, h.controller.selfPartyId, 10),
+      ];
+      h.emit(
+        h.confUpdated(
+          roomId: kRoomId,
+          members: members,
+          screenSharingUserId: 1,
+          screenSharingPartyId: 'pa',
+        ),
+      );
+      await pump();
+      h.pcForInvitee(1).emitRemoteVideo(_FakeStream(withVideo: true));
+      await pump();
+      expect(h.webrtc.renderers.single.bound, isNotNull);
+
+      h.emit(h.confUpdated(roomId: kRoomId, members: members));
+      await pump();
+
+      expect(h.webrtc.renderers.single.bound, isNull);
+      expect(
+        (h.controller.state as ConferenceActive).presenterMessengerUserId,
+        isNull,
+      );
+      await h.dispose();
+    });
+  });
 }
 
 /// Прогнать pending microtasks/timers-zero.
@@ -913,12 +1368,16 @@ class _Harness {
     required int roomId,
     String? confId,
     required List<ConferenceMember> members,
+    int? screenSharingUserId,
+    String? screenSharingPartyId,
   }) => MessengerEvent(
     eventType: MessengerEventType.conferenceUpdated,
     serverTimestamp: DateTime.utc(2026, 1, 1),
     roomId: roomId,
     conferenceConfId: confId ?? confRpc.confId,
     conferenceMembers: members,
+    conferenceScreenSharingMessengerUserId: screenSharingUserId,
+    conferenceScreenSharingPartyId: screenSharingPartyId,
   );
 
   MessengerEvent confInvite({
@@ -940,6 +1399,7 @@ class _Harness {
     String? partyId,
     String? sdp,
     List<CallIceCandidate>? candidates,
+    String? sdpType,
   }) => MessengerEvent(
     eventType: type,
     serverTimestamp: DateTime.utc(2026, 1, 1),
@@ -949,6 +1409,7 @@ class _Harness {
     callPartyId: partyId,
     callSdp: sdp,
     callCandidates: candidates,
+    callSdpType: sdpType,
   );
 
   Future<void> dispose() async {
@@ -970,6 +1431,16 @@ class _FakeConferenceRpc implements ConferenceRpc {
   int joinCount = 0;
   int leaveCount = 0;
   String? lastJoinPartyId;
+
+  /// **TASK80**: серверный арбитраж докладчика (в проде — unique-индекс).
+  int? screenSharingUserId;
+  String? screenSharingPartyId;
+
+  /// Кто «уже показывает» — startScreenShare отвечает Busy.
+  int? screenShareBusyBy;
+  int startScreenShareCount = 0;
+  int stopScreenShareCount = 0;
+  String? lastScreenSharePartyId;
 
   @override
   Future<ConferenceState> joinConference({
@@ -996,6 +1467,8 @@ class _FakeConferenceRpc implements ConferenceRpc {
       members: all,
       createdAt: t0,
       updatedAt: t0,
+      screenSharingMessengerUserId: screenSharingUserId,
+      screenSharingPartyId: screenSharingPartyId,
     );
   }
 
@@ -1014,6 +1487,38 @@ class _FakeConferenceRpc implements ConferenceRpc {
     if (err != null) throw err;
     return getConferenceResult;
   }
+
+  @override
+  Future<ConferenceState> startScreenShare({
+    required int roomId,
+    required String partyId,
+  }) async {
+    startScreenShareCount++;
+    lastScreenSharePartyId = partyId;
+    final busy = screenShareBusyBy;
+    if (busy != null) {
+      throw ScreenShareBusyException(presenterMessengerUserId: busy);
+    }
+    screenSharingUserId = selfUserId;
+    screenSharingPartyId = partyId;
+    final t0 = DateTime.utc(2026, 1, 1);
+    return ConferenceState(
+      confId: confId,
+      roomId: roomId,
+      members: const [],
+      createdAt: t0,
+      updatedAt: t0,
+      screenSharingMessengerUserId: screenSharingUserId,
+      screenSharingPartyId: screenSharingPartyId,
+    );
+  }
+
+  @override
+  Future<void> stopScreenShare({required int roomId}) async {
+    stopScreenShareCount++;
+    screenSharingUserId = null;
+    screenSharingPartyId = null;
+  }
 }
 
 /// Записанное исходящее call-событие.
@@ -1025,6 +1530,7 @@ class _SentEvent {
     this.sdp,
     this.candidates,
     this.hangupReason,
+    this.sdpType,
   });
   final CallEventType eventType;
   final String callId;
@@ -1032,6 +1538,9 @@ class _SentEvent {
   final String? sdp;
   final List<CallIceCandidate>? candidates;
   final String? hangupReason;
+
+  /// **TASK80**: роль SDP в negotiate (`offer`/`answer`).
+  final String? sdpType;
 }
 
 class _FakeCallRpc implements CallRpc {
@@ -1066,6 +1575,7 @@ class _FakeCallRpc implements CallRpc {
         sdp: sdp,
         candidates: candidates,
         hangupReason: hangupReason,
+        sdpType: sdpType,
       ),
     );
   }
@@ -1084,6 +1594,23 @@ class _FakeWebRtc implements WebRtcAdapter {
   final List<_FakePc> pcs = [];
   final List<_FakeStream> streams = [];
   final List<bool> speakerRoutes = [];
+
+  /// **TASK80**: платформа умеет захват экрана (по умолчанию — да,
+  /// «мы на десктопе»). false → контроллер обязан отказывать, а UI —
+  /// не рисовать кнопку.
+  bool screenShareSupported = true;
+  bool needsSourcePicker = true;
+
+  /// Пользователь отказал в захвате / закрыл системный диалог.
+  bool displayMediaDenied = false;
+
+  final List<_FakeStream> displayStreams = [];
+  final List<String?> displayMediaSourceIds = [];
+  List<ScreenShareSource> sources = const [
+    ScreenShareSource(id: 'screen:0', name: 'Screen 1', isWindow: false),
+    ScreenShareSource(id: 'window:7', name: 'Editor', isWindow: true),
+  ];
+  final List<_FakeRenderer> renderers = [];
 
   @override
   Future<void> setSpeakerphone(bool enabled) async =>
@@ -1105,6 +1632,36 @@ class _FakeWebRtc implements WebRtcAdapter {
     streams.add(s);
     return s;
   }
+
+  @override
+  bool get supportsScreenShare => screenShareSupported;
+
+  @override
+  bool get screenShareNeedsSourcePicker => needsSourcePicker;
+
+  @override
+  Future<List<ScreenShareSource>> listScreenShareSources() async => sources;
+
+  @override
+  Future<RtcMediaStream> getDisplayMedia({
+    required ScreenShareCaps caps,
+    String? sourceId,
+  }) async {
+    displayMediaSourceIds.add(sourceId);
+    if (displayMediaDenied) {
+      throw const ScreenSharePermissionDeniedException();
+    }
+    final s = _FakeStream(withVideo: true);
+    displayStreams.add(s);
+    return s;
+  }
+
+  @override
+  Future<RtcVideoRenderer> createVideoRenderer() async {
+    final r = _FakeRenderer();
+    renderers.add(r);
+    return r;
+  }
 }
 
 class _FakePc implements RtcPeerConnection {
@@ -1120,10 +1677,17 @@ class _FakePc implements RtcPeerConnection {
   var _offerCount = 0;
   var _answerCount = 0;
 
+  /// **TASK80**: видео-треки, добавленные в этот pc, и снятые отправители.
+  final List<RtcMediaStream> addedVideoStreams = [];
+  final List<_FakeVideoSender> videoSenders = [];
+  final List<RtcVideoSender> removedVideoSenders = [];
+  void Function(RtcMediaStream stream)? _onRemoteVideo;
+
   void emitLocalIce(RtcIce ice) => _onIce?.call(ice);
   void emitConnState(RtcConnState s) => _onConn?.call(s);
   // ignore: unused_element
   void emitRemoteTrack() => _onRemote?.call();
+  void emitRemoteVideo(RtcMediaStream stream) => _onRemoteVideo?.call(stream);
 
   @override
   set onIceCandidate(void Function(RtcIce candidate)? cb) => _onIce = cb;
@@ -1131,10 +1695,26 @@ class _FakePc implements RtcPeerConnection {
   set onConnectionState(void Function(RtcConnState state)? cb) => _onConn = cb;
   @override
   set onRemoteTrack(void Function()? cb) => _onRemote = cb;
+  @override
+  set onRemoteVideoStream(void Function(RtcMediaStream stream)? cb) =>
+      _onRemoteVideo = cb;
 
   @override
   Future<void> addLocalStream(RtcMediaStream stream) async =>
       addedStreams.add(stream);
+
+  @override
+  Future<RtcVideoSender?> addVideoTrack(RtcMediaStream stream) async {
+    if (stream.videoTracks.isEmpty) return null;
+    addedVideoStreams.add(stream);
+    final sender = _FakeVideoSender();
+    videoSenders.add(sender);
+    return sender;
+  }
+
+  @override
+  Future<void> removeVideoSender(RtcVideoSender sender) async =>
+      removedVideoSenders.add(sender);
 
   @override
   Future<RtcSdp> createOffer({bool iceRestart = false}) async =>
@@ -1161,11 +1741,18 @@ class _FakePc implements RtcPeerConnection {
 }
 
 class _FakeStream implements RtcMediaStream {
+  _FakeStream({bool withVideo = false})
+    : videos = withVideo ? [_FakeVideoTrack()] : [];
+
   final List<_FakeTrack> tracks = [_FakeTrack()];
+  final List<_FakeVideoTrack> videos;
   bool disposed = false;
 
   @override
   List<MediaAudioTrack> get audioTracks => tracks;
+
+  @override
+  List<MediaVideoTrack> get videoTracks => videos;
 
   @override
   Future<void> dispose() async => disposed = true;
@@ -1174,4 +1761,44 @@ class _FakeStream implements RtcMediaStream {
 class _FakeTrack implements MediaAudioTrack {
   @override
   bool enabled = true;
+}
+
+/// **TASK80**: видео-трек захвата. [emitEnded] изображает системную
+/// кнопку «Прекратить показ» (остановка ВНЕ нашего UI).
+class _FakeVideoTrack implements MediaVideoTrack {
+  @override
+  bool enabled = true;
+
+  void Function()? _onEnded;
+
+  @override
+  set onEnded(void Function()? cb) => _onEnded = cb;
+
+  void emitEnded() => _onEnded?.call();
+}
+
+class _FakeVideoSender implements RtcVideoSender {
+  final List<ScreenShareCaps> appliedCaps = [];
+
+  @override
+  Future<void> applyScreenShareCaps(ScreenShareCaps caps) async =>
+      appliedCaps.add(caps);
+}
+
+class _FakeRenderer implements RtcVideoRenderer {
+  RtcMediaStream? bound;
+  bool disposed = false;
+
+  @override
+  Future<void> initialize() async {}
+
+  @override
+  set srcObject(RtcMediaStream? stream) => bound = stream;
+
+  @override
+  Widget buildView({BoxFit fit = BoxFit.contain}) =>
+      const SizedBox(key: Key('fakeVideoView'));
+
+  @override
+  Future<void> dispose() async => disposed = true;
 }

@@ -298,6 +298,190 @@ void main() {
     }
   });
 
+  // ═════════════════════════════════════════════════════════════════
+  // TASK80 — демонстрация экрана в оверлее
+  // ═════════════════════════════════════════════════════════════════
+
+  ConferenceActive active({
+    bool screenShareSupported = false,
+    int? presenter,
+    bool selfPresenting = false,
+    bool pending = false,
+    int? deniedBy,
+  }) => ConferenceActive(
+    roomId: 7,
+    confId: 'conf_a',
+    startedAt: DateTime.now(),
+    muted: false,
+    screenShareSupported: screenShareSupported,
+    presenterMessengerUserId: presenter,
+    selfPresenting: selfPresenting,
+    screenSharePending: pending,
+    screenShareDeniedBy: deniedBy,
+    participants: [
+      ConferenceParticipantView(
+        messengerUserId: 10,
+        partyId: 'p-self',
+        joinedAt: DateTime.utc(2026),
+        phase: ConferencePairPhase.connected,
+        isSelf: true,
+        isPresenting: selfPresenting,
+      ),
+      ConferenceParticipantView(
+        messengerUserId: 1,
+        partyId: 'pa',
+        joinedAt: DateTime.utc(2026),
+        phase: ConferencePairPhase.connected,
+        isPresenting: presenter == 1,
+      ),
+    ],
+  );
+
+  testWidgets('платформа без захвата → кнопки «Показать экран» НЕТ '
+      '(не «нажал и ничего»)', (tester) async {
+    await pump(tester, initial: active(), roomDetails: details());
+    expect(find.byKey(const Key('conferenceScreenShareButton')), findsNothing);
+    // Остальные кнопки на месте.
+    expect(find.byKey(const Key('conferenceMuteButton')), findsOneWidget);
+  });
+
+  testWidgets('платформа с захватом → кнопка есть; web-путь стартует показ '
+      'без нашего пикера', (tester) async {
+    final c = await pump(
+      tester,
+      initial: active(screenShareSupported: true),
+      roomDetails: details(),
+    );
+    expect(
+      find.byKey(const Key('conferenceScreenShareButton')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const Key('conferenceScreenShareButton')));
+    await tester.pump();
+    expect(c.startScreenShareSourceIds, [null]);
+    expect(find.byKey(const Key('conferenceSourcePicker')), findsNothing);
+  });
+
+  testWidgets('desktop-путь: свой список источников → выбор запускает показ',
+      (tester) async {
+    final c = await pump(
+      tester,
+      initial: active(screenShareSupported: true),
+      roomDetails: details(),
+    );
+    c
+      ..fakeNeedsSourcePicker = true
+      ..fakeSources = const [
+        ScreenShareSource(id: 'screen:0', name: 'Screen 1', isWindow: false),
+        ScreenShareSource(id: 'window:7', name: 'Editor', isWindow: true),
+      ]
+      // Флаги читаются оверлеем на build — перестраиваем.
+      ..emit(active(screenShareSupported: true));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('conferenceScreenShareButton')));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byKey(const Key('conferenceSourcePicker')), findsOneWidget);
+    expect(c.startScreenShareSourceIds, isEmpty);
+    await tester.tap(find.byKey(const Key('conferenceSource_window:7')));
+    await tester.pump();
+    expect(c.startScreenShareSourceIds, ['window:7']);
+    expect(find.byKey(const Key('conferenceSourcePicker')), findsNothing);
+  });
+
+  testWidgets('свой показ: постоянный индикатор + кнопка становится '
+      '«Остановить показ»', (tester) async {
+    final c = await pump(
+      tester,
+      initial: active(
+        screenShareSupported: true,
+        presenter: 10,
+        selfPresenting: true,
+      ),
+      roomDetails: details(),
+    );
+    expect(
+      find.byKey(const Key('conferenceSelfPresentingBanner')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const Key('conferenceScreenShareButton')));
+    await tester.pump();
+    expect(c.stopScreenShareCalls, 1);
+    expect(c.startScreenShareSourceIds, isEmpty);
+  });
+
+  testWidgets('отказ второму докладчику показан словами «сейчас '
+      'показывает X»', (tester) async {
+    await pump(
+      tester,
+      initial: active(screenShareSupported: true, deniedBy: 1),
+      roomDetails: details(),
+    );
+    expect(
+      find.byKey(const Key('conferenceShareBusyBanner')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Алиса'), findsWidgets);
+  });
+
+  testWidgets('чужой показ: экран докладчика + переключение на сетку '
+      'участников и обратно', (tester) async {
+    final c = await pump(tester, initial: active(), roomDetails: details());
+    c.fakeRenderer = _FakeRenderer();
+    c.emit(active(presenter: 1));
+    await tester.pump();
+
+    // По умолчанию — экран докладчика.
+    expect(find.byKey(const Key('conferenceScreenSurface')), findsOneWidget);
+    expect(find.byKey(const Key('fakeScreenView')), findsOneWidget);
+    expect(find.byKey(const Key('conferencePresenterLabel')), findsOneWidget);
+    expect(
+      find.byKey(const Key('conferenceParticipantTile_1')),
+      findsNothing,
+    );
+
+    await tester.tap(find.byKey(const Key('conferenceScreenToggleButton')));
+    await tester.pump();
+    expect(find.byKey(const Key('conferenceScreenSurface')), findsNothing);
+    expect(
+      find.byKey(const Key('conferenceParticipantTile_1')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('conferencePresentingLabel_1')),
+      findsOneWidget,
+      reason: 'на плитке видно, кто показывает',
+    );
+
+    await tester.tap(find.byKey(const Key('conferenceScreenToggleButton')));
+    await tester.pump();
+    expect(find.byKey(const Key('conferenceScreenSurface')), findsOneWidget);
+  });
+
+  testWidgets('показ кончился → кнопки переключения нет, вернулись к сетке',
+      (tester) async {
+    final c = await pump(
+      tester,
+      initial: active(presenter: 1),
+      roomDetails: details(),
+    );
+    expect(
+      find.byKey(const Key('conferenceScreenToggleButton')),
+      findsOneWidget,
+    );
+    c.emit(active());
+    await tester.pump();
+    expect(
+      find.byKey(const Key('conferenceScreenToggleButton')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const Key('conferenceParticipantTile_1')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('смена состояния перерисовывает overlay (incoming → active)', (
     tester,
   ) async {
@@ -355,6 +539,13 @@ class _FakeConferenceController extends ConferenceCallController {
   int toggleMuteCalls = 0;
   int toggleSpeakerCalls = 0;
 
+  // **TASK80**: команды демонстрации экрана.
+  final List<String?> startScreenShareSourceIds = [];
+  int stopScreenShareCalls = 0;
+  bool fakeNeedsSourcePicker = false;
+  List<ScreenShareSource> fakeSources = const [];
+  RtcVideoRenderer? fakeRenderer;
+
   void emit(ConferenceCallState s) {
     _fakeState = s;
     notifyListeners();
@@ -389,6 +580,46 @@ class _FakeConferenceController extends ConferenceCallController {
     toggleSpeakerCalls++;
     return true;
   }
+
+  @override
+  bool get screenShareNeedsSourcePicker => fakeNeedsSourcePicker;
+
+  @override
+  Future<List<ScreenShareSource>> listScreenShareSources() async =>
+      fakeSources;
+
+  @override
+  RtcVideoRenderer? get screenShareRenderer => fakeRenderer;
+
+  @override
+  Future<bool> startScreenShare({String? sourceId}) async {
+    startScreenShareSourceIds.add(sourceId);
+    return true;
+  }
+
+  @override
+  Future<void> stopScreenShare() async {
+    stopScreenShareCalls++;
+  }
+}
+
+/// Рендерер-заглушка: рисует маркерный виджет вместо нативного
+/// `RTCVideoView` (плагина в widget-тестах нет).
+class _FakeRenderer implements RtcVideoRenderer {
+  RtcMediaStream? bound;
+
+  @override
+  Future<void> initialize() async {}
+
+  @override
+  set srcObject(RtcMediaStream? stream) => bound = stream;
+
+  @override
+  Widget buildView({BoxFit fit = BoxFit.contain}) =>
+      const SizedBox(key: Key('fakeScreenView'));
+
+  @override
+  Future<void> dispose() async {}
 }
 
 class _NoopConferenceRpc implements ConferenceRpc {
@@ -409,6 +640,16 @@ class _NoopConferenceRpc implements ConferenceRpc {
 
   @override
   Future<ConferenceState?> getConference({required int roomId}) async => null;
+
+  // **TASK80**: показ экрана в этих тестах не используется.
+  @override
+  Future<ConferenceState> startScreenShare({
+    required int roomId,
+    required String partyId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<void> stopScreenShare({required int roomId}) async {}
 }
 
 class _NoopCallRpc implements CallRpc {
@@ -445,4 +686,24 @@ class _NoopWebRtc implements WebRtcAdapter {
 
   @override
   Future<void> setSpeakerphone(bool enabled) async {}
+
+  // **TASK80**: демонстрация экрана в этих тестах не участвует —
+  // платформа «не умеет захват», кнопки нет.
+  @override
+  bool get supportsScreenShare => false;
+
+  @override
+  bool get screenShareNeedsSourcePicker => false;
+
+  @override
+  Future<List<ScreenShareSource>> listScreenShareSources() async => const [];
+
+  @override
+  Future<RtcMediaStream> getDisplayMedia({
+    required ScreenShareCaps caps,
+    String? sourceId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<RtcVideoRenderer> createVideoRenderer() => throw UnimplementedError();
 }

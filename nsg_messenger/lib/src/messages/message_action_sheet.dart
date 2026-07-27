@@ -298,6 +298,7 @@ class _MessageActionSheetBody extends StatelessWidget {
                   // **F1**: мультивыбор целевых чатов — переслать во все.
                   final rooms = await showForwardPickerMulti(
                     context: navigator.context,
+                    currentRoomId: controller.roomId,
                   );
                   if (rooms == null || rooms.isEmpty) return;
                   try {

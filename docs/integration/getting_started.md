@@ -49,7 +49,8 @@ Call `NsgMessenger.init(...)` exactly once, before any SDK widget is rendered (t
 ```dart
 import 'package:flutter/material.dart';
 import 'package:nsg_messenger/nsg_messenger.dart';
-import 'package:nsg_connect_client/nsg_connect_client.dart';
+// MessengerAuthContext / IdentityProvider / MessengerSession are re-exported
+// by the nsg_messenger barrel — no direct nsg_connect_client dependency needed.
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -86,14 +87,33 @@ Future<void> main() async {
 
     // Optional — behavior knobs (scroll thresholds etc). See theming.md.
     config: const NsgMessengerConfig(),
+
+    // Optional — offline cache (sqflite). Default true; set false to run
+    // fully online. cacheDirectoryOverride is for tests / custom storage.
+    enableOfflineCache: true,
+    cacheDirectoryOverride: null,
+
+    // Optional — base URL shown for incoming-webhook (autopost) links in
+    // the Integrations screen. Derived from apiBaseUrl when omitted
+    // (api.<domain> -> hooks.<domain>); set explicitly on non-standard
+    // hosting.
+    hooksBaseUrl: null,
   );
 
   runApp(const MyApp());
 }
 ```
 
+(There is one more named parameter, `tokenStoreOverride`, marked
+`@visibleForTesting` — do not use it in production code.)
+
 Notes:
-- `init()` is idempotent per-process — call once. To switch users / tenants after logout call `NsgMessenger.reauthenticate()` (re-asks your `AuthTokenProvider` for a fresh context) or `NsgMessenger.dispose()` + `init()` again.
+- Call `init()` once at startup. Calling it again is allowed and is a **full
+  restart** of the SDK: the runtime disposes the previous session manager and
+  client and creates new ones (that's the supported way to swap
+  `AuthTokenProvider` or theme). To switch users / tenants after logout prefer
+  `NsgMessenger.reauthenticate()` (re-asks your `AuthTokenProvider` for a fresh
+  context); `NsgMessenger.dispose()` + `init()` also works.
 - The SDK does NOT call `WidgetsFlutterBinding.ensureInitialized()` for you; your `main()` must do it.
 
 ## Implement `AuthTokenProvider`
@@ -104,7 +124,8 @@ Minimal in-memory example:
 
 ```dart
 import 'package:nsg_messenger/nsg_messenger.dart';
-import 'package:nsg_connect_client/nsg_connect_client.dart';
+// MessengerAuthContext / IdentityProvider / MessengerSession are re-exported
+// by the nsg_messenger barrel — no direct nsg_connect_client dependency needed.
 
 class MyAuthProvider implements AuthTokenProvider {
   MyAuthProvider({required this.session});
@@ -164,6 +185,10 @@ class SecureAuthProvider implements AuthTokenProvider {
 }
 ```
 
+`MessengerAuthContext` has one more optional field, `deviceId` — a stable
+per-device identifier used for multi-device session handling. Leave it unset
+unless you have a reason to supply your own.
+
 The SDK itself stores its `sessionToken` (from `client.messenger.session(...)`) in `flutter_secure_storage` automatically, keyed by a SHA-256 fingerprint of the identity fields — see `sdk/nsg_messenger/README.md` § "Жизненный цикл сессии" for the cache / refresh flow.
 
 ## Embed widgets
@@ -213,18 +238,42 @@ ElevatedButton(
 );
 ```
 
-Available public widget / API surface (see `nsg_messenger.dart` for the full export list):
+Most-used public surface (see `nsg_messenger.dart` for the full export list — it is much larger than this):
 - `NsgMessenger.chatsListView({mode})` — rooms list widget.
 - `NsgMessenger.openRoom(context, roomId)` — push the room screen.
 - `NsgMessenger.openSupportChat(context, contextId: ...)` — support flow.
-- `NsgMessenger.openProductRoom(...)` — get-or-create per-entity room (TASK13).
-- `NsgMessenger.rooms` — programmatic rooms API (list/get/createDirect/createGroup).
+- `NsgMessenger.rooms` — programmatic rooms API (list/get/createDirect/createGroup, and `getOrCreateProductRoom` for per-entity rooms).
 - `NsgMessenger.messagesControllerFor(roomId)` — controller for a custom chat screen.
 - `NsgMessenger.userEventStream` / `NsgMessenger.roomStream(roomId)` — realtime events.
 - `NsgMessenger.sessionStateStream()` — session lifecycle for connection banners.
+- `NsgMessenger.connectionStateStream` / `connectionState` / `forceReconnect()` — transport state.
+- `NsgMessenger.updateTheme(theme)` — swap the SDK theme at runtime, without `dispose()` + `init()`.
 - `NsgMessenger.routeObserver` — add to `MaterialApp.navigatorObservers` (required, see the embed snippet above); for a nested `Navigator` that pushes screens over an embedded chat use `NsgMessenger.createNestedRouteObserver()` / `releaseNestedRouteObserver()`.
 
-Lower-level screens (`ChatScreen`, `ChatsListScreen`) are NOT exported — host apps go through the static factory methods so theme injection works uniformly.
+> `NsgMessenger.openProductRoom(...)` is **not implemented** — it throws
+> `UnimplementedError`. Use `NsgMessenger.rooms.getOrCreateProductRoom(...)`
+> instead.
+
+Beyond chat, the facade also exposes calls and conferences (`callController`,
+`conferenceCalls`, `startCall`, `listCallHistory`, `registerVoipToken`),
+contacts and cards (`contacts`, `contactCards`), presence
+(`subscribePresence`, `getLastSeen`), profile (`uploadUserAvatar`,
+`setDisplayName`, profile translations), share-in
+(`handleSharedPayload` & friends), the offline cache (`clearOfflineCache`,
+attachment-cache API), admin surfaces (`integrations`, `botsAdmin`, `myBots`,
+`botCatalog`, `platformAdmin`), and screen openers (`openSupportTeam`,
+`openPeople`, `openContactProfile`, `openContactRequests`, `openMyTickets`,
+`openTasks`, `openObjectRoomsCatalog`).
+
+The two core chat screens (`ChatScreen`, `ChatsListScreen`) are NOT exported —
+host apps go through the static factory methods so theme injection works
+uniformly. Standalone/admin screens **are** exported and can be pushed directly
+(`IntegrationsScreen`, `BotsAdminScreen`, `MyBotsScreen`, `BotCatalogScreen`,
+`BotCardScreen`, `PlatformAdminScreen`, `PulseScreen`,
+`ContactCardEditorScreen`), as are overlay hosts `CallOverlayHost` /
+`ConferenceOverlayHost` and widgets like `MessengerConnectionBanner`. Note that
+`openSupportChat` does **not** wrap its screen in `MessengerThemeScope` — it
+inherits the host `Theme` (see [theming.md](theming.md)).
 
 ## Push notifications (optional)
 
@@ -263,6 +312,6 @@ Pass `NsgMessengerConfig` to `init()` to tune scroll prefetch thresholds and oth
 
 For designer iteration (no backend required) there is a theming sandbox that boots the SDK widgets against in-memory fixtures via `NsgMessenger.initDemo(...)` — `apps/spike_ui/` in the platform monorepo (not part of the public SDK distribution). Useful for tweaking `NsgMessengerTheme` values without a running NSG backend.
 
-<!-- verified against commit e25a73e -->
+<!-- verified against commit 8bc4d82 (2026-07-27) -->
 
 > **Verification convention:** the marker above pins each doc to a known-good commit. When the SDK's public API changes in a way that breaks examples here, the PR author should re-verify the snippets in this file and update the marker. CI does not auto-enforce this — it's a manual convention to catch documentation drift during review.

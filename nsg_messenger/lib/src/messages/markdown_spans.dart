@@ -20,8 +20,10 @@ import 'package:url_launcher/url_launcher.dart';
 ///   * `*italic*` НЕ matchится если `*` касается word-char с одной
 ///     стороны (`2*3=6` остаётся plain).
 ///   * Внутри code-span markdown НЕ парсится.
-///   * Pairs должны быть на одной line — multi-line code блоки
-///     ( ``` ``` ) пока не support-ятся.
+///   * Inline-пары должны быть на одной строке.
+///   * **Блочный код** (issue #56/#70) разбирается предпроходом, ДО
+///     инлайновых правил: внутри блока не парсится ничего, поэтому
+///     звёздочки и подчёркивания в коде остаются собой.
 ///
 /// `accentColor` используется для link-цвета. `bodyColor` — основной
 /// цвет текста (берётся из bubble textColor).
@@ -32,7 +34,7 @@ List<InlineSpan> parseMarkdownToSpans(
 }) {
   if (text.isEmpty) return const <InlineSpan>[];
   try {
-    return _parsePass(text, baseStyle, accentColor);
+    return _parseWithCodeBlocks(text, baseStyle, accentColor);
   } on FormatException {
     // Web: Dart RegExp компилируется в JS RegExp БРАУЗЕРА. На старых
     // движках экзотика (unicode property escapes и т.п.) кидает
@@ -41,6 +43,87 @@ List<InlineSpan> parseMarkdownToSpans(
     // переписка», GT-2976). Markdown — украшение; текст — обязателен.
     return <InlineSpan>[TextSpan(text: text, style: baseStyle)];
   }
+}
+
+/// Ограждённый блок кода с закрывающими backtick-ами.
+///
+/// Язык после открывающих backtick-ов допускаем, но как текст не рисуем:
+/// подсветки синтаксиса нет, а строка «dart» посреди сообщения выглядела
+/// бы мусором.
+final _fencedBlockRe = RegExp(
+  r'```[ \t]*([A-Za-z0-9_+\-#]*)[ \t]*\r?\n([\s\S]*?)```',
+  multiLine: true,
+);
+
+/// Незакрытый блок — код до конца текста.
+///
+/// Сообщение могут ещё дописывать (и разбивка длинного текста, issue #57,
+/// сама переоткрывает блоки на границе частей). Мигание «то код, то не
+/// код» на каждом введённом символе хуже, чем предположение о намерении.
+final _openFenceRe = RegExp(
+  r'```[ \t]*([A-Za-z0-9_+\-#]*)[ \t]*\r?\n([\s\S]*)$',
+  multiLine: true,
+);
+
+/// **issue #56/#70**: предпроход по блокам кода ДО инлайновых правил.
+///
+/// Порядок принципиален: внутри блока ничего не парсится, поэтому
+/// звёздочки и подчёркивания в коде остаются собой, а не превращаются в
+/// жирный текст и курсив.
+List<InlineSpan> _parseWithCodeBlocks(
+  String text,
+  TextStyle baseStyle,
+  Color accentColor,
+) {
+  if (!text.contains('```')) return _parsePass(text, baseStyle, accentColor);
+  final spans = <InlineSpan>[];
+  var cursor = 0;
+  while (cursor < text.length) {
+    final closed = _firstMatch(_fencedBlockRe, text, cursor);
+    final open = _firstMatch(_openFenceRe, text, cursor);
+    // Закрытый блок предпочтительнее, если начинается не позже открытого.
+    final m = (closed != null && (open == null || closed.start <= open.start))
+        ? closed
+        : open;
+    if (m == null) {
+      spans.addAll(_parsePass(text.substring(cursor), baseStyle, accentColor));
+      break;
+    }
+    if (m.start > cursor) {
+      spans.addAll(
+        _parsePass(text.substring(cursor, m.start), baseStyle, accentColor),
+      );
+    }
+    spans.add(_codeBlockSpan(m.group(2) ?? '', baseStyle));
+    cursor = m.end;
+  }
+  return spans;
+}
+
+Match? _firstMatch(RegExp re, String text, int start) {
+  for (final m in re.allMatches(text, start)) {
+    return m;
+  }
+  return null;
+}
+
+/// Блок кода — одним моноширинным span-ом с подложкой.
+///
+/// Не `WidgetSpan`: бабл прогоняет текст через `TextPainter`, чтобы
+/// решить, сворачивать ли длинное сообщение, а placeholder без заданных
+/// размеров этот замер ломает. Подложка средствами `TextStyle` даёт
+/// нужный вид без отдельного layout-а.
+InlineSpan _codeBlockSpan(String code, TextStyle base) {
+  return TextSpan(
+    text: code.trimRight(),
+    style: base.copyWith(
+      fontFamily: 'monospace',
+      fontFamilyFallback: const ['Courier New', 'DejaVu Sans Mono', 'Menlo'],
+      backgroundColor: base.color?.withValues(alpha: 0.12),
+      letterSpacing: 0,
+      height: 1.35,
+    ),
+  );
 }
 
 // ─── parsing pipeline ───────────────────────────────────────────────

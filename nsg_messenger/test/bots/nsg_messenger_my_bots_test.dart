@@ -28,6 +28,8 @@ void main() {
     MyBotsListRpc? listRpc,
     MyBotsCreateRpc? createRpc,
     MyBotsSetDiscoverableRpc? setDiscoverableRpc,
+    MyBotsSetReadModeRpc? setReadModeRpc,
+    MyBotsSetDescriptionRpc? setDescriptionRpc,
     MyBotsListRoomsRpc? listRoomsRpc,
     MyBotsRemoveFromRoomRpc? removeFromRoomRpc,
     MyBotsListAuditEventsRpc? listAuditEventsRpc,
@@ -39,6 +41,7 @@ void main() {
           required String name,
           required String capabilities,
           required bool discoverable,
+          required String readMode,
         }) => throw UnimplementedError(),
     rotateTokenRpc: ({required int botId}) async => bot(token: 'bot_new'),
     setEnabledRpc: ({required int botId, required bool enabled}) async =>
@@ -46,6 +49,13 @@ void main() {
     setDiscoverableRpc:
         setDiscoverableRpc ??
         ({required int botId, required bool discoverable}) async => bot(),
+    setReadModeRpc:
+        setReadModeRpc ??
+        ({required int botId, required String readMode}) async =>
+            BotReadModeResult(bot: bot(), unboundSubscriptionCount: 0),
+    setDescriptionRpc:
+        setDescriptionRpc ??
+        ({required int botId, required String description}) async => bot(),
     listRoomsRpc: listRoomsRpc ?? ({required int botId}) async => const [],
     removeFromRoomRpc:
         removeFromRoomRpc ??
@@ -64,6 +74,7 @@ void main() {
             required String name,
             required String capabilities,
             required bool discoverable,
+            required String readMode,
           }) async {
             seen = (name, capabilities, discoverable);
             return bot(token: 'bot_fresh');
@@ -83,6 +94,93 @@ void main() {
       discoverable: true,
     );
     expect(seen!.$3, isTrue);
+  });
+
+  // **TASK77 итер.2**: privacy by default — если дефолт когда-нибудь
+  // «поедет» на read_all, бот начнёт читать чужие чаты молча.
+  test('create: дефолтный режим чтения — read_addressed; явный read_all '
+      'доходит до RPC', () async {
+    String? seenMode;
+    final myBots = make(
+      createRpc:
+          ({
+            required String name,
+            required String capabilities,
+            required bool discoverable,
+            required String readMode,
+          }) async {
+            seenMode = readMode;
+            return bot();
+          },
+    );
+
+    await myBots.create(name: 'B', capabilities: 'send_messages');
+    expect(seenMode, NsgMessengerBotsAdmin.readModeAddressed);
+
+    await myBots.create(
+      name: 'B2',
+      capabilities: 'send_messages',
+      readMode: NsgMessengerBotsAdmin.readModeAll,
+    );
+    expect(seenMode, NsgMessengerBotsAdmin.readModeAll);
+  });
+
+  test('setReadMode: botId+режим уходят в RPC насквозь', () async {
+    (int, String)? seen;
+    final myBots = make(
+      setReadModeRpc: ({required int botId, required String readMode}) async {
+        seen = (botId, readMode);
+        return BotReadModeResult(
+          bot: bot(id: botId),
+          // **TASK77 итер.3**: сервер сообщает, сколько подписок обходит
+          // privacy mode — фасад обязан донести это до UI без потерь.
+          unboundSubscriptionCount: 2,
+        );
+      },
+    );
+    final result = await myBots.setReadMode(
+      botId: 7,
+      readMode: NsgMessengerBotsAdmin.readModeAll,
+    );
+    expect(seen, (7, 'read_all'));
+    expect(result.unboundSubscriptionCount, 2);
+  });
+
+  test('setDescription: botId+текст уходят в RPC насквозь', () async {
+    (int, String)? seen;
+    final myBots = make(
+      setDescriptionRpc:
+          ({required int botId, required String description}) async {
+            seen = (botId, description);
+            return bot(id: botId);
+          },
+    );
+    await myBots.setDescription(botId: 9, description: 'Следит за CI');
+    expect(seen, (9, 'Следит за CI'));
+  });
+
+  group('readModeOf — трактовка совпадает с серверной', () {
+    test('пусто/null → read_all (бот заведён до итер.2, grandfathered)', () {
+      expect(
+        NsgMessengerBotsAdmin.readModeOf(bot()),
+        NsgMessengerBotsAdmin.readModeAll,
+      );
+      expect(NsgMessengerBotsAdmin.readsAllMessages(bot()), isTrue);
+    });
+
+    test('read_addressed — как есть', () {
+      final b = bot()..readMode = 'read_addressed';
+      expect(NsgMessengerBotsAdmin.readsAllMessages(b), isFalse);
+    });
+
+    test('мусор → read_addressed (сервер fail-closed, экран не должен '
+        'обещать больше, чем даёт сервер)', () {
+      final b = bot()..readMode = 'read_everything';
+      expect(
+        NsgMessengerBotsAdmin.readModeOf(b),
+        NsgMessengerBotsAdmin.readModeAddressed,
+      );
+    });
   });
 
   test('setDiscoverable / removeFromRoom: botId+флаг/roomId — насквозь',

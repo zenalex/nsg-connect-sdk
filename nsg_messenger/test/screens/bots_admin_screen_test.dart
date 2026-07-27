@@ -21,6 +21,8 @@ void main() {
     bool enabled = true,
     String token = 'bot_secret_token',
     String? commandsJson,
+    // TASK77 итер.2: `null` = бот эпохи до итер.2 → grandfathered read_all.
+    String? readMode,
   }) => Bot(
     id: id,
     messengerUserId: 100 + id,
@@ -31,6 +33,7 @@ void main() {
     capabilities: caps,
     enabled: enabled,
     commandsJson: commandsJson,
+    readMode: readMode,
     createdAt: DateTime.utc(2026, 7, 1),
   );
 
@@ -53,6 +56,10 @@ void main() {
     Future<Bot> Function(String name, String caps, bool discoverable)? onCreate,
     Future<Bot> Function(int botId)? onRotate,
     Future<Bot> Function(int botId, bool enabled)? onSetEnabled,
+    // TASK77 итер.2: смена режима чтения. TASK77 итер.3: ответ несёт ещё и
+    // число подписок, к которым privacy mode не применяется.
+    Future<BotReadModeResult> Function(int botId, String readMode)?
+    onSetReadMode,
     Future<List<BotAuditEvent>> Function(int botId)? onAudit,
   }) => NsgMessengerBotsAdmin.withRpcs(
     isBotAdminRpc: () async => true,
@@ -66,6 +73,7 @@ void main() {
           required String ownerEmail,
           required String capabilities,
           required bool discoverable,
+          required String readMode,
         }) =>
             onCreate?.call(name, capabilities, discoverable) ??
             Future.value(bot()),
@@ -73,6 +81,14 @@ void main() {
         onRotate?.call(botId) ?? Future.value(bot()),
     setBotEnabledRpc: ({required int botId, required bool enabled}) =>
         onSetEnabled?.call(botId, enabled) ?? Future.value(bot()),
+    setBotReadModeRpc: ({required int botId, required String readMode}) =>
+        onSetReadMode?.call(botId, readMode) ??
+        Future.value(
+          BotReadModeResult(
+            bot: bot(readMode: readMode),
+            unboundSubscriptionCount: 0,
+          ),
+        ),
     addBotToRoomRpc: ({required int botId, required int roomId}) async {},
     listAuditEventsRpc: ({required int botId, required int limit}) =>
         onAudit?.call(botId) ?? Future.value(const <BotAuditEvent>[]),
@@ -163,6 +179,135 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('DeployBot'), findsOneWidget);
       expect(find.text('no commands declared'), findsOneWidget);
+    });
+  });
+
+  // **TASK77 итер.2 (privacy mode)**: «читает все сообщения» — trust-сигнал,
+  // а не техническая деталь: админ должен видеть режим в списке, не открывая
+  // ничего, и включать всевидящий режим только осознанно.
+  group('TASK77 итер.2: режим чтения в admin-тайле', () {
+    testWidgets('бот эпохи до итер.2 (readMode = null) показан как «читает '
+        'ВСЕ сообщения» — grandfathered read_all', (tester) async {
+      await tester.pumpWidget(
+        wrapL10n(
+          BotsAdminScreen(
+            adminOverride: makeAdmin(onList: () async => [bot()]),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Reads ALL messages'), findsOneWidget);
+    });
+
+    testWidgets('read_addressed показан как «только обращения»', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapL10n(
+          BotsAdminScreen(
+            adminOverride: makeAdmin(
+              onList: () async => [bot(readMode: 'read_addressed')],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Reads only messages addressed to it'),
+        findsOneWidget,
+      );
+      expect(find.text('Reads ALL messages'), findsNothing);
+    });
+
+    testWidgets('включение read_all требует подтверждения и уходит в RPC', (
+      tester,
+    ) async {
+      (int, String)? seen;
+      await tester.pumpWidget(
+        wrapL10n(
+          BotsAdminScreen(
+            adminOverride: makeAdmin(
+              onList: () async => [bot(readMode: 'read_addressed')],
+              onSetReadMode: (botId, readMode) async {
+                seen = (botId, readMode);
+                return BotReadModeResult(
+                  bot: bot(readMode: readMode),
+                  unboundSubscriptionCount: 0,
+                );
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Allow reading all messages').last);
+      await tester.pumpAndSettle();
+
+      // Сначала предупреждение — расширение доступа к чужой переписке.
+      expect(find.text('Let the bot read everything?'), findsOneWidget);
+      expect(seen, isNull, reason: 'до подтверждения RPC не зовём');
+
+      await tester.tap(find.text('Allow reading all messages').last);
+      await tester.pumpAndSettle();
+      expect(seen, (1, 'read_all'));
+    });
+
+    testWidgets('сужение до обращений подтверждения не требует', (
+      tester,
+    ) async {
+      (int, String)? seen;
+      await tester.pumpWidget(
+        wrapL10n(
+          BotsAdminScreen(
+            adminOverride: makeAdmin(
+              onList: () async => [bot(readMode: 'read_all')],
+              onSetReadMode: (botId, readMode) async {
+                seen = (botId, readMode);
+                return BotReadModeResult(
+                  bot: bot(readMode: readMode),
+                  unboundSubscriptionCount: 0,
+                );
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.text('Limit reading to messages addressed to it').last,
+      );
+      await tester.pumpAndSettle();
+      expect(seen, (1, 'read_addressed'));
+    });
+
+    testWidgets('журнал: смена режима читается словами', (tester) async {
+      await tester.pumpWidget(
+        wrapL10n(
+          BotsAdminScreen(
+            adminOverride: makeAdmin(
+              onList: () async => [bot()],
+              onAudit: (_) async => [
+                event(action: 'read_mode_set', details: 'mode=read_all'),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Audit log').last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Reading mode changed'), findsOneWidget);
+      expect(find.textContaining('mode=read_all'), findsOneWidget);
     });
   });
 

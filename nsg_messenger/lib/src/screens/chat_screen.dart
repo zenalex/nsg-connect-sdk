@@ -44,6 +44,7 @@ import '../calls/conference_call_controller.dart';
 import '../calls/conference_call_state.dart';
 import '../messenger_runtime.dart';
 import 'chat_route.dart';
+import 'bot_card_screen.dart';
 import 'contact_profile_screen.dart';
 import 'nsg_route_observer.dart';
 import 'tasks_header_button.dart';
@@ -58,6 +59,7 @@ import '../utils/relative_time.dart'
 import '../theme/nsg_messenger_theme.dart' show NsgMessageBubbleTokens;
 import '../widgets/nsg_avatar_image.dart';
 import 'group_settings_screen.dart';
+import 'participants_hover_card.dart';
 import '../widgets/nsg_bot_badge.dart';
 
 /// **TASK45 фаза 2**: productEntityType объектовой комнаты. Синхронно с
@@ -1480,11 +1482,21 @@ class _ChatScreenState extends State<ChatScreen>
         }
       }
       if (peer == null) return;
+      // **TASK77 итер.3**: собеседник — бот → карточка бота, а не профиль
+      // контакта: у программы нет визитки, зато есть владелец, команды и
+      // режим чтения («читает ВСЕ сообщения» человек должен видеть и в
+      // 1:1 — там это ровно его переписка).
+      final peerIsBot = NsgBotBadge.isNonHuman(peer.participantKind);
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (_) => ContactProfileScreen(
-            contactMessengerUserId: peer!.messengerUserId,
-          ),
+          builder: (_) => peerIsBot
+              ? BotCardScreen(
+                  botMessengerUserId: peer!.messengerUserId,
+                  roomId: widget.roomId,
+                )
+              : ContactProfileScreen(
+                  contactMessengerUserId: peer!.messengerUserId,
+                ),
         ),
       );
       if (!mounted) return;
@@ -1780,6 +1792,7 @@ class _ChatScreenState extends State<ChatScreen>
     final rooms = await showForwardPickerMulti(
       context: navigator.context,
       roomsLoader: widget.forwardRoomsLoaderOverride,
+      currentRoomId: widget.roomId,
     );
     if (rooms == null || rooms.isEmpty) return;
     try {
@@ -3842,29 +3855,60 @@ class _RoomTitle extends StatelessWidget {
         ),
       );
     }
+    // **issue #63**: у группы под названием — число участников. У 1:1 на
+    // этом месте «был(а) в сети…», а у группы подпись пустовала, хотя
+    // `totalParticipants` уже приходит в details (его же использует блок
+    // квитанций прочтения) — данные были, показа не было.
+    final dimColor =
+        Theme.of(
+          context,
+        ).appBarTheme.foregroundColor?.withValues(alpha: 0.6) ??
+        Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(6),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-        child: Row(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Flexible(
-              child: Text(
-                name.isEmpty ? '—' : name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Text(
+                    name.isEmpty ? '—' : name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Icon(
+                  Icons.edit_outlined,
+                  size: 14,
+                  color: Theme.of(
+                    context,
+                  ).appBarTheme.foregroundColor?.withValues(alpha: 0.6),
+                ),
+              ],
+            ),
+            if (details!.totalParticipants > 0)
+              // Наведение мышью на подпись — состав группы прямо здесь
+              // (web/desktop). На тач-платформах MouseRegion не сработает,
+              // и способ прежний: тап по шапке → настройки группы.
+              ParticipantsHoverCard(
+                participants: details!.participants,
+                totalParticipants: details!.totalParticipants,
+                child: Text(
+                  NsgL10n.of(context).roomParticipantsCount(
+                    details!.totalParticipants,
+                  ),
+                  style: TextStyle(fontSize: 11.5, color: dimColor),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-            ),
-            const SizedBox(width: 6),
-            Icon(
-              Icons.edit_outlined,
-              size: 14,
-              color: Theme.of(
-                context,
-              ).appBarTheme.foregroundColor?.withValues(alpha: 0.6),
-            ),
           ],
         ),
       ),

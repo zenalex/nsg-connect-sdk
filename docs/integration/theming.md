@@ -38,7 +38,7 @@ class NsgMessengerTheme {
 - Empty fields (`null`) fall through to the host's `Theme.of(context)` (your `MaterialApp.theme`).
 - Non-null fields overlay on top: `colorScheme` is replaced, `textTheme` is **merged** (not replaced), `bubbleTokens` / `roomTileTokens` are stored as `ThemeData.extensions` so widgets read them via `Theme.of(context).extension<NsgMessageBubbleTokens>()`.
 
-Use `NsgMessengerTheme.empty` (or just don't pass `theme:` to `init`) when you want to inherit the host's theme fully — the `MessengerThemeScope` short-circuits in that case for zero overhead.
+Use `NsgMessengerTheme.empty` (or just don't pass `theme:` to `init`) when you want to inherit the host's theme fully — `MessengerThemeScope` then skips the `Theme(...)` overlay entirely. It still wraps the subtree in `Localizations.override` with the SDK locale and delegates: locale handling is independent of the theme (see [i18n.md](i18n.md)).
 
 ## `ColorScheme` override example
 
@@ -66,7 +66,8 @@ Which `ColorScheme` slots the SDK uses:
 - `primary` / `onPrimary` — own message bubble background + text, send-button.
 - `surface` / `onSurface` — peer message bubble background + text, room tile background.
 - `error` — failed-send icon, error banners.
-- `surfaceVariant` / `secondaryContainer` — chips, badges, attachments.
+- `onSurfaceVariant` — secondary text: timestamps, subtitles, hints, icons.
+- `secondaryContainer` — used by the bundled `ChatistaTheme` only; SDK widgets themselves do not read it. (`surfaceVariant` is not used anywhere in the SDK.)
 
 (Refer to the actual widget sources under `sdk/nsg_messenger/lib/src/messages/` and `.../rooms/` for the exact slot usage if you need fine-grained control.)
 
@@ -152,7 +153,7 @@ Both token classes are `ThemeExtension` subclasses, so they participate in `Them
 
 ## `MessengerThemeScope` usage
 
-`MessengerThemeScope` is the widget that overlays `NsgMessengerTheme` on top of `Theme.of(context)`. You rarely instantiate it manually — `NsgMessenger.chatsListView()` and `NsgMessenger.openRoom(...)` wrap their roots in it automatically when `init(theme: ...)` was non-empty.
+`MessengerThemeScope` is the widget that overlays `NsgMessengerTheme` on top of `Theme.of(context)`. You rarely instantiate it manually — `NsgMessenger.chatsListView()` and `NsgMessenger.openRoom(...)` always wrap their roots in it (an empty theme is handled inside the scope, see the inheritance contract above). `NsgMessenger.openSupportChat(...)` is the exception: it pushes its screen without the scope, so it inherits the host `Theme` and locale as-is.
 
 You **do** instantiate it manually when you embed SDK widgets in a sub-tree with different branding (e.g. one tab uses Chatista colors, another uses Futbolista):
 
@@ -268,10 +269,12 @@ NsgMessengerTheme buildSdkTheme(Brightness b) => NsgMessengerTheme(
     );
 ```
 
-Then re-init or `dispose() + init()` when the brightness flips. (Live theme swap without re-init is on the wishlist; not in MVP.)
+Then call `NsgMessenger.updateTheme(newTheme)` when the brightness flips — it
+swaps the SDK theme at runtime, no `dispose()` + `init()` needed. (Re-`init()`
+also works and is a full SDK restart.)
 
 ## Per-product branding (deferred)
 
 Per-product theming (e.g. Chatista vs Futbolista with different brand books in the same multi-tenant deployment) is **deferred to TASK28** admin tooling — that's where the multi-runtime context model gets formalized. For the current MVP: **one `NsgMessengerTheme` per `NsgMessenger.init(...)` call**. If you embed SDK widgets in multiple tabs with different branding within a single app, wrap each subtree in its own `MessengerThemeScope` — see § "`MessengerThemeScope` usage".
 
-<!-- verified against commit e25a73e -->
+<!-- verified against commit 8bc4d82 (2026-07-27) -->

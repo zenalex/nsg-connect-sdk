@@ -27,6 +27,20 @@ abstract class ConferenceRpc {
 
   /// Актуальный состав или null, если активной конференции нет.
   Future<ConferenceState?> getConference({required int roomId});
+
+  /// **TASK80 итерация 1**: захватить роль докладчика (демонстрация
+  /// экрана). Возвращает снапшот с заполненными `screenSharing*`.
+  /// Бросает `ScreenShareBusyException`, если показывает кто-то другой
+  /// (арбитраж — на сервере: unique-индекс режет гонку двух
+  /// одновременных нажатий, клиентский арбитраж этого не умеет).
+  /// Идемпотентен для СВОЕГО показа.
+  Future<ConferenceState> startScreenShare({
+    required int roomId,
+    required String partyId,
+  });
+
+  /// **TASK80 итерация 1**: остановить свой показ (идемпотентно).
+  Future<void> stopScreenShare({required int roomId});
 }
 
 /// Production-wrapper над `Client.messenger.*`. Каждый RPC обёрнут в
@@ -59,4 +73,19 @@ class ClientConferenceRpc implements ConferenceRpc {
         () => _client.messenger.getConference(roomId: roomId),
         _session,
       );
+
+  @override
+  Future<ConferenceState> startScreenShare({
+    required int roomId,
+    required String partyId,
+  }) => withAuthRetry(
+    () => _client.messenger.startScreenShare(roomId: roomId, partyId: partyId),
+    _session,
+  );
+
+  @override
+  Future<void> stopScreenShare({required int roomId}) => withAuthRetry(
+    () => _client.messenger.stopScreenShare(roomId: roomId),
+    _session,
+  );
 }

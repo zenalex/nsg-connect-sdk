@@ -67,6 +67,34 @@ class NsgL10nEn extends NsgL10n {
   String get roomSummaryNoMessages => 'No messages';
 
   @override
+  String get composerSplitTitle => 'Long text';
+
+  @override
+  String composerSplitBody(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Will be sent as $count messages',
+      one: 'Will be sent as $count message',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get composerSplitConfirm => 'Send';
+
+  @override
+  String composerEditTooLong(int limit) {
+    return 'The edit exceeds the $limit-character limit — shorten it';
+  }
+
+  @override
+  String get composerPastedAsCode => 'Formatted as code';
+
+  @override
+  String get commonUndo => 'Undo';
+
+  @override
   String get commonCancel => 'Cancel';
 
   @override
@@ -262,6 +290,28 @@ class NsgL10nEn extends NsgL10n {
   }
 
   @override
+  String get fileActionPreview => 'Preview';
+
+  @override
+  String get fileActionOpenExternal => 'Open in external app';
+
+  @override
+  String get fileActionSave => 'Save to disk';
+
+  @override
+  String fileSavedTo(String path) {
+    return 'Saved: $path';
+  }
+
+  @override
+  String fileNoHandler(String filename) {
+    return 'No app to open \"$filename\"';
+  }
+
+  @override
+  String get fileOpenFailed => 'Could not open the file';
+
+  @override
   String get attachUnnamedFallback => 'Unnamed file';
 
   @override
@@ -388,6 +438,9 @@ class NsgL10nEn extends NsgL10n {
 
   @override
   String get composerFormatBold => 'Bold';
+
+  @override
+  String get composerFormatCode => 'Code';
 
   @override
   String get composerFormatItalic => 'Italic';
@@ -560,6 +613,28 @@ class NsgL10nEn extends NsgL10n {
   String get bannedUsersReinviteSuccess => 'Invitation sent';
 
   @override
+  String roomParticipantsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count participants',
+      one: '$count participant',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String participantsHoverMore(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count more',
+      one: '$count more',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get participantsTitle => 'Participants';
 
   @override
@@ -655,6 +730,35 @@ class NsgL10nEn extends NsgL10n {
 
   @override
   String get supportTeamActionFailed => 'Action failed — please try again';
+
+  @override
+  String get supportTeamLeaveAction => 'Leave team';
+
+  @override
+  String get supportTeamLeaveConfirmTitle => 'Leave the support team?';
+
+  @override
+  String get supportTeamLeaveConfirmBody =>
+      'You will stop receiving requests for this product and will be removed from its support chats. The team owner can add you back.';
+
+  @override
+  String get supportTeamLeaveLastOwner =>
+      'You are the only owner of this team. Make someone else an administrator first — otherwise nobody could manage the team.';
+
+  @override
+  String get supportTeamRemoveConfirmTitle => 'Remove from the team?';
+
+  @override
+  String supportTeamRemoveConfirmBody(String name) {
+    return '$name will stop receiving requests for this product and will be removed from its support chats.';
+  }
+
+  @override
+  String get supportTeamAddNotFound =>
+      'No user with that email. They must sign in to the app at least once first.';
+
+  @override
+  String get supportTeamRetry => 'Retry';
 
   @override
   String get escalateToDevelopersAction => 'Contact developers';
@@ -807,6 +911,43 @@ class NsgL10nEn extends NsgL10n {
 
   @override
   String get conferencePairFailed => 'No connection';
+
+  @override
+  String get conferenceShareScreen => 'Share screen';
+
+  @override
+  String get conferenceStopScreenShare => 'Stop sharing';
+
+  @override
+  String get conferenceSelfPresenting => 'You are sharing your screen';
+
+  @override
+  String conferencePresenting(String name) {
+    return '$name is sharing their screen';
+  }
+
+  @override
+  String conferenceShareBusy(String name) {
+    return '$name is sharing right now';
+  }
+
+  @override
+  String get conferenceShowParticipants => 'Participants';
+
+  @override
+  String get conferenceShowScreen => 'Presenter\'s screen';
+
+  @override
+  String get conferencePickSourceTitle => 'What do you want to share?';
+
+  @override
+  String get conferencePickSourceEmpty => 'No sources found';
+
+  @override
+  String get conferenceSourceScreen => 'Screen';
+
+  @override
+  String get conferenceSourceWindow => 'Window';
 
   @override
   String get messageActionForward => 'Forward';
@@ -1154,6 +1295,38 @@ class NsgL10nEn extends NsgL10n {
   }
 
   @override
+  String get botsAdminReadModeLabel => 'What the bot reads';
+
+  @override
+  String get botsAdminReadModeAll => 'Reads ALL messages';
+
+  @override
+  String get botsAdminReadModeAllHint =>
+      'The bot sees every message in the chats it belongs to — including messages not addressed to it';
+
+  @override
+  String get botsAdminReadModeAddressed =>
+      'Reads only messages addressed to it';
+
+  @override
+  String get botsAdminReadModeAddressedHint =>
+      'Mentions, «/» commands, replies to its messages, discussions it takes part in and 1:1 chats. The rest of the conversation is never delivered to the bot';
+
+  @override
+  String get botsAdminReadModeAllowAll => 'Allow reading all messages';
+
+  @override
+  String get botsAdminReadModeRestrict =>
+      'Limit reading to messages addressed to it';
+
+  @override
+  String get botsAdminReadModeConfirmTitle => 'Let the bot read everything?';
+
+  @override
+  String get botsAdminReadModeConfirmBody =>
+      'The bot will see every message in the chats it belongs to — including messages not addressed to it. Enable this only for bots you trust.';
+
+  @override
   String get botsAdminTokenTitle => 'Bot access token';
 
   @override
@@ -1237,6 +1410,34 @@ class NsgL10nEn extends NsgL10n {
 
   @override
   String get botsAdminAuditDiscoverableOff => 'Hidden from search';
+
+  @override
+  String get botsAdminAuditReadModeSet => 'Reading mode changed';
+
+  @override
+  String get platformAdminCreateTenant => 'New tenant';
+
+  @override
+  String get platformAdminCreateProduct => 'New product';
+
+  @override
+  String get platformAdminKeyLabel => 'Key (lowercase latin, digits, _ and -)';
+
+  @override
+  String get platformAdminNameLabel => 'Name';
+
+  @override
+  String get platformAdminCreateAction => 'Create';
+
+  @override
+  String get platformAdminKeyInvalid =>
+      'Invalid key: lowercase latin, digits, _ and -, at least 2 characters';
+
+  @override
+  String get platformAdminAlreadyExists => 'That key is already taken';
+
+  @override
+  String get platformAdminCreated => 'Created';
 
   @override
   String get platformAdminTitle => 'Platform';
@@ -1370,6 +1571,106 @@ class NsgL10nEn extends NsgL10n {
   @override
   String myBotsLimitReached(int limit) {
     return 'Bot limit reached ($limit). Rotate a token or reuse an existing bot instead of creating a new one.';
+  }
+
+  @override
+  String get myBotsDescription => 'Description';
+
+  @override
+  String get myBotsDescriptionEmpty =>
+      'No description — the catalog will show this bot without explaining what it does';
+
+  @override
+  String get myBotsEditDescription => 'Edit description';
+
+  @override
+  String get myBotsDescriptionHint => 'What does this bot do';
+
+  @override
+  String get botCatalogTitle => 'Add a bot';
+
+  @override
+  String get botCatalogIntro =>
+      'The bot will get access to this chat. Check what it reads — that is the main thing to verify before letting someone else\'s program in.';
+
+  @override
+  String get botCatalogEmpty =>
+      'No public bots yet. A bot appears in the catalog only when its owner turns on search visibility.';
+
+  @override
+  String get botCatalogLoadFailed => 'Could not load the bot catalog';
+
+  @override
+  String get botCatalogConnect => 'Connect';
+
+  @override
+  String botCatalogConnected(String name) {
+    return 'Bot «$name» connected to the chat';
+  }
+
+  @override
+  String get botCatalogNoDescription => 'The author added no description';
+
+  @override
+  String get botCardTitle => 'Bot';
+
+  @override
+  String botCardOwner(String owner) {
+    return 'Owner: $owner';
+  }
+
+  @override
+  String get botCardCommandsTitle => 'Commands';
+
+  @override
+  String get botCardAddToRoom => 'Add to a chat…';
+
+  @override
+  String get botCardRemoveFromRoom => 'Disconnect from this chat';
+
+  @override
+  String get botCardRemoveConfirmTitle => 'Disconnect the bot?';
+
+  @override
+  String botCardRemoveConfirmBody(String name) {
+    return '«$name» will leave the chat and stop receiving its messages. What the bot already wrote stays.';
+  }
+
+  @override
+  String get botCardRemoveAction => 'Disconnect';
+
+  @override
+  String get botCardRemoved => 'Bot disconnected from the chat';
+
+  @override
+  String get botCardUnavailable => 'This bot is not available';
+
+  @override
+  String botCardAddedToRoom(String room) {
+    return 'Bot added to «$room»';
+  }
+
+  @override
+  String get botCardPickRoomTitle => 'Which chat to add it to';
+
+  @override
+  String get botCardNoAdminRooms =>
+      'No chats where you are the owner or an admin — only a chat admin can connect a bot';
+
+  @override
+  String get botsPrivacyUnboundTitle => 'Privacy will not apply everywhere';
+
+  @override
+  String botsPrivacyUnboundBody(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count event subscriptions were created by the platform administrator and are not bound to the bot, so the read mode does not apply to them.',
+      one:
+          'One event subscription was created by the platform administrator and is not bound to the bot, so the read mode does not apply to it.',
+    );
+    return '$_temp0 History reading is restricted for the bot, but the event stream will keep flowing in full.';
   }
 
   @override
@@ -2046,6 +2347,34 @@ class NsgL10nEn extends NsgL10n {
 
   @override
   String get profileLangBase => 'Primary';
+
+  @override
+  String profileLangDefault(String locale) {
+    return 'Default · $locale';
+  }
+
+  @override
+  String get profileLangMakeDefault => 'Make the default profile';
+
+  @override
+  String get profileLangMakeDefaultHint =>
+      'People whose language is not filled in will see this version';
+
+  @override
+  String profileLangDelete(String locale) {
+    return 'Delete the $locale version';
+  }
+
+  @override
+  String profileLangDeleted(String locale) {
+    return '$locale version deleted';
+  }
+
+  @override
+  String get profileLangDefaultUpdated => 'Default profile updated';
+
+  @override
+  String get profileLangActionFailed => 'Could not complete the action';
 
   @override
   String get profileLangAdd => '+ Language';

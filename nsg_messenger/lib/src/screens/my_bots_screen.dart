@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:nsg_connect_client/nsg_connect_client.dart';
 
+import '../admin/nsg_messenger_bots_admin.dart';
 import '../bots/nsg_messenger_my_bots.dart';
 import '../i18n/generated/nsg_l10n.dart';
 import '../messenger_runtime.dart';
@@ -65,6 +66,7 @@ class _MyBotsScreenState extends State<MyBotsScreen> {
         name: result.name,
         capabilities: result.capabilities.join(','),
         discoverable: result.discoverable,
+        readMode: result.readMode,
       );
     } on BotLimitExceededException catch (e) {
       // Лимит — не сбой, а правило: показываем число и что делать.
@@ -119,6 +121,80 @@ class _MyBotsScreenState extends State<MyBotsScreen> {
         botId: bot.id!,
         discoverable: !bot.discoverable,
       );
+    } catch (_) {
+      messenger?.showSnackBar(SnackBar(content: Text(l.botsAdminActionFailed)));
+      return;
+    }
+    if (!mounted) return;
+    await _refresh();
+  }
+
+  /// **TASK77 итер.2**: режим чтения своего бота. Включение «читает всё» —
+  /// через confirm: владелец должен понимать, что зовёт в чужие чаты
+  /// программу, видящую всю переписку.
+  Future<void> _toggleReadMode(Bot bot) async {
+    final l = NsgL10n.of(context);
+    final readsAll = NsgMessengerBotsAdmin.readsAllMessages(bot);
+    if (!readsAll) {
+      final confirmed = await confirmBotReadsEverything(context);
+      if (!confirmed || !mounted) return;
+    }
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final BotReadModeResult result;
+    try {
+      result = await _myBots.setReadMode(
+        botId: bot.id!,
+        readMode: readsAll
+            ? NsgMessengerBotsAdmin.readModeAddressed
+            : NsgMessengerBotsAdmin.readModeAll,
+      );
+    } catch (_) {
+      messenger?.showSnackBar(SnackBar(content: Text(l.botsAdminActionFailed)));
+      return;
+    }
+    if (!mounted) return;
+    // **TASK77 итер.3**: сузили режим, но у бота есть подписки без привязки
+    // к нему — приватность подействует только на чтение истории. Говорим
+    // это сразу, а не оставляем выяснять по трафику.
+    await warnPrivacyPartiallyEffective(context, result);
+    if (!mounted) return;
+    await _refresh();
+  }
+
+  /// **TASK77 итер.3**: описание бота — текст, который человек читает в
+  /// каталоге, решая, пускать ли программу в свою группу. Пустая строка
+  /// стирает описание (сервер нормализует).
+  Future<void> _editDescription(Bot bot) async {
+    final l = NsgL10n.of(context);
+    final controller = TextEditingController(text: bot.description ?? '');
+    final saved = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l.myBotsDescription),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLines: 4,
+          minLines: 2,
+          maxLength: 512,
+          decoration: InputDecoration(hintText: l.myBotsDescriptionHint),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(l.commonCancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(controller.text),
+            child: Text(l.commonOk),
+          ),
+        ],
+      ),
+    );
+    if (saved == null || !mounted) return;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    try {
+      await _myBots.setDescription(botId: bot.id!, description: saved);
     } catch (_) {
       messenger?.showSnackBar(SnackBar(content: Text(l.botsAdminActionFailed)));
       return;
@@ -229,6 +305,8 @@ class _MyBotsScreenState extends State<MyBotsScreen> {
                 onRotate: () => _rotate(bots[i]),
                 onToggleEnabled: () => _toggleEnabled(bots[i]),
                 onToggleDiscoverable: () => _toggleDiscoverable(bots[i]),
+                onToggleReadMode: () => _toggleReadMode(bots[i]),
+                onEditDescription: () => _editDescription(bots[i]),
                 onShowRooms: () => _showRooms(bots[i]),
                 onShowAudit: () => _showAudit(bots[i]),
               ),
@@ -250,6 +328,8 @@ class _MyBotTile extends StatelessWidget {
     required this.onRotate,
     required this.onToggleEnabled,
     required this.onToggleDiscoverable,
+    required this.onToggleReadMode,
+    required this.onEditDescription,
     required this.onShowRooms,
     required this.onShowAudit,
   });
@@ -258,6 +338,8 @@ class _MyBotTile extends StatelessWidget {
   final VoidCallback onRotate;
   final VoidCallback onToggleEnabled;
   final VoidCallback onToggleDiscoverable;
+  final VoidCallback onToggleReadMode;
+  final VoidCallback onEditDescription;
   final VoidCallback onShowRooms;
   final VoidCallback onShowAudit;
 
@@ -318,11 +400,38 @@ class _MyBotTile extends StatelessWidget {
           ],
         ],
       ),
-      subtitle: Text(
-        bot.capabilities.isEmpty ? l.botsAdminNoCapabilities : bot.capabilities,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: theme.textTheme.bodySmall,
+      isThreeLine: true,
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            bot.capabilities.isEmpty
+                ? l.botsAdminNoCapabilities
+                : bot.capabilities,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall,
+          ),
+          // **TASK77 итер.3**: описание — ровно тот текст, который увидят
+          // в каталоге. Владелец должен замечать его отсутствие здесь, а не
+          // узнавать о безликой записи из чужого каталога.
+          Text(
+            (bot.description?.trim().isNotEmpty ?? false)
+                ? bot.description!.trim()
+                : l.myBotsDescriptionEmpty,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(
+              fontStyle: (bot.description?.trim().isNotEmpty ?? false)
+                  ? null
+                  : FontStyle.italic,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+            ),
+          ),
+          // **TASK77 итер.2**: «читает все сообщения» / «только обращения» —
+          // владелец должен видеть это до того, как позовёт бота в чужой чат.
+          BotReadModeLine(bot: bot),
+        ],
       ),
       trailing: PopupMenuButton<_MyBotAction>(
         onSelected: (action) {
@@ -335,6 +444,10 @@ class _MyBotTile extends StatelessWidget {
               onToggleEnabled();
             case _MyBotAction.toggleDiscoverable:
               onToggleDiscoverable();
+            case _MyBotAction.toggleReadMode:
+              onToggleReadMode();
+            case _MyBotAction.editDescription:
+              onEditDescription();
             case _MyBotAction.audit:
               onShowAudit();
           }
@@ -367,6 +480,21 @@ class _MyBotTile extends StatelessWidget {
             ),
           ),
           PopupMenuItem(
+            value: _MyBotAction.toggleReadMode,
+            child: _menuRow(
+              NsgMessengerBotsAdmin.readsAllMessages(bot)
+                  ? Icons.shield_outlined
+                  : Icons.visibility_outlined,
+              NsgMessengerBotsAdmin.readsAllMessages(bot)
+                  ? l.botsAdminReadModeRestrict
+                  : l.botsAdminReadModeAllowAll,
+            ),
+          ),
+          PopupMenuItem(
+            value: _MyBotAction.editDescription,
+            child: _menuRow(Icons.notes_outlined, l.myBotsEditDescription),
+          ),
+          PopupMenuItem(
             value: _MyBotAction.audit,
             child: _menuRow(Icons.history, l.botsAdminAudit),
           ),
@@ -380,13 +508,25 @@ class _MyBotTile extends StatelessWidget {
       children: [
         Icon(icon, size: 20),
         const SizedBox(width: 12),
-        Text(label),
+        // Flexible + перенос: длинные пункты (режим чтения) иначе
+        // переполняют ряд меню (RenderFlex overflow).
+        Flexible(child: Text(label, maxLines: 2)),
       ],
     );
   }
 }
 
-enum _MyBotAction { rotate, rooms, toggleEnabled, toggleDiscoverable, audit }
+enum _MyBotAction {
+  rotate,
+  rooms,
+  toggleEnabled,
+  toggleDiscoverable,
+  // TASK77 итер.2: read_all ⇄ read_addressed.
+  toggleReadMode,
+  // TASK77 итер.3: описание бота — то, что читают в каталоге.
+  editDescription,
+  audit,
+}
 
 /// Комнаты бота + отзыв. Добавление чужого discoverable-бота свободно
 /// (решение постановщика #49) — этот список и есть контроль владельца

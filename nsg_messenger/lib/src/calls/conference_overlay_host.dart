@@ -10,6 +10,7 @@ import '../widgets/nsg_avatar_image.dart';
 import 'conference_call_controller.dart';
 import 'conference_call_state.dart';
 import 'incoming_ringtone.dart';
+import 'webrtc_adapter.dart' show RtcVideoRenderer, ScreenShareSource;
 
 /// **TASK51 итерация 1 (UI)**: глобальный хост оверлеев группового
 /// (mesh) аудиозвонка — брат [CallOverlayHost] для конференций.
@@ -279,6 +280,10 @@ class _ConferenceOverlayHostState extends State<ConferenceOverlayHost> {
       case ConferenceActive():
         return _ConferenceOverlayScaffold(
           child: _ConferenceActiveView(
+            // **TASK80**: key по confId — при смене конференции локальный
+            // UI-стейт (пикер источников, режим «экран/участники») не
+            // должен протекать в следующую.
+            key: ValueKey('conferenceActive_${state.confId}'),
             state: state,
             roomName: _resolveRoomName(state.roomId),
             nameOf: _resolveParticipantName,
@@ -286,6 +291,12 @@ class _ConferenceOverlayHostState extends State<ConferenceOverlayHost> {
             onToggleMute: () => c.toggleMute(),
             onToggleSpeaker: () => c.toggleSpeaker(),
             onLeave: () => unawaited(c.leave()),
+            screenShareRenderer: c.screenShareRenderer,
+            needsSourcePicker: c.screenShareNeedsSourcePicker,
+            listSources: c.listScreenShareSources,
+            onStartScreenShare: (sourceId) =>
+                unawaited(c.startScreenShare(sourceId: sourceId)),
+            onStopScreenShare: () => unawaited(c.stopScreenShare()),
           ),
         );
       case ConferenceCallEnded(:final reason, :final maxParticipants):
@@ -459,6 +470,7 @@ extension on String {
 
 class _ConferenceActiveView extends StatefulWidget {
   const _ConferenceActiveView({
+    super.key,
     required this.state,
     required this.roomName,
     required this.nameOf,
@@ -466,6 +478,11 @@ class _ConferenceActiveView extends StatefulWidget {
     required this.onToggleMute,
     required this.onToggleSpeaker,
     required this.onLeave,
+    this.screenShareRenderer,
+    this.needsSourcePicker = false,
+    this.listSources,
+    this.onStartScreenShare,
+    this.onStopScreenShare,
   });
 
   final ConferenceActive state;
@@ -475,6 +492,20 @@ class _ConferenceActiveView extends StatefulWidget {
   final VoidCallback onToggleMute;
   final VoidCallback onToggleSpeaker;
   final VoidCallback onLeave;
+
+  /// **TASK80**: рендерер картинки показа (свой превью / экран
+  /// докладчика). null — показывать нечего.
+  final RtcVideoRenderer? screenShareRenderer;
+
+  /// Нужен ли НАШ список источников (desktop-натив) — на web источник
+  /// выбирает системный диалог браузера, своего поверх него не рисуем.
+  final bool needsSourcePicker;
+
+  final Future<List<ScreenShareSource>> Function()? listSources;
+
+  /// [sourceId] null — платформа сама спросит (web).
+  final void Function(String? sourceId)? onStartScreenShare;
+  final VoidCallback? onStopScreenShare;
 
   @override
   State<_ConferenceActiveView> createState() => _ConferenceActiveViewState();
@@ -487,6 +518,15 @@ class _ConferenceActiveViewState extends State<_ConferenceActiveView> {
   static const _tick = Duration(seconds: 1);
   Timer? _ticker;
   Duration _elapsed = Duration.zero;
+
+  /// **TASK80**: что смотрим — экран докладчика (true) или сетку
+  /// участников. Появился показ → переключаемся на экран автоматически
+  /// (ради этого показ и запускают), но пользователь может вернуться.
+  bool _showScreen = true;
+
+  /// Открытый список источников (desktop-натив). null — закрыт.
+  List<ScreenShareSource>? _sources;
+  bool _loadingSources = false;
 
   @override
   void initState() {
@@ -508,9 +548,42 @@ class _ConferenceActiveViewState extends State<_ConferenceActiveView> {
   }
 
   @override
+  void didUpdateWidget(covariant _ConferenceActiveView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Показ начался — показываем экран; кончился — возвращаем сетку и
+    // закрываем пикер (иначе он бы висел поверх мёртвого состояния).
+    final was = oldWidget.state.presenterMessengerUserId != null;
+    final now = widget.state.presenterMessengerUserId != null;
+    if (was != now) {
+      _showScreen = now;
+      if (!now) _sources = null;
+    }
+  }
+
+  @override
   void dispose() {
     _ticker?.cancel();
     super.dispose();
+  }
+
+  /// Нажали «Показать экран». На desktop-нативе сперва наш список
+  /// источников (системного диалога там нет), на web — сразу старт:
+  /// источник спросит браузер своим диалогом, поверх которого мы
+  /// ничего не рисуем (спека, п.5).
+  Future<void> _onShareScreenPressed() async {
+    final start = widget.onStartScreenShare;
+    if (start == null) return;
+    if (!widget.needsSourcePicker) {
+      start(null);
+      return;
+    }
+    setState(() => _loadingSources = true);
+    final sources = await widget.listSources?.call() ?? const [];
+    if (!mounted) return;
+    setState(() {
+      _loadingSources = false;
+      _sources = sources;
+    });
   }
 
   String _fmt(Duration d) {
@@ -547,26 +620,50 @@ class _ConferenceActiveViewState extends State<_ConferenceActiveView> {
             fontFeatures: [FontFeature.tabularFigures()],
           ),
         ),
-        const SizedBox(height: 24),
-        // Список участников (N≤4 по серверному лимиту mesh — колонка,
-        // сетка не нужна). Flexible+scroll — страховка малых экранов.
-        Flexible(
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (final p in s.participants)
-                  _ConferenceParticipantTile(
-                    key: Key('conferenceParticipantTile_${p.messengerUserId}'),
-                    participant: p,
-                    name: widget.nameOf(p.messengerUserId),
-                    avatarUrl: widget.avatarOf(p.messengerUserId),
-                  ),
-              ],
+        const SizedBox(height: 12),
+        // **TASK80**: постоянный индикатор «идёт показ» у самого
+        // докладчика — чтобы забыть о включённом показе было НЕЛЬЗЯ
+        // (спека, п.5: важнее, чем кажется).
+        if (s.selfPresenting)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _ConferenceBanner(
+              key: const Key('conferenceSelfPresentingBanner'),
+              icon: Icons.screen_share,
+              color: Colors.redAccent,
+              text: l.conferenceSelfPresenting,
             ),
           ),
+        // Явный отказ второму желающему показывать («сейчас показывает
+        // X»), а не молчаливая борьба за поток.
+        if (s.screenShareDeniedBy != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _ConferenceBanner(
+              key: const Key('conferenceShareBusyBanner'),
+              icon: Icons.info_outline,
+              color: Colors.orangeAccent,
+              text: l.conferenceShareBusy(
+                widget.nameOf(s.screenShareDeniedBy!),
+              ),
+            ),
+          ),
+        const SizedBox(height: 12),
+        Flexible(
+          child: _sources != null
+              ? _ScreenSourcePicker(
+                  sources: _sources!,
+                  onCancel: () => setState(() => _sources = null),
+                  onPick: (source) {
+                    setState(() => _sources = null);
+                    widget.onStartScreenShare?.call(source.id);
+                  },
+                )
+              : (_showScreen && s.presenterMessengerUserId != null
+                    ? _buildScreenArea(context, s)
+                    : _buildParticipants(s)),
         ),
-        const SizedBox(height: 32),
+        const SizedBox(height: 24),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
@@ -584,6 +681,40 @@ class _ConferenceActiveViewState extends State<_ConferenceActiveView> {
               tooltip: s.speakerOn ? l.callSpeakerOff : l.callSpeakerOn,
               onPressed: widget.onToggleSpeaker,
             ),
+            // **DoD**: на платформах без захвата кнопки НЕТ вовсе —
+            // не «нажал и ничего не произошло».
+            if (s.screenShareSupported)
+              _ConferenceActionButton(
+                key: const Key('conferenceScreenShareButton'),
+                icon: s.selfPresenting
+                    ? Icons.stop_screen_share
+                    : Icons.screen_share,
+                color: s.selfPresenting ? Colors.redAccent : Colors.white24,
+                tooltip: s.selfPresenting
+                    ? l.conferenceStopScreenShare
+                    : l.conferenceShareScreen,
+                busy: s.screenSharePending || _loadingSources,
+                onPressed: () {
+                  if (s.screenSharePending || _loadingSources) return;
+                  if (s.selfPresenting) {
+                    widget.onStopScreenShare?.call();
+                  } else {
+                    unawaited(_onShareScreenPressed());
+                  }
+                },
+              ),
+            // Переключение «сетка участников ↔ экран докладчика» —
+            // только когда показ реально идёт.
+            if (s.presenterMessengerUserId != null)
+              _ConferenceActionButton(
+                key: const Key('conferenceScreenToggleButton'),
+                icon: _showScreen ? Icons.groups : Icons.desktop_windows,
+                color: Colors.white24,
+                tooltip: _showScreen
+                    ? l.conferenceShowParticipants
+                    : l.conferenceShowScreen,
+                onPressed: () => setState(() => _showScreen = !_showScreen),
+              ),
             _ConferenceActionButton(
               key: const Key('conferenceLeaveButton'),
               icon: Icons.call_end,
@@ -596,6 +727,191 @@ class _ConferenceActiveViewState extends State<_ConferenceActiveView> {
       ],
     );
   }
+
+  /// Список участников (N≤4 по серверному лимиту mesh — колонка, сетка
+  /// не нужна). Scroll — страховка малых экранов.
+  Widget _buildParticipants(ConferenceActive s) => SingleChildScrollView(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final p in s.participants)
+          _ConferenceParticipantTile(
+            key: Key('conferenceParticipantTile_${p.messengerUserId}'),
+            participant: p,
+            name: widget.nameOf(p.messengerUserId),
+            avatarUrl: widget.avatarOf(p.messengerUserId),
+            presentingLabel: p.isPresenting
+                ? (p.isSelf
+                      ? NsgL10n.of(context).conferenceSelfPresenting
+                      : NsgL10n.of(context).conferenceShowScreen)
+                : null,
+          ),
+      ],
+    ),
+  );
+
+  /// Экран докладчика (или своё превью). Рендерер приходит от
+  /// контроллера — виджет-тесты подставляют фейковый, чтобы не тянуть
+  /// нативный плагин.
+  Widget _buildScreenArea(BuildContext context, ConferenceActive s) {
+    final l = NsgL10n.of(context);
+    final renderer = widget.screenShareRenderer;
+    final presenter = s.presenterMessengerUserId;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          s.selfPresenting || presenter == null
+              ? l.conferenceSelfPresenting
+              : l.conferencePresenting(widget.nameOf(presenter)),
+          key: const Key('conferencePresenterLabel'),
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.8),
+            fontSize: 14,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Flexible(
+          child: AspectRatio(
+            aspectRatio: 16 / 9,
+            child: ColoredBox(
+              key: const Key('conferenceScreenSurface'),
+              color: Colors.black,
+              child: renderer == null
+                  ? const Center(
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white70,
+                        ),
+                      ),
+                    )
+                  : renderer.buildView(),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// **TASK80**: наш список источников захвата. Рисуется ТОЛЬКО там, где
+/// системного диалога нет вовсе (desktop-натив flutter_webrtc 1.5.2) —
+/// поверх браузерного диалога мы не рисуем ничего.
+class _ScreenSourcePicker extends StatelessWidget {
+  const _ScreenSourcePicker({
+    required this.sources,
+    required this.onPick,
+    required this.onCancel,
+  });
+
+  final List<ScreenShareSource> sources;
+  final void Function(ScreenShareSource source) onPick;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = NsgL10n.of(context);
+    return Column(
+      key: const Key('conferenceSourcePicker'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          l.conferencePickSourceTitle,
+          style: const TextStyle(color: Colors.white, fontSize: 16),
+        ),
+        const SizedBox(height: 12),
+        if (sources.isEmpty)
+          Text(
+            l.conferencePickSourceEmpty,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.7),
+              fontSize: 14,
+            ),
+          )
+        else
+          Flexible(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final source in sources)
+                    ListTile(
+                      key: Key('conferenceSource_${source.id}'),
+                      dense: true,
+                      leading: Icon(
+                        source.isWindow
+                            ? Icons.web_asset
+                            : Icons.desktop_windows,
+                        color: Colors.white70,
+                      ),
+                      title: Text(
+                        source.name.isEmpty
+                            ? (source.isWindow
+                                  ? l.conferenceSourceWindow
+                                  : l.conferenceSourceScreen)
+                            : source.name,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                      onTap: () => onPick(source),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        const SizedBox(height: 8),
+        TextButton(
+          key: const Key('conferenceSourcePickerCancel'),
+          onPressed: onCancel,
+          child: Text(l.commonCancel),
+        ),
+      ],
+    );
+  }
+}
+
+/// Плашка-индикатор поверх содержимого оверлея (показ идёт / отказ).
+class _ConferenceBanner extends StatelessWidget {
+  const _ConferenceBanner({
+    super.key,
+    required this.icon,
+    required this.color,
+    required this.text,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.6)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              text,
+              style: TextStyle(color: color, fontSize: 14),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// Плитка участника: аватар + имя (+«Вы») + индикатор фазы его пары:
@@ -606,11 +922,16 @@ class _ConferenceParticipantTile extends StatelessWidget {
     required this.participant,
     required this.name,
     required this.avatarUrl,
+    this.presentingLabel,
   });
 
   final ConferenceParticipantView participant;
   final String name;
   final String? avatarUrl;
+
+  /// **TASK80**: подпись «показывает экран» под именем (null — не
+  /// показывает).
+  final String? presentingLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -649,10 +970,26 @@ class _ConferenceParticipantTile extends StatelessWidget {
           NsgAvatarImage(mxcUrl: avatarUrl, fallbackName: name, size: 44),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              p.isSelf ? '$name (${l.conferenceYou})' : name,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Colors.white, fontSize: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  p.isSelf ? '$name (${l.conferenceYou})' : name,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white, fontSize: 16),
+                ),
+                if (presentingLabel != null)
+                  Text(
+                    presentingLabel!,
+                    key: Key('conferencePresentingLabel_${p.messengerUserId}'),
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.redAccent,
+                      fontSize: 12,
+                    ),
+                  ),
+              ],
             ),
           ),
           const SizedBox(width: 12),
@@ -673,12 +1010,18 @@ class _ConferenceActionButton extends StatelessWidget {
     required this.color,
     required this.tooltip,
     required this.onPressed,
+    this.busy = false,
   });
 
   final IconData icon;
   final Color color;
   final String tooltip;
   final VoidCallback onPressed;
+
+  /// **TASK80**: операция в полёте (claim роли докладчика / системный
+  /// диалог захвата) — вместо иконки спиннер, повторное нажатие
+  /// бессмысленно.
+  final bool busy;
 
   @override
   Widget build(BuildContext context) {
@@ -694,7 +1037,18 @@ class _ConferenceActionButton extends StatelessWidget {
           child: SizedBox(
             width: 64,
             height: 64,
-            child: Icon(icon, color: Colors.white, size: 30),
+            child: busy
+                ? const Center(
+                    child: SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    ),
+                  )
+                : Icon(icon, color: Colors.white, size: 30),
           ),
         ),
       ),

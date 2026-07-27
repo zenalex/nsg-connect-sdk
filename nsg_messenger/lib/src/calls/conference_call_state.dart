@@ -39,6 +39,7 @@ class ConferenceParticipantView {
     required this.joinedAt,
     required this.phase,
     this.isSelf = false,
+    this.isPresenting = false,
   });
 
   final int messengerUserId;
@@ -54,6 +55,10 @@ class ConferenceParticipantView {
   final ConferencePairPhase phase;
   final bool isSelf;
 
+  /// **TASK80**: этот участник сейчас показывает экран (серверный
+  /// арбитраж — один за раз).
+  final bool isPresenting;
+
   @override
   bool operator ==(Object other) =>
       other is ConferenceParticipantView &&
@@ -61,11 +66,18 @@ class ConferenceParticipantView {
       other.partyId == partyId &&
       other.joinedAt == joinedAt &&
       other.phase == phase &&
-      other.isSelf == isSelf;
+      other.isSelf == isSelf &&
+      other.isPresenting == isPresenting;
 
   @override
-  int get hashCode =>
-      Object.hash(messengerUserId, partyId, joinedAt, phase, isSelf);
+  int get hashCode => Object.hash(
+    messengerUserId,
+    partyId,
+    joinedAt,
+    phase,
+    isSelf,
+    isPresenting,
+  );
 }
 
 /// Причина завершения/срыва конференции ([ConferenceCallEnded.reason]).
@@ -173,6 +185,11 @@ class ConferenceActive extends ConferenceCallState {
     required this.participants,
     required this.muted,
     this.speakerOn = false,
+    this.screenShareSupported = false,
+    this.presenterMessengerUserId,
+    this.selfPresenting = false,
+    this.screenSharePending = false,
+    this.screenShareDeniedBy,
   });
 
   final int roomId;
@@ -182,6 +199,29 @@ class ConferenceActive extends ConferenceCallState {
   final bool muted;
   final bool speakerOn;
 
+  /// **TASK80**: умеет ли ЭТА платформа захватывать экран. false →
+  /// кнопка «Показать экран» не рисуется вовсе (DoD: не «нажал и
+  /// ничего»). Просмотр чужого показа от флага не зависит.
+  final bool screenShareSupported;
+
+  /// Кто сейчас показывает экран (серверный арбитраж, один за раз);
+  /// null — показа нет.
+  final int? presenterMessengerUserId;
+
+  /// Показываем МЫ. Отдельным полем, а не сравнением с self в UI:
+  /// докладчику нужен постоянный заметный индикатор, и логика «мой ли
+  /// это показ» должна быть в одном месте.
+  final bool selfPresenting;
+
+  /// Захват/claim в процессе (нажали кнопку, ждём системный диалог и
+  /// сервер) — UI блокирует повторное нажатие.
+  final bool screenSharePending;
+
+  /// **Явный отказ второму докладчику**: сервер ответил «показывает
+  /// X» — здесь id этого X, чтобы UI сказал это словами, а не молчал.
+  /// Сбрасывается контроллером через несколько секунд.
+  final int? screenShareDeniedBy;
+
   @override
   bool operator ==(Object other) =>
       other is ConferenceActive &&
@@ -190,6 +230,11 @@ class ConferenceActive extends ConferenceCallState {
       other.startedAt == startedAt &&
       other.muted == muted &&
       other.speakerOn == speakerOn &&
+      other.screenShareSupported == screenShareSupported &&
+      other.presenterMessengerUserId == presenterMessengerUserId &&
+      other.selfPresenting == selfPresenting &&
+      other.screenSharePending == screenSharePending &&
+      other.screenShareDeniedBy == screenShareDeniedBy &&
       listEquals(other.participants, participants);
   @override
   int get hashCode => Object.hash(
@@ -199,6 +244,11 @@ class ConferenceActive extends ConferenceCallState {
     muted,
     speakerOn,
     Object.hashAll(participants),
+    screenShareSupported,
+    presenterMessengerUserId,
+    selfPresenting,
+    screenSharePending,
+    screenShareDeniedBy,
   );
 }
 

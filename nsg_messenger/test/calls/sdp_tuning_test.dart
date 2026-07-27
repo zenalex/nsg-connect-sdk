@@ -117,4 +117,84 @@ void main() {
       expect(opusFmtpParams(tuned)['useinbandfec'], '1');
     });
   });
+
+  // ═══════════════════════════════════════════════════════════════════
+  // TASK80 — потолок битрейта видео (демонстрация экрана)
+  // ═══════════════════════════════════════════════════════════════════
+
+  group('capVideoBitrateSdp', () {
+    String avSdp({String eol = '\r\n', bool withBandwidth = false}) => [
+      'v=0',
+      'o=- 0 0 IN IP4 127.0.0.1',
+      's=-',
+      't=0 0',
+      'm=audio 9 UDP/TLS/RTP/SAVPF 111',
+      'c=IN IP4 0.0.0.0',
+      'a=rtpmap:111 opus/48000/2',
+      'm=video 9 UDP/TLS/RTP/SAVPF 96',
+      'c=IN IP4 0.0.0.0',
+      if (withBandwidth) 'b=AS:4000',
+      'a=rtpmap:96 VP8/90000',
+    ].join(eol);
+
+    List<String> lines(String s) => s.split(RegExp(r'\r\n|\n'));
+
+    test('кладёт b=AS/b=TIAS в видео-секцию сразу после c=', () {
+      final out = lines(capVideoBitrateSdp(avSdp(), maxKbps: 800));
+      final videoIdx = out.indexOf('m=video 9 UDP/TLS/RTP/SAVPF 96');
+      expect(out[videoIdx + 1], 'c=IN IP4 0.0.0.0');
+      expect(out[videoIdx + 2], 'b=AS:800');
+      expect(out[videoIdx + 3], 'b=TIAS:800000');
+    });
+
+    test('аудио-секцию НЕ трогает (иначе порезали бы голос)', () {
+      final out = lines(capVideoBitrateSdp(avSdp(), maxKbps: 800));
+      final audioIdx = out.indexOf('m=audio 9 UDP/TLS/RTP/SAVPF 111');
+      final videoIdx = out.indexOf('m=video 9 UDP/TLS/RTP/SAVPF 96');
+      expect(
+        out.sublist(audioIdx, videoIdx).where((l) => l.startsWith('b=')),
+        isEmpty,
+      );
+    });
+
+    test('существующий потолок перезаписывается, повторный вызов не '
+        'плодит строк (идемпотентность)', () {
+      final once = capVideoBitrateSdp(
+        avSdp(withBandwidth: true),
+        maxKbps: 800,
+      );
+      final twice = capVideoBitrateSdp(once, maxKbps: 800);
+      expect(twice, once);
+      expect(lines(twice).where((l) => l.startsWith('b=AS:')).length, 1);
+      expect(twice, isNot(contains('b=AS:4000')));
+    });
+
+    test('SDP без видео (обычный аудио-звонок) не меняется', () {
+      final audioOnly = [
+        'v=0',
+        'm=audio 9 UDP/TLS/RTP/SAVPF 111',
+        'c=IN IP4 0.0.0.0',
+        'a=rtpmap:111 opus/48000/2',
+      ].join('\r\n');
+      expect(capVideoBitrateSdp(audioOnly, maxKbps: 800), audioOnly);
+    });
+
+    test('видео-секция без c= получает потолок сразу после m=', () {
+      final noConn = [
+        'v=0',
+        'c=IN IP4 0.0.0.0',
+        'm=video 9 UDP/TLS/RTP/SAVPF 96',
+        'a=rtpmap:96 VP8/90000',
+      ].join('\r\n');
+      final out = lines(capVideoBitrateSdp(noConn, maxKbps: 800));
+      final videoIdx = out.indexOf('m=video 9 UDP/TLS/RTP/SAVPF 96');
+      expect(out[videoIdx + 1], 'b=AS:800');
+    });
+
+    test('LF-переводы строк сохраняются', () {
+      final out = capVideoBitrateSdp(avSdp(eol: '\n'), maxKbps: 800);
+      expect(out.contains('\r\n'), isFalse);
+      expect(out, contains('b=AS:800'));
+    });
+  });
 }

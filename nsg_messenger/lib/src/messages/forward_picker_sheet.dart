@@ -20,6 +20,7 @@ import '../rooms/room_picker_sheet.dart';
 Future<RoomSummary?> showForwardPicker({
   required BuildContext context,
   Future<List<RoomSummary>> Function()? roomsLoader,
+  int? currentRoomId,
 }) {
   final l = NsgL10n.of(context);
   return showRoomPicker(
@@ -29,6 +30,7 @@ Future<RoomSummary?> showForwardPicker({
     emptyText: l.forwardNoRooms,
     errorText: l.forwardFailed,
     roomsLoader: roomsLoader,
+    pinnedRoomId: currentRoomId,
   );
 }
 
@@ -38,6 +40,7 @@ Future<RoomSummary?> showForwardPicker({
 Future<List<RoomSummary>?> showForwardPickerMulti({
   required BuildContext context,
   Future<List<RoomSummary>> Function()? roomsLoader,
+  int? currentRoomId,
 }) {
   final l = NsgL10n.of(context);
   return showMultiRoomPicker(
@@ -48,5 +51,6 @@ Future<List<RoomSummary>?> showForwardPickerMulti({
     errorText: l.forwardFailed,
     confirmLabel: l.forwardMultiButton,
     roomsLoader: roomsLoader,
+    pinnedRoomId: currentRoomId,
   );
 }

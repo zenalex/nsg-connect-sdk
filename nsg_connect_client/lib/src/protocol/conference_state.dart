@@ -26,6 +26,8 @@ abstract class ConferenceState implements _i1.SerializableModel {
     required this.members,
     required this.createdAt,
     required this.updatedAt,
+    this.screenSharingMessengerUserId,
+    this.screenSharingPartyId,
   });
 
   factory ConferenceState({
@@ -34,6 +36,8 @@ abstract class ConferenceState implements _i1.SerializableModel {
     required List<_i2.ConferenceMember> members,
     required DateTime createdAt,
     required DateTime updatedAt,
+    int? screenSharingMessengerUserId,
+    String? screenSharingPartyId,
   }) = _ConferenceStateImpl;
 
   factory ConferenceState.fromJson(Map<String, dynamic> jsonSerialization) {
@@ -49,6 +53,10 @@ abstract class ConferenceState implements _i1.SerializableModel {
       updatedAt: _i1.DateTimeJsonExtension.fromJson(
         jsonSerialization['updatedAt'],
       ),
+      screenSharingMessengerUserId:
+          jsonSerialization['screenSharingMessengerUserId'] as int?,
+      screenSharingPartyId:
+          jsonSerialization['screenSharingPartyId'] as String?,
     );
   }
 
@@ -67,6 +75,16 @@ abstract class ConferenceState implements _i1.SerializableModel {
 
   DateTime updatedAt;
 
+  /// **TASK80 итерация 1** — кто сейчас показывает экран (арбитраж
+  /// «один докладчик» держится на сервере, см.
+  /// `conference_screen_share.spy.yaml`). null = показа нет.
+  /// Пара (userId, partyId) — та же адресация, что у участников:
+  /// по partyId SDK понимает, ИЗ КАКОЙ pairwise-сессии придёт видео.
+  /// Оба nullable — старые клиенты неизвестные ключи игнорируют.
+  int? screenSharingMessengerUserId;
+
+  String? screenSharingPartyId;
+
   /// Returns a shallow copy of this [ConferenceState]
   /// with some or all fields replaced by the given arguments.
   @_i1.useResult
@@ -76,6 +94,8 @@ abstract class ConferenceState implements _i1.SerializableModel {
     List<_i2.ConferenceMember>? members,
     DateTime? createdAt,
     DateTime? updatedAt,
+    int? screenSharingMessengerUserId,
+    String? screenSharingPartyId,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -86,6 +106,10 @@ abstract class ConferenceState implements _i1.SerializableModel {
       'members': members.toJson(valueToJson: (v) => v.toJson()),
       'createdAt': createdAt.toJson(),
       'updatedAt': updatedAt.toJson(),
+      if (screenSharingMessengerUserId != null)
+        'screenSharingMessengerUserId': screenSharingMessengerUserId,
+      if (screenSharingPartyId != null)
+        'screenSharingPartyId': screenSharingPartyId,
     };
   }
 
@@ -95,6 +119,8 @@ abstract class ConferenceState implements _i1.SerializableModel {
   }
 }
 
+class _Undefined {}
+
 class _ConferenceStateImpl extends ConferenceState {
   _ConferenceStateImpl({
     required String confId,
@@ -102,12 +128,16 @@ class _ConferenceStateImpl extends ConferenceState {
     required List<_i2.ConferenceMember> members,
     required DateTime createdAt,
     required DateTime updatedAt,
+    int? screenSharingMessengerUserId,
+    String? screenSharingPartyId,
   }) : super._(
          confId: confId,
          roomId: roomId,
          members: members,
          createdAt: createdAt,
          updatedAt: updatedAt,
+         screenSharingMessengerUserId: screenSharingMessengerUserId,
+         screenSharingPartyId: screenSharingPartyId,
        );
 
   /// Returns a shallow copy of this [ConferenceState]
@@ -120,6 +150,8 @@ class _ConferenceStateImpl extends ConferenceState {
     List<_i2.ConferenceMember>? members,
     DateTime? createdAt,
     DateTime? updatedAt,
+    Object? screenSharingMessengerUserId = _Undefined,
+    Object? screenSharingPartyId = _Undefined,
   }) {
     return ConferenceState(
       confId: confId ?? this.confId,
@@ -127,6 +159,12 @@ class _ConferenceStateImpl extends ConferenceState {
       members: members ?? this.members.map((e0) => e0.copyWith()).toList(),
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      screenSharingMessengerUserId: screenSharingMessengerUserId is int?
+          ? screenSharingMessengerUserId
+          : this.screenSharingMessengerUserId,
+      screenSharingPartyId: screenSharingPartyId is String?
+          ? screenSharingPartyId
+          : this.screenSharingPartyId,
     );
   }
 }

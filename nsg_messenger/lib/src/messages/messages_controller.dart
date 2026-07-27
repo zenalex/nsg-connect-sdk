@@ -118,6 +118,11 @@ class MessagesController {
        _loadMorePageSize = loadMorePageSize;
 
   final int _roomId;
+
+  /// Комната контроллера. **issue #68**: пикеру пересылки нужно знать,
+  /// откуда её открыли, чтобы поднять текущий чат первой строкой.
+  int get roomId => _roomId;
+
   final MessagesRpc _rpc;
   final Stream<MessengerEvent> _events;
   final int _selfMessengerUserId;

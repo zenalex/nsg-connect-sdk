@@ -94,6 +94,70 @@ String tuneOpusSdp(String sdp) {
   return out.join(eol);
 }
 
+/// **TASK80 итерация 1** — потолок битрейта ВИДЕО в локальном SDP.
+///
+/// Зачем дублировать encoding parameters (`sender.setParameters`)
+/// SDP-строкой: `setParameters` — путь через нативный плагин, и он
+/// исторически «best-effort» (часть параметров платформа может молча
+/// проигнорировать, а на свежедобавленном отправителе список encodings
+/// иногда ещё пуст). `b=AS:`/`b=TIAS:` на видео-m-line — механизм
+/// самого SDP (RFC 4566 / RFC 3890): его читает и та сторона, и наш
+/// собственный кодировщик. В mesh-е промах по битрейту стоит дорого
+/// (поток множится на число собеседников), поэтому держим оба ремня.
+///
+/// Чистая, идемпотентная функция: правит ТОЛЬКО секции `m=video`,
+/// аудио и прочие m-line не трогает; если видео в SDP нет — no-op.
+/// Строка `b=` вставляется сразу после `c=` (порядок полей в
+/// media-секции по RFC 4566: `m=`, `i=`, `c=`, `b=`), существующая —
+/// перезаписывается.
+String capVideoBitrateSdp(String sdp, {required int maxKbps}) {
+  if (maxKbps <= 0) return sdp;
+  final usesCrlf = sdp.contains('\r\n');
+  final eol = usesCrlf ? '\r\n' : '\n';
+  final lines = sdp.split(RegExp(r'\r\n|\n'));
+  if (!lines.any((l) => l.startsWith('m=video'))) return sdp;
+
+  final out = <String>[];
+  var inVideo = false;
+  var bandwidthWritten = false;
+  for (final line in lines) {
+    if (line.startsWith('m=')) {
+      // Новая media-секция. Если предыдущая была видео-секцией без
+      // `c=` (редко, но валидно — connection-данные на уровне сессии),
+      // строку `b=` всё равно надо было положить сразу после `m=`.
+      inVideo = line.startsWith('m=video');
+      out.add(line);
+      bandwidthWritten = false;
+      continue;
+    }
+    if (inVideo && (line.startsWith('b=AS:') || line.startsWith('b=TIAS:'))) {
+      // Старый потолок выкидываем — свой поставим на месте `c=`
+      // (идемпотентность: повторный вызов не плодит строк).
+      continue;
+    }
+    out.add(line);
+    if (inVideo && !bandwidthWritten && line.startsWith('c=')) {
+      out.add('b=AS:$maxKbps');
+      out.add('b=TIAS:${maxKbps * 1000}');
+      bandwidthWritten = true;
+    }
+  }
+
+  // Видео-секция без `c=` — дописываем потолок сразу после её `m=`.
+  if (!out.any((l) => l.startsWith('b=AS:'))) {
+    final patched = <String>[];
+    for (final line in out) {
+      patched.add(line);
+      if (line.startsWith('m=video')) {
+        patched.add('b=AS:$maxKbps');
+        patched.add('b=TIAS:${maxKbps * 1000}');
+      }
+    }
+    return patched.join(eol);
+  }
+  return out.join(eol);
+}
+
 /// Смержить существующую fmtp-параметр-строку [existing]
 /// (`key=val;key2=val2`) с нашим тюнингом. Не-конфликтующие существующие
 /// параметры сохраняются, конфликтующие перезаписываются нашими

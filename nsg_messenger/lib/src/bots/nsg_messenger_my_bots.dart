@@ -1,5 +1,6 @@
 import 'package:nsg_connect_client/nsg_connect_client.dart';
 
+import '../admin/nsg_messenger_bots_admin.dart';
 import '../messenger_runtime.dart';
 import '../session/auth_retry.dart';
 import '../session/messenger_session_manager.dart';
@@ -25,12 +26,25 @@ typedef MyBotsCreateRpc =
       required String name,
       required String capabilities,
       required bool discoverable,
+      // **TASK77 итер.2**: режим чтения (`read_addressed` / `read_all`).
+      required String readMode,
     });
 typedef MyBotsRotateTokenRpc = Future<Bot> Function({required int botId});
 typedef MyBotsSetEnabledRpc =
     Future<Bot> Function({required int botId, required bool enabled});
+/// **TASK77 итер.3**: ответ несёт не только бота, но и число webhook-
+/// подписок БЕЗ `botId`, покрывающих его комнаты — каналы, где privacy mode
+/// не сработает.
+typedef MyBotsSetReadModeRpc =
+    Future<BotReadModeResult> Function({
+      required int botId,
+      required String readMode,
+    });
 typedef MyBotsSetDiscoverableRpc =
     Future<Bot> Function({required int botId, required bool discoverable});
+/// **TASK77 итер.3**: описание бота для каталога/карточки.
+typedef MyBotsSetDescriptionRpc =
+    Future<Bot> Function({required int botId, required String description});
 typedef MyBotsListRoomsRpc =
     Future<List<RoomSummary>> Function({required int botId});
 typedef MyBotsRemoveFromRoomRpc =
@@ -48,6 +62,8 @@ class NsgMessengerMyBots {
     required MyBotsRotateTokenRpc rotateTokenRpc,
     required MyBotsSetEnabledRpc setEnabledRpc,
     required MyBotsSetDiscoverableRpc setDiscoverableRpc,
+    required MyBotsSetReadModeRpc setReadModeRpc,
+    required MyBotsSetDescriptionRpc setDescriptionRpc,
     required MyBotsListRoomsRpc listRoomsRpc,
     required MyBotsRemoveFromRoomRpc removeFromRoomRpc,
     required MyBotsListAuditEventsRpc listAuditEventsRpc,
@@ -56,6 +72,8 @@ class NsgMessengerMyBots {
        _rotateTokenRpc = rotateTokenRpc,
        _setEnabledRpc = setEnabledRpc,
        _setDiscoverableRpc = setDiscoverableRpc,
+       _setReadModeRpc = setReadModeRpc,
+       _setDescriptionRpc = setDescriptionRpc,
        _listRoomsRpc = listRoomsRpc,
        _removeFromRoomRpc = removeFromRoomRpc,
        _listAuditEventsRpc = listAuditEventsRpc;
@@ -65,6 +83,8 @@ class NsgMessengerMyBots {
   final MyBotsRotateTokenRpc _rotateTokenRpc;
   final MyBotsSetEnabledRpc _setEnabledRpc;
   final MyBotsSetDiscoverableRpc _setDiscoverableRpc;
+  final MyBotsSetReadModeRpc _setReadModeRpc;
+  final MyBotsSetDescriptionRpc _setDescriptionRpc;
   final MyBotsListRoomsRpc _listRoomsRpc;
   final MyBotsRemoveFromRoomRpc _removeFromRoomRpc;
   final MyBotsListAuditEventsRpc _listAuditEventsRpc;
@@ -82,11 +102,13 @@ class NsgMessengerMyBots {
             required String name,
             required String capabilities,
             required bool discoverable,
+            required String readMode,
           }) => withAuthRetry(
             () => client.myBots.create(
               name: name,
               capabilities: capabilities,
               discoverable: discoverable,
+              readMode: readMode,
             ),
             session(),
           ),
@@ -104,6 +126,20 @@ class NsgMessengerMyBots {
             () => client.myBots.setDiscoverable(
               botId: botId,
               discoverable: discoverable,
+            ),
+            session(),
+          ),
+      setReadModeRpc: ({required int botId, required String readMode}) =>
+          withAuthRetry(
+            () =>
+                client.myBots.setReadMode(botId: botId, readMode: readMode),
+            session(),
+          ),
+      setDescriptionRpc: ({required int botId, required String description}) =>
+          withAuthRetry(
+            () => client.myBots.setDescription(
+              botId: botId,
+              description: description,
             ),
             session(),
           ),
@@ -131,6 +167,8 @@ class NsgMessengerMyBots {
     required MyBotsRotateTokenRpc rotateTokenRpc,
     required MyBotsSetEnabledRpc setEnabledRpc,
     required MyBotsSetDiscoverableRpc setDiscoverableRpc,
+    required MyBotsSetReadModeRpc setReadModeRpc,
+    required MyBotsSetDescriptionRpc setDescriptionRpc,
     required MyBotsListRoomsRpc listRoomsRpc,
     required MyBotsRemoveFromRoomRpc removeFromRoomRpc,
     required MyBotsListAuditEventsRpc listAuditEventsRpc,
@@ -140,6 +178,8 @@ class NsgMessengerMyBots {
     rotateTokenRpc: rotateTokenRpc,
     setEnabledRpc: setEnabledRpc,
     setDiscoverableRpc: setDiscoverableRpc,
+    setReadModeRpc: setReadModeRpc,
+    setDescriptionRpc: setDescriptionRpc,
     listRoomsRpc: listRoomsRpc,
     removeFromRoomRpc: removeFromRoomRpc,
     listAuditEventsRpc: listAuditEventsRpc,
@@ -156,14 +196,20 @@ class NsgMessengerMyBots {
   /// Завести своего бота. Владелец — caller (email на сервере, не
   /// параметр). Возвращённый [Bot] несёт `accessToken` — **показать один
   /// раз**. Превышение лимита — [BotLimitExceededException] с числом.
+  ///
+  /// [readMode] — режим чтения (TASK77 итер.2): дефолт
+  /// `read_addressed` (бот видит только обращения к себе), `read_all` —
+  /// осознанный выбор «читает всё».
   Future<Bot> create({
     required String name,
     required String capabilities,
     bool discoverable = false,
+    String readMode = NsgMessengerBotsAdmin.readModeAddressed,
   }) => _createRpc(
     name: name,
     capabilities: capabilities,
     discoverable: discoverable,
+    readMode: readMode,
   );
 
   /// Ротация credential-а: новый `accessToken`, прежние отозваны
@@ -182,6 +228,28 @@ class NsgMessengerMyBots {
     required int botId,
     required bool discoverable,
   }) => _setDiscoverableRpc(botId: botId, discoverable: discoverable);
+
+  /// **TASK77 итер.2**: режим чтения бота — `read_addressed` (только
+  /// обращения) либо `read_all` (вся переписка его комнат). Смена пишется в
+  /// аудит на сервере.
+  ///
+  /// **TASK77 итер.3**: в ответе — [BotReadModeResult.unboundSubscriptionCount]:
+  /// сколько webhook-подписок БЕЗ привязки к боту покрывают его комнаты. При
+  /// `read_addressed` это ровно те каналы, где приватность не подействует
+  /// (фильтровать нечем — у подписки нет владельца-бота); UI обязан сказать
+  /// это вслух, а не промолчать.
+  Future<BotReadModeResult> setReadMode({
+    required int botId,
+    required String readMode,
+  }) => _setReadModeRpc(botId: botId, readMode: readMode);
+
+  /// **TASK77 итер.3**: описание бота — то, что читают в каталоге и в
+  /// карточке, решая, пускать ли программу в свою группу. Пустая строка
+  /// стирает описание.
+  Future<Bot> setDescription({
+    required int botId,
+    required String description,
+  }) => _setDescriptionRpc(botId: botId, description: description);
 
   /// Комнаты бота — владелец видит, куда его бота позвали (добавление
   /// discoverable-бота свободно, контроль постфактум: список + отзыв).

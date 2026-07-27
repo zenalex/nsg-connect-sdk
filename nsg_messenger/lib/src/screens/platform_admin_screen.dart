@@ -149,6 +149,88 @@ class _PlatformAdminScreenState extends State<PlatformAdminScreen> {
     );
   }
 
+  /// Форма «ключ + название». Общая для тенанта и продукта: поля те же,
+  /// различается только заголовок и что делаем с результатом.
+  ///
+  /// Контроллеры полей принадлежат САМОМУ диалогу ([_KeyNameDialog]), а не
+  /// этому методу: освобождать их сразу после `await showDialog` нельзя —
+  /// маршрут в этот момент ещё анимируется прочь и продолжает строить свои
+  /// поля («Tried to build dirty widget in the wrong build scope»).
+  Future<({String key, String name})?> _askKeyAndName(String title) async {
+    final result = await showDialog<({String key, String name})>(
+      context: context,
+      builder: (ctx) => _KeyNameDialog(title: title),
+    );
+    if (result == null || result.key.isEmpty || result.name.isEmpty) {
+      return null;
+    }
+    return result;
+  }
+
+  Future<void> _createTenant() async {
+    final l = NsgL10n.of(context);
+    final input = await _askKeyAndName(l.platformAdminCreateTenant);
+    if (input == null || !mounted) return;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    try {
+      await _admin.createTenant(externalKey: input.key, name: input.name);
+    } catch (e) {
+      messenger?.showSnackBar(SnackBar(content: Text(_createError(l, e))));
+      return;
+    }
+    messenger?.showSnackBar(SnackBar(content: Text(l.platformAdminCreated)));
+    await _refresh();
+  }
+
+  Future<void> _createProduct() async {
+    final l = NsgL10n.of(context);
+    // Продукт живёт ВНУТРИ тенанта, поэтому сначала спрашиваем, в каком.
+    final tenants = await _tenantsFuture;
+    if (!mounted) return;
+    final tenantKey = await showDialog<String>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: Text(l.platformAdminCreateProduct),
+        children: [
+          for (final t in tenants)
+            if (t.tenantExternalKey != null)
+              SimpleDialogOption(
+                onPressed: () => Navigator.of(ctx).pop(t.tenantExternalKey),
+                child: Text(
+                  '${t.tenantName ?? ''} (${t.tenantExternalKey})'.trim(),
+                ),
+              ),
+        ],
+      ),
+    );
+    if (tenantKey == null || !mounted) return;
+    final input = await _askKeyAndName(l.platformAdminCreateProduct);
+    if (input == null || !mounted) return;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    try {
+      await _admin.createProduct(
+        tenantExternalKey: tenantKey,
+        externalKey: input.key,
+        displayName: input.name,
+      );
+    } catch (e) {
+      messenger?.showSnackBar(SnackBar(content: Text(_createError(l, e))));
+      return;
+    }
+    messenger?.showSnackBar(SnackBar(content: Text(l.platformAdminCreated)));
+  }
+
+  /// Причина отказа словами: «ключ не годится» и «занято» — разные
+  /// проблемы, и делать с ними надо разное.
+  String _createError(NsgL10n l, Object e) {
+    if (e is InvalidExternalKeyException) return l.platformAdminKeyInvalid;
+    if (e is TenantAlreadyExistsException ||
+        e is ProductAlreadyExistsException) {
+      return l.platformAdminAlreadyExists;
+    }
+    return l.platformAdminActionFailed;
+  }
+
   Future<void> _disable(ConnectTenantStatus t) async {
     final l = NsgL10n.of(context);
     final confirmed = await showDialog<bool>(
@@ -197,7 +279,31 @@ class _PlatformAdminScreenState extends State<PlatformAdminScreen> {
   Widget build(BuildContext context) {
     final l = NsgL10n.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text(l.platformAdminTitle)),
+      appBar: AppBar(
+        title: Text(l.platformAdminTitle),
+        actions: [
+          // Провижн из UI. Раньше tenant и продукт заводились ТОЛЬКО
+          // SQL-ом на проде, а этот экран умел лишь включать issued-token
+          // у уже существующего тенанта — подключить новый продукт без
+          // доступа к прод-базе было нечем.
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.add),
+            onSelected: (v) => v == 'tenant'
+                ? _createTenant()
+                : _createProduct(),
+            itemBuilder: (_) => [
+              PopupMenuItem(
+                value: 'tenant',
+                child: Text(l.platformAdminCreateTenant),
+              ),
+              PopupMenuItem(
+                value: 'product',
+                child: Text(l.platformAdminCreateProduct),
+              ),
+            ],
+          ),
+        ],
+      ),
       body: RefreshIndicator(
         onRefresh: _refresh,
         child: FutureBuilder<List<ConnectTenantStatus>>(
@@ -581,6 +687,67 @@ class _TenantAuditSheetState extends State<_TenantAuditSheet> {
           ],
         ),
       ),
+    );
+  }
+}
+
+
+/// Диалог «ключ + название» для провижна tenant-а/продукта.
+///
+/// Отдельный StatefulWidget именно ради владения контроллерами: они живут
+/// ровно столько, сколько живёт маршрут диалога.
+class _KeyNameDialog extends StatefulWidget {
+  const _KeyNameDialog({required this.title});
+
+  final String title;
+
+  @override
+  State<_KeyNameDialog> createState() => _KeyNameDialogState();
+}
+
+class _KeyNameDialogState extends State<_KeyNameDialog> {
+  final _key = TextEditingController();
+  final _name = TextEditingController();
+
+  @override
+  void dispose() {
+    _key.dispose();
+    _name.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = NsgL10n.of(context);
+    return AlertDialog(
+      title: Text(widget.title),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _key,
+            autofocus: true,
+            decoration: InputDecoration(labelText: l.platformAdminKeyLabel),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _name,
+            decoration: InputDecoration(labelText: l.platformAdminNameLabel),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l.commonCancel),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(
+            (key: _key.text.trim(), name: _name.text.trim()),
+          ),
+          child: Text(l.platformAdminCreateAction),
+        ),
+      ],
     );
   }
 }

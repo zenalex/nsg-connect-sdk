@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nsg_connect_client/nsg_connect_client.dart';
 import 'package:nsg_messenger/src/messages/forward_picker_sheet.dart';
+import 'package:nsg_messenger/src/rooms/room_picker_sheet.dart';
 import 'package:nsg_messenger/src/rooms/room_summary_tile.dart'
     show registerTimeagoLocales;
 
@@ -20,6 +21,7 @@ RoomSummary _room(int id, String name, {RoomType type = RoomType.direct}) =>
     );
 
 void main() {
+  _pinTests();
   setUpAll(registerTimeagoLocales);
 
   testWidgets('показывает комнаты, фильтрует, возвращает выбранную', (
@@ -132,5 +134,45 @@ void main() {
 
     expect(picked, isNotNull);
     expect(picked!.map((r) => r.id).toSet(), {1, 3});
+  });
+}
+
+// ── issue #68: текущий чат первой строкой ────────────────────────────────
+void _pinTests() {
+  RoomSummary room(int id, String name) => RoomSummary(
+    id: id,
+    name: name,
+    unreadCount: 0,
+    archived: false,
+    muted: false,
+    roomType: RoomType.direct,
+  );
+
+  group('pinRoomFirst (issue #68)', () {
+    test('текущий чат поднимается наверх, порядок остальных сохраняется', () {
+      final rooms = [room(1, 'A'), room(2, 'B'), room(3, 'C')];
+      final out = pinRoomFirst(rooms, 3);
+      expect(out.map((r) => r.id), [3, 1, 2]);
+    });
+
+    test('текущий чат остаётся в списке, а не исключается из него', () {
+      // Пересылка в свой же чат — валидный сценарий, с него и пришла
+      // просьба (процитировать/вынести сообщение наверх).
+      final rooms = [room(1, 'A'), room(2, 'B')];
+      expect(pinRoomFirst(rooms, 2).map((r) => r.id), containsAll([1, 2]));
+    });
+
+    test('нет закрепления / чата нет в списке / он уже первый — как было', () {
+      final rooms = [room(1, 'A'), room(2, 'B')];
+      expect(pinRoomFirst(rooms, null), same(rooms));
+      expect(pinRoomFirst(rooms, 99), same(rooms));
+      expect(pinRoomFirst(rooms, 1), same(rooms));
+    });
+
+    test('исходный список не мутируется', () {
+      final rooms = [room(1, 'A'), room(2, 'B')];
+      pinRoomFirst(rooms, 2);
+      expect(rooms.map((r) => r.id), [1, 2]);
+    });
   });
 }

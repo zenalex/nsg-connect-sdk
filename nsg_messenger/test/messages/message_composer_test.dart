@@ -77,8 +77,8 @@ void main() {
   });
 
   testWidgets(
-    'body > 4096 chars → отправляется обрезанным до лимита (никогда не '
-    'улетает server-side MessageBodyTooLargeException)',
+    'body > 4096 chars → уходит НЕСКОЛЬКИМИ сообщениями, ничего не теряя '
+    '(issue #57: раньше хвост молча отсекался)',
     (tester) async {
       final sent = <String>[];
       await tester.pumpWidget(
@@ -89,19 +89,20 @@ void main() {
           ),
         ),
       );
-      // 5000 символов — выше лимита 4096. maxLength=enforced обрезает на
-      // вводе; defensive clamp в _submit — второй пояс.
+      // 5000 символов — выше лимита 4096. Раньше здесь проверялась обрезка
+      // ровно до 4096: сервер не получал MessageBodyTooLargeException, но
+      // и хвост пользователя пропадал молча. Теперь клиент вписывается в
+      // лимит разбивкой.
       await tester.enterText(find.byType(TextField), 'a' * 5000);
       await tester.pump();
       await tester.tap(find.byIcon(Icons.send));
-      await tester.pump();
+      await tester.pumpAndSettle();
 
-      expect(sent.length, 1);
-      expect(
-        sent.single.length,
-        4096,
-        reason: 'body обрезан до kMessageBodyMaxChars перед отправкой',
-      );
+      expect(sent.length, 2);
+      for (final part in sent) {
+        expect(part.length, lessThanOrEqualTo(4096));
+      }
+      expect(sent.join().length, 5000, reason: 'ни одного символа не потеряли');
     },
   );
 
@@ -125,10 +126,12 @@ void main() {
       await tester.pump();
       expect(find.textContaining('/4096'), findsNothing);
 
-      // Лимит/enforcement сохранены на самом TextField.
+      // Лимит на поле остаётся (счётчик/семантика), но БЕЗ обрезки:
+      // issue #57 — `enforced` резал вставку в момент вставки, и потерю
+      // было почти невозможно заметить. В лимит вписываемся разбивкой.
       final field = tester.widget<TextField>(find.byType(TextField));
       expect(field.maxLength, 4096);
-      expect(field.maxLengthEnforcement, MaxLengthEnforcement.enforced);
+      expect(field.maxLengthEnforcement, MaxLengthEnforcement.none);
       // counterText пустой → встроенный счётчик не рендерится.
       expect(field.decoration?.counterText, '');
     },

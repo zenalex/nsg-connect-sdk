@@ -36,6 +36,15 @@ typedef CreateBotRpc =
       // **Issue #49**: видимость в поиске. Тот же флаг, что и у
       // self-service `myBots.create`; сервер зовёт общий BotService.createBot.
       required bool discoverable,
+      // **TASK77 итер.2**: режим чтения (`read_addressed` / `read_all`).
+      required String readMode,
+    });
+/// **TASK77 итер.3**: ответ несёт и число webhook-подписок БЕЗ `botId`,
+/// покрывающих комнаты бота — каналы, где privacy mode не сработает.
+typedef SetBotReadModeRpc =
+    Future<BotReadModeResult> Function({
+      required int botId,
+      required String readMode,
     });
 typedef RotateBotTokenRpc = Future<Bot> Function({required int botId});
 typedef SetBotAdminEnabledRpc =
@@ -63,6 +72,7 @@ class NsgMessengerBotsAdmin {
     required CreateBotRpc createBotRpc,
     required RotateBotTokenRpc rotateBotTokenRpc,
     required SetBotAdminEnabledRpc setBotEnabledRpc,
+    required SetBotReadModeRpc setBotReadModeRpc,
     required AddBotToRoomRpc addBotToRoomRpc,
     required ListBotAuditEventsRpc listAuditEventsRpc,
     ListAdminRoomsRpc? listAllRoomsRpc,
@@ -72,6 +82,7 @@ class NsgMessengerBotsAdmin {
        _createBotRpc = createBotRpc,
        _rotateBotTokenRpc = rotateBotTokenRpc,
        _setBotEnabledRpc = setBotEnabledRpc,
+       _setBotReadModeRpc = setBotReadModeRpc,
        _addBotToRoomRpc = addBotToRoomRpc,
        _listAuditEventsRpc = listAuditEventsRpc,
        _listAllRoomsRpc = listAllRoomsRpc,
@@ -82,6 +93,7 @@ class NsgMessengerBotsAdmin {
   final CreateBotRpc _createBotRpc;
   final RotateBotTokenRpc _rotateBotTokenRpc;
   final SetBotAdminEnabledRpc _setBotEnabledRpc;
+  final SetBotReadModeRpc _setBotReadModeRpc;
   final AddBotToRoomRpc _addBotToRoomRpc;
   final ListBotAuditEventsRpc _listAuditEventsRpc;
 
@@ -108,6 +120,36 @@ class NsgMessengerBotsAdmin {
     capManageRoom,
     capWebhookTarget,
   ];
+
+  /// **TASK77 итер.2 (privacy mode)**: режимы ЧТЕНИЯ бота — вторая ось прав
+  /// рядом с capabilities (те про действия, эти про видимость). Значения
+  /// совпадают с серверными `BotService.readMode*`.
+  ///
+  /// `read_all` — бот получает и читает всю переписку своих комнат;
+  /// `read_addressed` — только обращения к нему (упоминание, `/команда`,
+  /// reply на его сообщение, тред с его участием, 1:1). Дефолт для новых
+  /// ботов — [readModeAddressed].
+  static const String readModeAll = 'read_all';
+  static const String readModeAddressed = 'read_addressed';
+
+  /// Режимы в порядке отображения в UI (сначала приватный — он же дефолт).
+  static const List<String> kAllReadModes = [readModeAddressed, readModeAll];
+
+  /// Действующий режим чтения бота — **та же трактовка, что на сервере**
+  /// (`BotService.effectiveReadMode`), иначе экран показывал бы одно, а
+  /// сервер применял другое:
+  ///   * пусто/`null` — бот заведён до TASK77 итер.2 → grandfathered
+  ///     [readModeAll] («читает все сообщения», так и показываем);
+  ///   * неизвестное значение → [readModeAddressed] (сервер fail-closed).
+  static String readModeOf(Bot bot) {
+    final raw = bot.readMode?.trim();
+    if (raw == null || raw.isEmpty) return readModeAll;
+    if (raw == readModeAll || raw == readModeAddressed) return raw;
+    return readModeAddressed;
+  }
+
+  /// `true` — бот читает ВСЁ (trust-сигнал, показывается настораживающе).
+  static bool readsAllMessages(Bot bot) => readModeOf(bot) == readModeAll;
 
   /// **TASK77 итер.1**: объявленные ботом slash-команды из `Bot
   /// .commandsJson`. Реестр хранится JSON-строкой (обоснование — в
@@ -164,6 +206,7 @@ class NsgMessengerBotsAdmin {
             required String ownerEmail,
             required String capabilities,
             required bool discoverable,
+            required String readMode,
           }) => withAuthRetry(
             () => client.botAdmin.createBot(
               tenantExternalKey: tenantExternalKey,
@@ -172,6 +215,7 @@ class NsgMessengerBotsAdmin {
               ownerEmail: ownerEmail,
               capabilities: capabilities,
               discoverable: discoverable,
+              readMode: readMode,
             ),
             session(),
           ),
@@ -182,6 +226,14 @@ class NsgMessengerBotsAdmin {
       setBotEnabledRpc: ({required int botId, required bool enabled}) =>
           withAuthRetry(
             () => client.botAdmin.setBotEnabled(botId: botId, enabled: enabled),
+            session(),
+          ),
+      setBotReadModeRpc: ({required int botId, required String readMode}) =>
+          withAuthRetry(
+            () => client.botAdmin.setBotReadMode(
+              botId: botId,
+              readMode: readMode,
+            ),
             session(),
           ),
       addBotToRoomRpc: ({required int botId, required int roomId}) =>
@@ -212,6 +264,7 @@ class NsgMessengerBotsAdmin {
     required CreateBotRpc createBotRpc,
     required RotateBotTokenRpc rotateBotTokenRpc,
     required SetBotAdminEnabledRpc setBotEnabledRpc,
+    required SetBotReadModeRpc setBotReadModeRpc,
     required AddBotToRoomRpc addBotToRoomRpc,
     required ListBotAuditEventsRpc listAuditEventsRpc,
     ListAdminRoomsRpc? listAllRoomsRpc,
@@ -222,6 +275,7 @@ class NsgMessengerBotsAdmin {
     createBotRpc: createBotRpc,
     rotateBotTokenRpc: rotateBotTokenRpc,
     setBotEnabledRpc: setBotEnabledRpc,
+    setBotReadModeRpc: setBotReadModeRpc,
     addBotToRoomRpc: addBotToRoomRpc,
     listAuditEventsRpc: listAuditEventsRpc,
     listAllRoomsRpc: listAllRoomsRpc,
@@ -254,6 +308,9 @@ class NsgMessengerBotsAdmin {
   /// админу один раз**. [capabilities] — CSV грантов ([kAllCapabilities]).
   /// [discoverable] — виден ли бот в поиске (дефолт false: публичность —
   /// осознанный выбор владельца, issue #49).
+  /// [readMode] — режим чтения (TASK77 итер.2): дефолт
+  /// [readModeAddressed] (privacy by default), [readModeAll] — осознанный
+  /// выбор «бот читает все сообщения».
   Future<Bot> createBot({
     String tenantExternalKey = kDefaultTenant,
     String? productExternalKey,
@@ -261,6 +318,7 @@ class NsgMessengerBotsAdmin {
     required String ownerEmail,
     required String capabilities,
     bool discoverable = false,
+    String readMode = readModeAddressed,
   }) => _createBotRpc(
     tenantExternalKey: tenantExternalKey,
     productExternalKey: productExternalKey,
@@ -268,7 +326,20 @@ class NsgMessengerBotsAdmin {
     ownerEmail: ownerEmail,
     capabilities: capabilities,
     discoverable: discoverable,
+    readMode: readMode,
   );
+
+  /// **TASK77 итер.2**: сменить режим чтения бота. Смена пишется в аудит на
+  /// сервере — она меняет, сколько чужой переписки видит программа.
+  ///
+  /// **TASK77 итер.3**: в ответе — [BotReadModeResult.unboundSubscriptionCount]
+  /// (подписки без привязки к боту, к которым фильтр приватности не
+  /// применяется). Ненулевое значение при `read_addressed` — повод сказать
+  /// админу, что поток событий останется полным.
+  Future<BotReadModeResult> setReadMode({
+    required int botId,
+    required String readMode,
+  }) => _setBotReadModeRpc(botId: botId, readMode: readMode);
 
   /// Ротация credential-а бота: новый `accessToken`, все прежние отозваны
   /// немедленно. Бот, его комнаты и история постов сохраняются. Ответ несёт

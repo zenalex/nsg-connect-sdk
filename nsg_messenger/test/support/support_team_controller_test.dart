@@ -301,6 +301,106 @@ void main() {
     );
     c.dispose();
   });
+
+  // ─────────────────────────────────────────────────────────────────
+  // TASK73: «Покинуть команду»
+  // ─────────────────────────────────────────────────────────────────
+
+  test('leave: успех → ok, state остаётся не-busy Ready', () async {
+    final rpc = _FakeRpc(getResult: view(members: [member(1)]));
+    final c = SupportTeamController(
+      rpc: rpc,
+      productExternalKey: 'titan_control',
+    );
+    await c.init();
+
+    expect(await c.leave(), SupportTeamLeaveResult.ok);
+    expect(rpc.leaveCalls, 1);
+    // Экран после этого закрывается; refresh() тут дал бы гарантированный
+    // NotSupportTeamMember и мигание «недоступно» на уходящем экране.
+    expect(rpc.getCalls, 1, reason: 'после выхода состав не перезапрашиваем');
+    expect((c.state as SupportTeamReady).busy, isFalse);
+    c.dispose();
+  });
+
+  test('leave: последний владелец → lastOwner (отдельный исход)', () async {
+    final rpc = _FakeRpc(getResult: view(members: [member(1)]))
+      ..leaveError = LastOwnerCannotDemoteException();
+    final c = SupportTeamController(
+      rpc: rpc,
+      productExternalKey: 'titan_control',
+    );
+    await c.init();
+
+    expect(await c.leave(), SupportTeamLeaveResult.lastOwner);
+    expect(
+      (c.state as SupportTeamReady).busy,
+      isFalse,
+      reason: 'отказ не должен оставлять экран заблокированным',
+    );
+    c.dispose();
+  });
+
+  test('leave: прочая ошибка → failed', () async {
+    final rpc = _FakeRpc(getResult: view(members: [member(1)]))
+      ..leaveError = StateError('network');
+    final c = SupportTeamController(
+      rpc: rpc,
+      productExternalKey: 'titan_control',
+    );
+    await c.init();
+
+    expect(await c.leave(), SupportTeamLeaveResult.failed);
+    expect((c.state as SupportTeamReady).busy, isFalse);
+    c.dispose();
+  });
+
+  test('addMember: нерезолвимый email → lastAddNotFound (не «сеть»)', () async {
+    final rpc = _FakeRpc(
+      getResult: view(members: [member(1)]),
+      addError: PeerUnavailableException(),
+    );
+    final c = SupportTeamController(
+      rpc: rpc,
+      productExternalKey: 'titan_control',
+    );
+    await c.init();
+
+    expect(await c.addMember('nobody@nsg.ru'), isFalse);
+    expect(
+      c.lastAddNotFound,
+      isTrue,
+      reason: 'экран должен посоветовать «пусть войдёт», а не «повторите»',
+    );
+
+    // Следующая попытка флаг сбрасывает — иначе он бы «залип» на сетевой
+    // ошибке и врал про причину.
+    final ok = _FakeRpc(
+      getResult: view(members: [member(1)]),
+      addResult: view(members: [member(1), member(2)]),
+    );
+    final c2 = SupportTeamController(
+      rpc: ok,
+      productExternalKey: 'titan_control',
+    );
+    await c2.init();
+    expect(await c2.addMember('b@nsg.ru'), isTrue);
+    expect(c2.lastAddNotFound, isFalse);
+    c.dispose();
+    c2.dispose();
+  });
+
+  test('leave: до загрузки состава → failed, RPC не дёргаем', () async {
+    final rpc = _FakeRpc(getResult: view(members: [member(1)]));
+    final c = SupportTeamController(
+      rpc: rpc,
+      productExternalKey: 'titan_control',
+    );
+
+    expect(await c.leave(), SupportTeamLeaveResult.failed);
+    expect(rpc.leaveCalls, 0);
+    c.dispose();
+  });
 }
 
 class _FakeRpc implements SupportTeamRpc {
@@ -415,5 +515,16 @@ class _FakeRpc implements SupportTeamRpc {
     lastRoleValue = role;
     if (addError != null) throw addError!;
     return addResult ?? getResult!;
+  }
+
+  // **TASK73**: leaveTeam. Отдельное поле ошибки — исход «последний
+  // владелец» контроллер обязан отличать от общего сбоя.
+  int leaveCalls = 0;
+  Object? leaveError;
+
+  @override
+  Future<void> leaveTeam({required String productExternalKey}) async {
+    leaveCalls++;
+    if (leaveError != null) throw leaveError!;
   }
 }

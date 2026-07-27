@@ -23,6 +23,21 @@ import '../session/messenger_session_manager.dart';
 /// приём, что в [NsgMessengerBotsAdmin]. Сигнатуры вынесены в typedef-ы для
 /// инъекции fake-ов в тестах ([NsgMessengerPlatformAdmin.withRpcs]).
 typedef IsPlatformAdminRpc = Future<bool> Function();
+
+/// Завести tenant (провижн без доступа к прод-базе).
+typedef CreateTenantRpc =
+    Future<ConnectTenantStatus> Function({
+      required String externalKey,
+      required String name,
+    });
+
+/// Завести продукт внутри tenant-а.
+typedef CreateProductRpc =
+    Future<void> Function({
+      required String tenantExternalKey,
+      required String externalKey,
+      required String displayName,
+    });
 typedef ListTenantsRpc = Future<List<ConnectTenantStatus>> Function();
 typedef EnableAndGenerateRpc =
     Future<String> Function({required String tenantExternalKey});
@@ -45,12 +60,16 @@ class NsgMessengerPlatformAdmin {
   NsgMessengerPlatformAdmin._({
     required IsPlatformAdminRpc isPlatformAdminRpc,
     required ListTenantsRpc listTenantsRpc,
+    required CreateTenantRpc createTenantRpc,
+    required CreateProductRpc createProductRpc,
     required EnableAndGenerateRpc enableAndGenerateRpc,
     required RotateTenantSecretRpc rotateSecretRpc,
     required DisableTenantRpc disableRpc,
     required TenantStatusRpc statusRpc,
     required ListTenantAuditEventsRpc listAuditEventsRpc,
-  }) : _isPlatformAdminRpc = isPlatformAdminRpc,
+  }) : _createTenantRpc = createTenantRpc,
+       _createProductRpc = createProductRpc,
+       _isPlatformAdminRpc = isPlatformAdminRpc,
        _listTenantsRpc = listTenantsRpc,
        _enableAndGenerateRpc = enableAndGenerateRpc,
        _rotateSecretRpc = rotateSecretRpc,
@@ -60,6 +79,8 @@ class NsgMessengerPlatformAdmin {
 
   final IsPlatformAdminRpc _isPlatformAdminRpc;
   final ListTenantsRpc _listTenantsRpc;
+  final CreateTenantRpc _createTenantRpc;
+  final CreateProductRpc _createProductRpc;
   final EnableAndGenerateRpc _enableAndGenerateRpc;
   final RotateTenantSecretRpc _rotateSecretRpc;
   final DisableTenantRpc _disableRpc;
@@ -89,6 +110,27 @@ class NsgMessengerPlatformAdmin {
         () => client.connectTenantAdmin.listTenants(),
         session(),
       ),
+      createTenantRpc: ({required String externalKey, required String name}) =>
+          withAuthRetry(
+            () => client.connectTenantAdmin.createTenant(
+              externalKey: externalKey,
+              name: name,
+            ),
+            session(),
+          ),
+      createProductRpc:
+          ({
+            required String tenantExternalKey,
+            required String externalKey,
+            required String displayName,
+          }) => withAuthRetry(
+            () => client.connectTenantAdmin.createProduct(
+              tenantExternalKey: tenantExternalKey,
+              externalKey: externalKey,
+              displayName: displayName,
+            ),
+            session(),
+          ),
       enableAndGenerateRpc: ({required String tenantExternalKey}) =>
           withAuthRetry(
             () => client.connectTenantAdmin.enableAndGenerate(
@@ -133,6 +175,11 @@ class NsgMessengerPlatformAdmin {
   static NsgMessengerPlatformAdmin withRpcs({
     required IsPlatformAdminRpc isPlatformAdminRpc,
     required ListTenantsRpc listTenantsRpc,
+    // Необязательные: тест, который провижн не трогает, объявлять их не
+    // должен, а уже выпущенные наружу вызовы `withRpcs` обязаны
+    // компилироваться после обновления SDK.
+    CreateTenantRpc? createTenantRpc,
+    CreateProductRpc? createProductRpc,
     required EnableAndGenerateRpc enableAndGenerateRpc,
     required RotateTenantSecretRpc rotateSecretRpc,
     required DisableTenantRpc disableRpc,
@@ -141,6 +188,17 @@ class NsgMessengerPlatformAdmin {
   }) => NsgMessengerPlatformAdmin._(
     isPlatformAdminRpc: isPlatformAdminRpc,
     listTenantsRpc: listTenantsRpc,
+    createTenantRpc:
+        createTenantRpc ??
+        ({required String externalKey, required String name}) =>
+            throw UnimplementedError('createTenantRpc не задан'),
+    createProductRpc:
+        createProductRpc ??
+        ({
+          required String tenantExternalKey,
+          required String externalKey,
+          required String displayName,
+        }) => throw UnimplementedError('createProductRpc не задан'),
     enableAndGenerateRpc: enableAndGenerateRpc,
     rotateSecretRpc: rotateSecretRpc,
     disableRpc: disableRpc,
@@ -183,6 +241,27 @@ class NsgMessengerPlatformAdmin {
   /// tenant-е сервер делает ротацию (живой секрет не затирается без grace).
   /// Ошибки НЕ глотаются — молча потерять результат генерации секрета
   /// хуже, чем показать ошибку.
+  /// Завести tenant. До этого tenant-ы создавались только SQL-ом на
+  /// проде — «Платформа» умела лишь включать issued-token у уже
+  /// существующего. Возвращает статус нового tenant-а (issued-token у него
+  /// ВЫКЛЮЧЕН: создание и включение — разные шаги).
+  Future<ConnectTenantStatus> createTenant({
+    required String externalKey,
+    required String name,
+  }) => _createTenantRpc(externalKey: externalKey, name: name);
+
+  /// Завести продукт внутри tenant-а. Его `externalKey` — тот самый
+  /// `productExternalKey`, который клиент шлёт в `MessengerAuthContext`.
+  Future<void> createProduct({
+    required String tenantExternalKey,
+    required String externalKey,
+    required String displayName,
+  }) => _createProductRpc(
+    tenantExternalKey: tenantExternalKey,
+    externalKey: externalKey,
+    displayName: displayName,
+  );
+
   Future<String> enableAndGenerate({required String tenantExternalKey}) =>
       _enableAndGenerateRpc(tenantExternalKey: tenantExternalKey);
 

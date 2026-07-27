@@ -92,6 +92,7 @@ class _BotsAdminScreenState extends State<BotsAdminScreen> {
         ownerEmail: result.ownerEmail!,
         capabilities: result.capabilities.join(','),
         discoverable: result.discoverable,
+        readMode: result.readMode,
       );
     } catch (_) {
       messenger?.showSnackBar(SnackBar(content: Text(l.botsAdminActionFailed)));
@@ -128,6 +129,38 @@ class _BotsAdminScreenState extends State<BotsAdminScreen> {
       messenger?.showSnackBar(SnackBar(content: Text(l.botsAdminActionFailed)));
       return;
     }
+    if (!mounted) return;
+    await _refresh();
+  }
+
+  /// **TASK77 итер.2**: переключить режим чтения бота. Включение
+  /// «читает всё» — через confirm (это расширение доступа к чужой
+  /// переписке); сужение до обращений — сразу, подтверждать нечего.
+  Future<void> _toggleReadMode(Bot bot) async {
+    final l = NsgL10n.of(context);
+    final readsAll = NsgMessengerBotsAdmin.readsAllMessages(bot);
+    if (!readsAll) {
+      final confirmed = await confirmBotReadsEverything(context);
+      if (!confirmed || !mounted) return;
+    }
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final BotReadModeResult result;
+    try {
+      result = await _admin.setReadMode(
+        botId: bot.id!,
+        readMode: readsAll
+            ? NsgMessengerBotsAdmin.readModeAddressed
+            : NsgMessengerBotsAdmin.readModeAll,
+      );
+    } catch (_) {
+      messenger?.showSnackBar(SnackBar(content: Text(l.botsAdminActionFailed)));
+      return;
+    }
+    if (!mounted) return;
+    // **TASK77 итер.3**: сузили режим, но у бота есть подписки без привязки
+    // к нему — приватность подействует только на чтение истории. Говорим
+    // это сразу, а не оставляем выяснять по трафику.
+    await warnPrivacyPartiallyEffective(context, result);
     if (!mounted) return;
     await _refresh();
   }
@@ -245,6 +278,7 @@ class _BotsAdminScreenState extends State<BotsAdminScreen> {
                 bot: bots[i],
                 onRotate: () => _rotate(bots[i]),
                 onToggleEnabled: () => _toggleEnabled(bots[i]),
+                onToggleReadMode: () => _toggleReadMode(bots[i]),
                 onAddToRoom: () => _addToRoom(bots[i]),
                 onShowAudit: () => _showAudit(bots[i]),
               ),
@@ -264,6 +298,7 @@ class _BotAdminTile extends StatelessWidget {
     required this.bot,
     required this.onRotate,
     required this.onToggleEnabled,
+    required this.onToggleReadMode,
     required this.onAddToRoom,
     required this.onShowAudit,
   });
@@ -271,6 +306,7 @@ class _BotAdminTile extends StatelessWidget {
   final Bot bot;
   final VoidCallback onRotate;
   final VoidCallback onToggleEnabled;
+  final VoidCallback onToggleReadMode;
   final VoidCallback onAddToRoom;
   final VoidCallback onShowAudit;
 
@@ -346,6 +382,10 @@ class _BotAdminTile extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.bodySmall?.copyWith(color: dimmed),
           ),
+          // **TASK77 итер.2**: что бот ЧИТАЕТ — trust-сигнал, а не
+          // техническая деталь: «читает все сообщения» админ должен видеть
+          // в списке, не открывая ничего.
+          BotReadModeLine(bot: bot),
         ],
       ),
       trailing: PopupMenuButton<_BotAdminAction>(
@@ -357,6 +397,8 @@ class _BotAdminTile extends StatelessWidget {
               onAddToRoom();
             case _BotAdminAction.toggleEnabled:
               onToggleEnabled();
+            case _BotAdminAction.toggleReadMode:
+              onToggleReadMode();
             case _BotAdminAction.audit:
               onShowAudit();
           }
@@ -377,6 +419,17 @@ class _BotAdminTile extends StatelessWidget {
                   ? Icons.pause_circle_outline
                   : Icons.play_circle_outline,
               bot.enabled ? l.botsAdminDisable : l.botsAdminEnable,
+            ),
+          ),
+          PopupMenuItem(
+            value: _BotAdminAction.toggleReadMode,
+            child: _menuRow(
+              NsgMessengerBotsAdmin.readsAllMessages(bot)
+                  ? Icons.shield_outlined
+                  : Icons.visibility_outlined,
+              NsgMessengerBotsAdmin.readsAllMessages(bot)
+                  ? l.botsAdminReadModeRestrict
+                  : l.botsAdminReadModeAllowAll,
             ),
           ),
           PopupMenuItem(
@@ -405,10 +458,19 @@ class _BotAdminTile extends StatelessWidget {
       children: [
         Icon(icon, size: 20),
         const SizedBox(width: 12),
-        Text(label),
+        // Flexible + перенос: длинные пункты (режим чтения) иначе
+        // переполняют ряд меню (RenderFlex overflow).
+        Flexible(child: Text(label, maxLines: 2)),
       ],
     );
   }
 }
 
-enum _BotAdminAction { rotate, addToRoom, toggleEnabled, audit }
+enum _BotAdminAction {
+  rotate,
+  addToRoom,
+  toggleEnabled,
+  // TASK77 итер.2: read_all ⇄ read_addressed.
+  toggleReadMode,
+  audit,
+}

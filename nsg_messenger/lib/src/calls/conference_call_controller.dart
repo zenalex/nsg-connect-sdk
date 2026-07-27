@@ -238,6 +238,28 @@ class ConferenceCallController extends ChangeNotifier {
   /// ВСЕ pairwise-pc — toggle `track.enabled` действует на все пары разом.
   bool _muted = false;
 
+  /// **TASK80**: claim роли докладчика / системный диалог захвата в
+  /// полёте — UI блокирует кнопку, повторный старт отбивается.
+  bool _screenSharePending = false;
+
+  /// **TASK80**: «сейчас показывает X» — явный отказ второму желающему.
+  /// Живёт [_screenShareDenialLifetime], потом гаснет сам.
+  int? _screenShareDeniedBy;
+  Timer? _denialTimer;
+
+  /// Сколько висит плашка отказа «сейчас показывает X».
+  static const Duration _screenShareDenialLifetime = Duration(seconds: 4);
+
+  /// **TASK80**: рендерер картинки показа (свой превью или экран
+  /// докладчика). Один на конференцию — показывающий всегда один.
+  RtcVideoRenderer? _renderer;
+
+  /// Что сейчас привязано к [_renderer] (чтобы не пересвязывать зря).
+  RtcMediaStream? _renderedStream;
+
+  /// Создание рендерера асинхронно — не запускаем второе параллельно.
+  Future<RtcVideoRenderer>? _rendererFuture;
+
   ConferenceCallState _state = const ConferenceCallIdle();
 
   /// Текущее состояние конференции. UI слушает через `addListener` /
@@ -403,6 +425,374 @@ class ConferenceCallController extends ChangeNotifier {
   }
 
   // ───────────────────────────────────────────────────────────────────
+  // TASK80 — демонстрация экрана
+  // ───────────────────────────────────────────────────────────────────
+
+  /// Умеет ли ЭТА платформа захватывать экран (делиться — только
+  /// desktop/web). Просмотр чужого показа доступен везде.
+  bool get screenShareSupported => _webrtc.supportsScreenShare;
+
+  /// Нужен ли НАШ список источников перед стартом (desktop-натив), или
+  /// источник выберет системный диалог платформы (web).
+  bool get screenShareNeedsSourcePicker => _webrtc.screenShareNeedsSourcePicker;
+
+  /// Рендерер картинки показа (наш превью либо экран докладчика). null —
+  /// показывать нечего. UI зовёт `buildView()`.
+  RtcVideoRenderer? get screenShareRenderer => _renderer;
+
+  /// Список экранов/окон для нашего пикера (см.
+  /// [screenShareNeedsSourcePicker]). Ошибки не бросаем — пустой список
+  /// UI покажет как «источников не найдено».
+  Future<List<ScreenShareSource>> listScreenShareSources() async {
+    if (_disposed || !_webrtc.supportsScreenShare) return const [];
+    try {
+      return await _webrtc.listScreenShareSources();
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[ConferenceCall] listScreenShareSources failed: $e');
+      }
+      return const [];
+    }
+  }
+
+  /// **Начать демонстрацию экрана.** Возвращает true, если показ пошёл.
+  ///
+  /// Порядок «сначала claim на сервере, потом захват» — сознательный:
+  ///   * арбитраж «один докладчик» живёт на СЕРВЕРЕ (unique-индекс), и
+  ///     отказ второму должен прилетать ДО того, как он выбрал окно, —
+  ///     иначе человек выбирает источник и только потом узнаёт, что
+  ///     показывает не он;
+  ///   * обратный порядок (захват → claim) даёт неубиваемое окно, в
+  ///     котором ОБА уже захватили экран, и одному придётся сказать
+  ///     «извини» уже с работающим захватом.
+  /// Цена — короткое окно «сервер считает докладчиком нас, видео ещё
+  /// нет»; если захват сорвался/отменён, роль немедленно освобождаем.
+  ///
+  /// [sourceId] обязателен, когда [screenShareNeedsSourcePicker] —
+  /// см. `WebRtcAdapter.getDisplayMedia`.
+  Future<bool> startScreenShare({String? sourceId}) async {
+    if (_disposed) return false;
+    final conf = _active;
+    if (conf == null || conf.ended || _state is! ConferenceActive) return false;
+    if (!_webrtc.supportsScreenShare) return false;
+    if (conf.screenStream != null || _screenSharePending) return false;
+
+    _screenSharePending = true;
+    _publishActive(conf);
+
+    // 1) Роль докладчика.
+    try {
+      final resp = await _rpc.startScreenShare(
+        roomId: conf.roomId,
+        partyId: _selfPartyId,
+      );
+      if (_screenShareAborted(conf)) {
+        unawaited(_safeStopScreenShareRpc(conf.roomId));
+        return false;
+      }
+      conf.presenterUserId = resp.screenSharingMessengerUserId;
+      conf.presenterPartyId = resp.screenSharingPartyId;
+    } on ScreenShareBusyException catch (e) {
+      _screenSharePending = false;
+      _noteScreenShareDenied(conf, e.presenterMessengerUserId);
+      return false;
+    } catch (e, st) {
+      if (kDebugMode) {
+        debugPrint('[ConferenceCall] startScreenShare claim failed: $e\n$st');
+      }
+      _screenSharePending = false;
+      _publishActive(conf);
+      return false;
+    }
+
+    // 2) Захват (системный диалог браузера / выбранный источник).
+    final RtcMediaStream stream;
+    try {
+      stream = await _webrtc.getDisplayMedia(
+        caps: kScreenShareCaps,
+        sourceId: sourceId,
+      );
+    } catch (e) {
+      // Отказал в разрешении / закрыл диалог / источник пропал — роль
+      // немедленно возвращаем, иначе все увидят «показывает X» без
+      // картинки, а X не сможет начать заново.
+      if (kDebugMode) {
+        debugPrint('[ConferenceCall] getDisplayMedia failed: $e');
+      }
+      unawaited(_safeStopScreenShareRpc(conf.roomId));
+      conf.presenterUserId = null;
+      conf.presenterPartyId = null;
+      _screenSharePending = false;
+      _publishActive(conf);
+      return false;
+    }
+    if (_screenShareAborted(conf)) {
+      // Конференция кончилась, пока висел системный диалог: захват
+      // гасим ОБЯЗАТЕЛЬНО — иначе останется работающий экран-капчур с
+      // индикатором ОС и без единого зрителя.
+      unawaited(stream.dispose());
+      unawaited(_safeStopScreenShareRpc(conf.roomId));
+      return false;
+    }
+
+    conf.screenStream = stream;
+    // Системная кнопка «Прекратить показ» — обязана привести состояние
+    // в порядок, а не оставить UI с надписью «идёт показ» (спека, п.5).
+    for (final track in stream.videoTracks) {
+      track.onEnded = () {
+        if (_disposed) return;
+        unawaited(stopScreenShare());
+      };
+    }
+
+    // 3) Видео — во ВСЕ живые пары + renegotiate каждой.
+    for (final pair in conf.pairs.values) {
+      unawaited(_attachScreenShareToPair(conf, pair));
+    }
+
+    // 4) Своё превью — чтобы докладчик видел, что именно он показывает.
+    unawaited(_syncScreenShareRenderer(conf));
+    _screenSharePending = false;
+    _publishActive(conf);
+    return true;
+  }
+
+  /// **Остановить свою демонстрацию экрана.** Идемпотентно. Зовётся и
+  /// пользователем (кнопка), и системой (`onEnded` трека — «Прекратить
+  /// показ» вне нашего UI), и teardown-ом конференции.
+  Future<void> stopScreenShare() async {
+    if (_disposed) return;
+    final conf = _active;
+    if (conf == null || conf.ended) return;
+    final stream = conf.screenStream;
+    if (stream == null) return;
+    conf.screenStream = null;
+
+    // Снять трек из каждой пары и переустановить сессию: без
+    // renegotiate у собеседников осталась бы «замёрзшая» последняя
+    // картинка вместо честного «показ окончен».
+    for (final pair in conf.pairs.values) {
+      final sender = pair.videoSender;
+      pair.videoSender = null;
+      final pc = pair.pc;
+      if (sender == null || pc == null || pair.ended) continue;
+      unawaited(() async {
+        try {
+          await pc.removeVideoSender(sender);
+          await _renegotiatePair(conf, pair);
+        } catch (e) {
+          if (kDebugMode) {
+            debugPrint('[ConferenceCall] detach screen share failed: $e');
+          }
+        }
+      }());
+    }
+
+    // Останавливаем сам захват — это то, что гасит индикатор записи
+    // экрана в ОС/браузере. Должно случиться ВСЕГДА, даже если RPC и
+    // renegotiate упадут.
+    unawaited(stream.dispose());
+    if (conf.presenterUserId == conf.selfUserId) {
+      conf.presenterUserId = null;
+      conf.presenterPartyId = null;
+    }
+    unawaited(_syncScreenShareRenderer(conf));
+    unawaited(_safeStopScreenShareRpc(conf.roomId));
+    _publishActive(conf);
+  }
+
+  /// Конференция «уехала» из-под асинхронной операции показа.
+  bool _screenShareAborted(_ActiveConference conf) =>
+      _disposed || conf.ended || !identical(_active, conf);
+
+  Future<void> _safeStopScreenShareRpc(int roomId) async {
+    try {
+      await _rpc.stopScreenShare(roomId: roomId);
+    } catch (e) {
+      // Best-effort: не дошло — сервер снимет показ, когда мы выйдем из
+      // конференции или нас зачистит TTL (см. _releaseOrphanedShare).
+      if (kDebugMode) {
+        debugPrint('[ConferenceCall] stopScreenShare rpc failed: $e');
+      }
+    }
+  }
+
+  /// Явный отказ второму желающему показывать: «сейчас показывает X».
+  void _noteScreenShareDenied(_ActiveConference conf, int presenterUserId) {
+    _screenShareDeniedBy = presenterUserId;
+    _denialTimer?.cancel();
+    _denialTimer = Timer(_screenShareDenialLifetime, () {
+      _denialTimer = null;
+      _screenShareDeniedBy = null;
+      final c = _active;
+      if (c != null && !c.ended) _publishActive(c);
+    });
+    _publishActive(conf);
+  }
+
+  /// Добавить наш экран в конкретную пару и переустановить её сессию.
+  Future<void> _attachScreenShareToPair(
+    _ActiveConference conf,
+    _ConferencePair pair,
+  ) async {
+    final stream = conf.screenStream;
+    final pc = pair.pc;
+    if (stream == null || pc == null || pair.ended) return;
+    if (pair.videoSender != null) return; // уже с видео.
+    // Пара ещё устанавливается — второй offer поверх непринятого первого
+    // сломал бы SDP-состояние (`have-local-offer`). Такие пары доберут
+    // видео по завершении установки: исходящая — в [_onPairAnswer],
+    // входящая — сразу после отправки answer-а.
+    final ready = pair.isOutgoing ? pair.answered : pair.signalingSent;
+    if (!ready) return;
+    try {
+      final sender = await pc.addVideoTrack(stream);
+      if (sender == null) return;
+      if (_isPairStale(conf, pair)) return;
+      pair.videoSender = sender;
+      // Рамки качества — ДО renegotiate: пусть первый же offer уедет
+      // уже с ограничениями.
+      await sender.applyScreenShareCaps(kScreenShareCaps);
+      await _renegotiatePair(conf, pair);
+    } catch (e, st) {
+      if (kDebugMode) {
+        debugPrint('[ConferenceCall] attach screen share failed: $e\n$st');
+      }
+    }
+  }
+
+  /// Переустановить сессию пары (`m.call.negotiate`, TASK46).
+  ///
+  /// **Почему glare тут не страшен.** В 1:1 negotiate инициирует только
+  /// caller. В конференции инициатор renegotiate — ДОКЛАДЧИК, а он на
+  /// всю конференцию один (серверный арбитраж), и роль каждой пары для
+  /// negotiate не важна: у одной стороны появился трек — она и offer-ит.
+  /// Встречный negotiate-offer в норме невозможен; на всякий случай
+  /// [_ConferencePair.renegotiating] делает нас победителем — свой
+  /// offer уже в полёте, чужой игнорируем.
+  Future<void> _renegotiatePair(
+    _ActiveConference conf,
+    _ConferencePair pair,
+  ) async {
+    final pc = pair.pc;
+    if (pc == null || pair.ended || _isPairStale(conf, pair)) return;
+    if (pair.renegotiating) return;
+    pair.renegotiating = true;
+    pair.renegotiateTimer?.cancel();
+    // Ответа может не быть (пир отвалился / событие потерялось) — через
+    // lifetime снимаем блокировку, иначе пара навсегда останется
+    // «в перезаключении» и остановку показа в ней уже не провести.
+    pair.renegotiateTimer = Timer(_inviteLifetime, () {
+      pair.renegotiateTimer = null;
+      pair.renegotiating = false;
+    });
+    try {
+      final offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      if (_isPairStale(conf, pair)) {
+        _clearRenegotiation(pair);
+        return;
+      }
+      await _callRpc.sendCallEvent(
+        roomId: conf.roomId,
+        eventType: CallEventType.negotiate,
+        callId: pair.callId,
+        partyId: _selfPartyId,
+        sdp: offer.sdp,
+        sdpType: 'offer',
+      );
+    } catch (e, st) {
+      _clearRenegotiation(pair);
+      if (kDebugMode) {
+        debugPrint('[ConferenceCall] renegotiate failed: $e\n$st');
+      }
+    }
+  }
+
+  void _clearRenegotiation(_ConferencePair pair) {
+    pair.renegotiating = false;
+    pair.renegotiateTimer?.cancel();
+    pair.renegotiateTimer = null;
+  }
+
+  /// Привязать к рендереру ТО, что сейчас надо показывать: свой захват
+  /// (если показываем мы) либо видео докладчика из его пары. Ничего не
+  /// показываем — отвязываем.
+  Future<void> _syncScreenShareRenderer(_ActiveConference conf) async {
+    final RtcMediaStream? target;
+    if (conf.screenStream != null) {
+      target = conf.screenStream;
+    } else {
+      final presenterParty = conf.presenterPartyId;
+      target = presenterParty == null
+          ? null
+          : conf.pairs[presenterParty]?.remoteVideo;
+    }
+    if (identical(target, _renderedStream)) return;
+    if (target == null) {
+      _renderedStream = null;
+      _renderer?.srcObject = null;
+      if (!_disposed) notifyListeners();
+      return;
+    }
+    final renderer = await _ensureRenderer();
+    if (renderer == null || _disposed) return;
+    // Пока создавали рендерер, картинка могла смениться — перепроверяем
+    // через повторный вызов (идемпотентный: identical-гейт выше).
+    if (!identical(_active, conf) || conf.ended) return;
+    _renderedStream = target;
+    renderer.srcObject = target;
+    notifyListeners();
+  }
+
+  Future<RtcVideoRenderer?> _ensureRenderer() async {
+    if (_renderer != null) return _renderer;
+    final pending = _rendererFuture ??= _webrtc.createVideoRenderer();
+    try {
+      final renderer = await pending;
+      if (_disposed) {
+        unawaited(renderer.dispose());
+        return null;
+      }
+      _renderer = renderer;
+      return renderer;
+    } catch (e) {
+      _rendererFuture = null;
+      if (kDebugMode) {
+        debugPrint('[ConferenceCall] createVideoRenderer failed: $e');
+      }
+      return null;
+    }
+  }
+
+  /// Применить серверную правду о докладчике. Плюс два самолечения:
+  ///   * сервер считает докладчиком НАС, а захвата нет (claim прошёл,
+  ///     getDisplayMedia сорвался, release не дошёл) — снимаем роль;
+  ///   * показывает кто-то другой, а у нас живой захват — наш показ
+  ///     вытеснен, гасим его (иначе останется незамеченный захват
+  ///     экрана — ровно та «неловкость», от которой защищает спека).
+  void _applyPresenter(
+    _ActiveConference conf,
+    int? presenterUserId,
+    String? presenterPartyId,
+  ) {
+    conf.presenterUserId = presenterUserId;
+    conf.presenterPartyId = presenterPartyId;
+    final iAmPresenterOnServer =
+        presenterUserId == conf.selfUserId && presenterPartyId == _selfPartyId;
+    if (iAmPresenterOnServer &&
+        conf.screenStream == null &&
+        !_screenSharePending) {
+      conf.presenterUserId = null;
+      conf.presenterPartyId = null;
+      unawaited(_safeStopScreenShareRpc(conf.roomId));
+    } else if (!iAmPresenterOnServer && conf.screenStream != null) {
+      unawaited(stopScreenShare());
+    }
+    unawaited(_syncScreenShareRenderer(conf));
+  }
+
+  // ───────────────────────────────────────────────────────────────────
   // Join / activate
   // ───────────────────────────────────────────────────────────────────
 
@@ -520,6 +910,15 @@ class ConferenceCallController extends ChangeNotifier {
     // 2) Установить пары с остальными по составу из ответа join
     //    (мы joined позже всех → по конвенции инвайтер — мы).
     _applyRoster(conf, resp.members);
+    // **TASK80**: вошли ВО ВРЕМЯ показа — докладчик известен сразу из
+    // ответа join, пары уже поднимаются с ожиданием видео.
+    if (!conf.ended) {
+      _applyPresenter(
+        conf,
+        resp.screenSharingMessengerUserId,
+        resp.screenSharingPartyId,
+      );
+    }
     // 3) Событие состава, прилетевшее за время Joining, может быть свежее
     //    ответа — доприменяем (idempotent override).
     final pendingRoster = _joiningRosterEvent;
@@ -529,6 +928,13 @@ class ConferenceCallController extends ChangeNotifier {
         pendingRoster.conferenceConfId == conf.confId &&
         pendingRoster.conferenceMembers != null) {
       _applyRoster(conf, pendingRoster.conferenceMembers!);
+      if (!conf.ended) {
+        _applyPresenter(
+          conf,
+          pendingRoster.conferenceScreenSharingMessengerUserId,
+          pendingRoster.conferenceScreenSharingPartyId,
+        );
+      }
     }
     if (conf.ended) return; // _applyRoster мог снести (displaced и т.п.)
     _startHeartbeat(conf);
@@ -566,6 +972,10 @@ class ConferenceCallController extends ChangeNotifier {
         _onPairAnswer(event);
       case MessengerEventType.callCandidates:
         _onPairCandidates(event);
+      // **TASK80**: перезаключение сессии пары — так в идущий звонок
+      // въезжает (и уезжает) видео-трек демонстрации экрана.
+      case MessengerEventType.callNegotiate:
+        _onPairNegotiate(event);
       case MessengerEventType.callHangup:
       case MessengerEventType.callReject:
         _onPairHangup(event);
@@ -630,7 +1040,14 @@ class ConferenceCallController extends ChangeNotifier {
         return;
       }
       _applyRoster(conf, members);
-      if (!conf.ended) _publishActive(conf);
+      if (!conf.ended) {
+        _applyPresenter(
+          conf,
+          event.conferenceScreenSharingMessengerUserId,
+          event.conferenceScreenSharingPartyId,
+        );
+        _publishActive(conf);
+      }
       return;
     }
 
@@ -785,6 +1202,11 @@ class ConferenceCallController extends ChangeNotifier {
         await pc.setRemoteDescription(RtcSdp(type: SdpType.answer, sdp: sdp));
         pair.remoteDescriptionSet = true;
         _drainPairRemoteIce(pair);
+        // **TASK80**: показ мог стартовать, пока пара устанавливалась —
+        // теперь она готова принять видео (см. гейт `ready`).
+        if (conf.screenStream != null && pair.videoSender == null) {
+          unawaited(_attachScreenShareToPair(conf, pair));
+        }
       } catch (e, st) {
         if (kDebugMode) {
           debugPrint('[ConferenceCall] answer apply failed: $e\n$st');
@@ -815,6 +1237,68 @@ class ConferenceCallController extends ChangeNotifier {
       }
     }
     _drainPairRemoteIce(pair);
+  }
+
+  /// **TASK80**: `m.call.negotiate` по паре конференции — перезаключение
+  /// сессии при появлении/снятии видео-трека (тот же механизм, что
+  /// ICE-restart в 1:1, TASK46).
+  ///
+  /// Роли: offer шлёт тот, у кого изменился набор треков (докладчик —
+  /// один на конференцию), вторая сторона отвечает answer-ом. Ждущая
+  /// answer-а сторона помечена [_ConferencePair.renegotiating] — она же
+  /// выигрывает гипотетический glare.
+  void _onPairNegotiate(MessengerEvent event) {
+    final conf = _active;
+    final callId = event.callId;
+    if (conf == null || conf.ended || callId == null) return;
+    if (event.roomId != conf.roomId) return;
+    final pair = _pairByCallId(conf, callId);
+    if (pair == null || pair.ended) return;
+    final sdp = event.callSdp;
+    final pc = pair.pc;
+    if (sdp == null || pc == null) return;
+
+    if (event.callSdpType == 'answer') {
+      if (!pair.renegotiating) return; // не мы инициировали — не наше.
+      unawaited(() async {
+        try {
+          await pc.setRemoteDescription(RtcSdp(type: SdpType.answer, sdp: sdp));
+        } catch (e, st) {
+          if (kDebugMode) {
+            debugPrint('[ConferenceCall] negotiate answer failed: $e\n$st');
+          }
+        } finally {
+          _clearRenegotiation(pair);
+        }
+      }());
+      return;
+    }
+
+    // Входящий negotiate-offer: применяем и отвечаем. Свой offer в
+    // полёте → игнорируем чужой (glare-страховка, см. док выше).
+    if (pair.renegotiating) return;
+    unawaited(() async {
+      try {
+        await pc.setRemoteDescription(RtcSdp(type: SdpType.offer, sdp: sdp));
+        pair.remoteDescriptionSet = true;
+        final answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        if (_isPairStale(conf, pair)) return;
+        await _callRpc.sendCallEvent(
+          roomId: conf.roomId,
+          eventType: CallEventType.negotiate,
+          callId: pair.callId,
+          partyId: _selfPartyId,
+          sdp: answer.sdp,
+          sdpType: 'answer',
+        );
+        _drainPairRemoteIce(pair);
+      } catch (e, st) {
+        if (kDebugMode) {
+          debugPrint('[ConferenceCall] negotiate offer failed: $e\n$st');
+        }
+      }
+    }());
   }
 
   /// hangup/reject пары: пир свернул это ребро (обычно — уходит из
@@ -927,8 +1411,15 @@ class ConferenceCallController extends ChangeNotifier {
     conf.pairs.clear();
     conf.confId = confId;
     _rememberHandled(confId);
+    // **TASK80**: показ старой (умершей) конференции с ней и умер —
+    // серверная строка ушла по Cascade. Наш локальный захват, если он
+    // был, гасится тем же `_applyPresenter` (сервер нас докладчиком не
+    // считает) — забытого захвата экрана не остаётся.
     _applyRoster(conf, members);
-    if (!conf.ended) _publishActive(conf);
+    if (!conf.ended) {
+      _applyPresenter(conf, null, null);
+      _publishActive(conf);
+    }
   }
 
   // ───────────────────────────────────────────────────────────────────
@@ -965,6 +1456,18 @@ class ConferenceCallController extends ChangeNotifier {
         final pc = await _buildPairPc(conf, pair);
         final stream = conf.localStream;
         if (stream != null) await pc.addLocalStream(stream);
+        // **TASK80**: если показ уже идёт, НОВАЯ пара рождается сразу с
+        // видео — первый же offer несёт обе m-line, отдельный negotiate
+        // не нужен. Это и есть «вошедший во время показа сразу видит
+        // экран» для случая, когда инвайтер — мы.
+        final screen = conf.screenStream;
+        if (screen != null) {
+          final sender = await pc.addVideoTrack(screen);
+          if (sender != null) {
+            pair.videoSender = sender;
+            await sender.applyScreenShareCaps(kScreenShareCaps);
+          }
+        }
         final offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
         if (_isPairStale(conf, pair)) return;
@@ -1027,6 +1530,13 @@ class ConferenceCallController extends ChangeNotifier {
         pair.remoteDescriptionSet = true;
         _flushPairLocalIce(conf, pair);
         _drainPairRemoteIce(pair);
+        // **TASK80**: инвайтер — пир (он вошёл позже), и его offer видео
+        // не содержит: в unified-plan добавить m-line в answer нельзя.
+        // Поэтому сразу после ответа доносим экран отдельным negotiate —
+        // вошедший во время показа видит его без ручных действий.
+        if (conf.screenStream != null) {
+          unawaited(_attachScreenShareToPair(conf, pair));
+        }
       } catch (e, st) {
         if (kDebugMode) {
           debugPrint('[ConferenceCall] answer pair failed: $e\n$st');
@@ -1084,6 +1594,14 @@ class ConferenceCallController extends ChangeNotifier {
         debugPrint('[ConferenceCall] remote track pair=${pair.callId}');
       }
     };
+    // **TASK80**: пир начал показ — его видео-поток приезжает сюда.
+    // Кто ИМЕННО докладчик, решает серверный ростер; здесь только
+    // запоминаем поток пары, а рендерер выбирает [_syncScreenShareRenderer].
+    pc.onRemoteVideoStream = (RtcMediaStream stream) {
+      if (_isPairStale(conf, pair)) return;
+      pair.remoteVideo = stream;
+      unawaited(_syncScreenShareRenderer(conf));
+    };
     return pc;
   }
 
@@ -1132,6 +1650,9 @@ class ConferenceCallController extends ChangeNotifier {
     pair.inviteTimer = null;
     pair.retryTimer?.cancel();
     pair.retryTimer = null;
+    _clearRenegotiation(pair);
+    pair.videoSender = null;
+    pair.remoteVideo = null;
     unawaited(pair.pc?.close());
     pair.pc = null;
   }
@@ -1227,7 +1748,14 @@ class ConferenceCallController extends ChangeNotifier {
         return;
       }
       _applyRoster(conf, resp.members);
-      if (!conf.ended) _publishActive(conf);
+      if (!conf.ended) {
+        _applyPresenter(
+          conf,
+          resp.screenSharingMessengerUserId,
+          resp.screenSharingPartyId,
+        );
+        _publishActive(conf);
+      }
     } on ConferenceFullException catch (e) {
       // Нас зачистило TTL, и место успели занять — назад не пускают.
       await _teardown(
@@ -1277,6 +1805,19 @@ class ConferenceCallController extends ChangeNotifier {
     conf.pairs.clear();
     unawaited(conf.localStream?.dispose());
     conf.localStream = null;
+    // **TASK80 (приватность)**: выход из конференции ГАСИТ захват экрана
+    // — при любой причине teardown-а (сами вышли, конференция умерла,
+    // вытеснило другое устройство, сбой). Иначе остался бы работающий
+    // screen-capture с индикатором записи ОС и без зрителей.
+    unawaited(conf.screenStream?.dispose());
+    conf.screenStream = null;
+    conf.presenterUserId = null;
+    conf.presenterPartyId = null;
+    _screenSharePending = false;
+    _denialTimer?.cancel();
+    _denialTimer = null;
+    _screenShareDeniedBy = null;
+    _releaseRenderer();
     if (leaveServer) {
       try {
         await _rpc.leaveConference(roomId: conf.roomId);
@@ -1314,6 +1855,18 @@ class ConferenceCallController extends ChangeNotifier {
     }
   }
 
+  /// Отвязать и уничтожить рендерер видео (конец показа/конференции).
+  void _releaseRenderer() {
+    final renderer = _renderer;
+    _renderer = null;
+    _rendererFuture = null;
+    _renderedStream = null;
+    if (renderer != null) {
+      renderer.srcObject = null;
+      unawaited(renderer.dispose());
+    }
+  }
+
   Future<void> _applySpeakerRoute() => _webrtc.setSpeakerphone(_speakerOn);
 
   int? _trySelfUserId() {
@@ -1340,6 +1893,7 @@ class ConferenceCallController extends ChangeNotifier {
           partyId: m.partyId,
           joinedAt: m.joinedAt,
           isSelf: isSelf,
+          isPresenting: _isPresenting(conf, m.messengerUserId, m.partyId),
           phase: isSelf
               ? ConferencePairPhase.connected
               : (pair?.phase ?? ConferencePairPhase.connecting),
@@ -1355,6 +1909,7 @@ class ConferenceCallController extends ChangeNotifier {
           partyId: _selfPartyId,
           joinedAt: conf.myJoinedAt,
           isSelf: true,
+          isPresenting: conf.screenStream != null,
           phase: ConferencePairPhase.connected,
         ),
       );
@@ -1372,8 +1927,28 @@ class ConferenceCallController extends ChangeNotifier {
         participants: views,
         muted: _muted,
         speakerOn: _speakerOn,
+        screenShareSupported: _webrtc.supportsScreenShare,
+        // «Показывает» = серверный арбитраж; для СЕБЯ дополнительно
+        // требуем живой захват (сервер мог ещё не узнать об остановке).
+        presenterMessengerUserId: conf.screenStream != null
+            ? conf.selfUserId
+            : (conf.presenterUserId == conf.selfUserId
+                  ? null
+                  : conf.presenterUserId),
+        selfPresenting: conf.screenStream != null,
+        screenSharePending: _screenSharePending,
+        screenShareDeniedBy: _screenShareDeniedBy,
       ),
     );
+  }
+
+  /// Показывает ли экран участник (userId, partyId) — по серверному
+  /// ростеру; для себя правда локальная (живой захват).
+  bool _isPresenting(_ActiveConference conf, int userId, String partyId) {
+    if (userId == conf.selfUserId && partyId == _selfPartyId) {
+      return conf.screenStream != null;
+    }
+    return conf.presenterUserId == userId && conf.presenterPartyId == partyId;
   }
 
   void _setState(ConferenceCallState next) {
@@ -1399,10 +1974,17 @@ class ConferenceCallController extends ChangeNotifier {
       }
       conf.pairs.clear();
       unawaited(conf.localStream?.dispose());
+      // **TASK80**: закрытие приложения обязано погасить захват экрана —
+      // это последняя точка, где мы ещё можем это сделать сами.
+      unawaited(conf.screenStream?.dispose());
+      conf.screenStream = null;
       // Спека п.5: dispose рантайма = наш выход. Fire-and-forget (dispose
       // синхронный); не успеет — сервер зачистит TTL-ом.
       unawaited(_rpc.leaveConference(roomId: conf.roomId).catchError((_) {}));
     }
+    _denialTimer?.cancel();
+    _denialTimer = null;
+    _releaseRenderer();
     _active = null;
     _incoming = null;
     _joiningInviteBuffer.clear();
@@ -1449,6 +2031,16 @@ class _ActiveConference {
   /// toggle `track.enabled` на нём одном.
   RtcMediaStream? localStream;
 
+  /// **TASK80**: НАШ поток демонстрации экрана (getDisplayMedia).
+  /// Единственный источник правды «я показываю»: серверный ростер может
+  /// на секунду разойтись с реальностью (claim прошёл, захват сорвался),
+  /// а вот живой стрим — не может. Добавляется во ВСЕ pairwise-pc.
+  RtcMediaStream? screenStream;
+
+  /// **TASK80**: кто показывает по серверному ростеру (арбитраж — там).
+  int? presenterUserId;
+  String? presenterPartyId;
+
   Timer? heartbeatTimer;
   int heartbeatFailures = 0;
   bool ended = false;
@@ -1478,6 +2070,24 @@ class _ConferencePair {
   bool remoteDescriptionSet = false;
   bool answered = false;
   bool ended = false;
+
+  /// **TASK80**: наш видео-отправитель (демонстрация экрана) в этой паре.
+  /// null — видео в паре нет.
+  RtcVideoSender? videoSender;
+
+  /// **TASK80**: renegotiate-offer отправлен, ждём negotiate-answer.
+  /// Второй параллельный renegotiate по той же паре запрещён (иначе
+  /// SDP-состояния разъедутся), и входящий negotiate-offer в этом окне
+  /// игнорируется как glare (докладчик один — встречных быть не должно).
+  bool renegotiating = false;
+
+  /// **TASK80**: удалённый видео-поток от этого пира (он показывает).
+  RtcMediaStream? remoteVideo;
+
+  /// Сторож «negotiate-answer не пришёл»: без него потерянный ответ
+  /// оставил бы [renegotiating] навсегда — и следующая смена треков
+  /// (например остановка показа) в этой паре молча не прошла бы.
+  Timer? renegotiateTimer;
 
   final List<RtcIce> pendingLocalIce = [];
   final List<RtcIce> pendingRemoteIce = [];

@@ -73,13 +73,50 @@ class _SupportTeamScreenState extends State<SupportTeamScreen> {
     if (ok) {
       _emailCtl.clear();
     } else if (_emailCtl.text.trim().isNotEmpty) {
+      // **TASK73**: «такого пользователя нет» ≠ «попробуйте ещё раз».
+      // Повтор при нерезолвимом email не поможет никогда — говорим, что
+      // человек должен сперва войти в приложение.
       messenger?.showSnackBar(
-        SnackBar(content: Text(l.supportTeamActionFailed)),
+        SnackBar(
+          content: Text(
+            _controller.lastAddNotFound
+                ? l.supportTeamAddNotFound
+                : l.supportTeamActionFailed,
+          ),
+        ),
       );
     }
   }
 
+  /// **TASK73**: удаление участника — с подтверждением. Пункт живёт в
+  /// popup-меню строки рядом со сменой тира: промах пальцем стоил бы
+  /// оператору выхода из всех открытых обращений, а вернуть его можно
+  /// только повторным добавлением по email.
   Future<void> _remove(NsgL10n l, SupportTeamMemberView m) async {
+    final name = m.displayName ?? '#${m.messengerUserId}';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        final ml = MaterialLocalizations.of(ctx);
+        return AlertDialog(
+          title: Text(l.supportTeamRemoveConfirmTitle),
+          content: Text(l.supportTeamRemoveConfirmBody(name)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: Text(ml.cancelButtonLabel),
+            ),
+            TextButton(
+              key: const Key('confirmRemoveButton'),
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: Text(l.supportTeamRemoveAction),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true || !mounted) return;
+
     final messenger = ScaffoldMessenger.maybeOf(context);
     final ok = await _controller.removeMember(m.messengerUserId);
     if (!mounted) return;
@@ -119,6 +156,61 @@ class _SupportTeamScreenState extends State<SupportTeamScreen> {
     }
   }
 
+  /// **TASK73**: выйти из команды самому. Подтверждение — потому что
+  /// действие необратимо в одну сторону: вернуть в команду может только её
+  /// владелец. Отказ «последний владелец» показываем СВОИМ текстом
+  /// (инструкция «назначьте администратора»), а не генеричным «не удалось»
+  /// — иначе человек жмёт кнопку по кругу.
+  ///
+  /// При успехе экран закрываем: оставаться на нём бессмысленно (состав
+  /// команды бывшему участнику сервер уже не отдаст, и `refresh()` тут
+  /// нарисовал бы «Команда поддержки недоступна» — ровно та «ошибка после
+  /// выхода», которой быть не должно).
+  Future<void> _leave(NsgL10n l) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        final ml = MaterialLocalizations.of(ctx);
+        return AlertDialog(
+          title: Text(l.supportTeamLeaveConfirmTitle),
+          content: Text(l.supportTeamLeaveConfirmBody),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: Text(ml.cancelButtonLabel),
+            ),
+            TextButton(
+              key: const Key('confirmLeaveButton'),
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: Text(l.supportTeamLeaveAction),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true || !mounted) return;
+
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final navigator = Navigator.of(context);
+    final result = await _controller.leave();
+    if (!mounted) return;
+    switch (result) {
+      case SupportTeamLeaveResult.ok:
+        // `true` наверх — host-app (Chatista) по нему сбрасывает кэш меню:
+        // пункт «Команда поддержки» должен исчезнуть, а продукт — при
+        // необходимости стать кандидатом на создание команды заново.
+        navigator.pop(true);
+      case SupportTeamLeaveResult.lastOwner:
+        messenger?.showSnackBar(
+          SnackBar(content: Text(l.supportTeamLeaveLastOwner)),
+        );
+      case SupportTeamLeaveResult.failed:
+        messenger?.showSnackBar(
+          SnackBar(content: Text(l.supportTeamActionFailed)),
+        );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = NsgL10n.of(context);
@@ -132,12 +224,29 @@ class _SupportTeamScreenState extends State<SupportTeamScreen> {
             SupportTeamLoading() => const Center(
               child: CircularProgressIndicator(),
             ),
-            SupportTeamUnavailable() => Center(
+            // **TASK73**: состояние различает «не участник» (гейт) и
+            // «не загрузилось» (сеть) — экран раньше показывал обоим одно
+            // и то же «недоступно» без выхода. Временный сбой чинится
+            // повтором, и кнопка должна быть.
+            SupportTeamUnavailable(:final unavailable) => Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
-                child: Text(
-                  l.supportTeamUnavailable,
-                  textAlign: TextAlign.center,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      l.supportTeamUnavailable,
+                      textAlign: TextAlign.center,
+                    ),
+                    if (!unavailable) ...[
+                      const SizedBox(height: 16),
+                      FilledButton(
+                        key: const Key('retryLoadButton'),
+                        onPressed: () => unawaited(_controller.refresh()),
+                        child: Text(l.supportTeamRetry),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ),
@@ -167,6 +276,26 @@ class _SupportTeamScreenState extends State<SupportTeamScreen> {
                   itemBuilder: (context, i) =>
                       _buildTile(l, view, view.members[i], busy),
                 ),
+        ),
+        // **TASK73**: симметрия к «удалить участника» — уйти из команды
+        // можно самому, не выпрашивая это у владельца. Внизу и без
+        // акцентной кнопки: действие редкое и необратимое в одну сторону.
+        const Divider(height: 1),
+        SafeArea(
+          top: false,
+          child: ListTile(
+            key: const Key('leaveTeamTile'),
+            enabled: !busy,
+            leading: Icon(
+              Icons.logout,
+              color: Theme.of(context).colorScheme.error,
+            ),
+            title: Text(
+              l.supportTeamLeaveAction,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+            onTap: busy ? null : () => _leave(l),
+          ),
         ),
       ],
     );

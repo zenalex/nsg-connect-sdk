@@ -67,6 +67,36 @@ class NsgL10nRu extends NsgL10n {
   String get roomSummaryNoMessages => 'Нет сообщений';
 
   @override
+  String get composerSplitTitle => 'Длинный текст';
+
+  @override
+  String composerSplitBody(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Будет отправлено $count сообщениями',
+      many: 'Будет отправлено $count сообщениями',
+      few: 'Будет отправлено $count сообщениями',
+      one: 'Будет отправлено $count сообщением',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get composerSplitConfirm => 'Отправить';
+
+  @override
+  String composerEditTooLong(int limit) {
+    return 'Правка длиннее лимита в $limit символов — сократите текст';
+  }
+
+  @override
+  String get composerPastedAsCode => 'Оформлено как код';
+
+  @override
+  String get commonUndo => 'Отменить';
+
+  @override
   String get commonCancel => 'Отмена';
 
   @override
@@ -266,6 +296,28 @@ class NsgL10nRu extends NsgL10n {
   }
 
   @override
+  String get fileActionPreview => 'Просмотр';
+
+  @override
+  String get fileActionOpenExternal => 'Открыть во внешней программе';
+
+  @override
+  String get fileActionSave => 'Сохранить на диск';
+
+  @override
+  String fileSavedTo(String path) {
+    return 'Сохранено: $path';
+  }
+
+  @override
+  String fileNoHandler(String filename) {
+    return 'Нет программы для открытия «$filename»';
+  }
+
+  @override
+  String get fileOpenFailed => 'Не удалось открыть файл';
+
+  @override
   String get attachUnnamedFallback => 'Без имени';
 
   @override
@@ -393,6 +445,9 @@ class NsgL10nRu extends NsgL10n {
 
   @override
   String get composerFormatBold => 'Жирный';
+
+  @override
+  String get composerFormatCode => 'Код';
 
   @override
   String get composerFormatItalic => 'Курсив';
@@ -566,6 +621,32 @@ class NsgL10nRu extends NsgL10n {
   String get bannedUsersReinviteSuccess => 'Приглашение отправлено';
 
   @override
+  String roomParticipantsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count участника',
+      many: '$count участников',
+      few: '$count участника',
+      one: '$count участник',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String participantsHoverMore(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'и ещё $count',
+      many: 'и ещё $count',
+      few: 'и ещё $count',
+      one: 'и ещё $count',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get participantsTitle => 'Участники';
 
   @override
@@ -664,6 +745,35 @@ class NsgL10nRu extends NsgL10n {
   @override
   String get supportTeamActionFailed =>
       'Не удалось выполнить — попробуйте ещё раз';
+
+  @override
+  String get supportTeamLeaveAction => 'Покинуть команду';
+
+  @override
+  String get supportTeamLeaveConfirmTitle => 'Покинуть команду поддержки?';
+
+  @override
+  String get supportTeamLeaveConfirmBody =>
+      'Вы перестанете получать обращения по этому проекту и выйдете из его чатов поддержки. Вернуть вас в команду сможет её владелец.';
+
+  @override
+  String get supportTeamLeaveLastOwner =>
+      'Вы единственный владелец команды. Сначала назначьте администратором кого-то ещё — иначе командой станет некому управлять.';
+
+  @override
+  String get supportTeamRemoveConfirmTitle => 'Убрать из команды?';
+
+  @override
+  String supportTeamRemoveConfirmBody(String name) {
+    return '$name перестанет получать обращения по этому проекту и выйдет из его чатов поддержки.';
+  }
+
+  @override
+  String get supportTeamAddNotFound =>
+      'Пользователь с таким email не найден. Он должен хотя бы раз войти в приложение.';
+
+  @override
+  String get supportTeamRetry => 'Повторить';
 
   @override
   String get escalateToDevelopersAction => 'Обратиться к разработчикам';
@@ -819,6 +929,43 @@ class NsgL10nRu extends NsgL10n {
 
   @override
   String get conferencePairFailed => 'Нет связи';
+
+  @override
+  String get conferenceShareScreen => 'Показать экран';
+
+  @override
+  String get conferenceStopScreenShare => 'Остановить показ';
+
+  @override
+  String get conferenceSelfPresenting => 'Вы показываете экран';
+
+  @override
+  String conferencePresenting(String name) {
+    return '$name показывает экран';
+  }
+
+  @override
+  String conferenceShareBusy(String name) {
+    return 'Сейчас показывает $name';
+  }
+
+  @override
+  String get conferenceShowParticipants => 'Участники';
+
+  @override
+  String get conferenceShowScreen => 'Экран докладчика';
+
+  @override
+  String get conferencePickSourceTitle => 'Что показать?';
+
+  @override
+  String get conferencePickSourceEmpty => 'Источники не найдены';
+
+  @override
+  String get conferenceSourceScreen => 'Экран';
+
+  @override
+  String get conferenceSourceWindow => 'Окно';
 
   @override
   String get messageActionForward => 'Переслать';
@@ -1173,6 +1320,36 @@ class NsgL10nRu extends NsgL10n {
   }
 
   @override
+  String get botsAdminReadModeLabel => 'Что бот читает';
+
+  @override
+  String get botsAdminReadModeAll => 'Читает ВСЕ сообщения';
+
+  @override
+  String get botsAdminReadModeAllHint =>
+      'Боту видна вся переписка чатов, где он состоит, — включая сообщения, адресованные не ему';
+
+  @override
+  String get botsAdminReadModeAddressed => 'Читает только обращения';
+
+  @override
+  String get botsAdminReadModeAddressedHint =>
+      'Упоминания, команды «/», ответы на его сообщения, обсуждения с его участием и личные чаты. Остальная переписка боту не доставляется';
+
+  @override
+  String get botsAdminReadModeAllowAll => 'Разрешить читать все сообщения';
+
+  @override
+  String get botsAdminReadModeRestrict => 'Ограничить чтение обращениями';
+
+  @override
+  String get botsAdminReadModeConfirmTitle => 'Бот будет читать всё?';
+
+  @override
+  String get botsAdminReadModeConfirmBody =>
+      'Боту станет видна вся переписка чатов, где он состоит, — включая сообщения, адресованные не ему. Включайте только для ботов, которым доверяете.';
+
+  @override
   String get botsAdminTokenTitle => 'Токен доступа бота';
 
   @override
@@ -1256,6 +1433,34 @@ class NsgL10nRu extends NsgL10n {
 
   @override
   String get botsAdminAuditDiscoverableOff => 'Скрыт из поиска';
+
+  @override
+  String get botsAdminAuditReadModeSet => 'Изменён режим чтения';
+
+  @override
+  String get platformAdminCreateTenant => 'Новый тенант';
+
+  @override
+  String get platformAdminCreateProduct => 'Новый продукт';
+
+  @override
+  String get platformAdminKeyLabel => 'Ключ (латиница, цифры, _ и -)';
+
+  @override
+  String get platformAdminNameLabel => 'Название';
+
+  @override
+  String get platformAdminCreateAction => 'Создать';
+
+  @override
+  String get platformAdminKeyInvalid =>
+      'Ключ не годится: строчная латиница, цифры, _ и -, минимум 2 символа';
+
+  @override
+  String get platformAdminAlreadyExists => 'Такой ключ уже занят';
+
+  @override
+  String get platformAdminCreated => 'Создано';
 
   @override
   String get platformAdminTitle => 'Платформа';
@@ -1391,6 +1596,106 @@ class NsgL10nRu extends NsgL10n {
   @override
   String myBotsLimitReached(int limit) {
     return 'Достигнут лимит ботов ($limit). Вместо нового бота ротируйте токен или переиспользуйте существующего.';
+  }
+
+  @override
+  String get myBotsDescription => 'Описание';
+
+  @override
+  String get myBotsDescriptionEmpty =>
+      'Описания нет — в каталоге бот будет без пояснения, что он делает';
+
+  @override
+  String get myBotsEditDescription => 'Изменить описание';
+
+  @override
+  String get myBotsDescriptionHint => 'Что делает этот бот';
+
+  @override
+  String get botCatalogTitle => 'Добавить бота';
+
+  @override
+  String get botCatalogIntro =>
+      'Бот получит доступ к этому чату. Смотрите, что он читает: это главное, что стоит проверить перед подключением чужой программы.';
+
+  @override
+  String get botCatalogEmpty =>
+      'Публичных ботов пока нет. Бот попадает в каталог, только когда его владелец включает видимость в поиске.';
+
+  @override
+  String get botCatalogLoadFailed => 'Не удалось загрузить каталог ботов';
+
+  @override
+  String get botCatalogConnect => 'Подключить';
+
+  @override
+  String botCatalogConnected(String name) {
+    return 'Бот «$name» подключён к чату';
+  }
+
+  @override
+  String get botCatalogNoDescription => 'Автор не добавил описание';
+
+  @override
+  String get botCardTitle => 'Бот';
+
+  @override
+  String botCardOwner(String owner) {
+    return 'Владелец: $owner';
+  }
+
+  @override
+  String get botCardCommandsTitle => 'Команды';
+
+  @override
+  String get botCardAddToRoom => 'Добавить в чат…';
+
+  @override
+  String get botCardRemoveFromRoom => 'Отключить от этого чата';
+
+  @override
+  String get botCardRemoveConfirmTitle => 'Отключить бота?';
+
+  @override
+  String botCardRemoveConfirmBody(String name) {
+    return '«$name» выйдет из чата и перестанет получать его сообщения. Написанное ботом останется.';
+  }
+
+  @override
+  String get botCardRemoveAction => 'Отключить';
+
+  @override
+  String get botCardRemoved => 'Бот отключён от чата';
+
+  @override
+  String get botCardUnavailable => 'Бот недоступен';
+
+  @override
+  String botCardAddedToRoom(String room) {
+    return 'Бот добавлен в «$room»';
+  }
+
+  @override
+  String get botCardPickRoomTitle => 'В какой чат добавить';
+
+  @override
+  String get botCardNoAdminRooms =>
+      'Нет чатов, где вы владелец или админ — подключать бота может только админ чата';
+
+  @override
+  String get botsPrivacyUnboundTitle => 'Приватность подействует не полностью';
+
+  @override
+  String botsPrivacyUnboundBody(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count подписок на события заведены администратором платформы и не привязаны к боту, поэтому режим чтения на них не действует.',
+      one:
+          'Одна подписка на события заведена администратором платформы и не привязана к боту, поэтому режим чтения на неё не действует.',
+    );
+    return '$_temp0 Чтение истории боту ограничено, а поток событий продолжит уходить целиком.';
   }
 
   @override
@@ -2066,6 +2371,34 @@ class NsgL10nRu extends NsgL10n {
 
   @override
   String get profileLangBase => 'Основной';
+
+  @override
+  String profileLangDefault(String locale) {
+    return 'По умолчанию · $locale';
+  }
+
+  @override
+  String get profileLangMakeDefault => 'Сделать языком по умолчанию';
+
+  @override
+  String get profileLangMakeDefaultHint =>
+      'Эту версию увидят те, чей язык не заполнен';
+
+  @override
+  String profileLangDelete(String locale) {
+    return 'Удалить перевод $locale';
+  }
+
+  @override
+  String profileLangDeleted(String locale) {
+    return 'Версия $locale удалена';
+  }
+
+  @override
+  String get profileLangDefaultUpdated => 'Профиль по умолчанию обновлён';
+
+  @override
+  String get profileLangActionFailed => 'Не удалось выполнить действие';
 
   @override
   String get profileLangAdd => '+ Язык';

@@ -5,6 +5,7 @@ import 'package:nsg_connect_client/nsg_connect_client.dart';
 import '../contact_card/contact_card_view.dart';
 import '../contact_card/vcard.dart';
 import '../i18n/generated/nsg_l10n.dart';
+import '../i18n/profile_locales.dart';
 import '../messages/attachments/attachment_picker.dart';
 import '../messenger_runtime.dart';
 
@@ -75,20 +76,10 @@ class _ContactCardEditorScreenState extends State<ContactCardEditorScreen> {
   String? _fieldsLocale;
   final Map<String?, List<String>> _fieldDrafts = {};
 
-  static const Map<String, String> _localeNames = {
-    'ru': 'Русский',
-    'en': 'English',
-    'de': 'Deutsch',
-    'fr': 'Français',
-    'es': 'Español',
-    'it': 'Italiano',
-    'pt': 'Português',
-    'tr': 'Türkçe',
-    'uk': 'Українська',
-    'kk': 'Қазақша',
-    'zh': '中文',
-    'ar': 'العربية',
-  };
+  /// Локаль базового профиля — подписывает чип «По умолчанию·<локаль>»
+  /// и исключается из пикера (версия своего же языка дублировала бы базу).
+  /// null = пользователь её не указывал.
+  String? _profileLocale;
 
   @override
   void initState() {
@@ -119,9 +110,11 @@ class _ContactCardEditorScreenState extends State<ContactCardEditorScreen> {
     try {
       final card = await MessengerRuntime.instance.contactCards.getMy();
       List<ProfileTranslation> translations = const [];
+      String? profileLocale;
       try {
-        translations = await MessengerRuntime.instance.client.messenger
-            .listMyProfileTranslations();
+        final messenger = MessengerRuntime.instance.client.messenger;
+        translations = await messenger.listMyProfileTranslations();
+        profileLocale = await messenger.myProfileLocale();
       } catch (_) {
         // best-effort: без переводов редактор работает как раньше
       }
@@ -130,6 +123,7 @@ class _ContactCardEditorScreenState extends State<ContactCardEditorScreen> {
         _loading = false;
         _exists = card != null;
         _translations = translations;
+        _profileLocale = profileLocale;
         for (final t in translations) {
           _fieldDrafts.putIfAbsent(t.locale, () => [
             t.about ?? '',
@@ -232,19 +226,21 @@ class _ContactCardEditorScreenState extends State<ContactCardEditorScreen> {
 
   Future<void> _addFieldsLocale() async {
     final l = NsgL10n.of(context);
-    final existing = {..._translations.map((t) => t.locale)};
-    final choices = _localeNames.entries
-        .where((e) => !existing.contains(e.key))
+    // Уже заполненные версии и язык самой базы в пикер не берём — иначе
+    // получился бы второй чип, редактирующий то же самое.
+    final existing = {..._translations.map((t) => t.locale), _profileLocale};
+    final choices = kProfileLocaleNames.keys
+        .where((code) => !existing.contains(code))
         .toList();
     final picked = await showDialog<String>(
       context: context,
       builder: (ctx) => SimpleDialog(
         title: Text(l.profileLangAddTitle),
         children: [
-          for (final e in choices)
+          for (final code in choices)
             SimpleDialogOption(
-              onPressed: () => Navigator.of(ctx).pop(e.key),
-              child: Text('${e.value} (${e.key.toUpperCase()})'),
+              onPressed: () => Navigator.of(ctx).pop(code),
+              child: Text(profileLocaleLabel(code)),
             ),
         ],
       ),
@@ -610,8 +606,16 @@ class _ContactCardEditorScreenState extends State<ContactCardEditorScreen> {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    _chip(l.profileLangBase, _fieldsLocale == null, accent,
-                        () => _switchFieldsLocale(null)),
+                    _chip(
+                      _profileLocale == null
+                          ? l.profileLangBase
+                          : l.profileLangDefault(
+                              _profileLocale!.toUpperCase(),
+                            ),
+                      _fieldsLocale == null,
+                      accent,
+                      () => _switchFieldsLocale(null),
+                    ),
                     for (final t in _translations)
                       _chip(
                         t.locale.toUpperCase(),

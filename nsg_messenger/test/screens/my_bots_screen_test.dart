@@ -20,6 +20,10 @@ void main() {
     bool enabled = true,
     bool discoverable = false,
     String token = 'bot_secret_token',
+    // TASK77 итер.2: `null` = бот эпохи до итер.2 → grandfathered read_all.
+    String? readMode,
+    // TASK77 итер.3: описание для каталога/карточки.
+    String? description,
   }) => Bot(
     id: id,
     messengerUserId: 100 + id,
@@ -30,6 +34,8 @@ void main() {
     capabilities: caps,
     enabled: enabled,
     discoverable: discoverable,
+    readMode: readMode,
+    description: description,
     createdAt: DateTime.utc(2026, 7, 20),
   );
 
@@ -50,6 +56,12 @@ void main() {
         onCreate,
     Future<Bot> Function(int botId)? onRotate,
     Future<Bot> Function(int botId, bool discoverable)? onSetDiscoverable,
+    // TASK77 итер.2: смена режима чтения. TASK77 итер.3: ответ несёт ещё и
+    // число подписок, к которым privacy mode не применяется.
+    Future<BotReadModeResult> Function(int botId, String readMode)?
+    onSetReadMode,
+    // TASK77 итер.3: описание бота для каталога/карточки.
+    Future<Bot> Function(int botId, String description)? onSetDescription,
     Future<List<RoomSummary>> Function(int botId)? onListRooms,
     Future<void> Function(int botId, int roomId)? onRemoveFromRoom,
     Future<List<BotAuditEvent>> Function(int botId)? onAudit,
@@ -60,6 +72,7 @@ void main() {
           required String name,
           required String capabilities,
           required bool discoverable,
+          required String readMode,
         }) =>
             onCreate?.call(name, capabilities, discoverable) ??
             Future.value(bot()),
@@ -70,6 +83,18 @@ void main() {
     setDiscoverableRpc: ({required int botId, required bool discoverable}) =>
         onSetDiscoverable?.call(botId, discoverable) ??
         Future.value(bot(discoverable: discoverable)),
+    setReadModeRpc: ({required int botId, required String readMode}) =>
+        onSetReadMode?.call(botId, readMode) ??
+        Future.value(
+          BotReadModeResult(
+            bot: bot(readMode: readMode),
+            unboundSubscriptionCount: 0,
+          ),
+        ),
+    setDescriptionRpc:
+        ({required int botId, required String description}) =>
+            onSetDescription?.call(botId, description) ??
+            Future.value(bot(description: description)),
     listRoomsRpc: ({required int botId}) =>
         onListRooms?.call(botId) ?? Future.value(const <RoomSummary>[]),
     removeFromRoomRpc: ({required int botId, required int roomId}) =>
@@ -114,6 +139,150 @@ void main() {
       find.textContaining('bot_secret_token'),
       findsNothing,
       reason: 'токен виден только в момент выдачи, не в списке',
+    );
+  });
+
+  // **TASK77 итер.2**: владелец должен видеть, что его бот читает, ДО того
+  // как позовёт его в чужой чат.
+  testWidgets('режим чтения виден в тайле: grandfathered → «читает ВСЕ», '
+      'read_addressed → «только обращения»', (tester) async {
+    await tester.pumpWidget(
+      wrapL10n(
+        MyBotsScreen(
+          myBotsOverride: makeMyBots(
+            onList: () async => [
+              bot(name: 'LegacyBot'),
+              bot(id: 2, name: 'PrivateBot', readMode: 'read_addressed'),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Reads ALL messages'), findsOneWidget);
+    expect(find.text('Reads only messages addressed to it'), findsOneWidget);
+  });
+
+  // **TASK77 итер.3 (закрытие follow-up-а итер.2)**: приватность на
+  // push-пути работает только у подписок, привязанных к боту. Если сервер
+  // сообщил о непривязанных, владелец обязан узнать это в момент
+  // переключения — молчание означало бы «включил приватность», которой нет.
+  testWidgets('сужение режима + непривязанные подписки → предупреждение, '
+      'что приватность подействует не полностью', (tester) async {
+    await tester.pumpWidget(
+      wrapL10n(
+        MyBotsScreen(
+          myBotsOverride: makeMyBots(
+            onList: () async => [bot(name: 'LegacyBot')],
+            onSetReadMode: (botId, readMode) async => BotReadModeResult(
+              bot: bot(id: botId, readMode: readMode),
+              unboundSubscriptionCount: 2,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.text('Limit reading to messages addressed to it').last,
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Privacy will not apply everywhere'),
+      findsOneWidget,
+      reason: 'умолчать про подписки, обходящие режим, нельзя',
+    );
+    expect(find.textContaining('2 event subscriptions'), findsOneWidget);
+  });
+
+  testWidgets('расширение до read_all: предупреждения о подписках нет — '
+      'при «читает всё» фильтровать всё равно нечего', (tester) async {
+    await tester.pumpWidget(
+      wrapL10n(
+        MyBotsScreen(
+          myBotsOverride: makeMyBots(
+            onList: () async => [bot(id: 2, readMode: 'read_addressed')],
+            onSetReadMode: (botId, readMode) async => BotReadModeResult(
+              bot: bot(id: botId, readMode: readMode),
+              unboundSubscriptionCount: 5,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Allow reading all messages').last);
+    await tester.pumpAndSettle();
+    // confirm «бот будет читать всё»
+    await tester.tap(find.text('Allow reading all messages').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Privacy will not apply everywhere'), findsNothing);
+  });
+
+  // **TASK77 итер.3**: описание — тот самый текст, который прочитают в
+  // каталоге ботов, решая, пускать ли программу в свою группу.
+  testWidgets('описание: отсутствие видно в тайле, диалог сохраняет текст',
+      (tester) async {
+    (int, String)? seen;
+    await tester.pumpWidget(
+      wrapL10n(
+        MyBotsScreen(
+          myBotsOverride: makeMyBots(
+            onList: () async => [bot(id: 3)],
+            onSetDescription: (botId, description) async {
+              seen = (botId, description);
+              return bot(id: botId, description: description);
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining('No description'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Edit description').last);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, 'Watches CI');
+    await tester.tap(find.text('OK').last);
+    await tester.pumpAndSettle();
+
+    expect(seen, (3, 'Watches CI'));
+  });
+
+  testWidgets('создание: режим чтения по умолчанию — «только обращения» '
+      '(privacy by default)', (tester) async {
+    await tester.pumpWidget(
+      wrapL10n(MyBotsScreen(myBotsOverride: makeMyBots())),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Add bot'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('What the bot reads'), findsOneWidget);
+    // Выбран приватный режим: иконка «включённого» radio — ровно одна, и
+    // стоит она у «только обращения» (проверяем по тексту рядом).
+    expect(find.byIcon(Icons.radio_button_checked), findsOneWidget);
+    final checkedTile = find.ancestor(
+      of: find.byIcon(Icons.radio_button_checked),
+      matching: find.byType(ListTile),
+    );
+    expect(
+      find.descendant(
+        of: checkedTile,
+        matching: find.text('Reads only messages addressed to it'),
+      ),
+      findsOneWidget,
     );
   });
 
