@@ -54,9 +54,9 @@ import '../rooms/participant_action_sheet.dart' show formatWriteBanUntil;
 import '../presence/last_seen_format.dart';
 import '../session/auth_retry.dart' show withAuthRetry;
 import '../runtime/messenger_connection_state.dart';
-import '../utils/relative_time.dart'
-    show dateSeparatorLabel, localDayKey;
+import '../utils/relative_time.dart' show dateSeparatorLabel, localDayKey;
 import '../theme/highlight_surface.dart';
+import '../theme/messenger_theme_scope.dart';
 import '../theme/nsg_messenger_theme.dart' show NsgMessageBubbleTokens;
 import '../widgets/nsg_avatar_image.dart';
 import 'group_settings_screen.dart';
@@ -162,7 +162,8 @@ class ChatScreen extends StatefulWidget {
   /// **TASK88**: visible-for-testing загрузчик сводки задач комнаты (иконка в
   /// шапке). Если передан — вместо `client.messenger.roomTaskStats`, чтобы
   /// widget-тест иконки не поднимал runtime. В production не передаётся.
-  final Future<RoomTaskStats> Function(int roomId)? roomTaskStatsFetcherOverride;
+  final Future<RoomTaskStats> Function(int roomId)?
+  roomTaskStatsFetcherOverride;
 
   /// **TASK88**: visible-for-testing подмена перехода к задачам комнаты по
   /// тапу на иконку в шапке. В production — push [TasksScreen] с `roomId`.
@@ -1395,10 +1396,8 @@ class _ChatScreenState extends State<ChatScreen>
     }
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => TasksScreen(
-          roomId: widget.roomId,
-          roomTitle: _roomDetails?.name,
-        ),
+        builder: (_) =>
+            TasksScreen(roomId: widget.roomId, roomTitle: _roomDetails?.name),
       ),
     );
   }
@@ -2565,10 +2564,7 @@ class _ChatScreenState extends State<ChatScreen>
                 // **TASK88**: иконка задач комнаты — видна только когда у
                 // комнаты есть задачи (сам виджет прячется при пустой сводке);
                 // при активных — бейдж с числом. Тап → список задач комнаты.
-                TasksHeaderButton(
-                  stats: _roomTaskStats,
-                  onTap: _openRoomTasks,
-                ),
+                TasksHeaderButton(stats: _roomTaskStats, onTap: _openRoomTasks),
                 if (widget.controllerOverride == null)
                   IconButton(
                     icon: const Icon(Icons.search),
@@ -3052,11 +3048,17 @@ void _openChatImageGallery(
   if (idx < 0) return;
   Navigator.of(context).push(
     MaterialPageRoute<void>(
-      builder: (_) => ChatImageGallery(
-        images: images,
-        initialIndex: idx,
-        thumbnailRpc: thumbnailRpc,
-        fullSizeRpc: fullSizeRpc,
+      // Pushed-роут строится в контексте навигатора хоста и scope SDK не
+      // наследует — без обёртки `NsgL10n.of` внутри падает на null-check
+      // (в release — серый ErrorWidget вместо галереи) у любого хоста,
+      // который не зарегистрировал делегат у себя.
+      builder: (_) => MessengerThemeScope.wrap(
+        ChatImageGallery(
+          images: images,
+          initialIndex: idx,
+          thumbnailRpc: thumbnailRpc,
+          fullSizeRpc: fullSizeRpc,
+        ),
       ),
     ),
   );
@@ -3884,9 +3886,7 @@ class _RoomTitle extends StatelessWidget {
     // `totalParticipants` уже приходит в details (его же использует блок
     // квитанций прочтения) — данные были, показа не было.
     final dimColor =
-        Theme.of(
-          context,
-        ).appBarTheme.foregroundColor?.withValues(alpha: 0.6) ??
+        Theme.of(context).appBarTheme.foregroundColor?.withValues(alpha: 0.6) ??
         Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6);
     return InkWell(
       onTap: onTap,
@@ -3925,9 +3925,9 @@ class _RoomTitle extends StatelessWidget {
                 participants: details!.participants,
                 totalParticipants: details!.totalParticipants,
                 child: Text(
-                  NsgL10n.of(context).roomParticipantsCount(
-                    details!.totalParticipants,
-                  ),
+                  NsgL10n.of(
+                    context,
+                  ).roomParticipantsCount(details!.totalParticipants),
                   style: TextStyle(fontSize: 11.5, color: dimColor),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

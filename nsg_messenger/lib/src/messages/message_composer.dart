@@ -20,6 +20,7 @@ import '../theme/overlay_surface.dart';
 import '../widgets/nsg_avatar_image.dart';
 import 'attachments/attachment_picker.dart';
 import 'attachments/clipboard_image.dart';
+import 'attachments/pasted_image.dart';
 import 'attachments/mxc_image_provider.dart';
 import 'chat_message.dart';
 import 'code_paste_detector.dart';
@@ -90,6 +91,27 @@ const Key kCommandTypeaheadPopupKey = ValueKey('command-typeahead-popup');
 ///     prefix-match; tap по item-у вставляет `@<displayName> ` в
 ///     TextField + добавляет messengerUserId в `_pendingMentions`,
 ///     отправляется при send.
+/// Место вложения — фотомозаика альбома или отдельное сообщение.
+///
+/// Условие совпадает с тем, по которому мозаика решает рисовать плитку
+/// картинкой, а галерея — листать кадр (`collectChatImages`). Разъедутся —
+/// снова получим документ в сетке фотографий.
+bool belongsInAlbum(PickedAttachment p) => p.mimeType.startsWith('image/');
+
+/// Нужен ли пачке общий `albumId`.
+///
+/// Считаем только картинки: раньше условие было «в пачке больше одного
+/// вложения ИЛИ есть подпись», и общий id получал в том числе PDF,
+/// выбранный вместе с фото, — он становился плиткой фотомозаики.
+///
+/// Одна картинка без подписи альбома не образует (обычное сообщение);
+/// одна картинка с подписью — образует, иначе подпись потеряет привязку
+/// к кадру.
+bool albumNeeded(List<PickedAttachment> pending, {required bool hasText}) {
+  final photos = pending.where(belongsInAlbum).length;
+  return photos > 1 || (photos == 1 && hasText);
+}
+
 class MessageComposer extends StatefulWidget {
   const MessageComposer({
     super.key,
@@ -1331,14 +1353,15 @@ class _MessageComposerState extends State<MessageComposer> {
       if (mounted && _pasting) setState(() => _pasting = false);
     }
     if (bytes == null || bytes.isEmpty || !mounted) return;
-    _onPastedImage(
-      PickedAttachment(
-        bytes: bytes,
-        mimeType: 'image/png',
-        originalFilename:
-            'clipboard-${DateTime.now().millisecondsSinceEpoch}.png',
-      ),
+    // Раньше байты подписывались `image/png` не глядя, а Windows кладёт в
+    // буфер BMP — Synapse такие файлы не мог уменьшить, и превью у них не
+    // появлялось никогда (см. `pastedImageAttachment`).
+    final picked = await pastedImageAttachment(
+      bytes,
+      stampMs: DateTime.now().millisecondsSinceEpoch,
     );
+    if (!mounted) return;
+    _onPastedImage(picked);
   }
 
   /// **issue #70**: только что вставленный код оформить блоком.
@@ -1412,10 +1435,27 @@ class _MessageComposerState extends State<MessageComposer> {
   /// Добавить вложение в буфер черновика (миниатюра над полем). Отправка —
   /// отложенная, по кнопке «Отправить» (см. [_submit]).
   void _addPending(PickedAttachment picked) {
-    if (!mounted) return;
+    // Композер уже уничтожен (юзер ушёл с экрана, пока читались байты) —
+    // вложение теряется, и до этой строки терялось молча: «файл не
+    // прикрепился» выглядело так же, как «файл не выбирали». Оставляем
+    // след, иначе следующая такая отладка снова пойдёт через временное
+    // логирование.
+    if (!mounted) {
+      debugPrint(
+        '[MessageComposer] вложение ${picked.originalFilename} отброшено: '
+        'композер уже размонтирован',
+      );
+      return;
+    }
     // Мягкий потолок — сверх лимита просто не добавляем (edge-case, без
     // отдельного l10n-текста).
-    if (_pending.length >= _maxPending) return;
+    if (_pending.length >= _maxPending) {
+      debugPrint(
+        '[MessageComposer] вложение ${picked.originalFilename} отброшено: '
+        'в черновике уже $_maxPending',
+      );
+      return;
+    }
     setState(() => _pending.add(picked));
   }
 
@@ -1435,15 +1475,21 @@ class _MessageComposerState extends State<MessageComposer> {
     final onSendAttachment = widget.onSendAttachment;
     if (onSendAttachment == null) return;
     // Альбом: несколько картинок (или картинки + подпись) уходят одним
-    // логическим сообщением-мозаикой — общий albumId на всю пачку. Одна
-    // картинка без подписи — обычное сообщение (albumId=null).
-    final albumId = (pending.length > 1 || text.isNotEmpty)
+    // логическим сообщением-мозаикой — общий albumId. Одна картинка без
+    // подписи — обычное сообщение (albumId=null).
+    //
+    // В альбом попадают ТОЛЬКО картинки. Раньше общий albumId получала
+    // любая пачка, и PDF, выбранный вместе с фото, оказывался плиткой
+    // фотомозаики: грузился как изображение, падал в иконку битого файла,
+    // а тап открывал чужое фото (0ac66ce чинил только тап). Файл — своё
+    // сообщение, как и в других мессенджерах.
+    final albumId = albumNeeded(pending, hasText: text.isNotEmpty)
         ? const Uuid().v4()
         : null;
     if (mounted) setState(() => _uploading = true);
     try {
       for (final p in pending) {
-        await onSendAttachment(p, albumId: albumId);
+        await onSendAttachment(p, albumId: belongsInAlbum(p) ? albumId : null);
       }
       if (text.isNotEmpty) {
         await widget.onSend(
@@ -1752,8 +1798,7 @@ class _MessageComposerState extends State<MessageComposer> {
                                 // (`splitMessageBody`), поэтому вводу и
                                 // вставке не мешаем.
                                 maxLength: kMessageBodyMaxChars,
-                                maxLengthEnforcement:
-                                    MaxLengthEnforcement.none,
+                                maxLengthEnforcement: MaxLengthEnforcement.none,
                                 // **newline ВЕЗДЕ** (issue #27). Раньше на
                                 // mobile стоял `TextInputAction.send`:
                                 // soft-клавиатура показывала «Отправить»

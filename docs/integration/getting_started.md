@@ -115,6 +115,22 @@ Notes:
   `NsgMessenger.reauthenticate()` (re-asks your `AuthTokenProvider` for a fresh
   context); `NsgMessenger.dispose()` + `init()` also works.
 - The SDK does NOT call `WidgetsFlutterBinding.ensureInitialized()` for you; your `main()` must do it.
+- **Never let two `init()` calls overlap.** Sequential re-init is supported (see
+  above); *concurrent* re-init is not. The second call resets the runtime —
+  `sessionState` drops to `uninitialised` and the event subscription is
+  cancelled — while the first is still finishing, so the first caller's RPC
+  fails. If you init lazily (e.g. on the first "Contact support" tap rather
+  than in `main()`), memoize the `Future`:
+
+  ```dart
+  static Future<void>? _initFuture;
+  static Future<void> _ensureInit() => _initFuture ??= NsgMessenger.init(...);
+  ```
+
+  A `bool _initialized` flag does **not** work here: it is only set after the
+  `await`, so a second tap during init sails straight past it. Init takes about
+  a second (issue token + create session), which is exactly long enough for a
+  user to tap twice — show a progress indicator so they don't.
 
 ## Implement `AuthTokenProvider`
 
@@ -241,7 +257,7 @@ ElevatedButton(
 Most-used public surface (see `nsg_messenger.dart` for the full export list — it is much larger than this):
 - `NsgMessenger.chatsListView({mode})` — rooms list widget.
 - `NsgMessenger.openRoom(context, roomId)` — push the room screen.
-- `NsgMessenger.openSupportChat(context, contextId: ...)` — support flow.
+- `NsgMessenger.rooms.openSupportChat(productExternalKey: ..., contextId: ...)` — support flow; returns `RoomDetails`, open it with `openRoom`. See [Support chat](#support-chat) for the full recipe.
 - `NsgMessenger.rooms` — programmatic rooms API (list/get/createDirect/createGroup, and `getOrCreateProductRoom` for per-entity rooms).
 - `NsgMessenger.messagesControllerFor(roomId)` — controller for a custom chat screen.
 - `NsgMessenger.userEventStream` / `NsgMessenger.roomStream(roomId)` — realtime events.
@@ -253,6 +269,13 @@ Most-used public surface (see `nsg_messenger.dart` for the full export list — 
 > `NsgMessenger.openProductRoom(...)` is **not implemented** — it throws
 > `UnimplementedError`. Use `NsgMessenger.rooms.getOrCreateProductRoom(...)`
 > instead.
+
+> `NsgMessenger.openSupportChat(context, contextId: ...)` is **not implemented
+> either**, and unlike `openProductRoom` it fails *silently*: it pushes
+> `SupportChatScreen`, a placeholder rendering the literal text
+> `SupportChatScreen — TASK39`. It does not throw, so nothing tells you the API
+> is unfinished — the screen just looks broken. Use the
+> [Support chat](#support-chat) recipe instead.
 
 Beyond chat, the facade also exposes calls and conferences (`callController`,
 `conferenceCalls`, `startCall`, `listCallHistory`, `registerVoipToken`),
@@ -271,9 +294,94 @@ uniformly. Standalone/admin screens **are** exported and can be pushed directly
 (`IntegrationsScreen`, `BotsAdminScreen`, `MyBotsScreen`, `BotCatalogScreen`,
 `BotCardScreen`, `PlatformAdminScreen`, `PulseScreen`,
 `ContactCardEditorScreen`), as are overlay hosts `CallOverlayHost` /
-`ConferenceOverlayHost` and widgets like `MessengerConnectionBanner`. Note that
-`openSupportChat` does **not** wrap its screen in `MessengerThemeScope` — it
-inherits the host `Theme` (see [theming.md](theming.md)).
+`ConferenceOverlayHost` and widgets like `MessengerConnectionBanner`.
+
+Note that several SDK surfaces are pushed into the **host** navigator without a
+`MessengerThemeScope` wrapper, so they inherit the host `Theme` and, more
+importantly, the host `Localizations` — see
+[Scope gaps](theming.md#scope-gaps-pushed-routes-and-modals) for the list and
+what it means for you in practice.
+
+## Support chat
+
+Embedding "Contact support" as a single button is the most common integration,
+and the whole flow is three calls. Copy this service as-is — every guard in it
+exists because its absence produced a real bug in a shipped app.
+
+```dart
+class SupportService {
+  SupportService._();
+
+  static const String productKey = 'my_product';
+
+  // Memoize the FUTURE, not a bool "already initialized" flag. A flag is only
+  // set AFTER the await, so a second tap during the ~1s init (issue token +
+  // create session) enters init again — and a second NsgMessenger.init()
+  // tears the first one down mid-flight (sessionState -> uninitialised, event
+  // subscription cancelled), making the first caller's RPC fail.
+  static Future<void>? _initFuture;
+  static bool _opening = false;
+
+  static Future<void> _ensureInit() => _initFuture ??= _init();
+
+  static Future<void> _init() async {
+    try {
+      await NsgMessenger.init(
+        apiBaseUrl: 'https://api.example.com',
+        authTokenProvider: MyProductAuthTokenProvider(),
+        mode: MessengerMode.embeddedProduct,
+        productExternalKey: productKey,
+        errorReporter: MyErrorReporter(),
+      );
+    } catch (_) {
+      _initFuture = null; // let the next attempt retry instead of sticking
+      rethrow;
+    }
+  }
+
+  static Future<void> openChat(BuildContext context) async {
+    if (_opening) return; // second tap would push a second copy of the screen
+    _opening = true;
+    try {
+      // Opening takes about a second with no visible feedback — show a
+      // progress indicator, otherwise users tap again and race you.
+      final RoomDetails room;
+      final progress = showMyProgressDialog();
+      try {
+        await _ensureInit();
+        room = await NsgMessenger.rooms.openSupportChat(
+          productExternalKey: productKey,
+          contextId: 'general', // 'general' | 'bug' | 'idea' — scopes the room
+        );
+      } finally {
+        // Hide BEFORE pushing: openRoom does not return until the chat is
+        // closed, so hiding in the outer finally leaves the dialog on top of
+        // the conversation.
+        progress.hide();
+      }
+      if (!context.mounted) return;
+      _opening = false;
+      await NsgMessenger.openRoom(context, room.id);
+    } catch (e, s) {
+      myErrorReporter.capture(e, s);
+      showSnack('Support is temporarily unavailable.');
+    } finally {
+      _opening = false;
+    }
+  }
+}
+```
+
+Repeat calls with the same `contextId` reopen the same room. `NsgMessenger
+.openMyTickets(context)` opens the "my requests" screen and needs the same
+`_ensureInit()` in front of it.
+
+Prerequisites, both easy to miss:
+- `NsgL10n.delegate` must be registered on your `MaterialApp` — see
+  [Localization](#localization-required). Without it the attachment picker
+  inside the chat opens as a blank grey rectangle.
+- Server side (issued-token flow) must be wired first — see
+  [CONNECT_PRODUCT_QUICKSTART.md](../CONNECT_PRODUCT_QUICKSTART.md).
 
 ## Push notifications (optional)
 
@@ -300,9 +408,26 @@ Notes:
 
 Pass `NsgMessengerTheme` to `init()` to override the SDK's `ColorScheme`, `TextTheme`, and domain tokens (bubble radius, room tile padding, etc). Without an override the SDK reads `Theme.of(context)` from your `MaterialApp.theme` and uses fallback constants for domain tokens. See [theming.md](theming.md) for the full token reference and dark-mode patterns.
 
-## Localization (optional)
+## Localization (required)
 
-The SDK ships RU + EN locales. The host app must register `NsgL10n.localizationsDelegates` + `NsgL10n.supportedLocales` on its `MaterialApp` (see the embed snippet above). System locale resolves automatically; override at init via `locale:`. Adding a new locale or auditing the key surface: see [i18n.md](i18n.md).
+The SDK ships RU + EN locales. The host app **must** register
+`NsgL10n.localizationsDelegates` + `NsgL10n.supportedLocales` on its
+`MaterialApp` (see the embed snippet above). System locale resolves
+automatically; override at init via `locale:`. Adding a new locale or auditing
+the key surface: see [i18n.md](i18n.md).
+
+This is not a cosmetic step, and skipping it fails in a way that is genuinely
+hard to diagnose. `NsgL10n.of(context)` is
+`Localizations.of<NsgL10n>(context, NsgL10n)!` — with no delegate registered
+the null-check throws, and in a **release** build Flutter replaces the widget
+with a blank grey `ErrorWidget`: no message, no stack, nothing in the log. A
+reported symptom of exactly this was "the attachment sheet opens empty".
+
+`MessengerThemeScope` supplies the delegate inside SDK routes, so most of the
+chat keeps working and the breakage looks random — only modals and pushed
+routes are affected (see
+[Scope gaps](theming.md#scope-gaps-pushed-routes-and-modals)). Registering the
+delegate on the host `MaterialApp` is what makes those work.
 
 ## Runtime config (optional)
 
@@ -315,3 +440,11 @@ For designer iteration (no backend required) there is a theming sandbox that boo
 <!-- verified against commit 8bc4d82 (2026-07-27) -->
 
 > **Verification convention:** the marker above pins each doc to a known-good commit. When the SDK's public API changes in a way that breaks examples here, the PR author should re-verify the snippets in this file and update the marker. CI does not auto-enforce this — it's a manual convention to catch documentation drift during review.
+>
+> "Re-verify" means **run it**, not read it. Reading is what let this file
+> recommend `NsgMessenger.openSupportChat(...)` for months while it pushed a
+> `TASK39` placeholder: the call compiles, the signature is honest, and only
+> executing it reveals the screen is a stub. Unimplemented surfaces that throw
+> are caught by a compile-and-run pass; ones that silently render a placeholder
+> are not. `apps/spike_ui/` boots the widgets against in-memory fixtures with no
+> backend and is the cheapest place to do this.

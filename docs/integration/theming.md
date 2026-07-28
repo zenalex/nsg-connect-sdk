@@ -153,7 +153,36 @@ Both token classes are `ThemeExtension` subclasses, so they participate in `Them
 
 ## `MessengerThemeScope` usage
 
-`MessengerThemeScope` is the widget that overlays `NsgMessengerTheme` on top of `Theme.of(context)`. You rarely instantiate it manually — `NsgMessenger.chatsListView()` and `NsgMessenger.openRoom(...)` always wrap their roots in it (an empty theme is handled inside the scope, see the inheritance contract above). `NsgMessenger.openSupportChat(...)` is the exception: it pushes its screen without the scope, so it inherits the host `Theme` and locale as-is.
+`MessengerThemeScope` is the widget that overlays `NsgMessengerTheme` on top of `Theme.of(context)`. You rarely instantiate it manually — `NsgMessenger.chatsListView()` and `NsgMessenger.openRoom(...)` always wrap their roots in it (an empty theme is handled inside the scope, see the inheritance contract above).
+
+### Scope gaps: pushed routes and modals
+
+The scope only covers its own subtree. Anything the SDK pushes into the **host**
+navigator, or shows via `showModalBottomSheet`, is built *outside* it and
+therefore inherits the host `Theme` and the host `Localizations` instead of the
+SDK's. Known surfaces, as of this writing:
+
+| Surface | Where |
+| --- | --- |
+| Attachment picker sheet | `showAttachmentPicker` (`attachment_picker.dart`) |
+| Fullscreen image viewer | `_FullscreenViewer` (`attachment_bubble.dart`) |
+| Chat image gallery | `ChatImageGallery` (`chat_screen.dart`) |
+| Support chat stub | `NsgMessenger.openSupportChat(...)` (unimplemented, see [getting_started.md](getting_started.md#embed-widgets)) |
+
+Two consequences for host apps:
+
+1. **The SDK theme does not reach these surfaces.** If your `NsgMessengerTheme`
+   differs sharply from `MaterialApp.theme`, they will look out of place.
+2. **The SDK's localization does not reach them either — and that one is
+   fatal.** `NsgL10n.of(context)` throws on a null-check when the host has not
+   registered `NsgL10n.delegate`, and in release the surface renders as a blank
+   grey `ErrorWidget` with no diagnostics at all. Registering the delegate on
+   the host `MaterialApp` is mandatory precisely because of these gaps — see
+   [getting_started.md § Localization](getting_started.md#localization-required).
+
+This is a known SDK limitation, not intended behavior: these routes should wrap
+themselves in `MessengerThemeScope.wrap(...)`. Until they do, the host delegate
+is the only thing keeping them alive.
 
 You **do** instantiate it manually when you embed SDK widgets in a sub-tree with different branding (e.g. one tab uses Chatista colors, another uses Futbolista):
 

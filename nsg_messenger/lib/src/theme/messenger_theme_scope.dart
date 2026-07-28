@@ -73,6 +73,38 @@ class MessengerThemeScope extends StatelessWidget {
       ],
       child: result,
     );
-    return result;
+    return _MessengerScopeMarker(theme: theme, child: result);
   }
+}
+
+/// Маркер, который «переезжает» в диалоги и шторки вместе со scope.
+///
+/// `showDialog` / `showModalBottomSheet` строят содержимое в контексте
+/// НАВИГАТОРА, а не вызывающего виджета: наш `Localizations.override`
+/// до них не доезжал, и `NsgL10n.of(context)` падал на null-check —
+/// в release это серый `ErrorWidget` вместо интерфейса. Ловилось на
+/// шторке вложений у интегратора, который не регистрировал
+/// `NsgL10n.delegate` в своём `MaterialApp` (а он и не обязан: локаль
+/// мессенджера — забота SDK).
+///
+/// Flutter переносит в такие маршруты все [InheritedTheme] вызывающего
+/// контекста (`InheritedTheme.capture`) — этим и пользуемся. Наследник
+/// обязан уметь [wrap], и в нём мы навешиваем scope заново. Так
+/// закрываются ВСЕ диалоги и шторки SDK разом, без правки каждой точки
+/// вызова: следующая добавленная шторка защищена автоматически.
+///
+/// `Navigator.push` тем и отличается, что не капчурит ничего, — такие
+/// переходы по-прежнему оборачиваются руками ([MessengerThemeScope.wrap]).
+class _MessengerScopeMarker extends InheritedTheme {
+  const _MessengerScopeMarker({required this.theme, required super.child});
+
+  final NsgMessengerTheme theme;
+
+  @override
+  Widget wrap(BuildContext context, Widget child) =>
+      MessengerThemeScope(theme: theme, child: child);
+
+  @override
+  bool updateShouldNotify(_MessengerScopeMarker oldWidget) =>
+      oldWidget.theme != theme;
 }

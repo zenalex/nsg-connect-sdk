@@ -92,7 +92,8 @@ class MxcImageProvider extends ImageProvider<MxcImageKey> {
 
   /// Лимит LRU-обрезки: инъекция (тест) → runtime.
   int get _cacheLimit =>
-      _cacheLimitOverride ?? MessengerRuntime.instance.attachmentCacheLimitBytes;
+      _cacheLimitOverride ??
+      MessengerRuntime.instance.attachmentCacheLimitBytes;
 
   @override
   Future<MxcImageKey> obtainKey(ImageConfiguration configuration) {
@@ -189,6 +190,12 @@ class MxcImageProvider extends ImageProvider<MxcImageKey> {
             width: key.width,
             height: key.height,
           );
+        } on ThumbnailUnavailableException {
+          // Штатный исход: у этого вложения превью нет и не будет
+          // (документ, произвольный файл, картинка, которую Synapse не
+          // смог уменьшить). Раньше сервер отдавал это как 500, и лог
+          // пугал красной строкой на каждом PDF в переписке. Молча идём
+          // за полным файлом — ровно то, что и делали.
         } catch (e) {
           if (kDebugMode) {
             debugPrint(

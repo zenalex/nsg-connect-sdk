@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../i18n/generated/nsg_l10n.dart';
+import '../../messenger_runtime.dart';
 import 'attachment_mime_types.dart';
 
 // Таблица «расширение → MIME» переехала в `attachment_mime_types.dart`
@@ -125,8 +126,9 @@ Future<AttachmentPickOutcome> buildAttachmentsFromCandidates(
     } else if (c.path != null) {
       try {
         bytes = await reader(c.path!);
-      } catch (_) {
-        continue; // файл исчез / нет прав — пропускаем молча
+      } catch (e, st) {
+        _reportPickFailure('readBytes(${c.name})', e, st);
+        continue; // файл исчез / нет прав
       }
     } else {
       continue; // ни байтов, ни пути — брать нечего
@@ -235,7 +237,8 @@ Future<AttachmentPickOutcome> pickFilesAttachment({int? limit}) async {
       // проверки размера.
       withData: kIsWeb,
     );
-  } catch (_) {
+  } catch (e, st) {
+    _reportPickFailure('pickFiles', e, st);
     return AttachmentPickOutcome.empty; // плагин недоступен / отказ ОС
   }
   if (result == null || result.files.isEmpty) {
@@ -266,7 +269,8 @@ Future<PickedAttachment?> pickImageAttachment(
   final XFile? file;
   try {
     file = await picker.pickImage(source: source);
-  } catch (_) {
+  } catch (e, st) {
+    _reportPickFailure('pickImage($source)', e, st);
     return null;
   }
   if (file == null) return null; // user cancelled
@@ -291,7 +295,8 @@ Future<List<PickedAttachment>> pickImagesAttachment(
   final List<XFile> files;
   try {
     files = await picker.pickMultiImage(limit: limit);
-  } catch (_) {
+  } catch (e, st) {
+    _reportPickFailure('pickMultiImage', e, st);
     return const <PickedAttachment>[];
   }
   if (files.isEmpty) return const <PickedAttachment>[];
@@ -382,4 +387,22 @@ class _AttachmentPickerSheet extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Отказ пикера — не тишина.
+///
+/// Ветки ниже глотали ошибку без следа, и «файл не прикрепился» было
+/// неотличимо от «пользователь нажал отмену». На отладке камеры в
+/// `titan_lk` это стоило трёх заходов с временным логированием — ровно
+/// той работы, которую строка лога делает бесплатно.
+///
+/// Ошибку отдаём и в трекер: если её видит пользователь, её обязан
+/// видеть и трекер (см. `MessengerRuntime.reportError`).
+void _reportPickFailure(String operation, Object error, StackTrace stack) {
+  debugPrint('[attachment_picker] $operation: $error');
+  MessengerRuntime.instance.reportError(
+    error,
+    stack,
+    tags: {'scope': 'attachment_picker', 'operation': operation},
+  );
 }

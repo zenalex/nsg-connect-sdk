@@ -9,6 +9,7 @@ import 'file_actions.dart';
 import 'file_open_sheet.dart';
 import 'mxc_image_provider.dart';
 import '../../theme/glass_blur.dart';
+import '../../theme/messenger_theme_scope.dart';
 
 /// **Оптимистичный альбом**: одна плитка мозаики — либо уже загруженная
 /// (`mxc` доступен, рендер через [MxcImageProvider]), либо ещё грузящаяся
@@ -258,6 +259,20 @@ class _MosaicTile extends StatelessWidget {
       );
     }
     final ref = (t as UploadedTile).ref;
+    // Не картинка — рисуем плиткой файла, а не пытаемся показать как
+    // изображение. Композер выдавал общий `albumId` любой пачке (это
+    // чинится на стороне отправки), но в переписке такие сообщения уже
+    // лежат: PDF грузился как картинка и падал в `errorBuilder` иконкой
+    // битого файла. Заодно исчезает запрос превью для документа — Synapse
+    // на него отвечает отказом, потому что уменьшать там нечего.
+    if (!ref.mimeType.startsWith('image/')) {
+      return _MosaicFileTile(
+        attachment: ref,
+        size: size,
+        textColor: textColor,
+        onTap: onTap,
+      );
+    }
     final image = MxcImageProvider(
       mxcUrl: ref.thumbnailMxcUrl ?? ref.mxcUrl,
       thumbnailRpc: thumbnailRpc,
@@ -295,6 +310,60 @@ class _MosaicTile extends StatelessWidget {
               size: 28,
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Плитка НЕ-картинки внутри мозаики: иконка + имя файла.
+///
+/// Тап уходит туда же, куда и у обычного файлового вложения (см.
+/// `AlbumMosaic._tapHandler`), — то есть открывает файл, а не галерею.
+class _MosaicFileTile extends StatelessWidget {
+  const _MosaicFileTile({
+    required this.attachment,
+    required this.size,
+    required this.textColor,
+    required this.onTap,
+  });
+
+  final AttachmentRef attachment;
+  final double size;
+  final Color textColor;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = attachment.originalFilename;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: size,
+        height: size,
+        color: textColor.withValues(alpha: 0.06),
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.insert_drive_file_outlined,
+              size: 30,
+              color: textColor.withValues(alpha: 0.8),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              name,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 11,
+                height: 1.2,
+                color: textColor.withValues(alpha: 0.85),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -462,12 +531,16 @@ class _ImagePreview extends StatelessWidget {
       return;
     }
     // Fallback: одиночный полноэкранный просмотр (host не подключил галерею).
+    // Обёртка обязательна: pushed-роут строится в контексте навигатора и
+    // scope SDK не наследует (см. `MessengerThemeScope`).
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => _FullscreenViewer(
-          attachment: attachment,
-          thumbnailRpc: thumbnailRpc,
-          fullSizeRpc: fullSizeRpc,
+        builder: (_) => MessengerThemeScope.wrap(
+          _FullscreenViewer(
+            attachment: attachment,
+            thumbnailRpc: thumbnailRpc,
+            fullSizeRpc: fullSizeRpc,
+          ),
         ),
       ),
     );
@@ -558,31 +631,31 @@ class _FileRow extends StatelessWidget {
           actions: FileActions.fromDownloader(fullSizeRpc),
         ),
         child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(leading, size: 28, color: textColor.withValues(alpha: 0.85)),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  attachment.originalFilename.isNotEmpty
-                      ? attachment.originalFilename
-                      : l.attachUnnamedFallback,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: textColor),
-                ),
-                Text(
-                  _formatSize(attachment.sizeBytes),
-                  style: TextStyle(
-                    color: textColor.withValues(alpha: 0.7),
-                    fontSize: 11,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(leading, size: 28, color: textColor.withValues(alpha: 0.85)),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    attachment.originalFilename.isNotEmpty
+                        ? attachment.originalFilename
+                        : l.attachUnnamedFallback,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: textColor),
                   ),
-                ),
-              ],
+                  Text(
+                    _formatSize(attachment.sizeBytes),
+                    style: TextStyle(
+                      color: textColor.withValues(alpha: 0.7),
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
