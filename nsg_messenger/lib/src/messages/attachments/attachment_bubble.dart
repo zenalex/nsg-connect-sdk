@@ -146,6 +146,30 @@ class AlbumMosaic extends StatelessWidget {
   static const double _maxW = 264;
   static const double _gap = 2;
 
+  /// Куда ведёт тап по плитке.
+  ///
+  /// Альбом собирается по общему `albumId`, а композер выдаёт его ЛЮБОЙ
+  /// пачке вложений — значит в мозаике может лежать и файл рядом с фото.
+  /// Раньше тап по любой загруженной плитке уходил в [onOpenImage], но
+  /// галерея листает только картинки (`collectChatImages`: image/* И с
+  /// миниатюрой). Тапнутого файла в её списке нет, `indexWhere` возвращал
+  /// -1, и вместо файла открывалось ПЕРВОЕ фото чата. Условие здесь
+  /// повторяет фильтр `collectChatImages` — что галерея не покажет, то
+  /// открываем как файл.
+  VoidCallback? _tapHandler(BuildContext context, AlbumTile t) {
+    // Грузящаяся плитка: mxc ещё нет, открывать нечего.
+    if (t is! UploadedTile) return null;
+    final ref = t.ref;
+    final inGallery =
+        ref.mimeType.startsWith('image/') && ref.thumbnailMxcUrl != null;
+    if (inGallery) return () => onOpenImage?.call(ref);
+    return () => openAttachment(
+      context,
+      attachment: ref,
+      actions: FileActions.fromDownloader(fullSizeRpc),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final cols = tiles.length == 1 ? 1 : 2;
@@ -167,9 +191,7 @@ class AlbumMosaic extends StatelessWidget {
                   thumbnailRpc: thumbnailRpc,
                   fullSizeRpc: fullSizeRpc,
                   textColor: textColor,
-                  onTap: t is UploadedTile
-                      ? () => onOpenImage?.call(t.ref)
-                      : null,
+                  onTap: _tapHandler(context, t),
                 ),
             ],
           ),

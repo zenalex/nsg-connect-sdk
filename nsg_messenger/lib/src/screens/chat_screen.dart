@@ -3043,8 +3043,13 @@ void _openChatImageGallery(
 ) {
   final images = collectChatImages(messages);
   if (images.isEmpty) return;
-  var idx = images.indexWhere((a) => a.mxcUrl == tapped.mxcUrl);
-  if (idx < 0) idx = 0;
+  final idx = images.indexWhere((a) => a.mxcUrl == tapped.mxcUrl);
+  // Тапнутого нет среди картинок — значит это не картинка (файл в
+  // смешанном альбоме) либо картинка без миниатюры. Раньше здесь стоял
+  // `idx = 0`, и вместо запрошенного вложения молча открывалось первое
+  // фото чата. Открывать «что-то другое» хуже, чем не открывать ничего:
+  // вызывающий код обязан роутить такие вложения в openAttachment.
+  if (idx < 0) return;
   Navigator.of(context).push(
     MaterialPageRoute<void>(
       builder: (_) => ChatImageGallery(
