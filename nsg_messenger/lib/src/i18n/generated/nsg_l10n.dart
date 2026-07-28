@@ -2599,6 +2599,54 @@ abstract class NsgL10n {
   /// **'Created'**
   String get platformAdminCreated;
 
+  /// Дерево тенант → продукт → команда: у тенанта пока нет продуктов.
+  ///
+  /// In en, this message translates to:
+  /// **'No products'**
+  String get platformAdminNoProducts;
+
+  /// У продукта команда поддержки не заведена — обращения принимать некому.
+  ///
+  /// In en, this message translates to:
+  /// **'No support team'**
+  String get platformAdminNoSupportTeam;
+
+  /// Размер команды поддержки продукта.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{Support: {count} member} other{Support: {count} members}}'**
+  String platformAdminSupportTeamSize(int count);
+
+  /// Провижн команды поддержки для продукта в ЧУЖОМ тенанте: обычный createSupportTeam ищет продукт в тенанте вызывающего и для нового тенанта упирается в курицу и яйцо.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up support'**
+  String get platformAdminCreateSupportTeam;
+
+  /// Команда уже есть — назначаем владельца (путь восстановления, когда единственный владелец ушёл).
+  ///
+  /// In en, this message translates to:
+  /// **'Change owner'**
+  String get platformAdminSetOwner;
+
+  /// Email будущего владельца команды поддержки.
+  ///
+  /// In en, this message translates to:
+  /// **'Owner email'**
+  String get platformAdminOwnerEmailLabel;
+
+  /// Резолв идёт EmailAccount → IdentityMapping → MessengerUser с фолбэком в тенант операторов.
+  ///
+  /// In en, this message translates to:
+  /// **'The person must have signed in already: the email is matched against existing users, no account is created'**
+  String get platformAdminOwnerEmailHint;
+
+  /// Отдельный текст: это не опечатка в форме, а «человек ещё не заходил», и действие другое.
+  ///
+  /// In en, this message translates to:
+  /// **'User {email} not found — they have never signed in'**
+  String platformAdminOwnerNotFound(String email);
+
   /// TASK78 п.3: заголовок платформенной админки секретов тенантов + пункт входа в настройках (виден только админам из PLATFORM_ADMIN_EMAILS).
   ///
   /// In en, this message translates to:

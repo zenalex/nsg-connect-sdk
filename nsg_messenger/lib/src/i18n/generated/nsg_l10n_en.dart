@@ -1440,6 +1440,41 @@ class NsgL10nEn extends NsgL10n {
   String get platformAdminCreated => 'Created';
 
   @override
+  String get platformAdminNoProducts => 'No products';
+
+  @override
+  String get platformAdminNoSupportTeam => 'No support team';
+
+  @override
+  String platformAdminSupportTeamSize(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Support: $count members',
+      one: 'Support: $count member',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get platformAdminCreateSupportTeam => 'Set up support';
+
+  @override
+  String get platformAdminSetOwner => 'Change owner';
+
+  @override
+  String get platformAdminOwnerEmailLabel => 'Owner email';
+
+  @override
+  String get platformAdminOwnerEmailHint =>
+      'The person must have signed in already: the email is matched against existing users, no account is created';
+
+  @override
+  String platformAdminOwnerNotFound(String email) {
+    return 'User $email not found — they have never signed in';
+  }
+
+  @override
   String get platformAdminTitle => 'Platform';
 
   @override

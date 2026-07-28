@@ -45,6 +45,20 @@ class _PlatformAdminScreenState extends State<PlatformAdminScreen> {
   late final NsgMessengerPlatformAdmin _admin;
   late Future<List<ConnectTenantStatus>> _tenantsFuture;
 
+  /// Продукты по ключу тенанта. Грузим ЛЕНИВО, при раскрытии узла:
+  /// тенантов может быть много, а состав продуктов нужен не у каждого.
+  final Map<String, List<ProductAdminView>> _products = {};
+  final Set<String> _productsLoading = {};
+
+  Future<void> _loadProducts(String tenantKey) async {
+    if (_productsLoading.contains(tenantKey)) return;
+    _productsLoading.add(tenantKey);
+    final list = await _admin.listProducts(tenantExternalKey: tenantKey);
+    _productsLoading.remove(tenantKey);
+    if (!mounted) return;
+    setState(() => _products[tenantKey] = list);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -167,6 +181,47 @@ class _PlatformAdminScreenState extends State<PlatformAdminScreen> {
     return result;
   }
 
+  /// Завести команду поддержки продукта, назначив владельца по email.
+  ///
+  /// Владелец — обязательно человек, который УЖЕ входил в мессенджер:
+  /// email резолвится в существующего пользователя (с фолбэком в тенант
+  /// операторов `nsg`), а не заводит учётку. Поэтому отказ «email не
+  /// резолвится» — отдельный текст: это не опечатка в форме, а «человек
+  /// ещё ни разу не заходил».
+  Future<void> _provisionSupportTeam(
+    String tenantKey,
+    ProductAdminView product,
+  ) async {
+    final l = NsgL10n.of(context);
+    final email = await showDialog<String>(
+      context: context,
+      builder: (ctx) => _OwnerEmailDialog(product: product),
+    );
+    if (email == null || email.isEmpty || !mounted) return;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    try {
+      await _admin.provisionSupportTeam(
+        tenantExternalKey: tenantKey,
+        productExternalKey: product.externalKey,
+        ownerEmail: email,
+      );
+    } catch (e) {
+      messenger?.showSnackBar(
+        SnackBar(
+          content: Text(
+            e is OperatorEmailNotResolvedException
+                ? l.platformAdminOwnerNotFound(e.email)
+                : l.platformAdminActionFailed,
+          ),
+        ),
+      );
+      return;
+    }
+    messenger?.showSnackBar(SnackBar(content: Text(l.platformAdminCreated)));
+    _products.remove(tenantKey);
+    await _loadProducts(tenantKey);
+  }
+
   Future<void> _createTenant() async {
     final l = NsgL10n.of(context);
     final input = await _askKeyAndName(l.platformAdminCreateTenant);
@@ -218,6 +273,59 @@ class _PlatformAdminScreenState extends State<PlatformAdminScreen> {
       return;
     }
     messenger?.showSnackBar(SnackBar(content: Text(l.platformAdminCreated)));
+  }
+
+  /// Строки продуктов тенанта в раскрытом узле.
+  List<Widget> _productRows(String tenantKey) {
+    final l = NsgL10n.of(context);
+    final list = _products[tenantKey];
+    if (list == null) {
+      return const [
+        Padding(
+          padding: EdgeInsets.all(12),
+          child: Center(
+            child: SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+        ),
+      ];
+    }
+    if (list.isEmpty) {
+      return [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+          child: Text(
+            l.platformAdminNoProducts,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
+      ];
+    }
+    return [
+      for (final p in list)
+        ListTile(
+          dense: true,
+          leading: const Icon(Icons.widgets_outlined, size: 20),
+          title: Text('${p.displayName} (${p.externalKey})'),
+          subtitle: Text(
+            p.hasSupportTeam
+                ? l.platformAdminSupportTeamSize(p.supportTeamSize)
+                : l.platformAdminNoSupportTeam,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          trailing: TextButton(
+            onPressed: () => _provisionSupportTeam(tenantKey, p),
+            child: Text(
+              p.hasSupportTeam
+                  ? l.platformAdminSetOwner
+                  : l.platformAdminCreateSupportTeam,
+            ),
+          ),
+        ),
+    ];
   }
 
   /// Причина отказа словами: «ключ не годится» и «занято» — разные
@@ -342,13 +450,22 @@ class _PlatformAdminScreenState extends State<PlatformAdminScreen> {
               padding: const EdgeInsets.only(bottom: 24),
               physics: const AlwaysScrollableScrollPhysics(),
               itemCount: tenants.length,
-              itemBuilder: (context, i) => _TenantTile(
-                status: tenants[i],
-                onEnableGenerate: () => _enableAndGenerate(tenants[i]),
-                onRotate: () => _rotate(tenants[i]),
-                onDisable: () => _disable(tenants[i]),
-                onShowAudit: () => _showAudit(tenants[i]),
-              ),
+              itemBuilder: (context, i) {
+                final key = _keyOf(tenants[i]);
+                return _TenantTile(
+                  status: tenants[i],
+                  onEnableGenerate: () => _enableAndGenerate(tenants[i]),
+                  onRotate: () => _rotate(tenants[i]),
+                  onDisable: () => _disable(tenants[i]),
+                  onShowAudit: () => _showAudit(tenants[i]),
+                  onExpansionChanged: (open) {
+                    if (open && !_products.containsKey(key)) {
+                      _loadProducts(key);
+                    }
+                  },
+                  products: _productRows(key),
+                );
+              },
             );
           },
         ),
@@ -367,7 +484,16 @@ class _TenantTile extends StatelessWidget {
     required this.onRotate,
     required this.onDisable,
     required this.onShowAudit,
+    required this.products,
+    required this.onExpansionChanged,
   });
+
+  /// Содержимое раскрытого узла: продукты тенанта (или заглушка).
+  final List<Widget> products;
+
+  /// Раскрытие грузит продукты лениво: тенантов может быть много, а
+  /// список продуктов нужен не для каждого.
+  final ValueChanged<bool> onExpansionChanged;
 
   final ConnectTenantStatus status;
   final VoidCallback onEnableGenerate;
@@ -397,8 +523,13 @@ class _TenantTile extends StatelessWidget {
       status.hasSecret ? l.platformAdminSecretSet : l.platformAdminSecretMissing,
     ].join(' · ');
 
-    return ListTile(
-      isThreeLine: graceUntil != null,
+    // Дерево «тенант → продукт → команда поддержки»: продукты раньше не
+    // показывались ВООБЩЕ — завести можно было, увидеть нет, и понять,
+    // у какого продукта есть поддержка, было негде.
+    return ExpansionTile(
+      onExpansionChanged: onExpansionChanged,
+      childrenPadding: const EdgeInsets.only(left: 16, bottom: 8),
+      tilePadding: const EdgeInsets.symmetric(horizontal: 16),
       leading: Icon(
         enabled ? Icons.vpn_key_outlined : Icons.key_off_outlined,
         color: enabled
@@ -472,6 +603,7 @@ class _TenantTile extends StatelessWidget {
           ),
         ],
       ),
+      children: products,
     );
   }
 
@@ -745,6 +877,73 @@ class _KeyNameDialogState extends State<_KeyNameDialog> {
           onPressed: () => Navigator.of(context).pop(
             (key: _key.text.trim(), name: _name.text.trim()),
           ),
+          child: Text(l.platformAdminCreateAction),
+        ),
+      ],
+    );
+  }
+}
+
+
+/// Диалог «email владельца команды поддержки».
+///
+/// Контроллер принадлежит диалогу — см. [_KeyNameDialog] о том, почему
+/// освобождать его сразу после `await showDialog` нельзя.
+class _OwnerEmailDialog extends StatefulWidget {
+  const _OwnerEmailDialog({required this.product});
+
+  final ProductAdminView product;
+
+  @override
+  State<_OwnerEmailDialog> createState() => _OwnerEmailDialogState();
+}
+
+class _OwnerEmailDialogState extends State<_OwnerEmailDialog> {
+  final _email = TextEditingController();
+
+  @override
+  void dispose() {
+    _email.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = NsgL10n.of(context);
+    return AlertDialog(
+      title: Text(
+        widget.product.hasSupportTeam
+            ? l.platformAdminSetOwner
+            : l.platformAdminCreateSupportTeam,
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${widget.product.displayName} (${widget.product.externalKey})',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _email,
+            autofocus: true,
+            keyboardType: TextInputType.emailAddress,
+            decoration: InputDecoration(
+              labelText: l.platformAdminOwnerEmailLabel,
+              helperText: l.platformAdminOwnerEmailHint,
+              helperMaxLines: 3,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l.commonCancel),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(_email.text.trim()),
           child: Text(l.platformAdminCreateAction),
         ),
       ],

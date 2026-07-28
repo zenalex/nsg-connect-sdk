@@ -1463,6 +1463,43 @@ class NsgL10nRu extends NsgL10n {
   String get platformAdminCreated => 'Создано';
 
   @override
+  String get platformAdminNoProducts => 'Продуктов нет';
+
+  @override
+  String get platformAdminNoSupportTeam => 'Команда поддержки не заведена';
+
+  @override
+  String platformAdminSupportTeamSize(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Поддержка: $count участника',
+      many: 'Поддержка: $count участников',
+      few: 'Поддержка: $count участника',
+      one: 'Поддержка: $count участник',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get platformAdminCreateSupportTeam => 'Завести поддержку';
+
+  @override
+  String get platformAdminSetOwner => 'Сменить владельца';
+
+  @override
+  String get platformAdminOwnerEmailLabel => 'Email владельца';
+
+  @override
+  String get platformAdminOwnerEmailHint =>
+      'Человек должен уже входить в мессенджер: email ищется среди существующих пользователей, учётка не создаётся';
+
+  @override
+  String platformAdminOwnerNotFound(String email) {
+    return 'Пользователь $email не найден — он ещё ни разу не входил';
+  }
+
+  @override
   String get platformAdminTitle => 'Платформа';
 
   @override

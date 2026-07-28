@@ -31,6 +31,18 @@ typedef CreateTenantRpc =
       required String name,
     });
 
+/// Продукты тенанта (второй уровень дерева «тенант → продукт → команда»).
+typedef ListProductsRpc =
+    Future<List<ProductAdminView>> Function({required String tenantExternalKey});
+
+/// Завести команду поддержки продукта и назначить владельца по email.
+typedef ProvisionSupportTeamRpc =
+    Future<void> Function({
+      required String tenantExternalKey,
+      required String productExternalKey,
+      required String ownerEmail,
+    });
+
 /// Завести продукт внутри tenant-а.
 typedef CreateProductRpc =
     Future<void> Function({
@@ -62,12 +74,16 @@ class NsgMessengerPlatformAdmin {
     required ListTenantsRpc listTenantsRpc,
     required CreateTenantRpc createTenantRpc,
     required CreateProductRpc createProductRpc,
+    required ListProductsRpc listProductsRpc,
+    required ProvisionSupportTeamRpc provisionSupportTeamRpc,
     required EnableAndGenerateRpc enableAndGenerateRpc,
     required RotateTenantSecretRpc rotateSecretRpc,
     required DisableTenantRpc disableRpc,
     required TenantStatusRpc statusRpc,
     required ListTenantAuditEventsRpc listAuditEventsRpc,
-  }) : _createTenantRpc = createTenantRpc,
+  }) : _listProductsRpc = listProductsRpc,
+       _provisionSupportTeamRpc = provisionSupportTeamRpc,
+       _createTenantRpc = createTenantRpc,
        _createProductRpc = createProductRpc,
        _isPlatformAdminRpc = isPlatformAdminRpc,
        _listTenantsRpc = listTenantsRpc,
@@ -80,6 +96,8 @@ class NsgMessengerPlatformAdmin {
   final IsPlatformAdminRpc _isPlatformAdminRpc;
   final ListTenantsRpc _listTenantsRpc;
   final CreateTenantRpc _createTenantRpc;
+  final ListProductsRpc _listProductsRpc;
+  final ProvisionSupportTeamRpc _provisionSupportTeamRpc;
   final CreateProductRpc _createProductRpc;
   final EnableAndGenerateRpc _enableAndGenerateRpc;
   final RotateTenantSecretRpc _rotateSecretRpc;
@@ -110,6 +128,25 @@ class NsgMessengerPlatformAdmin {
         () => client.connectTenantAdmin.listTenants(),
         session(),
       ),
+      listProductsRpc: ({required String tenantExternalKey}) => withAuthRetry(
+        () => client.connectTenantAdmin.listProducts(
+          tenantExternalKey: tenantExternalKey,
+        ),
+        session(),
+      ),
+      provisionSupportTeamRpc:
+          ({
+            required String tenantExternalKey,
+            required String productExternalKey,
+            required String ownerEmail,
+          }) => withAuthRetry(
+            () => client.connectTenantAdmin.provisionSupportTeam(
+              tenantExternalKey: tenantExternalKey,
+              productExternalKey: productExternalKey,
+              ownerEmail: ownerEmail,
+            ),
+            session(),
+          ),
       createTenantRpc: ({required String externalKey, required String name}) =>
           withAuthRetry(
             () => client.connectTenantAdmin.createTenant(
@@ -180,6 +217,8 @@ class NsgMessengerPlatformAdmin {
     // компилироваться после обновления SDK.
     CreateTenantRpc? createTenantRpc,
     CreateProductRpc? createProductRpc,
+    ListProductsRpc? listProductsRpc,
+    ProvisionSupportTeamRpc? provisionSupportTeamRpc,
     required EnableAndGenerateRpc enableAndGenerateRpc,
     required RotateTenantSecretRpc rotateSecretRpc,
     required DisableTenantRpc disableRpc,
@@ -199,6 +238,17 @@ class NsgMessengerPlatformAdmin {
           required String externalKey,
           required String displayName,
         }) => throw UnimplementedError('createProductRpc не задан'),
+    listProductsRpc:
+        listProductsRpc ??
+        ({required String tenantExternalKey}) async =>
+            const <ProductAdminView>[],
+    provisionSupportTeamRpc:
+        provisionSupportTeamRpc ??
+        ({
+          required String tenantExternalKey,
+          required String productExternalKey,
+          required String ownerEmail,
+        }) => throw UnimplementedError('provisionSupportTeamRpc не задан'),
     enableAndGenerateRpc: enableAndGenerateRpc,
     rotateSecretRpc: rotateSecretRpc,
     disableRpc: disableRpc,
@@ -260,6 +310,31 @@ class NsgMessengerPlatformAdmin {
     tenantExternalKey: tenantExternalKey,
     externalKey: externalKey,
     displayName: displayName,
+  );
+
+  /// Продукты тенанта. Сбой деградирует в пустой список — как listTenants:
+  /// экран покажет «продуктов нет» вместо «что-то пошло не так», а решать
+  /// доступ всё равно серверу.
+  Future<List<ProductAdminView>> listProducts({
+    required String tenantExternalKey,
+  }) async {
+    try {
+      return await _listProductsRpc(tenantExternalKey: tenantExternalKey);
+    } catch (_) {
+      return const <ProductAdminView>[];
+    }
+  }
+
+  /// Завести команду поддержки продукта, назначив владельца по email.
+  /// Ошибку НЕ глотаем: экран обязан сказать, почему не вышло.
+  Future<void> provisionSupportTeam({
+    required String tenantExternalKey,
+    required String productExternalKey,
+    required String ownerEmail,
+  }) => _provisionSupportTeamRpc(
+    tenantExternalKey: tenantExternalKey,
+    productExternalKey: productExternalKey,
+    ownerEmail: ownerEmail,
   );
 
   Future<String> enableAndGenerate({required String tenantExternalKey}) =>
