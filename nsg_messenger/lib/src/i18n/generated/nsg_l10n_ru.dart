@@ -701,6 +701,9 @@ class NsgL10nRu extends NsgL10n {
   String get supportTeamEmpty => 'В команде пока нет участников';
 
   @override
+  String get supportTeamAddByEmail => 'По email';
+
+  @override
   String get supportTeamAddHint => 'Добавить оператора по email';
 
   @override

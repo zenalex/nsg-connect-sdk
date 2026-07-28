@@ -210,6 +210,7 @@
 
   "supportTeamTitle": "Команда поддержки",
   "supportTeamEmpty": "В команде пока нет участников",
+  "supportTeamAddByEmail": "По email",
   "supportTeamAddHint": "Добавить оператора по email",
   "supportTeamAddAction": "Добавить",
   "supportTeamRemoveAction": "Удалить",

@@ -63,6 +63,34 @@ class SupportTeamController extends ChangeNotifier {
   /// НЕ временный сбой, и генеричное «попробуйте ещё раз» тут вредный
   /// совет: повтор не поможет, пока человек хоть раз не войдёт в
   /// приложение. Взводим [lastAddNotFound], чтобы экран сказал это прямо.
+  /// Добавить оператора, выбранного ИЗ СПИСКА людей мессенджера.
+  ///
+  /// Основной путь: внутри мессенджера человек уже существует, и набирать
+  /// его email — лишняя работа с шансом опечататься. [addMember] по email
+  /// остаётся для внешних систем.
+  Future<bool> addMemberById(int messengerUserId, {int tier = 1}) async {
+    lastAddNotFound = false;
+    final current = _state;
+    if (current is! SupportTeamReady) return false;
+    _emit(current.copyWith(busy: true));
+    try {
+      final view = await _rpc.addMemberById(
+        productExternalKey: productExternalKey,
+        messengerUserId: messengerUserId,
+        tier: tier,
+      );
+      _emit(SupportTeamReady(view: view));
+      return true;
+    } on PeerUnavailableException {
+      lastAddNotFound = true;
+      _emit(current.copyWith(busy: false));
+      return false;
+    } catch (_) {
+      _emit(current.copyWith(busy: false));
+      return false;
+    }
+  }
+
   Future<bool> addMember(String email, {int tier = 1}) async {
     lastAddNotFound = false;
     final trimmed = email.trim();

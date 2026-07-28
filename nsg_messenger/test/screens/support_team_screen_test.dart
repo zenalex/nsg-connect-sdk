@@ -309,8 +309,11 @@ void main() {
       ..addError = PeerUnavailableException();
     await pumpPushed(tester, rpc);
 
+    // Email теперь запасной путь: основной — выбор из списка людей.
+    await tester.tap(find.text('By email'));
+    await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'nobody@nsg.ru');
-    await tester.tap(find.text('Add'));
+    await tester.tap(find.text('Add').last); // кнопка в диалоге
     await tester.pumpAndSettle();
 
     expect(rpc.addCalls, 1);
@@ -334,6 +337,7 @@ class _FakeRpc implements SupportTeamRpc {
 
   int getCalls = 0;
   int addCalls = 0;
+  int? lastAddUserId;
   int removeCalls = 0;
   Object? addError;
 
@@ -343,6 +347,18 @@ class _FakeRpc implements SupportTeamRpc {
   }) async {
     getCalls++;
     if (getError != null) throw getError!;
+    return _view;
+  }
+
+  @override
+  Future<SupportTeamView> addMemberById({
+    required String productExternalKey,
+    required int messengerUserId,
+    int tier = 1,
+  }) async {
+    addCalls++;
+    lastAddUserId = messengerUserId;
+    if (addError != null) throw addError!;
     return _view;
   }
 

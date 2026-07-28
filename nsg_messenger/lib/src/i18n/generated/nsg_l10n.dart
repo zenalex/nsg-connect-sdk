@@ -1255,6 +1255,12 @@ abstract class NsgL10n {
   /// **'No team members yet'**
   String get supportTeamEmpty;
 
+  /// Запасной путь добавления оператора: человека ещё нет в мессенджере, из списка его не выбрать. Основной путь — выбор из контактов.
+  ///
+  /// In en, this message translates to:
+  /// **'By email'**
+  String get supportTeamAddByEmail;
+
   /// TASK43: hint text of the add-member email input.
   ///
   /// In en, this message translates to:

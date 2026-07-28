@@ -5,6 +5,7 @@ import 'package:nsg_connect_client/nsg_connect_client.dart';
 
 import '../i18n/generated/nsg_l10n.dart';
 import '../messenger_runtime.dart';
+import 'user_picker_screen.dart';
 import '../support/support_team_controller.dart';
 import '../support/support_team_rpc.dart';
 import '../support/support_team_state.dart';
@@ -301,32 +302,57 @@ class _SupportTeamScreenState extends State<SupportTeamScreen> {
     );
   }
 
+  /// Добавление оператора — ВЫБОРОМ из списка людей.
+  ///
+  /// Раньше здесь было поле email: чтобы позвать коллегу, которого видно в
+  /// списке контактов, приходилось вспоминать и набирать его почту. Email
+  /// остаётся запасным путём — для тех, кого в мессенджере ещё нет.
   Widget _buildAddBar(NsgL10n l, bool busy) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
       child: Row(
         children: [
           Expanded(
-            child: TextField(
-              controller: _emailCtl,
-              enabled: !busy,
-              keyboardType: TextInputType.emailAddress,
-              decoration: InputDecoration(
-                hintText: l.supportTeamAddHint,
-                isDense: true,
-                border: const OutlineInputBorder(),
-              ),
-              onSubmitted: busy ? null : (_) => _add(l),
+            child: FilledButton.icon(
+              onPressed: busy ? null : () => _pickAndAdd(l),
+              icon: const Icon(Icons.person_add_alt),
+              label: Text(l.supportTeamAddAction),
             ),
           ),
           const SizedBox(width: 8),
-          FilledButton(
-            onPressed: busy ? null : () => _add(l),
-            child: Text(l.supportTeamAddAction),
+          TextButton(
+            onPressed: busy ? null : () => _addByEmail(l),
+            child: Text(l.supportTeamAddByEmail),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _pickAndAdd(NsgL10n l) async {
+    final picked = await pickMessengerUser(
+      context,
+      title: l.supportTeamAddAction,
+    );
+    if (picked == null || !mounted) return;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final ok = await _controller.addMemberById(picked.messengerUserId);
+    if (!mounted || ok) return;
+    messenger?.showSnackBar(
+      SnackBar(content: Text(l.supportTeamActionFailed)),
+    );
+  }
+
+  /// Запасной путь: человек ещё не заходил в мессенджер, из списка его не
+  /// выбрать — тогда email.
+  Future<void> _addByEmail(NsgL10n l) async {
+    final email = await showDialog<String>(
+      context: context,
+      builder: (ctx) => _EmailPromptDialog(l: l),
+    );
+    if (email == null || email.trim().isEmpty || !mounted) return;
+    _emailCtl.text = email.trim();
+    await _add(l);
   }
 
   /// **TASK48 iter2**: порог авто-эскалации команды (owner может править).
@@ -501,4 +527,52 @@ enum _MemberAction {
   makeOwner,
   revokeOwner,
   remove,
+}
+
+
+/// Ввод email — запасной путь добавления оператора.
+///
+/// Контроллер принадлежит диалогу: освобождать его сразу после
+/// `await showDialog` нельзя — маршрут ещё анимируется прочь.
+class _EmailPromptDialog extends StatefulWidget {
+  const _EmailPromptDialog({required this.l});
+
+  final NsgL10n l;
+
+  @override
+  State<_EmailPromptDialog> createState() => _EmailPromptDialogState();
+}
+
+class _EmailPromptDialogState extends State<_EmailPromptDialog> {
+  final _ctl = TextEditingController();
+
+  @override
+  void dispose() {
+    _ctl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.l.supportTeamAddByEmail),
+      content: TextField(
+        controller: _ctl,
+        autofocus: true,
+        keyboardType: TextInputType.emailAddress,
+        decoration: InputDecoration(hintText: widget.l.supportTeamAddHint),
+        onSubmitted: (v) => Navigator.of(context).pop(v),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(widget.l.commonCancel),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(_ctl.text),
+          child: Text(widget.l.supportTeamAddAction),
+        ),
+      ],
+    );
+  }
 }

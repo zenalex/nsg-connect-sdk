@@ -46,6 +46,13 @@ abstract class SupportTeamRpc {
   /// [NotSupportTeamMemberException] (команда чужая).
   Future<SupportTeamView> createTeam({required String productExternalKey});
 
+  /// Добавить оператора ВЫБОРОМ из списка людей (email — для внешних).
+  Future<SupportTeamView> addMemberById({
+    required String productExternalKey,
+    required int messengerUserId,
+    int tier,
+  });
+
   /// **TASK76**: сменить роль участника `owner` ↔ `member` (owner-only,
   /// назначение других админов). Обновлённый view.
   Future<SupportTeamView> setMemberRole({
@@ -131,6 +138,21 @@ class ClientSupportTeamRpc implements SupportTeamRpc {
       minutes: minutes,
     ),
     _session,
+  );
+
+  @override
+  @override
+  Future<SupportTeamView> addMemberById({
+    required String productExternalKey,
+    required int messengerUserId,
+    int tier = 1,
+  }) => withAuthRetry(
+    () => _client.messenger.addSupportTeamMemberById(
+      productExternalKey: productExternalKey,
+      messengerUserId: messengerUserId,
+      tier: tier,
+    ),
+    MessengerRuntime.instance.sessionManager,
   );
 
   @override

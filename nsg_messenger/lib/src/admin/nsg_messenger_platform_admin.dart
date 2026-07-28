@@ -41,6 +41,7 @@ typedef ProvisionSupportTeamRpc =
       required String tenantExternalKey,
       required String productExternalKey,
       String? ownerEmail,
+      int? ownerMessengerUserId,
     });
 
 /// Завести продукт внутри tenant-а.
@@ -139,11 +140,13 @@ class NsgMessengerPlatformAdmin {
             required String tenantExternalKey,
             required String productExternalKey,
             String? ownerEmail,
+            int? ownerMessengerUserId,
           }) => withAuthRetry(
             () => client.connectTenantAdmin.provisionSupportTeam(
               tenantExternalKey: tenantExternalKey,
               productExternalKey: productExternalKey,
               ownerEmail: ownerEmail,
+              ownerMessengerUserId: ownerMessengerUserId,
             ),
             session(),
           ),
@@ -248,6 +251,7 @@ class NsgMessengerPlatformAdmin {
           required String tenantExternalKey,
           required String productExternalKey,
           String? ownerEmail,
+          int? ownerMessengerUserId,
         }) => throw UnimplementedError('provisionSupportTeamRpc не задан'),
     enableAndGenerateRpc: enableAndGenerateRpc,
     rotateSecretRpc: rotateSecretRpc,
@@ -333,10 +337,12 @@ class NsgMessengerPlatformAdmin {
     required String tenantExternalKey,
     required String productExternalKey,
     String? ownerEmail,
+    int? ownerMessengerUserId,
   }) => _provisionSupportTeamRpc(
     tenantExternalKey: tenantExternalKey,
     productExternalKey: productExternalKey,
     ownerEmail: ownerEmail,
+    ownerMessengerUserId: ownerMessengerUserId,
   );
 
   Future<String> enableAndGenerate({required String tenantExternalKey}) =>

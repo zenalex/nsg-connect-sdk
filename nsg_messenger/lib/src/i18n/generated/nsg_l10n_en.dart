@@ -687,6 +687,9 @@ class NsgL10nEn extends NsgL10n {
   String get supportTeamEmpty => 'No team members yet';
 
   @override
+  String get supportTeamAddByEmail => 'By email';
+
+  @override
   String get supportTeamAddHint => 'Add operator by email';
 
   @override

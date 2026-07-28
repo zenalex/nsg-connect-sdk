@@ -933,6 +933,8 @@
   "@supportTeamEmpty": {
     "description": "TASK43: empty state when the support team has no members."
   },
+  "supportTeamAddByEmail": "By email",
+  "@supportTeamAddByEmail": { "description": "Запасной путь добавления оператора: человека ещё нет в мессенджере, из списка его не выбрать. Основной путь — выбор из контактов." },
   "supportTeamAddHint": "Add operator by email",
   "@supportTeamAddHint": {
     "description": "TASK43: hint text of the add-member email input."

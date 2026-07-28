@@ -927,6 +927,7 @@ class EndpointConnectTenantAdmin extends _i2.EndpointRef {
     required String tenantExternalKey,
     required String productExternalKey,
     String? ownerEmail,
+    int? ownerMessengerUserId,
   }) => caller.callServerEndpoint<void>(
     'connectTenantAdmin',
     'provisionSupportTeam',
@@ -934,6 +935,7 @@ class EndpointConnectTenantAdmin extends _i2.EndpointRef {
       'tenantExternalKey': tenantExternalKey,
       'productExternalKey': productExternalKey,
       'ownerEmail': ownerEmail,
+      'ownerMessengerUserId': ownerMessengerUserId,
     },
   );
 
@@ -3431,6 +3433,28 @@ class EndpointMessenger extends _i2.EndpointRef {
     {
       'productExternalKey': productExternalKey,
       'email': email,
+      'tier': tier,
+    },
+  );
+
+  /// **Добавить оператора ВЫБОРОМ из списка людей** — вместо ввода email.
+  ///
+  /// Email остаётся для внешних систем и для тех, кого в мессенджере ещё
+  /// нет; внутри выбирать человека естественнее из списка, а не набирать
+  /// строку, в которой можно опечататься.
+  ///
+  /// Throws как [addSupportTeamMember]; [PeerUnavailableException] — если
+  /// пользователя с таким id нет.
+  _i3.Future<_i62.SupportTeamView> addSupportTeamMemberById({
+    required String productExternalKey,
+    required int messengerUserId,
+    int? tier,
+  }) => caller.callServerEndpoint<_i62.SupportTeamView>(
+    'messenger',
+    'addSupportTeamMemberById',
+    {
+      'productExternalKey': productExternalKey,
+      'messengerUserId': messengerUserId,
       'tier': tier,
     },
   );

@@ -7,6 +7,7 @@ import '../messenger_runtime.dart';
 import '../utils/relative_time.dart';
 import 'integrations_screen.dart' show CopyableField;
 import 'support_team_screen.dart';
+import 'user_picker_screen.dart';
 
 /// **TASK78 п.3 (админка секретов тенантов)**: экран платформенного
 /// управления issued-token-режимом tenant-ов — то, что раньше делалось
@@ -197,20 +198,23 @@ class _PlatformAdminScreenState extends State<PlatformAdminScreen> {
     // Кто заводит поддержку — тот и владелец. Спрашивать email у того, кто
     // прямо сейчас жмёт кнопку, — вопрос с очевидным ответом; email нужен
     // только когда владельцем НАЗНАЧАЮТ другого («Сменить владельца»).
-    String? email;
+    // Владельца ВЫБИРАЕМ из людей мессенджера: набирать email того, кто
+    // и так есть в списке, — лишняя работа с шансом опечататься.
+    int? ownerId;
     if (product.hasSupportTeam) {
-      email = await showDialog<String>(
-        context: context,
-        builder: (ctx) => _OwnerEmailDialog(product: product),
+      final picked = await pickMessengerUser(
+        context,
+        title: l.platformAdminSetOwner,
       );
-      if (email == null || email.isEmpty || !mounted) return;
+      if (picked == null || !mounted) return;
+      ownerId = picked.messengerUserId;
     }
     final messenger = ScaffoldMessenger.maybeOf(context);
     try {
       await _admin.provisionSupportTeam(
         tenantExternalKey: tenantKey,
         productExternalKey: product.externalKey,
-        ownerEmail: email,
+        ownerMessengerUserId: ownerId,
       );
     } catch (e) {
       messenger?.showSnackBar(
@@ -927,68 +931,3 @@ class _KeyNameDialogState extends State<_KeyNameDialog> {
 }
 
 
-/// Диалог «email владельца команды поддержки».
-///
-/// Контроллер принадлежит диалогу — см. [_KeyNameDialog] о том, почему
-/// освобождать его сразу после `await showDialog` нельзя.
-class _OwnerEmailDialog extends StatefulWidget {
-  const _OwnerEmailDialog({required this.product});
-
-  final ProductAdminView product;
-
-  @override
-  State<_OwnerEmailDialog> createState() => _OwnerEmailDialogState();
-}
-
-class _OwnerEmailDialogState extends State<_OwnerEmailDialog> {
-  final _email = TextEditingController();
-
-  @override
-  void dispose() {
-    _email.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l = NsgL10n.of(context);
-    return AlertDialog(
-      title: Text(
-        widget.product.hasSupportTeam
-            ? l.platformAdminSetOwner
-            : l.platformAdminCreateSupportTeam,
-      ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '${widget.product.displayName} (${widget.product.externalKey})',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _email,
-            autofocus: true,
-            keyboardType: TextInputType.emailAddress,
-            decoration: InputDecoration(
-              labelText: l.platformAdminOwnerEmailLabel,
-              helperText: l.platformAdminOwnerEmailHint,
-              helperMaxLines: 3,
-            ),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(l.commonCancel),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.of(context).pop(_email.text.trim()),
-          child: Text(l.platformAdminCreateAction),
-        ),
-      ],
-    );
-  }
-}

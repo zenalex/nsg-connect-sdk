@@ -427,6 +427,7 @@ class _FakeRpc implements SupportTeamRpc {
   int setTimeoutCalls = 0;
   String? lastAddEmail;
   int? lastAddTier;
+  int? lastAddUserId;
   int? lastRemoveMuid;
   int? lastTierMuid;
   int? lastTierValue;
@@ -439,6 +440,19 @@ class _FakeRpc implements SupportTeamRpc {
     getCalls++;
     if (getError != null) throw getError!;
     return getResult!;
+  }
+
+  @override
+  Future<SupportTeamView> addMemberById({
+    required String productExternalKey,
+    required int messengerUserId,
+    int tier = 1,
+  }) async {
+    addCalls++;
+    lastAddUserId = messengerUserId;
+    lastAddTier = tier;
+    if (addError != null) throw addError!;
+    return addResult!;
   }
 
   @override
