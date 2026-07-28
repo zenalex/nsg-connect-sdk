@@ -327,6 +327,31 @@ class MessageBubble extends StatelessWidget {
         : Color.alphaBlend(rawBubble, ink);
     final textColor = isOwn ? colors.onPrimaryContainer : colors.onSurface;
 
+    // **Акцент поверх акцента.** Тот же корень, вид сбоку: в glass-темах
+    // `primary` — ЭТО цвет обоев (у sunset и ember нижние пятна ровно он),
+    // а свой пузырь — тот же акцент под 33%. Ссылки, упоминания, имя
+    // автора, шапка цитаты красились чистым `primary` — выходило
+    // «оранжевое по оранжевому». Оттенок сохраняем, светлоту двигаем к
+    // цвету текста ровно настолько, чтобы взять порог контраста.
+    final accent = readableAccent(
+      colors.primary,
+      bubbleColor,
+      toward: textColor,
+    );
+    // Цитата лежит на своей (более тёмной) плашке — акцент для неё
+    // считаем от ЕЁ фона, иначе в светлых темах он оказывается ярче, чем
+    // нужно, а в тёмных — тусклее.
+    final quoteSurface = highlightSurface(
+      bubbleColor,
+      theme.brightness,
+      strength: HighlightStrength.subtle,
+    );
+    final quoteAccent = readableAccent(
+      colors.primary,
+      quoteSurface,
+      toward: textColor,
+    );
+
     final align = isOwn ? CrossAxisAlignment.end : CrossAxisAlignment.start;
     final mainAlign = isOwn ? MainAxisAlignment.end : MainAxisAlignment.start;
 
@@ -432,7 +457,7 @@ class MessageBubble extends StatelessWidget {
                             name: _resolveSenderName(),
                             isBot: _senderIsBot,
                             botLabel: l.supportTeamBotBadge,
-                            accentColor: colors.primary,
+                            accentColor: accent,
                           ),
                         if (isTombstone)
                           Text(
@@ -452,7 +477,7 @@ class MessageBubble extends StatelessWidget {
                               // координаты первоисточника, И обработчик.
                               source: message.forwardedSource,
                               onTap: onForwardedHeaderTap,
-                              accentColor: theme.colorScheme.primary,
+                              accentColor: accent,
                             ),
                           // TASK16-A: reply chip ПЕРЕД attachment/body.
                           if (message.replyToMessageId != null)
@@ -462,12 +487,8 @@ class MessageBubble extends StatelessWidget {
                               onTap: onReplyChipTap,
                               participantsByMatrixId: participantsByMatrixId,
                               textColor: textColor,
-                              accentColor: theme.colorScheme.primary,
-                              quoteSurface: highlightSurface(
-                                bubbleColor,
-                                theme.brightness,
-                                strength: HighlightStrength.subtle,
-                              ),
+                              accentColor: quoteAccent,
+                              quoteSurface: quoteSurface,
                             ),
                           // **TASK58 (автопост статусов)**: сообщение с
                           // msgType `nsg.status_card` И распарсенной карточкой
@@ -510,7 +531,7 @@ class MessageBubble extends StatelessWidget {
                                 participantsByMessengerId:
                                     participantsByMessengerId,
                                 textColor: textColor,
-                                mentionColor: theme.colorScheme.primary,
+                                mentionColor: accent,
                               ),
                           ] else ...[
                             // **Оптимистичный альбом**: одиночное грузящееся
@@ -546,7 +567,7 @@ class MessageBubble extends StatelessWidget {
                                 participantsByMessengerId:
                                     participantsByMessengerId,
                                 textColor: textColor,
-                                mentionColor: theme.colorScheme.primary,
+                                mentionColor: accent,
                               ),
                           ],
                         ],
@@ -558,7 +579,7 @@ class MessageBubble extends StatelessWidget {
                           _ThreadLink(
                             replyCount: threadReplyCount!,
                             onTap: onOpenThread!,
-                            accentColor: theme.colorScheme.primary,
+                            accentColor: accent,
                           ),
                         const SizedBox(height: 4),
                         Row(
@@ -596,7 +617,7 @@ class MessageBubble extends StatelessWidget {
                                 readByPeerCount: readByPeerCount,
                                 isGroupChat: isGroupChat,
                                 onTapReadStatus: onTapReadStatus,
-                                accentColor: theme.colorScheme.primary,
+                                accentColor: accent,
                               ),
                             ],
                           ],
@@ -1425,15 +1446,12 @@ class _BodyTextState extends State<_BodyText> {
     }
     if (allowed.isEmpty) return TextSpan(children: mdSpans);
 
-    // Акцент упоминания читается не на всяком пузыре: на своём он почти
-    // совпадает с фоном. Не дотянул до порога — красим основным цветом,
-    // отличая полужирным: нечитаемый акцент хуже отсутствия акцента.
+    // Акцент приходит уже подогнанным под ФОН ПУЗЫРЯ (см. `readableAccent`
+    // в `MessageBubble.build`) — упоминание лежит прямо на нём, плашки под
+    // ним нет. Раньше здесь мерили контраст от подложки КОДА: величина
+    // мимо, и на своём пузыре упоминание сливалось с фоном.
     final mentionStyle = base.copyWith(
-      color: ensureReadable(
-        widget.mentionColor,
-        widget.highlightColor,
-        fallback: widget.textColor,
-      ),
+      color: widget.mentionColor,
       fontWeight: FontWeight.w600,
     );
     return TextSpan(

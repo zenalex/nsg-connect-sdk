@@ -14,6 +14,7 @@ import 'package:uuid/uuid.dart';
 
 import '../i18n/generated/nsg_l10n.dart';
 import '../messenger_runtime.dart';
+import '../theme/highlight_surface.dart';
 import '../theme/nsg_messenger_theme.dart';
 import '../theme/overlay_surface.dart';
 import '../widgets/nsg_avatar_image.dart';
@@ -2100,6 +2101,30 @@ class _AlbumEditAttachmentsStrip extends StatelessWidget {
   );
 }
 
+/// Фон чипа над полем ввода и цвет его акцентной черты.
+///
+/// Чипы висят в самом низу экрана — там, где у glass-палитр как раз самое
+/// светлое пятно обоев. Фон `surfaceContainerHighest` полупрозрачный, так
+/// что оранжевая черта с оранжевым текстом ложились на оранжевое пятно:
+/// ровно «оранжевое по оранжевому» из жалобы владельца. Кладём чип на
+/// опорный тон палитры и уже от НЕГО подбираем акцент, сохраняя оттенок
+/// (у edit-чипов он намеренно НЕ темовый — им положено отличаться от
+/// reply).
+({Color plate, Color accent}) _chipColors(ThemeData theme, Color rawAccent) {
+  final plate = inkedSurface(
+    theme.colorScheme.surfaceContainerHighest,
+    theme.extension<NsgMessageBubbleTokens>()?.bubbleInk,
+  );
+  return (
+    plate: plate,
+    accent: readableAccent(
+      rawAccent,
+      plate,
+      toward: theme.colorScheme.onSurface,
+    ),
+  );
+}
+
 /// **Редактирование альбома**: индикатор-чип над полем (аналог
 /// [_EditDraftChip], но с иконкой мозаики и текстом «Редактирование альбома»).
 class _AlbumEditDraftChip extends StatelessWidget {
@@ -2111,11 +2136,11 @@ class _AlbumEditDraftChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l = NsgL10n.of(context);
-    final accent = Colors.orange.shade700;
+    final (:plate, :accent) = _chipColors(theme, Colors.orange.shade700);
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
+        color: plate,
         border: Border(left: BorderSide(color: accent, width: 3)),
       ),
       child: Row(
@@ -2161,16 +2186,15 @@ class _ReplyDraftChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l = NsgL10n.of(context);
+    final (:plate, :accent) = _chipColors(theme, theme.colorScheme.primary);
     final preview = target.body.isNotEmpty
         ? target.body
         : (target.attachment?.originalFilename ?? '');
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
-        border: Border(
-          left: BorderSide(color: theme.colorScheme.primary, width: 3),
-        ),
+        color: plate,
+        border: Border(left: BorderSide(color: accent, width: 3)),
       ),
       child: Row(
         children: [
@@ -2184,7 +2208,7 @@ class _ReplyDraftChip extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: theme.colorScheme.primary,
+                    color: accent,
                     fontWeight: FontWeight.w600,
                     fontSize: 12,
                   ),
@@ -2227,14 +2251,14 @@ class _EditDraftChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l = NsgL10n.of(context);
-    final accent = Colors.orange.shade700;
+    final (:plate, :accent) = _chipColors(theme, Colors.orange.shade700);
     final preview = target.body.isNotEmpty
         ? target.body
         : (target.attachment?.originalFilename ?? '');
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
+        color: plate,
         border: Border(left: BorderSide(color: accent, width: 3)),
       ),
       child: Row(

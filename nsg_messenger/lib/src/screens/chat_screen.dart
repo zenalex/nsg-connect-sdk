@@ -2967,6 +2967,17 @@ class _JumpToLatestButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    // Кнопка висит над обоями в правом нижнем углу — ровно там, где у
+    // sunset и ember самое светлое пятно. Фон по умолчанию
+    // (`primaryContainer`) в glass-темах полупрозрачный, и кнопка на этом
+    // пятне превращалась в еле заметное облачко (скриншот владельца).
+    // Кладём её на опорный тон палитры — силуэт перестаёт зависеть от
+    // подложки.
+    final fabColor = inkedSurface(
+      theme.colorScheme.primaryContainer,
+      theme.extension<NsgMessageBubbleTokens>()?.bubbleInk,
+    );
     return IgnorePointer(
       ignoring: !visible,
       child: AnimatedOpacity(
@@ -2984,6 +2995,8 @@ class _JumpToLatestButton extends StatelessWidget {
               key: const Key('chatJumpToLatestButton'),
               heroTag: null,
               tooltip: NsgL10n.of(context).chatJumpToLatestTooltip,
+              backgroundColor: fabColor,
+              foregroundColor: theme.colorScheme.onPrimaryContainer,
               onPressed: onTap,
               child: const Icon(Icons.keyboard_arrow_down),
             ),
@@ -4506,6 +4519,15 @@ class _SearchResultTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // Плашка найденного лежит на ОБОЯХ: в glass-темах `surface` прозрачен
+    // насквозь, и `ensureReadable(primary, surface)` мерил контраст с
+    // чёрным — то есть всегда «проходил», а на светлом пятне обоев акцент
+    // сливался с фоном. Делаем плашку непрозрачной опорным тоном палитры
+    // и уже от НЕЁ подбираем акцент.
+    final plate = inkedSurface(
+      highlightSurface(theme.colorScheme.surface, theme.brightness),
+      theme.extension<NsgMessageBubbleTokens>()?.bubbleInk,
+    );
     return ListTile(
       onTap: onTap,
       title: Text(
@@ -4522,20 +4544,17 @@ class _SearchResultTile extends StatelessWidget {
         baseStyle: theme.textTheme.bodyMedium?.copyWith(
           color: theme.colorScheme.onSurface.withValues(alpha: 0.85),
         ),
-        // Найденное красим акцентом ТОЛЬКО если он читается на этом фоне
-        // (см. ensureReadable): иначе совпадение подсвечено цветом, но
-        // разглядеть его труднее, чем обычный текст.
+        // Найденное красим акцентом, подогнанным под плашку: оттенок тот
+        // же, светлота — такая, чтобы совпадение было видно, а не «оно
+        // подсвечено, но разглядеть труднее обычного текста».
         highlightStyle: theme.textTheme.bodyMedium?.copyWith(
-          color: ensureReadable(
+          color: readableAccent(
             theme.colorScheme.primary,
-            theme.colorScheme.surface,
-            fallback: theme.colorScheme.onSurface,
+            plate,
+            toward: theme.colorScheme.onSurface,
           ),
           fontWeight: FontWeight.w700,
-          backgroundColor: highlightSurface(
-            theme.colorScheme.surface,
-            theme.brightness,
-          ),
+          backgroundColor: plate,
         ),
       ),
       trailing: Text(
