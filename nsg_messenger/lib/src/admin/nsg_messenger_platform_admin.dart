@@ -40,7 +40,7 @@ typedef ProvisionSupportTeamRpc =
     Future<void> Function({
       required String tenantExternalKey,
       required String productExternalKey,
-      required String ownerEmail,
+      String? ownerEmail,
     });
 
 /// Завести продукт внутри tenant-а.
@@ -138,7 +138,7 @@ class NsgMessengerPlatformAdmin {
           ({
             required String tenantExternalKey,
             required String productExternalKey,
-            required String ownerEmail,
+            String? ownerEmail,
           }) => withAuthRetry(
             () => client.connectTenantAdmin.provisionSupportTeam(
               tenantExternalKey: tenantExternalKey,
@@ -247,7 +247,7 @@ class NsgMessengerPlatformAdmin {
         ({
           required String tenantExternalKey,
           required String productExternalKey,
-          required String ownerEmail,
+          String? ownerEmail,
         }) => throw UnimplementedError('provisionSupportTeamRpc не задан'),
     enableAndGenerateRpc: enableAndGenerateRpc,
     rotateSecretRpc: rotateSecretRpc,
@@ -327,10 +327,12 @@ class NsgMessengerPlatformAdmin {
 
   /// Завести команду поддержки продукта, назначив владельца по email.
   /// Ошибку НЕ глотаем: экран обязан сказать, почему не вышло.
+  /// [ownerEmail] пуст — владельцем становится сам вызывающий: спрашивать
+  /// «чей email» у того, кто прямо сейчас заводит поддержку, незачем.
   Future<void> provisionSupportTeam({
     required String tenantExternalKey,
     required String productExternalKey,
-    required String ownerEmail,
+    String? ownerEmail,
   }) => _provisionSupportTeamRpc(
     tenantExternalKey: tenantExternalKey,
     productExternalKey: productExternalKey,

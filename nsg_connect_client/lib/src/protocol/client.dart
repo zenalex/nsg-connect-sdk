@@ -926,7 +926,7 @@ class EndpointConnectTenantAdmin extends _i2.EndpointRef {
   _i3.Future<void> provisionSupportTeam({
     required String tenantExternalKey,
     required String productExternalKey,
-    required String ownerEmail,
+    String? ownerEmail,
   }) => caller.callServerEndpoint<void>(
     'connectTenantAdmin',
     'provisionSupportTeam',

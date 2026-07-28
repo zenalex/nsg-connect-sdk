@@ -1475,6 +1475,9 @@ class NsgL10nEn extends NsgL10n {
   }
 
   @override
+  String get platformAdminSupportMembers => 'Members';
+
+  @override
   String get platformAdminTitle => 'Platform';
 
   @override

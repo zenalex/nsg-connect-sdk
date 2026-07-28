@@ -2017,6 +2017,8 @@
   "@platformAdminOwnerEmailHint": { "description": "Резолв идёт EmailAccount → IdentityMapping → MessengerUser с фолбэком в тенант операторов." },
   "platformAdminOwnerNotFound": "User {email} not found — they have never signed in",
   "@platformAdminOwnerNotFound": { "description": "Отдельный текст: это не опечатка в форме, а «человек ещё не заходил», и действие другое.", "placeholders": { "email": { "type": "String" } } },
+  "platformAdminSupportMembers": "Members",
+  "@platformAdminSupportMembers": { "description": "Главное действие у продукта с командой: состав. Операторов добавляют постоянно, владельца меняют раз в жизни — поэтому состав кнопкой, а смена владельца в меню." },
   "platformAdminTitle": "Platform",
   "@platformAdminTitle": {
     "description": "TASK78 п.3: заголовок платформенной админки секретов тенантов + пункт входа в настройках (виден только админам из PLATFORM_ADMIN_EMAILS)."

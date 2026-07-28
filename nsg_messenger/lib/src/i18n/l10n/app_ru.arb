@@ -450,6 +450,7 @@
   "platformAdminOwnerEmailLabel": "Email владельца",
   "platformAdminOwnerEmailHint": "Человек должен уже входить в мессенджер: email ищется среди существующих пользователей, учётка не создаётся",
   "platformAdminOwnerNotFound": "Пользователь {email} не найден — он ещё ни разу не входил",
+  "platformAdminSupportMembers": "Участники",
   "platformAdminTitle": "Платформа",
   "platformAdminEmpty": "Тенантов нет — или нет доступа. Список отдаётся только платформенным админам.",
   "platformAdminActionFailed": "Не получилось — попробуйте ещё раз",

@@ -6,6 +6,7 @@ import '../i18n/generated/nsg_l10n.dart';
 import '../messenger_runtime.dart';
 import '../utils/relative_time.dart';
 import 'integrations_screen.dart' show CopyableField;
+import 'support_team_screen.dart';
 
 /// **TASK78 п.3 (админка секретов тенантов)**: экран платформенного
 /// управления issued-token-режимом tenant-ов — то, что раньше делалось
@@ -193,11 +194,17 @@ class _PlatformAdminScreenState extends State<PlatformAdminScreen> {
     ProductAdminView product,
   ) async {
     final l = NsgL10n.of(context);
-    final email = await showDialog<String>(
-      context: context,
-      builder: (ctx) => _OwnerEmailDialog(product: product),
-    );
-    if (email == null || email.isEmpty || !mounted) return;
+    // Кто заводит поддержку — тот и владелец. Спрашивать email у того, кто
+    // прямо сейчас жмёт кнопку, — вопрос с очевидным ответом; email нужен
+    // только когда владельцем НАЗНАЧАЮТ другого («Сменить владельца»).
+    String? email;
+    if (product.hasSupportTeam) {
+      email = await showDialog<String>(
+        context: context,
+        builder: (ctx) => _OwnerEmailDialog(product: product),
+      );
+      if (email == null || email.isEmpty || !mounted) return;
+    }
     final messenger = ScaffoldMessenger.maybeOf(context);
     try {
       await _admin.provisionSupportTeam(
@@ -275,6 +282,22 @@ class _PlatformAdminScreenState extends State<PlatformAdminScreen> {
     messenger?.showSnackBar(SnackBar(content: Text(l.platformAdminCreated)));
   }
 
+  /// Открыть состав команды поддержки продукта — тот же экран, которым
+  /// пользуются операторы: добавление по email, роли, тиры.
+  ///
+  /// Раньше отсюда до него было не добраться: экран искал команду в
+  /// тенанте вызывающего, а команда продукта живёт в своём (см. серверный
+  /// поиск команды по членству).
+  Future<void> _openSupportTeam(ProductAdminView product) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            SupportTeamScreen(productExternalKey: product.externalKey),
+      ),
+    );
+    if (mounted) setState(() {});
+  }
+
   /// Строки продуктов тенанта в раскрытом узле.
   List<Widget> _productRows(String tenantKey) {
     final l = NsgL10n.of(context);
@@ -316,14 +339,33 @@ class _PlatformAdminScreenState extends State<PlatformAdminScreen> {
                 : l.platformAdminNoSupportTeam,
             style: Theme.of(context).textTheme.bodySmall,
           ),
-          trailing: TextButton(
-            onPressed: () => _provisionSupportTeam(tenantKey, p),
-            child: Text(
-              p.hasSupportTeam
-                  ? l.platformAdminSetOwner
-                  : l.platformAdminCreateSupportTeam,
-            ),
-          ),
+          // У продукта с командой главное действие — состав, а не смена
+          // владельца: добавлять операторов приходится постоянно, менять
+          // владельца — раз в жизни. Поэтому «Участники» кнопкой, а смена
+          // владельца — в меню.
+          trailing: p.hasSupportTeam
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextButton(
+                      onPressed: () => _openSupportTeam(p),
+                      child: Text(l.platformAdminSupportMembers),
+                    ),
+                    PopupMenuButton<String>(
+                      onSelected: (_) => _provisionSupportTeam(tenantKey, p),
+                      itemBuilder: (_) => [
+                        PopupMenuItem(
+                          value: 'owner',
+                          child: Text(l.platformAdminSetOwner),
+                        ),
+                      ],
+                    ),
+                  ],
+                )
+              : TextButton(
+                  onPressed: () => _provisionSupportTeam(tenantKey, p),
+                  child: Text(l.platformAdminCreateSupportTeam),
+                ),
         ),
     ];
   }

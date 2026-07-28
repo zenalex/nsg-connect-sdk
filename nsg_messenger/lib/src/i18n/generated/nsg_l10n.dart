@@ -2647,6 +2647,12 @@ abstract class NsgL10n {
   /// **'User {email} not found — they have never signed in'**
   String platformAdminOwnerNotFound(String email);
 
+  /// Главное действие у продукта с командой: состав. Операторов добавляют постоянно, владельца меняют раз в жизни — поэтому состав кнопкой, а смена владельца в меню.
+  ///
+  /// In en, this message translates to:
+  /// **'Members'**
+  String get platformAdminSupportMembers;
+
   /// TASK78 п.3: заголовок платформенной админки секретов тенантов + пункт входа в настройках (виден только админам из PLATFORM_ADMIN_EMAILS).
   ///
   /// In en, this message translates to:

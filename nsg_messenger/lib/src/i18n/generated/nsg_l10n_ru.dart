@@ -1500,6 +1500,9 @@ class NsgL10nRu extends NsgL10n {
   }
 
   @override
+  String get platformAdminSupportMembers => 'Участники';
+
+  @override
   String get platformAdminTitle => 'Платформа';
 
   @override
