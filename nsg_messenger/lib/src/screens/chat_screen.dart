@@ -3128,7 +3128,11 @@ class _DateSeparatorLabel extends StatelessWidget {
         margin: margin,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
         decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.28),
+          // Плашка лежит ПРЯМО НА ОБОЯХ, а они неравномерные: над светлым
+          // пятном чёрный под 28% давал серый, и белый текст на нём тонул.
+          // Плотнее фон + тени (см. kOnWallpaperTextShadows) — вместе они
+          // держат читаемость над любым пятном.
+          color: Colors.black.withValues(alpha: 0.65),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Text(
@@ -3138,6 +3142,7 @@ class _DateSeparatorLabel extends StatelessWidget {
             fontSize: 12,
             fontWeight: FontWeight.w500,
             letterSpacing: 0.2,
+            shadows: kOnWallpaperTextShadows,
           ),
         ),
       ),

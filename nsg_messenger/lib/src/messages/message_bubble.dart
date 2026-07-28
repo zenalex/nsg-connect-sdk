@@ -307,9 +307,24 @@ class MessageBubble extends StatelessWidget {
         theme.extension<NsgMessageBubbleTokens>() ??
         NsgMessageBubbleTokens.fallback;
 
-    final bubbleColor = isOwn
+    // **Читаемость поверх обоев.** В glass-темах пузырь полупрозрачный
+    // (свой — акцент под 33%, чужой — белый под 18%) и лежит прямо на
+    // обоях, а обои неравномерные: внизу экрана, где как раз свежие
+    // сообщения, у палитр самые светлые пятна — светлый текст на
+    // посветлевшем пузыре переставал читаться.
+    //
+    // Накладываем пузырь на опорный тёмный тон палитры (`bubbleInk`) —
+    // он становится непрозрачным, и контраст больше не зависит от того,
+    // какое пятно обоев оказалось под сообщением. «Стекло» остаётся
+    // видно вокруг пузырей, в шапке и в поле ввода — то есть там, где
+    // под ним нет текста.
+    final rawBubble = isOwn
         ? colors.primaryContainer
         : colors.surfaceContainerHighest;
+    final ink = tokens.bubbleInk;
+    final bubbleColor = ink == null
+        ? rawBubble
+        : Color.alphaBlend(rawBubble, ink);
     final textColor = isOwn ? colors.onPrimaryContainer : colors.onSurface;
 
     final align = isOwn ? CrossAxisAlignment.end : CrossAxisAlignment.start;

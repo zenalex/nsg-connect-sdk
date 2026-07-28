@@ -177,7 +177,19 @@ class ChatistaTheme {
     // Bubble shape — same soft 22 / 6 as Crema; design source-of-truth
     // (glass-conv.jsx) inherits radii from the same screen-conversation
     // spec. Peer-tail bottom-LEFT — same Telegram convention.
-    const bubbleTokens = NsgMessageBubbleTokens(
+    // Опорный тёмный тон палитры: пузыри полупрозрачные и лежат на
+    // обоях, а обои неравномерные — внизу экрана, где свежие сообщения,
+    // самые светлые пятна. Накладываем пузырь на этот тон, и читаемость
+    // перестаёт зависеть от того, какое пятно оказалось под сообщением.
+    final paletteInk = switch (palette) {
+      GlassPalette.sunset => const Color(0xFF2A1428),
+      GlassPalette.oceanic => const Color(0xFF0F1F38),
+      GlassPalette.aurora => const Color(0xFF13092E),
+      GlassPalette.ember => const Color(0xFF2A0F0F),
+    };
+    final bubbleTokens = NsgMessageBubbleTokens(
+      bubbleInk: paletteInk,
+
       radiusOwn: BorderRadius.only(
         topLeft: Radius.circular(22),
         topRight: Radius.circular(22),

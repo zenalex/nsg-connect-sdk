@@ -158,6 +158,7 @@ class NsgMessageBubbleTokens extends ThemeExtension<NsgMessageBubbleTokens> {
     required this.statusIconSize,
     required this.interBubbleSpacing,
     required this.composerPadding,
+    this.bubbleInk,
   });
 
   /// Border-radius для own (sender) bubble. Стандартно
@@ -171,6 +172,22 @@ class NsgMessageBubbleTokens extends ThemeExtension<NsgMessageBubbleTokens> {
 
   /// Inner padding содержимого bubble (text + status icon).
   final EdgeInsets padding;
+
+  /// **Непрозрачный тон ПОД полупрозрачным пузырём.**
+  ///
+  /// В glass-темах пузырь — это белый под 18% (чужой) или акцент под 33%
+  /// (свой), и лежит он прямо на обоях. Обои неравномерные: внизу экрана,
+  /// где как раз свежие сообщения, у палитр самые светлые пятна — там
+  /// светлый текст на посветлевшем пузыре и переставал читаться.
+  ///
+  /// Пузырь накладывается на этот тон и становится непрозрачным, поэтому
+  /// контраст перестаёт зависеть от того, какое пятно обоев оказалось под
+  /// сообщением. Обои по-прежнему видны вокруг пузырей, в шапке и в поле
+  /// ввода — «стекло» остаётся там, где под ним нет текста.
+  ///
+  /// `null` — тема непрозрачная сама по себе (светлая), накладывать не на
+  /// что и не нужно.
+  final Color? bubbleInk;
 
   /// Доля экрана для max-width bubble (0.0..1.0). На phone-portrait
   /// 0.78 даёт ~78% ширины — стандарт мессенджеров.
@@ -214,6 +231,7 @@ class NsgMessageBubbleTokens extends ThemeExtension<NsgMessageBubbleTokens> {
 
   @override
   NsgMessageBubbleTokens copyWith({
+    Color? bubbleInk,
     BorderRadius? radiusOwn,
     BorderRadius? radiusPeer,
     EdgeInsets? padding,
@@ -229,6 +247,7 @@ class NsgMessageBubbleTokens extends ThemeExtension<NsgMessageBubbleTokens> {
     statusIconSize: statusIconSize ?? this.statusIconSize,
     interBubbleSpacing: interBubbleSpacing ?? this.interBubbleSpacing,
     composerPadding: composerPadding ?? this.composerPadding,
+    bubbleInk: bubbleInk ?? this.bubbleInk,
   );
 
   @override
@@ -251,6 +270,7 @@ class NsgMessageBubbleTokens extends ThemeExtension<NsgMessageBubbleTokens> {
       composerPadding:
           EdgeInsets.lerp(composerPadding, other.composerPadding, t) ??
           composerPadding,
+      bubbleInk: Color.lerp(bubbleInk, other.bubbleInk, t),
     );
   }
 
