@@ -31,10 +31,14 @@ List<InlineSpan> parseMarkdownToSpans(
   String text, {
   required TextStyle baseStyle,
   required Color accentColor,
+  /// Подложка код-плашек. Приходит СНАРУЖИ, потому что считается от фона
+  /// пузыря, который парсер не знает: раньше подложка бралась от цвета
+  /// текста и в тёмной теме сливалась с ним (issue про читаемость).
+  Color? codeBackground,
 }) {
   if (text.isEmpty) return const <InlineSpan>[];
   try {
-    return _parseWithCodeBlocks(text, baseStyle, accentColor);
+    return _parseWithCodeBlocks(text, baseStyle, accentColor, codeBackground);
   } on FormatException {
     // Web: Dart RegExp компилируется в JS RegExp БРАУЗЕРА. На старых
     // движках экзотика (unicode property escapes и т.п.) кидает
@@ -74,8 +78,11 @@ List<InlineSpan> _parseWithCodeBlocks(
   String text,
   TextStyle baseStyle,
   Color accentColor,
+  Color? codeBackground,
 ) {
-  if (!text.contains('```')) return _parsePass(text, baseStyle, accentColor);
+  if (!text.contains('```')) {
+    return _parsePass(text, baseStyle, accentColor, codeBackground);
+  }
   final spans = <InlineSpan>[];
   var cursor = 0;
   while (cursor < text.length) {
@@ -86,15 +93,22 @@ List<InlineSpan> _parseWithCodeBlocks(
         ? closed
         : open;
     if (m == null) {
-      spans.addAll(_parsePass(text.substring(cursor), baseStyle, accentColor));
+      spans.addAll(
+        _parsePass(text.substring(cursor), baseStyle, accentColor, codeBackground),
+      );
       break;
     }
     if (m.start > cursor) {
       spans.addAll(
-        _parsePass(text.substring(cursor, m.start), baseStyle, accentColor),
+        _parsePass(
+          text.substring(cursor, m.start),
+          baseStyle,
+          accentColor,
+          codeBackground,
+        ),
       );
     }
-    spans.add(_codeBlockSpan(m.group(2) ?? '', baseStyle));
+    spans.add(_codeBlockSpan(m.group(2) ?? '', baseStyle, codeBackground));
     cursor = m.end;
   }
   return spans;
@@ -113,13 +127,13 @@ Match? _firstMatch(RegExp re, String text, int start) {
 /// решить, сворачивать ли длинное сообщение, а placeholder без заданных
 /// размеров этот замер ломает. Подложка средствами `TextStyle` даёт
 /// нужный вид без отдельного layout-а.
-InlineSpan _codeBlockSpan(String code, TextStyle base) {
+InlineSpan _codeBlockSpan(String code, TextStyle base, Color? background) {
   return TextSpan(
     text: code.trimRight(),
     style: base.copyWith(
       fontFamily: 'monospace',
       fontFamilyFallback: const ['Courier New', 'DejaVu Sans Mono', 'Menlo'],
-      backgroundColor: base.color?.withValues(alpha: 0.12),
+      backgroundColor: background ?? base.color?.withValues(alpha: 0.12),
       letterSpacing: 0,
       height: 1.35,
     ),
@@ -139,6 +153,7 @@ List<InlineSpan> _parsePass(
   String text,
   TextStyle baseStyle,
   Color accentColor,
+  Color? codeBackground,
 ) {
   if (text.isEmpty) return const <InlineSpan>[];
   final spans = <InlineSpan>[];
@@ -173,7 +188,14 @@ List<InlineSpan> _parsePass(
         ),
       );
     }
-    spans.add(earliest.rule.build(earliest.match, baseStyle, accentColor));
+    spans.add(
+      earliest.rule.build(
+        earliest.match,
+        baseStyle,
+        accentColor,
+        codeBackground,
+      ),
+    );
     cursor = earliest.match.end;
   }
   return spans;
@@ -193,7 +215,16 @@ class _Rule {
   /// проверяем кодом по символу перед матчем (см. [_notPrecededBy]).
   final RegExp? notBefore;
 
-  final InlineSpan Function(Match m, TextStyle baseStyle, Color accentColor)
+  /// `codeBackground` прокидывается сквозь вложенные правила: подложка
+  /// код-плашки считается от фона пузыря снаружи (см.
+  /// [parseMarkdownToSpans]), а `` `код` `` может встретиться и внутри
+  /// жирного или курсива.
+  final InlineSpan Function(
+    Match m,
+    TextStyle baseStyle,
+    Color accentColor,
+    Color? codeBackground,
+  )
   build;
 }
 
@@ -258,7 +289,7 @@ final _notWord = RegExp(r'[\p{L}\p{N}_]', unicode: true);
 final List<_Rule> _rules = [
   _Rule(
     regex: _codeRe,
-    build: (m, base, _) {
+    build: (m, base, _, codeBg) {
       return TextSpan(
         text: m.group(1)!,
         style: base.copyWith(
@@ -268,7 +299,7 @@ final List<_Rule> _rules = [
             'DejaVu Sans Mono',
             'Menlo',
           ],
-          backgroundColor: base.color?.withValues(alpha: 0.12),
+          backgroundColor: codeBg ?? base.color?.withValues(alpha: 0.12),
           letterSpacing: 0,
         ),
       );
@@ -276,7 +307,7 @@ final List<_Rule> _rules = [
   ),
   _Rule(
     regex: _linkRe,
-    build: (m, base, accent) {
+    build: (m, base, accent, codeBg) {
       final label = m.group(1)!;
       final url = m.group(2)!;
       final recognizer = TapGestureRecognizer()..onTap = () => _openUrl(url);
@@ -296,7 +327,7 @@ final List<_Rule> _rules = [
   // label = url (весь матч), tap открывает его же.
   _Rule(
     regex: _bareUrlRe,
-    build: (m, base, accent) {
+    build: (m, base, accent, codeBg) {
       final url = m.group(0)!;
       final recognizer = TapGestureRecognizer()..onTap = () => _openUrl(url);
       return TextSpan(
@@ -313,40 +344,40 @@ final List<_Rule> _rules = [
   _Rule(
     regex: _boldRe,
     notBefore: _notWordOrStar,
-    build: (m, base, accent) {
+    build: (m, base, accent, codeBg) {
       final inner = m.group(1)!;
       final innerStyle = base.copyWith(fontWeight: FontWeight.w700);
-      return TextSpan(children: _parsePass(inner, innerStyle, accent));
+      return TextSpan(children: _parsePass(inner, innerStyle, accent, codeBg));
     },
   ),
   _Rule(
     regex: _strikeRe,
     notBefore: _notWordOrTilde,
-    build: (m, base, accent) {
+    build: (m, base, accent, codeBg) {
       final inner = m.group(1)!;
       final innerStyle = base.copyWith(
         decoration: TextDecoration.lineThrough,
         decorationColor: base.color?.withValues(alpha: 0.7),
       );
-      return TextSpan(children: _parsePass(inner, innerStyle, accent));
+      return TextSpan(children: _parsePass(inner, innerStyle, accent, codeBg));
     },
   ),
   _Rule(
     regex: _italicStarRe,
     notBefore: _notWordOrStar,
-    build: (m, base, accent) {
+    build: (m, base, accent, codeBg) {
       final inner = m.group(1)!;
       final innerStyle = base.copyWith(fontStyle: FontStyle.italic);
-      return TextSpan(children: _parsePass(inner, innerStyle, accent));
+      return TextSpan(children: _parsePass(inner, innerStyle, accent, codeBg));
     },
   ),
   _Rule(
     regex: _italicUnderRe,
     notBefore: _notWord,
-    build: (m, base, accent) {
+    build: (m, base, accent, codeBg) {
       final inner = m.group(1)!;
       final innerStyle = base.copyWith(fontStyle: FontStyle.italic);
-      return TextSpan(children: _parsePass(inner, innerStyle, accent));
+      return TextSpan(children: _parsePass(inner, innerStyle, accent, codeBg));
     },
   ),
 ];

@@ -56,6 +56,7 @@ import '../session/auth_retry.dart' show withAuthRetry;
 import '../runtime/messenger_connection_state.dart';
 import '../utils/relative_time.dart'
     show dateSeparatorLabel, localDayKey;
+import '../theme/highlight_surface.dart';
 import '../theme/nsg_messenger_theme.dart' show NsgMessageBubbleTokens;
 import '../widgets/nsg_avatar_image.dart';
 import 'group_settings_screen.dart';
@@ -4516,9 +4517,20 @@ class _SearchResultTile extends StatelessWidget {
         baseStyle: theme.textTheme.bodyMedium?.copyWith(
           color: theme.colorScheme.onSurface.withValues(alpha: 0.85),
         ),
+        // Найденное красим акцентом ТОЛЬКО если он читается на этом фоне
+        // (см. ensureReadable): иначе совпадение подсвечено цветом, но
+        // разглядеть его труднее, чем обычный текст.
         highlightStyle: theme.textTheme.bodyMedium?.copyWith(
-          color: theme.colorScheme.primary,
-          fontWeight: FontWeight.w600,
+          color: ensureReadable(
+            theme.colorScheme.primary,
+            theme.colorScheme.surface,
+            fallback: theme.colorScheme.onSurface,
+          ),
+          fontWeight: FontWeight.w700,
+          backgroundColor: highlightSurface(
+            theme.colorScheme.surface,
+            theme.brightness,
+          ),
         ),
       ),
       trailing: Text(

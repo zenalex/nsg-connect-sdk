@@ -4,6 +4,7 @@ import 'package:nsg_connect_client/nsg_connect_client.dart'
 import 'package:url_launcher/url_launcher.dart';
 
 import '../i18n/generated/nsg_l10n.dart';
+import '../theme/highlight_surface.dart';
 import '../theme/nsg_messenger_theme.dart';
 import '../utils/relative_time.dart';
 import 'attachments/attachment_bubble.dart';
@@ -447,6 +448,11 @@ class MessageBubble extends StatelessWidget {
                               participantsByMatrixId: participantsByMatrixId,
                               textColor: textColor,
                               accentColor: theme.colorScheme.primary,
+                              quoteSurface: highlightSurface(
+                                bubbleColor,
+                                theme.brightness,
+                                strength: HighlightStrength.subtle,
+                              ),
                             ),
                           // **TASK58 (автопост статусов)**: сообщение с
                           // msgType `nsg.status_card` И распарсенной карточкой
@@ -480,6 +486,10 @@ class MessageBubble extends StatelessWidget {
                             ),
                             if ((albumCaption ?? '').trim().isNotEmpty)
                               _BodyText(
+                                highlightColor: highlightSurface(
+                                  bubbleColor,
+                                  theme.brightness,
+                                ),
                                 body: albumCaption!.trim(),
                                 mentionedMessengerUserIds: null,
                                 participantsByMessengerId:
@@ -511,6 +521,10 @@ class MessageBubble extends StatelessWidget {
                             // если body == filename (уже показан в _FileRow).
                             if (_shouldRenderBodyText(message))
                               _BodyText(
+                                highlightColor: highlightSurface(
+                                  bubbleColor,
+                                  theme.brightness,
+                                ),
                                 body: message.body,
                                 mentionedMessengerUserIds:
                                     message.mentionedMessengerUserIds,
@@ -539,7 +553,7 @@ class MessageBubble extends StatelessWidget {
                               timestamp: message.serverTimestamp.toLocal(),
                               lang: lang,
                               style: theme.textTheme.bodySmall?.copyWith(
-                                color: textColor.withValues(alpha: 0.7),
+                                color: onHighlight(textColor, secondary: true),
                                 fontSize: 11,
                               ),
                             ),
@@ -550,7 +564,7 @@ class MessageBubble extends StatelessWidget {
                               Text(
                                 '· ${l.messageEditedBadge}',
                                 style: theme.textTheme.bodySmall?.copyWith(
-                                  color: textColor.withValues(alpha: 0.6),
+                                  color: onHighlight(textColor, secondary: true),
                                   fontSize: 11,
                                   fontStyle: FontStyle.italic,
                                 ),
@@ -1141,6 +1155,7 @@ class _ReplyChip extends StatelessWidget {
     required this.participantsByMatrixId,
     required this.textColor,
     required this.accentColor,
+    required this.quoteSurface,
   });
 
   final String replyToMessageId;
@@ -1149,6 +1164,9 @@ class _ReplyChip extends StatelessWidget {
   final Map<String, RoomParticipant>? participantsByMatrixId;
   final Color textColor;
   final Color accentColor;
+
+  /// Непрозрачная подложка цитаты — считается от фона пузыря.
+  final Color quoteSurface;
 
   @override
   Widget build(BuildContext context) {
@@ -1182,7 +1200,9 @@ class _ReplyChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         border: Border(left: BorderSide(color: accentColor, width: 3)),
-        color: textColor.withValues(alpha: 0.06),
+        // Подложка цитаты — от фона пузыря, а не от цвета текста: второе
+        // тянуло фон К тексту и съедало контраст (жалоба на читаемость).
+        color: quoteSurface,
         borderRadius: BorderRadius.circular(4),
       ),
       child: Column(
@@ -1259,6 +1279,7 @@ class _BodyText extends StatefulWidget {
     required this.participantsByMessengerId,
     required this.textColor,
     required this.mentionColor,
+    required this.highlightColor,
   });
 
   final String body;
@@ -1266,6 +1287,11 @@ class _BodyText extends StatefulWidget {
   final Map<int, RoomParticipant>? participantsByMessengerId;
   final Color textColor;
   final Color mentionColor;
+
+  /// Непрозрачная подложка код-плашек. Считается от фона ПУЗЫРЯ (см.
+  /// `highlightSurface`), а не от цвета текста: подложка от цвета текста
+  /// в тёмной теме сливалась с ним — чем плотнее, тем хуже читалось.
+  final Color highlightColor;
 
   @override
   State<_BodyText> createState() => _BodyTextState();
@@ -1361,6 +1387,7 @@ class _BodyTextState extends State<_BodyText> {
       widget.body,
       baseStyle: base,
       accentColor: widget.mentionColor,
+      codeBackground: widget.highlightColor,
     );
 
     final ids = widget.mentionedMessengerUserIds;
@@ -1383,8 +1410,15 @@ class _BodyTextState extends State<_BodyText> {
     }
     if (allowed.isEmpty) return TextSpan(children: mdSpans);
 
+    // Акцент упоминания читается не на всяком пузыре: на своём он почти
+    // совпадает с фоном. Не дотянул до порога — красим основным цветом,
+    // отличая полужирным: нечитаемый акцент хуже отсутствия акцента.
     final mentionStyle = base.copyWith(
-      color: widget.mentionColor,
+      color: ensureReadable(
+        widget.mentionColor,
+        widget.highlightColor,
+        fallback: widget.textColor,
+      ),
       fontWeight: FontWeight.w600,
     );
     return TextSpan(

@@ -1,0 +1,93 @@
+/// **Подложки подсветки в сообщениях**: код, цитата, найденное поиском,
+/// упоминания.
+///
+/// Жалоба: «на мобильных в зоне подсветки плохо читается текст», просьба —
+/// «уменьшить прозрачность плашек». Прозрачность действительно виновата,
+/// но лечится не тем, чем кажется.
+///
+/// Все подложки строились от цвета ТЕКСТА: `textColor.withValues(alpha: …)`
+/// поверх пузыря. То есть плашка тянет фон К ЦВЕТУ ТЕКСТА, и чем менее
+/// прозрачной её делать, тем МЕНЬШЕ остаётся контраста — в тёмной теме
+/// светлая плашка под светлым текстом сливается тем сильнее, чем она
+/// плотнее. Поэтому здесь подложка строится в сторону контраста: тёмная
+/// тема — затемняем фон пузыря, светлая — тоже затемняем, но слабее. Текст
+/// при этом остаётся полной насыщенности.
+///
+/// Вторая половина проблемы — притушенный текст. Цитата рисовалась
+/// `textColor.withValues(alpha: 0.6…0.7)` НА плашке: два ослабления
+/// накладывались друг на друга. Тексту на подложке место в [onHighlight].
+library;
+
+import 'dart:math' as math;
+
+import 'package:flutter/material.dart';
+
+/// Непрозрачная подложка для плашки внутри пузыря сообщения.
+///
+/// Возвращает именно непрозрачный цвет, а не полупрозрачный: плашка
+/// накладывается на разные фоны (свой пузырь, чужой, выделенная строка), и
+/// «прозрачный поверх неизвестного» — это и есть источник непредсказуемого
+/// контраста.
+///
+/// [strength] — насколько плашка отличается от фона: `subtle` для цитаты
+/// (крупный блок, не должен спорить с текстом), `strong` для кода и
+/// найденного (мелкие фрагменты, их надо выделить).
+Color highlightSurface(
+  Color bubbleColor,
+  Brightness brightness, {
+  HighlightStrength strength = HighlightStrength.strong,
+}) {
+  final dark = brightness == Brightness.dark;
+  // В тёмной теме затемняем сильнее: там фон пузыря и так близок к
+  // чёрному, и слабое затемнение просто не видно.
+  final amount = switch ((dark, strength)) {
+    (true, HighlightStrength.strong) => 0.32,
+    (true, HighlightStrength.subtle) => 0.18,
+    (false, HighlightStrength.strong) => 0.10,
+    (false, HighlightStrength.subtle) => 0.06,
+  };
+  return Color.alphaBlend(Colors.black.withValues(alpha: amount), bubbleColor);
+}
+
+enum HighlightStrength { subtle, strong }
+
+/// Цвет текста НА подложке.
+///
+/// Раньше текст на плашках дополнительно приглушался (0.6–0.7) — вместе с
+/// самой плашкой это давало двойное ослабление. Здесь текст остаётся
+/// насыщенным; для вторичных строк (автор цитаты, время) достаточно
+/// [secondary], который ослаблен заметно меньше прежнего.
+Color onHighlight(Color textColor, {bool secondary = false}) =>
+    secondary ? textColor.withValues(alpha: 0.85) : textColor;
+
+/// Цвет, который ТОЧНО читается на [background].
+///
+/// Упоминания и найденное поиском красились акцентом (`primary`), а он на
+/// своём пузыре (`primaryContainer`) оказывается почти тем же цветом — на
+/// мобильном это и читалось хуже всего. Если акцент не добирает до порога,
+/// откатываемся на основной цвет текста и отличаем фрагмент насыщенностью,
+/// а не цветом: нечитаемый акцент хуже отсутствия акцента.
+Color ensureReadable(
+  Color accent,
+  Color background, {
+  required Color fallback,
+  double minRatio = 4.5,
+}) => contrastRatio(accent, background) >= minRatio ? accent : fallback;
+
+/// Контраст двух цветов по WCAG (1..21). Оба должны быть непрозрачными —
+/// полупрозрачный сначала наложите на фон (`Color.alphaBlend`).
+///
+/// Нужен тестам: «читается ли» — проверяемое утверждение, а не мнение.
+double contrastRatio(Color a, Color b) {
+  final la = _relativeLuminance(a);
+  final lb = _relativeLuminance(b);
+  final lighter = la > lb ? la : lb;
+  final darker = la > lb ? lb : la;
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+double _relativeLuminance(Color c) {
+  double channel(double v) =>
+      v <= 0.03928 ? v / 12.92 : math.pow((v + 0.055) / 1.055, 2.4).toDouble();
+  return 0.2126 * channel(c.r) + 0.7152 * channel(c.g) + 0.0722 * channel(c.b);
+}
