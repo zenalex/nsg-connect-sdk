@@ -53,6 +53,7 @@ import 'thread_screen.dart';
 import '../rooms/participant_action_sheet.dart' show formatWriteBanUntil;
 import '../presence/last_seen_format.dart';
 import '../session/auth_retry.dart' show withAuthRetry;
+import '../runtime/active_room.dart';
 import '../runtime/messenger_connection_state.dart';
 import '../utils/relative_time.dart' show dateSeparatorLabel, localDayKey;
 import '../theme/highlight_surface.dart';
@@ -800,6 +801,16 @@ class _ChatScreenState extends State<ChatScreen>
     int? currentRoomId,
     required bool foreground,
   }) async {
+    // **Issue #79**: та же правда нужна и локально — внутриприложенной
+    // плашке о новом сообщении. Заявляем здесь, а не отдельным набором
+    // вызовов: presence уже покрывает все случаи видимости (открытие,
+    // смена активной панели, перекрытие маршрутом, возврат из фона,
+    // закрытие), и второй набор гарантированно разошёлся бы с этим.
+    if (currentRoomId == null) {
+      ActiveRoom.release(widget.roomId);
+    } else {
+      ActiveRoom.claim(currentRoomId);
+    }
     final fn =
         widget.setPresenceOverride ??
         (widget.controllerOverride == null

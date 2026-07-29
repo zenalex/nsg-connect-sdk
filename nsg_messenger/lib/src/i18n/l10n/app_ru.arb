@@ -785,5 +785,7 @@
   "supportInboxProjectFilterLabel": "Проект:",
   "supportInboxProjectFilterAll": "Все проекты",
   "supportInboxProjectFilterTitle": "Фильтр по проекту",
-  "supportInboxEmpty": "Нет обращений"
+  "supportInboxEmpty": "Нет обращений",
+  "inAppBannerNewMessage": "Новое сообщение",
+  "inAppBannerAttachment": "Вложение"
 }

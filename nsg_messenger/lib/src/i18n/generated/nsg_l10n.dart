@@ -4536,6 +4536,18 @@ abstract class NsgL10n {
   /// In en, this message translates to:
   /// **'No requests'**
   String get supportInboxEmpty;
+
+  /// Issue #79: in-app banner text when message preview is off, and title fallback when neither room name nor sender name is known.
+  ///
+  /// In en, this message translates to:
+  /// **'New message'**
+  String get inAppBannerNewMessage;
+
+  /// Issue #79: in-app banner body for a message with no text (image, file, voice).
+  ///
+  /// In en, this message translates to:
+  /// **'Attachment'**
+  String get inAppBannerAttachment;
 }
 
 class _NsgL10nDelegate extends LocalizationsDelegate<NsgL10n> {

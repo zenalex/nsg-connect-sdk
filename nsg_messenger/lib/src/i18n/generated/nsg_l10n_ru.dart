@@ -2573,4 +2573,10 @@ class NsgL10nRu extends NsgL10n {
 
   @override
   String get supportInboxEmpty => 'Нет обращений';
+
+  @override
+  String get inAppBannerNewMessage => 'Новое сообщение';
+
+  @override
+  String get inAppBannerAttachment => 'Вложение';
 }

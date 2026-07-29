@@ -3064,5 +3064,10 @@
   "supportInboxProjectFilterTitle": "Filter by project",
   "@supportInboxProjectFilterTitle": {"description": "TASK75: title of the bottom sheet that picks a project for the support inbox filter."},
   "supportInboxEmpty": "No requests",
-  "@supportInboxEmpty": {"description": "TASK75: empty state of the support inbox (no open support chats, or none match the project filter)."}
+  "@supportInboxEmpty": {"description": "TASK75: empty state of the support inbox (no open support chats, or none match the project filter)."},
+
+  "inAppBannerNewMessage": "New message",
+  "@inAppBannerNewMessage": {"description": "Issue #79: in-app banner text when message preview is off, and title fallback when neither room name nor sender name is known."},
+  "inAppBannerAttachment": "Attachment",
+  "@inAppBannerAttachment": {"description": "Issue #79: in-app banner body for a message with no text (image, file, voice)."}
 }

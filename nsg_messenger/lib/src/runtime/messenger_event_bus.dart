@@ -8,6 +8,7 @@ import 'package:nsg_connect_client/nsg_connect_client.dart';
 
 import '../messenger_session_state.dart';
 import '../session/auth_retry.dart' show isAuthInvalidation;
+import 'delivery_ack_sender.dart';
 import 'messenger_connection_state.dart';
 import 'transport_error_text.dart';
 
@@ -159,17 +160,30 @@ class MessengerEventBus {
   /// listener-ов SDK не открывает long-poll к серверу.
   bool get hasListeners => _controller?.hasListener ?? false;
 
+  /// **Issue #78**: подтверждение доставки с активного клиента. Живёт
+  /// здесь, потому что здесь — единственная точка, где видно КАЖДОЕ
+  /// пришедшее сообщение.
+  final DeliveryAckSender _deliveryAck;
+
   MessengerEventBus._({
     required UserEventStreamFactory streamFactory,
     required Stream<MessengerSessionState> sessionStateStream,
     SetPresenceFn? setPresence,
+    ConfirmDeliveryFn? confirmDelivery,
+    DeliveryAckSender? deliveryAckSender,
     void Function(Object error, StackTrace stack)? onError,
     Future<void> Function()? onStreamAuthError,
     List<Duration>? reconnectBackoff,
     int? disconnectedAfterFailures,
     Duration? reconnectConfirmDelay,
     Random? jitterRng,
-  }) : _streamFactory = streamFactory,
+  }) : _deliveryAck =
+           deliveryAckSender ??
+           DeliveryAckSender(
+             confirmDelivery: confirmDelivery,
+             onError: onError,
+           ),
+       _streamFactory = streamFactory,
        _sessionStateStream = sessionStateStream,
        _setPresence = setPresence,
        _onError = onError,
@@ -209,6 +223,11 @@ class MessengerEventBus {
         // **TASK87**: realtime-значок задачи (`taskBadgeUpdated`); современный
         // клиент и так покрыт knownEventTypes ниже, capability — легаси-контракт.
         'task-badge',
+        // **Issue #78**: эта сборка подтверждает доставку
+        // (`confirmDelivery`), и сервер больше не гадает по presence,
+        // где сейчас человек. Объявление обязательно: без него сервер
+        // считает клиента старым и решает судьбу пуша по-прежнему.
+        'delivery-ack',
       ],
       // **Forward-compat**: объявляем серверу ВСЕ известные этой сборке
       // типы событий — новые серверные типы автоматически вырезаются на
@@ -216,6 +235,7 @@ class MessengerEventBus {
       knownEventTypes: [for (final t in MessengerEventType.values) t.name],
     ),
     setPresence: client.messenger.setPresence,
+    confirmDelivery: client.messenger.confirmDelivery,
     sessionStateStream: sessionStateStream,
     onError: onError,
     onStreamAuthError: onStreamAuthError,
@@ -233,6 +253,8 @@ class MessengerEventBus {
     required UserEventStreamFactory streamFactory,
     required Stream<MessengerSessionState> sessionStateStream,
     SetPresenceFn? setPresence,
+    ConfirmDeliveryFn? confirmDelivery,
+    DeliveryAckSender? deliveryAckSender,
     void Function(Object error, StackTrace stack)? onError,
     Future<void> Function()? onStreamAuthError,
     List<Duration>? reconnectBackoff,
@@ -244,6 +266,8 @@ class MessengerEventBus {
       streamFactory: streamFactory,
       sessionStateStream: sessionStateStream,
       setPresence: setPresence,
+      confirmDelivery: confirmDelivery,
+      deliveryAckSender: deliveryAckSender,
       onError: onError,
       onStreamAuthError: onStreamAuthError,
       reconnectBackoff: reconnectBackoff,
@@ -483,6 +507,7 @@ class MessengerEventBus {
     _controller = null;
     await _connectionStateCtl.close();
     _seenEventIds.clear();
+    _deliveryAck.dispose();
   }
 
   // ───────────────────────────────────────────────────────────────────
@@ -601,6 +626,14 @@ class MessengerEventBus {
             while (_seenEventIds.length > _dedupCapacity) {
               _seenEventIds.remove(_seenEventIds.keys.first);
             }
+          }
+          // **Issue #78**: сообщение дошло живым стримом — если человек
+          // сейчас перед приложением, подтверждаем приём и пуш не уходит
+          // никуда. ПОСЛЕ дедупа: повтор того же события подтверждать
+          // второй раз незачем.
+          if (event.eventType == MessengerEventType.messageCreated &&
+              eventId != null) {
+            _deliveryAck.noteDelivered(eventId);
           }
           _controller?.add(event);
         },

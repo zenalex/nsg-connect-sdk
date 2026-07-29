@@ -98,8 +98,7 @@ export 'src/screens/my_bots_screen.dart' show MyBotsScreen;
 // тенанта + карточка бота. Гейт — админ КОНКРЕТНОГО чата (на сервере), а не
 // платформенный allowlist: каталог открывается из настроек чата, карточка —
 // тапом по боту в участниках / шапке 1:1.
-export 'src/bots/nsg_messenger_bot_catalog.dart'
-    show NsgMessengerBotCatalog;
+export 'src/bots/nsg_messenger_bot_catalog.dart' show NsgMessengerBotCatalog;
 export 'src/screens/bot_card_screen.dart' show BotCardScreen;
 export 'src/screens/bot_catalog_screen.dart' show BotCatalogScreen;
 
@@ -253,6 +252,22 @@ export 'src/calls/conference_call_controller.dart'
 // ставит его рядом с [CallOverlayHost] (Chatista: внутрь него, чтобы
 // 1:1-оверлей при коллизии рисовался поверх).
 export 'src/calls/conference_overlay_host.dart' show ConferenceOverlayHost;
+
+// **Issue #79**: плашка о новом сообщении поверх приложения — ставится
+// туда же, где хосты оверлеев звонка. Показывается только когда
+// приложение активно: в остальных состояниях человека оповещает пуш
+// (мобильные) или системный тост host-app (десктоп).
+export 'src/notifications/message_banner_host.dart'
+    show MessageBannerHost, MessageBannerSource, RuntimeMessageBannerSource;
+
+// Комната, открытая прямо сейчас: её заявляет `ChatScreen`, а спрашивают
+// те, кто решает, показывать ли уведомление.
+export 'src/runtime/active_room.dart' show ActiveRoom;
+
+// Окно, спрятанное в трей, Flutter активным считать не перестаёт —
+// host-app сообщает об этом сам, иначе клиент подтвердит доставку и
+// человек не получит уведомление на телефон.
+export 'src/runtime/app_visibility.dart' show AppVisibility;
 export 'src/calls/conference_call_state.dart'
     show
         ConferenceCallState,

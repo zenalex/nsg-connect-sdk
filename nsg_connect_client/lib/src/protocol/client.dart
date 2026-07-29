@@ -2626,6 +2626,24 @@ class EndpointMessenger extends _i2.EndpointRef {
         {'pushToken': pushToken},
       );
 
+  /// Клиент принял сообщения и способен показать их человеку — пуш по
+  /// ним не нужен.
+  ///
+  /// Подтверждает ТОЛЬКО активный клиент: свёрнутое окно, фоновая
+  /// вкладка и заблокированный экран не подтверждают — иначе уведомление
+  /// съедалось бы ровно тогда, когда оно и нужно.
+  ///
+  /// Подтверждений по одному сообщению может прийти несколько (у
+  /// человека открыто несколько клиентов) — все, кроме первого, no-op.
+  /// Пачкой, потому что клиент шлёт их дебаунсом: в живом чате события
+  /// идут очередями, и RPC на каждое — лишний трафик.
+  _i3.Future<void> confirmDelivery({required List<String> matrixEventIds}) =>
+      caller.callServerEndpoint<void>(
+        'messenger',
+        'confirmDelivery',
+        {'matrixEventIds': matrixEventIds},
+      );
+
   _i3.Stream<_i33.MessengerEvent> userEventStream({
     List<String>? capabilities,
     List<String>? knownEventTypes,

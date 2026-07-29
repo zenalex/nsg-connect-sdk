@@ -2547,4 +2547,10 @@ class NsgL10nEn extends NsgL10n {
 
   @override
   String get supportInboxEmpty => 'No requests';
+
+  @override
+  String get inAppBannerNewMessage => 'New message';
+
+  @override
+  String get inAppBannerAttachment => 'Attachment';
 }
