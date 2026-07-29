@@ -875,6 +875,20 @@ class _ChatScreenState extends State<ChatScreen>
     _participantsByMatrixId = {
       for (final p in details.participants) p.matrixUserId: p,
     };
+    // Собеседника выводим из состава комнаты, а не из ответа presence:
+    // иначе, когда `subscribePresence` не дошёл (офлайн, ошибка), мы вообще
+    // не знаем, чьи сообщения считать активностью собеседника (issue #73).
+    _peerUserId = _resolvePeerId(details);
+  }
+
+  /// Кто на том конце 1:1. Для групп — `null`.
+  int? _resolvePeerId(RoomDetails details) {
+    if (details.roomType != RoomType.direct) return null;
+    final selfId = _controller.selfMessengerUserId;
+    for (final p in details.participants) {
+      if (p.messengerUserId != selfId) return p.messengerUserId;
+    }
+    return null;
   }
 
   /// **TASK55 итер.2b**: подписка на presence собеседника (только
@@ -889,7 +903,7 @@ class _ChatScreenState extends State<ChatScreen>
           .where((p) => p.messengerUserId != selfId)
           .toList();
       if (peer.isEmpty) return;
-      _peerUserId = peer.first.messengerUserId;
+      _peerUserId ??= peer.first.messengerUserId;
       // **TASK52 итер.2**: подгрузить визитку собеседника для интро-карточки
       // (best-effort — её отсутствие/ошибка не влияет на чат).
       unawaited(_fetchIntroCard(peer.first.messengerUserId));
@@ -1009,6 +1023,7 @@ class _ChatScreenState extends State<ChatScreen>
   /// realtime-сообщение, прилетевшее в свёрнутое приложение с открытым
   /// чатом, мгновенно получало ✓✓ у отправителя.
   void _onStateChange() {
+    _notePeerActivity();
     // **Issue #41**: прыжок к целевому сообщению ждёт первого Ready — до
     // него скроллить не к чему. Стоит ДО гейта markRead: тот про «юзер
     // видит новое», а прыжок нужен и в неактивной панели рабочего набора.
@@ -1033,6 +1048,38 @@ class _ChatScreenState extends State<ChatScreen>
     // Subsequent — debounce 500ms.
     _markReadTimer?.cancel();
     _markReadTimer = Timer(_markReadDebounce, _flushMarkRead);
+  }
+
+  /// **issue #73**: ответ собеседника — свидетельство, что он был в сети.
+  ///
+  /// Подпись «был(а) в сети N минут назад» держалась только на presence, а
+  /// тот внутри сеанса молчит: сервер шлёт `presenceUpdated` лишь на
+  /// переход offline→online, а `lastActiveAt` в БД пишет один раз, в
+  /// начале сеанса (см. `PresenceService.heartbeat`). Пока собеседник
+  /// отвечает, не меняется ни то, ни другое — и подпись врёт, хотя
+  /// человек пишет прямо сейчас, у пользователя на глазах.
+  ///
+  /// Пришедшее сообщение — свидетельство сильнее presence: оно уже здесь,
+  /// значит собеседник был активен в момент `serverTimestamp`. Отсюда и
+  /// берём время. «В сети» при этом НЕ выставляем: одно сообщение не
+  /// обещает, что человек всё ещё у экрана, а соврать «в сети» хуже, чем
+  /// сказать «был только что» — второе останется правдой в любом случае.
+  void _notePeerActivity() {
+    final peerId = _peerUserId;
+    if (peerId == null) return;
+    final state = _controller.state;
+    if (state is! MessagesReady) return;
+    DateTime? newest;
+    for (final m in state.messages) {
+      if (m.senderMessengerUserId != peerId) continue;
+      final t = m.serverTimestamp;
+      if (newest == null || t.isAfter(newest)) newest = t;
+    }
+    if (newest == null) return;
+    final known = _peerLastSeen;
+    if (known != null && !newest.isAfter(known)) return;
+    if (!mounted) return;
+    setState(() => _peerLastSeen = newest);
   }
 
   /// **Issue #37**: можно ли СЕЙЧАС честно сказать «прочитано».

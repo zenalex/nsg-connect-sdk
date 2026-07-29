@@ -389,7 +389,13 @@ class _MessageComposerState extends State<MessageComposer> {
     // ввода пользователя).
     final seed = widget.initialText;
     if (seed != null && seed.isNotEmpty) {
-      _ctl.text = seed;
+      // Курсор ставим явно: голое `text = …` оставляет селекцию невалидной
+      // (`offset: -1`), и поле в этом состоянии ведёт себя непредсказуемо —
+      // например, Backspace до первого клика сносит не символ, а больше.
+      _ctl.value = TextEditingValue(
+        text: seed,
+        selection: TextSelection.collapsed(offset: seed.length),
+      );
       _hasTextVN.value = true;
     }
     // **Редактирование альбома**: если композер смонтирован сразу в album-
@@ -399,13 +405,17 @@ class _MessageComposerState extends State<MessageComposer> {
     if (album != null) {
       _existingImages.addAll(album.images);
       if (album.captionBody.isNotEmpty) {
-        _ctl.text = album.captionBody;
+        _ctl.value = TextEditingValue(
+          text: album.captionBody,
+          selection: TextSelection.collapsed(offset: album.captionBody.length),
+        );
         _hasTextVN.value = true;
       }
     }
     _ctl.addListener(_syncHasText);
     _ctl.addListener(_syncTypeahead);
     _focus.addListener(_syncTypeahead);
+    _focus.addListener(_resetHeldModifiers);
     // Global hardware-keyboard handler — единственный надёжный способ
     // перехватить Enter ДО того как EditableText вставит \n. Shortcuts
     // widget (выше по дереву) и FocusNode.onKeyEvent оба проигрывают
@@ -904,6 +914,56 @@ class _MessageComposerState extends State<MessageComposer> {
     if (!_focus.hasFocus) _focus.requestFocus();
   }
 
+  /// Модификаторы, нажатие которых мы ВИДЕЛИ, пока поле в фокусе.
+  ///
+  /// **issue #72 (Windows: Enter не отправляет, Backspace стирает строку).**
+  /// Воспроизведено на живом Windows: если уйти из окна с зажатым
+  /// модификатором (Alt+Tab, Ctrl+C в другое приложение, Win+L), key-up
+  /// достаётся уже другому окну, и `HardwareKeyboard` остаётся уверен,
+  /// что клавиша нажата. В журнале стенда это выглядит так:
+  ///
+  /// ```
+  /// --- вернулись, физически CTRL отпущен: True ---
+  /// DOWN Backspace  mods=CTRL+ALT      ← Flutter: «удалить слово»
+  /// DOWN Enter      mods=ALT           ← наш гард !isAlt не проходит
+  /// ```
+  ///
+  /// Отсюда оба симптома разом: Enter не отправляет (условие ниже требует
+  /// чистых модификаторов, а они «грязные»), Backspace сносит слово целиком
+  /// (это уже штатный ярлык Flutter для Ctrl+Backspace). Синтетический
+  /// key-up фреймворк присылает — но СЛЕДОМ, когда клавиша уже отработала.
+  ///
+  /// Поэтому состояние модификаторов ведём сами и только по тому, что
+  /// видели при фокусе: протухнуть ему неоткуда. Цена — пользователь,
+  /// зажавший Shift ДО клика в поле, первым Enter-ом отправит сообщение
+  /// вместо переноса строки; следующий Shift+Enter уже отработает как надо.
+  final Set<LogicalKeyboardKey> _heldModifiers = <LogicalKeyboardKey>{};
+
+  /// Фреймворк уверен в модификаторе, которого мы не видели.
+  bool get _modifiersAreStale {
+    final k = HardwareKeyboard.instance;
+    return (k.isControlPressed && !_held(LogicalKeyboardKey.control)) ||
+        (k.isAltPressed && !_held(LogicalKeyboardKey.alt)) ||
+        (k.isMetaPressed && !_held(LogicalKeyboardKey.meta));
+  }
+
+  bool _held(LogicalKeyboardKey synonym) =>
+      _heldModifiers.any((k) => k.synonyms.contains(synonym) || k == synonym);
+
+  /// Смена фокуса — единственный момент, когда состояние могло уехать
+  /// (key-up ушёл в чужое окно). Забываем всё и набираем заново.
+  void _resetHeldModifiers() => _heldModifiers.clear();
+
+  void _trackModifier(KeyEvent event) {
+    final key = event.logicalKey;
+    if (key.synonyms.isEmpty) return; // не модификатор
+    if (event is KeyDownEvent) {
+      _heldModifiers.add(key);
+    } else if (event is KeyUpEvent) {
+      _heldModifiers.remove(key);
+    }
+  }
+
   /// **Desktop hardware-keyboard shortcuts**.
   ///
   /// Зачем глобальный handler через `HardwareKeyboard.addHandler`, а не
@@ -933,13 +993,17 @@ class _MessageComposerState extends State<MessageComposer> {
   ///   EditableText сам вставит `\n`.
   /// * Esc + replyTarget → cancel reply.
   bool _globalKeyHandler(KeyEvent event) {
-    if (!_focus.hasFocus) return false;
+    if (!_focus.hasFocus) {
+      // Пока поля нет в фокусе, чужие нажатия нас не касаются — но и
+      // помнить их нельзя (см. `_heldModifiers`).
+      return false;
+    }
+    _trackModifier(event);
     if (event is! KeyDownEvent) return false;
-    final keyboard = HardwareKeyboard.instance;
-    final isShift = keyboard.isShiftPressed;
-    final isCtrl = keyboard.isControlPressed;
-    final isMeta = keyboard.isMetaPressed;
-    final isAlt = keyboard.isAltPressed;
+    final isShift = _held(LogicalKeyboardKey.shift);
+    final isCtrl = _held(LogicalKeyboardKey.control);
+    final isMeta = _held(LogicalKeyboardKey.meta);
+    final isAlt = _held(LogicalKeyboardKey.alt);
     final key = event.logicalKey;
 
     // **B12 Tab-autocomplete**: при открытом typeahead Tab выбирает первый
@@ -1763,127 +1827,145 @@ class _MessageComposerState extends State<MessageComposer> {
                             // уровень dispatch, до того как event попадёт
                             // в EditableText.
                             child: RepaintBoundary(
-                              child: TextField(
-                                controller: _ctl,
-                                focusNode: _focus,
-                                enabled: widget.enabled && !_uploading,
-                                minLines: 1,
-                                maxLines: 5,
-                                // Telegram-style лимит. `maxLengthEnforcement`
-                                // truncated → typing/paste выше лимита просто
-                                // обрезается (без error-dialog-а). Визуальный
-                                // «0/4096» counter скрыт (см. decoration ниже,
-                                // counterText: '') — он ел строку и ломал
-                                // выравнивание строки composer-а. Сервер тоже
-                                // валидирует (MessageBodyTooLargeException) —
-                                // anti-abuse.
-                                //
-                                // `enforced` (не `truncateAfterCompositionEnds`):
-                                // последний обрезал только ПОСЛЕ завершения IME-
-                                // композиции, поэтому paste-then-immediate-send
-                                // (особенно desktop, где paste не даёт
-                                // composition-end) проскакивал > лимита и ловил
-                                // server-side MessageBodyTooLargeException →
-                                // silent failed-send (наблюдали в проде: 5760
-                                // chars). `enforced` режет немедленно на любом
-                                // вводе/paste. Mid-IME-обрезка для лимита 4096
-                                // практически невозможна (никто не композит
-                                // 4096 символов за один IME-сеанс).
-                                // **issue #57**: `enforced` молча резал
-                                // вставку на 4096 — постановщик вставил
-                                // длинный текст и потерял хвост, не заметив
-                                // (счётчик не спасает: текст режется уже В
-                                // МОМЕНТ вставки). Теперь лимит держим не
-                                // отсечением, а разбивкой при отправке
-                                // (`splitMessageBody`), поэтому вводу и
-                                // вставке не мешаем.
-                                maxLength: kMessageBodyMaxChars,
-                                maxLengthEnforcement: MaxLengthEnforcement.none,
-                                // **newline ВЕЗДЕ** (issue #27). Раньше на
-                                // mobile стоял `TextInputAction.send`:
-                                // soft-клавиатура показывала «Отправить»
-                                // вместо Enter, и перевод строки было НЕЧЕМ
-                                // поставить — многострочное сообщение не
-                                // набрать. Отправка на mobile — кнопкой
-                                // (`Icons.send`), как в Telegram/WhatsApp.
-                                // На desktop `send` нельзя и по другой
-                                // причине: macOS вызывает performAction(send)
-                                // на Enter ЛЮБОГО типа (включая Shift+Enter),
-                                // минуя HardwareKeyboard handler → ломает
-                                // «Shift+Enter = newline». Enter=отправка на
-                                // desktop живёт в _globalKeyHandler.
-                                textInputAction: TextInputAction.newline,
-                                // onSubmitted не нужен ни на одной платформе:
-                                // mobile отправляет кнопкой, desktop — через
-                                // _globalKeyHandler. На desktop этот callback
-                                // ещё и триггерился на Shift+Enter (см. выше).
-                                onSubmitted: null,
-                                // #12: пока открыт typeahead упоминаний, тап (в
-                                // т.ч. по самому оверлею) не должен уводить фокус
-                                // из поля — иначе focus-listener убирает оверлей
-                                // раньше, чем срабатывает onTap выбора, и клик по
-                                // подсказке «теряется» (баг на web). По смене
-                                // каретки/запроса оверлей всё равно скрывается
-                                // через _ctl-listener (_syncTypeahead).
-                                onTapOutside: (event) {
-                                  if (_typeaheadOverlay != null) return;
-                                  _focus.unfocus();
+                              child: Shortcuts(
+                                // **issue #72**: Backspace при протухшем
+                                // состоянии модификаторов. Ярлык ближе к
+                                // фокусу, чем `DefaultTextEditingShortcuts`
+                                // (те живут у корня приложения), поэтому
+                                // выигрывает — и «удалить слово» не
+                                // случается там, где Ctrl никто не держит.
+                                shortcuts: {
+                                  _StaleModifierBackspace(
+                                    () => _modifiersAreStale,
+                                  ): const DeleteCharacterIntent(
+                                    forward: false,
+                                  ),
                                 },
-                                // **B19 (phase2)**: format-кнопки в context-menu
-                                // выделения (Bold/Italic) — мобильный/тач-аналог
-                                // Ctrl/Cmd+B/I (B12). Добавляются только когда
-                                // есть выделение (collapsed → нечего оборачивать).
-                                contextMenuBuilder: (ctx, editableState) {
-                                  final items = List<ContextMenuButtonItem>.of(
-                                    editableState.contextMenuButtonItems,
-                                  );
-                                  final sel =
-                                      editableState.textEditingValue.selection;
-                                  if (sel.isValid && !sel.isCollapsed) {
-                                    items.addAll([
-                                      ContextMenuButtonItem(
-                                        label: l.composerFormatBold,
-                                        onPressed: () {
-                                          editableState.hideToolbar();
-                                          _wrapSelection('**');
-                                        },
-                                      ),
-                                      ContextMenuButtonItem(
-                                        label: l.composerFormatItalic,
-                                        onPressed: () {
-                                          editableState.hideToolbar();
-                                          _wrapSelection('_');
-                                        },
-                                      ),
-                                      // **issue #70**: код — из меню, а не
-                                      // только шорткатом: на мобильном
-                                      // клавиатурных сочетаний нет.
-                                      ContextMenuButtonItem(
-                                        label: l.composerFormatCode,
-                                        onPressed: () {
-                                          editableState.hideToolbar();
-                                          _wrapSelectionAsCode();
-                                        },
-                                      ),
-                                    ]);
-                                  }
-                                  return AdaptiveTextSelectionToolbar.buttonItems(
-                                    anchors: editableState.contextMenuAnchors,
-                                    buttonItems: items,
-                                  );
-                                },
-                                decoration: InputDecoration(
-                                  hintText: l.chatScreenSendHint,
-                                  border: InputBorder.none,
-                                  // `maxLength` включён (обрезка на 4096
-                                  // сохраняется), но встроенный «0/4096»
-                                  // counter скрыт: он занимал строку под
-                                  // полем и ломал вертикальное выравнивание
-                                  // скрепки/микрофона в однострочном режиме.
-                                  counterText: '',
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 12,
+                                child: TextField(
+                                  controller: _ctl,
+                                  focusNode: _focus,
+                                  enabled: widget.enabled && !_uploading,
+                                  minLines: 1,
+                                  maxLines: 5,
+                                  // Telegram-style лимит. `maxLengthEnforcement`
+                                  // truncated → typing/paste выше лимита просто
+                                  // обрезается (без error-dialog-а). Визуальный
+                                  // «0/4096» counter скрыт (см. decoration ниже,
+                                  // counterText: '') — он ел строку и ломал
+                                  // выравнивание строки composer-а. Сервер тоже
+                                  // валидирует (MessageBodyTooLargeException) —
+                                  // anti-abuse.
+                                  //
+                                  // `enforced` (не `truncateAfterCompositionEnds`):
+                                  // последний обрезал только ПОСЛЕ завершения IME-
+                                  // композиции, поэтому paste-then-immediate-send
+                                  // (особенно desktop, где paste не даёт
+                                  // composition-end) проскакивал > лимита и ловил
+                                  // server-side MessageBodyTooLargeException →
+                                  // silent failed-send (наблюдали в проде: 5760
+                                  // chars). `enforced` режет немедленно на любом
+                                  // вводе/paste. Mid-IME-обрезка для лимита 4096
+                                  // практически невозможна (никто не композит
+                                  // 4096 символов за один IME-сеанс).
+                                  // **issue #57**: `enforced` молча резал
+                                  // вставку на 4096 — постановщик вставил
+                                  // длинный текст и потерял хвост, не заметив
+                                  // (счётчик не спасает: текст режется уже В
+                                  // МОМЕНТ вставки). Теперь лимит держим не
+                                  // отсечением, а разбивкой при отправке
+                                  // (`splitMessageBody`), поэтому вводу и
+                                  // вставке не мешаем.
+                                  maxLength: kMessageBodyMaxChars,
+                                  maxLengthEnforcement:
+                                      MaxLengthEnforcement.none,
+                                  // **newline ВЕЗДЕ** (issue #27). Раньше на
+                                  // mobile стоял `TextInputAction.send`:
+                                  // soft-клавиатура показывала «Отправить»
+                                  // вместо Enter, и перевод строки было НЕЧЕМ
+                                  // поставить — многострочное сообщение не
+                                  // набрать. Отправка на mobile — кнопкой
+                                  // (`Icons.send`), как в Telegram/WhatsApp.
+                                  // На desktop `send` нельзя и по другой
+                                  // причине: macOS вызывает performAction(send)
+                                  // на Enter ЛЮБОГО типа (включая Shift+Enter),
+                                  // минуя HardwareKeyboard handler → ломает
+                                  // «Shift+Enter = newline». Enter=отправка на
+                                  // desktop живёт в _globalKeyHandler.
+                                  textInputAction: TextInputAction.newline,
+                                  // onSubmitted не нужен ни на одной платформе:
+                                  // mobile отправляет кнопкой, desktop — через
+                                  // _globalKeyHandler. На desktop этот callback
+                                  // ещё и триггерился на Shift+Enter (см. выше).
+                                  onSubmitted: null,
+                                  // #12: пока открыт typeahead упоминаний, тап (в
+                                  // т.ч. по самому оверлею) не должен уводить фокус
+                                  // из поля — иначе focus-listener убирает оверлей
+                                  // раньше, чем срабатывает onTap выбора, и клик по
+                                  // подсказке «теряется» (баг на web). По смене
+                                  // каретки/запроса оверлей всё равно скрывается
+                                  // через _ctl-listener (_syncTypeahead).
+                                  onTapOutside: (event) {
+                                    if (_typeaheadOverlay != null) return;
+                                    _focus.unfocus();
+                                  },
+                                  // **B19 (phase2)**: format-кнопки в context-menu
+                                  // выделения (Bold/Italic) — мобильный/тач-аналог
+                                  // Ctrl/Cmd+B/I (B12). Добавляются только когда
+                                  // есть выделение (collapsed → нечего оборачивать).
+                                  contextMenuBuilder: (ctx, editableState) {
+                                    final items =
+                                        List<ContextMenuButtonItem>.of(
+                                          editableState.contextMenuButtonItems,
+                                        );
+                                    final sel = editableState
+                                        .textEditingValue
+                                        .selection;
+                                    if (sel.isValid && !sel.isCollapsed) {
+                                      items.addAll([
+                                        ContextMenuButtonItem(
+                                          label: l.composerFormatBold,
+                                          onPressed: () {
+                                            editableState.hideToolbar();
+                                            _wrapSelection('**');
+                                          },
+                                        ),
+                                        ContextMenuButtonItem(
+                                          label: l.composerFormatItalic,
+                                          onPressed: () {
+                                            editableState.hideToolbar();
+                                            _wrapSelection('_');
+                                          },
+                                        ),
+                                        // **issue #70**: код — из меню, а не
+                                        // только шорткатом: на мобильном
+                                        // клавиатурных сочетаний нет.
+                                        ContextMenuButtonItem(
+                                          label: l.composerFormatCode,
+                                          onPressed: () {
+                                            editableState.hideToolbar();
+                                            _wrapSelectionAsCode();
+                                          },
+                                        ),
+                                      ]);
+                                    }
+                                    return AdaptiveTextSelectionToolbar.buttonItems(
+                                      anchors: editableState.contextMenuAnchors,
+                                      buttonItems: items,
+                                    );
+                                  },
+                                  decoration: InputDecoration(
+                                    hintText: l.chatScreenSendHint,
+                                    border: InputBorder.none,
+                                    // `maxLength` включён (обрезка на 4096
+                                    // сохраняется), но встроенный «0/4096»
+                                    // counter скрыт: он занимал строку под
+                                    // полем и ломал вертикальное выравнивание
+                                    // скрепки/микрофона в однострочном режиме.
+                                    counterText: '',
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 12,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -2588,4 +2670,36 @@ class _RecordingIndicatorState extends State<_RecordingIndicator>
       ),
     );
   }
+}
+
+/// Backspace, когда состояние модификаторов протухло.
+///
+/// **issue #72.** Уход из окна с зажатым Ctrl (Alt+Tab, копирование в
+/// другое приложение) оставляет `HardwareKeyboard` в уверенности, что
+/// клавиша нажата, — и штатный `DefaultTextEditingShortcuts` трактует
+/// следующий Backspace как «удалить слово». Пользователь видит, как
+/// строка исчезает целиком.
+///
+/// Активатор соглашается ТОЛЬКО когда протухание доказано: фреймворк
+/// уверен в модификаторе, нажатия которого композер при фокусе не видел.
+/// Если Ctrl держат по-настоящему — активатор молчит, и «удалить слово»
+/// работает как положено.
+class _StaleModifierBackspace extends ShortcutActivator {
+  const _StaleModifierBackspace(this.isStale);
+
+  final bool Function() isStale;
+
+  @override
+  Iterable<LogicalKeyboardKey> get triggers => const [
+    LogicalKeyboardKey.backspace,
+  ];
+
+  @override
+  bool accepts(KeyEvent event, HardwareKeyboard state) =>
+      event is KeyDownEvent &&
+      event.logicalKey == LogicalKeyboardKey.backspace &&
+      isStale();
+
+  @override
+  String debugDescribeKeys() => 'Backspace (протухшие модификаторы)';
 }
