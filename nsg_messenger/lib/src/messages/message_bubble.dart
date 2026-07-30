@@ -1,4 +1,7 @@
+import 'dart:async' show unawaited;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:nsg_connect_client/nsg_connect_client.dart'
     show AttachmentRef, ParticipantKind, RoomParticipant;
 import 'package:url_launcher/url_launcher.dart';
@@ -600,7 +603,10 @@ class MessageBubble extends StatelessWidget {
                               Text(
                                 '· ${l.messageEditedBadge}',
                                 style: theme.textTheme.bodySmall?.copyWith(
-                                  color: onHighlight(textColor, secondary: true),
+                                  color: onHighlight(
+                                    textColor,
+                                    secondary: true,
+                                  ),
                                   fontSize: 11,
                                   fontStyle: FontStyle.italic,
                                 ),
@@ -1424,6 +1430,11 @@ class _BodyTextState extends State<_BodyText> {
       baseStyle: base,
       accentColor: widget.mentionColor,
       codeBackground: widget.highlightColor,
+      // **issue #56**: тап по блоку кода копирует его — самое частое, что
+      // с присланным кодом делают. Кнопки у блока нет намеренно (замер
+      // текста в пузыре, см. `parseMarkdownToSpans`), поэтому подтверждаем
+      // снекбаром: без отклика тап выглядел бы как «ничего не произошло».
+      onCodeBlockTap: (code) => _copyCode(context, code),
     );
 
     final ids = widget.mentionedMessengerUserIds;
@@ -1459,6 +1470,20 @@ class _BodyTextState extends State<_BodyText> {
         mdSpans,
         allowed: allowed,
         mentionStyle: mentionStyle,
+      ),
+    );
+  }
+
+  /// Скопировать блок кода в буфер обмена + подтвердить снекбаром.
+  void _copyCode(BuildContext context, String code) {
+    if (code.isEmpty) return;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final l = NsgL10n.of(context);
+    unawaited(Clipboard.setData(ClipboardData(text: code)));
+    messenger?.showSnackBar(
+      SnackBar(
+        content: Text(l.messageCopiedSnack),
+        duration: const Duration(seconds: 2),
       ),
     );
   }

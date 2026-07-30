@@ -4,6 +4,7 @@ import 'package:nsg_connect_client/nsg_connect_client.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 import '../i18n/generated/nsg_l10n.dart';
+import '../messages/markdown_plain.dart';
 import '../theme/nsg_messenger_theme.dart';
 import '../utils/relative_time.dart';
 import '../widgets/nsg_bot_badge.dart';
@@ -78,8 +79,13 @@ class RoomSummaryTile extends StatelessWidget {
             // bodyMedium/onSurfaceVariant; ручной override стиля убрали,
             // чтобы host-app `ListTileTheme.subtitleTextStyle` не
             // игнорировался (см. ревью 29ebbdf #3).
-            room.lastMessagePreview ??
-                NsgL10n.of(context).roomSummaryNoMessages,
+            // **issue #56**: в одну строку списка разметку не нарисовать,
+            // поэтому знаки снимаем, а содержимое оставляем — иначе
+            // ответы ботов светились сырыми звёздочками и backtick-ами.
+            stripMarkdown(
+              room.lastMessagePreview ??
+                  NsgL10n.of(context).roomSummaryNoMessages,
+            ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),

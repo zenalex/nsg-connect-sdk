@@ -31,14 +31,28 @@ List<InlineSpan> parseMarkdownToSpans(
   String text, {
   required TextStyle baseStyle,
   required Color accentColor,
+
   /// Подложка код-плашек. Приходит СНАРУЖИ, потому что считается от фона
   /// пузыря, который парсер не знает: раньше подложка бралась от цвета
   /// текста и в тёмной теме сливалась с ним (issue про читаемость).
   Color? codeBackground,
+
+  /// **issue #56**: тап по блоку кода — «скопировать» (как в Telegram).
+  /// Кнопкой сделать нельзя: пузырь мерит текст через `TextPainter`, а
+  /// `WidgetSpan` без заданных размеров этот замер ломает (см.
+  /// [_codeBlockSpan]). Обработчик приходит снаружи: парсер — чистая
+  /// функция, буфера обмена и снекбара он не знает.
+  void Function(String code)? onCodeBlockTap,
 }) {
   if (text.isEmpty) return const <InlineSpan>[];
   try {
-    return _parseWithCodeBlocks(text, baseStyle, accentColor, codeBackground);
+    return _parseWithCodeBlocks(
+      text,
+      baseStyle,
+      accentColor,
+      codeBackground,
+      onCodeBlockTap,
+    );
   } on FormatException {
     // Web: Dart RegExp компилируется в JS RegExp БРАУЗЕРА. На старых
     // движках экзотика (unicode property escapes и т.п.) кидает
@@ -79,9 +93,10 @@ List<InlineSpan> _parseWithCodeBlocks(
   TextStyle baseStyle,
   Color accentColor,
   Color? codeBackground,
+  void Function(String code)? onCodeBlockTap,
 ) {
   if (!text.contains('```')) {
-    return _parsePass(text, baseStyle, accentColor, codeBackground);
+    return _parseBlocks(text, baseStyle, accentColor, codeBackground);
   }
   final spans = <InlineSpan>[];
   var cursor = 0;
@@ -94,13 +109,18 @@ List<InlineSpan> _parseWithCodeBlocks(
         : open;
     if (m == null) {
       spans.addAll(
-        _parsePass(text.substring(cursor), baseStyle, accentColor, codeBackground),
+        _parseBlocks(
+          text.substring(cursor),
+          baseStyle,
+          accentColor,
+          codeBackground,
+        ),
       );
       break;
     }
     if (m.start > cursor) {
       spans.addAll(
-        _parsePass(
+        _parseBlocks(
           text.substring(cursor, m.start),
           baseStyle,
           accentColor,
@@ -108,11 +128,116 @@ List<InlineSpan> _parseWithCodeBlocks(
         ),
       );
     }
-    spans.add(_codeBlockSpan(m.group(2) ?? '', baseStyle, codeBackground));
+    spans.add(
+      _codeBlockSpan(
+        m.group(2) ?? '',
+        baseStyle,
+        codeBackground,
+        onCodeBlockTap,
+      ),
+    );
     cursor = m.end;
   }
   return spans;
 }
+
+/// **Блочная разметка (issue #56): цитаты и списки.**
+///
+/// Разбирается ПОСТРОЧНО и до инлайновых правил, потому что смысл этих
+/// знаков зависит от позиции: `-` в начале строки — пункт списка, а в
+/// середине — дефис. Инлайновые правила позиции не знают вовсе, поэтому
+/// решать это внутри них нельзя.
+///
+/// Маркер заменяем на готовый символ (`•`, `▎`), а не рисуем виджетом:
+/// пузырь мерит текст `TextPainter`-ом, и placeholder ломает замер (см.
+/// [_codeBlockSpan]). Цена — вторая строка длинного пункта не
+/// выравнивается по тексту первой, как в настоящем списке; за это платим
+/// сознательно, потому что альтернатива — сломанное сворачивание длинных
+/// сообщений.
+List<InlineSpan> _parseBlocks(
+  String text,
+  TextStyle baseStyle,
+  Color accentColor,
+  Color? codeBackground,
+) {
+  if (text.isEmpty) return const <InlineSpan>[];
+  // Дешёвая проверка: ни одной строки с блочным маркером — сразу инлайн.
+  if (!_hasBlockMarker(text)) {
+    return _parsePass(text, baseStyle, accentColor, codeBackground);
+  }
+  final spans = <InlineSpan>[];
+  final lines = text.split('\n');
+  for (var i = 0; i < lines.length; i++) {
+    final line = lines[i];
+    final quote = _quoteLineRe.firstMatch(line);
+    final bullet = quote == null ? _bulletLineRe.firstMatch(line) : null;
+    final ordered = (quote == null && bullet == null)
+        ? _orderedLineRe.firstMatch(line)
+        : null;
+
+    if (quote != null) {
+      // Полоска слева — цветом акцента, сам текст полной насыщенности:
+      // приглушать его значило бы ухудшать читаемость там, где человек
+      // как раз и цитирует что-то важное.
+      spans.add(
+        TextSpan(
+          text: '▎ ',
+          style: baseStyle.copyWith(color: accentColor),
+        ),
+      );
+      spans.addAll(
+        _parsePass(quote.group(1)!, baseStyle, accentColor, codeBackground),
+      );
+    } else if (bullet != null) {
+      spans.add(TextSpan(text: '${bullet.group(1)}•  ', style: baseStyle));
+      spans.addAll(
+        _parsePass(bullet.group(2)!, baseStyle, accentColor, codeBackground),
+      );
+    } else if (ordered != null) {
+      // Номер оставляем ТОТ, что написал человек: перенумеровывать —
+      // значит спорить с автором (он мог начать с 3 или продолжить
+      // список из предыдущего сообщения).
+      spans.add(
+        TextSpan(
+          text: '${ordered.group(1)}${ordered.group(2)}.  ',
+          style: baseStyle,
+        ),
+      );
+      spans.addAll(
+        _parsePass(ordered.group(3)!, baseStyle, accentColor, codeBackground),
+      );
+    } else {
+      spans.addAll(_parsePass(line, baseStyle, accentColor, codeBackground));
+    }
+    if (i != lines.length - 1) {
+      spans.add(TextSpan(text: '\n', style: baseStyle));
+    }
+  }
+  return spans;
+}
+
+bool _hasBlockMarker(String text) {
+  for (final line in text.split('\n')) {
+    if (_quoteLineRe.hasMatch(line) ||
+        _bulletLineRe.hasMatch(line) ||
+        _orderedLineRe.hasMatch(line)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/// Цитата: `> текст`. До трёх пробелов отступа — как в CommonMark.
+final _quoteLineRe = RegExp(r'^[ \t]{0,3}>[ \t]?(.*)$');
+
+/// Пункт списка: `- текст`, `* текст`, `+ текст`.
+///
+/// Пробел после маркера обязателен, иначе `*жирный*` в начале строки и
+/// минус в `-5 градусов` превращались бы в списки.
+final _bulletLineRe = RegExp(r'^([ \t]*)[-*+][ \t]+(\S.*)$');
+
+/// Нумерованный пункт: `1. текст` / `1) текст`.
+final _orderedLineRe = RegExp(r'^([ \t]*)(\d{1,3})[.)][ \t]+(\S.*)$');
 
 Match? _firstMatch(RegExp re, String text, int start) {
   for (final m in re.allMatches(text, start)) {
@@ -127,9 +252,20 @@ Match? _firstMatch(RegExp re, String text, int start) {
 /// решить, сворачивать ли длинное сообщение, а placeholder без заданных
 /// размеров этот замер ломает. Подложка средствами `TextStyle` даёт
 /// нужный вид без отдельного layout-а.
-InlineSpan _codeBlockSpan(String code, TextStyle base, Color? background) {
+InlineSpan _codeBlockSpan(
+  String code,
+  TextStyle base,
+  Color? background,
+  void Function(String code)? onTap,
+) {
+  final body = code.trimRight();
   return TextSpan(
-    text: code.trimRight(),
+    text: body,
+    // Тап — «скопировать» (issue #56). Кнопки у блока нет по той же
+    // причине, по которой он не виджет: замер текста в пузыре.
+    recognizer: onTap == null
+        ? null
+        : (TapGestureRecognizer()..onTap = () => onTap(body)),
     style: base.copyWith(
       fontFamily: 'monospace',
       fontFamilyFallback: const ['Courier New', 'DejaVu Sans Mono', 'Menlo'],
@@ -261,10 +397,7 @@ final _linkRe = RegExp(r'\[([^\]\n]+)\]\((https?://[^\s)]+)\)', unicode: true);
 // вместо lookbehind: lookbehind падает на web-движках (см. GT-2976 выше).
 // Markdown-ссылка `[t](url)` матчится раньше по `start` и имеет приоритет в
 // сканере — этот регэксп внутрь неё не влезет.
-final _bareUrlRe = RegExp(
-  r'https?://[^\s<>()]*[\w/#=&%~+-]',
-  unicode: true,
-);
+final _bareUrlRe = RegExp(r'https?://[^\s<>()]*[\w/#=&%~+-]', unicode: true);
 final _boldRe = RegExp(
   r'\*\*(\S(?:[^*\n]*\S)?)\*\*(?![\p{L}\p{N}_*])',
   unicode: true,
