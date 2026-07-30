@@ -4548,6 +4548,18 @@ abstract class NsgL10n {
   /// In en, this message translates to:
   /// **'Attachment'**
   String get inAppBannerAttachment;
+
+  /// Issue #76: message action in a group chat — open (or create) a one-to-one chat with the author of this message.
+  ///
+  /// In en, this message translates to:
+  /// **'Direct message'**
+  String get messageActionDirectMessage;
+
+  /// Issue #76: opening the one-to-one chat with the message author failed (network / server).
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t open the chat — try again'**
+  String get messageActionDirectMessageFailed;
 }
 
 class _NsgL10nDelegate extends LocalizationsDelegate<NsgL10n> {

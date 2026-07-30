@@ -787,5 +787,7 @@
   "supportInboxProjectFilterTitle": "Фильтр по проекту",
   "supportInboxEmpty": "Нет обращений",
   "inAppBannerNewMessage": "Новое сообщение",
-  "inAppBannerAttachment": "Вложение"
+  "inAppBannerAttachment": "Вложение",
+  "messageActionDirectMessage": "Личное сообщение",
+  "messageActionDirectMessageFailed": "Не удалось открыть чат — попробуйте ещё раз"
 }

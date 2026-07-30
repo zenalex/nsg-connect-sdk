@@ -20,6 +20,9 @@ import 'package:nsg_connect_client/nsg_connect_client.dart'
         RoomType,
         RoomTaskStats,
         RoomUnavailableException,
+        // **issue #76**: отказ на «Личное сообщение» — это гейт приватности
+        // автора, а не отсутствие человека.
+        PeerUnavailableException,
         AttachmentRejectedException,
         AttachmentRejectReason;
 
@@ -1734,6 +1737,13 @@ class _ChatScreenState extends State<ChatScreen>
           (!_isDirectRoom && !isOwn && _authorParticipant(m) != null)
           ? _replyWithMention
           : null,
+      // **issue #76**: «Личное сообщение» — тот же гейт, что у упоминания
+      // (группа + чужое сообщение), плюс нужен id автора: 1:1 создаётся по
+      // нему, а у системных сообщений и бот-эха его нет.
+      onOpenDirectChat:
+          (!_isDirectRoom && !isOwn && m.senderMessengerUserId != null)
+          ? _openDirectChatWithAuthor
+          : null,
       // **Issue #35**: пункт «Закрепить/Открепить» — только если у viewer-а
       // есть права (direct — всегда; группы — admin/owner).
       canPin: _canPinMessages,
@@ -1743,6 +1753,47 @@ class _ChatScreenState extends State<ChatScreen>
   /// **TASK69 2C**: участник-автор сообщения (по matrixUserId отправителя).
   RoomParticipant? _authorParticipant(ChatMessage m) =>
       _participantsByMatrixId?[m.senderMatrixUserId];
+
+  /// **issue #76**: уйти из группы в личный чат с автором сообщения.
+  ///
+  /// `createDirect` идемпотентен — существующий 1:1 переиспользуется, новый
+  /// создаётся; специально искать «а есть ли уже чат» не нужно.
+  ///
+  /// Отказ [PeerUnavailableException] тут значит не «нет такого человека»
+  /// (мы его сообщение только что читали), а его же настройку «кто может
+  /// мне писать» либо блокировку. Показываем это словами человека, а не
+  /// технической ошибкой; предложение отправить заявку со визиткой живёт
+  /// в профиле контакта — здесь, из меню сообщения, оно было бы слишком
+  /// длинным путём.
+  Future<void> _openDirectChatWithAuthor(ChatMessage m) async {
+    final peerId = m.senderMessengerUserId;
+    if (peerId == null) return;
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final l = NsgL10n.of(context);
+    try {
+      final details = await MessengerRuntime.instance.rooms.createDirect(
+        peerId,
+      );
+      if (!mounted) return;
+      await navigator.push(
+        MaterialPageRoute<void>(builder: (_) => ChatScreen(roomId: details.id)),
+      );
+    } on PeerUnavailableException {
+      messenger?.showSnackBar(
+        SnackBar(content: Text(l.createChatPeerUnavailable)),
+      );
+    } catch (e, st) {
+      MessengerRuntime.instance.reportError(
+        e,
+        st,
+        tags: {'message.action': 'directMessage'},
+      );
+      messenger?.showSnackBar(
+        SnackBar(content: Text(l.messageActionDirectMessageFailed)),
+      );
+    }
+  }
 
   /// **TASK69 2C**: ответить на [m] + упомянуть его автора. Ставит reply-target
   /// (как обычный reply) и эмитит автора в композер — тот вставит `@имя `.

@@ -2553,4 +2553,11 @@ class NsgL10nEn extends NsgL10n {
 
   @override
   String get inAppBannerAttachment => 'Attachment';
+
+  @override
+  String get messageActionDirectMessage => 'Direct message';
+
+  @override
+  String get messageActionDirectMessageFailed =>
+      'Couldn\'t open the chat — try again';
 }

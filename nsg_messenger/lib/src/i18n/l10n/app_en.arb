@@ -3069,5 +3069,10 @@
   "inAppBannerNewMessage": "New message",
   "@inAppBannerNewMessage": {"description": "Issue #79: in-app banner text when message preview is off, and title fallback when neither room name nor sender name is known."},
   "inAppBannerAttachment": "Attachment",
-  "@inAppBannerAttachment": {"description": "Issue #79: in-app banner body for a message with no text (image, file, voice)."}
+  "@inAppBannerAttachment": {"description": "Issue #79: in-app banner body for a message with no text (image, file, voice)."},
+
+  "messageActionDirectMessage": "Direct message",
+  "@messageActionDirectMessage": {"description": "Issue #76: message action in a group chat — open (or create) a one-to-one chat with the author of this message."},
+  "messageActionDirectMessageFailed": "Couldn't open the chat — try again",
+  "@messageActionDirectMessageFailed": {"description": "Issue #76: opening the one-to-one chat with the message author failed (network / server)."}
 }

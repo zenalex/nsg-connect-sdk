@@ -2579,4 +2579,11 @@ class NsgL10nRu extends NsgL10n {
 
   @override
   String get inAppBannerAttachment => 'Вложение';
+
+  @override
+  String get messageActionDirectMessage => 'Личное сообщение';
+
+  @override
+  String get messageActionDirectMessageFailed =>
+      'Не удалось открыть чат — попробуйте ещё раз';
 }

@@ -245,7 +245,9 @@ class MessengerRuntime with WidgetsBindingObserver {
     _attachmentCacheLimitBytes = bytes;
     final cache = _cache;
     if (cache != null && bytes >= 0) {
-      unawaited(cache.evictAttachmentsToLimit(bytes).catchError((Object _) => 0));
+      unawaited(
+        cache.evictAttachmentsToLimit(bytes).catchError((Object _) => 0),
+      );
     }
   }
 
@@ -335,6 +337,7 @@ class MessengerRuntime with WidgetsBindingObserver {
   void configureErrorReporter(ErrorReporter reporter) {
     _errorReporter = reporter;
   }
+
   NsgMessengerLocale get locale => _locale;
   MessengerMode get mode => _mode;
 
@@ -397,6 +400,7 @@ class MessengerRuntime with WidgetsBindingObserver {
       return false;
     }
   }
+
   Stream<MessengerSessionState> get stateStream => _stateCtl.stream;
   MessengerSessionState get state => _state;
 
@@ -789,8 +793,7 @@ class MessengerRuntime with WidgetsBindingObserver {
     _contactSyncSub = _eventBus!.events.listen((event) {
       if (event.eventType == MessengerEventType.contactMetaChanged) {
         _contacts?.invalidateLabels();
-      } else if (event.eventType ==
-          MessengerEventType.contactRequestChanged) {
+      } else if (event.eventType == MessengerEventType.contactRequestChanged) {
         // **TASK52 итер.2**: новая/принятая/отклонённая заявка на другом
         // устройстве — пересчёт бейджа входящих.
         _contacts?.refreshIncomingRequests();
@@ -893,14 +896,18 @@ class MessengerRuntime with WidgetsBindingObserver {
       }
       if (initial != null) {
         if (kDebugMode) {
-          debugPrint(
-            '[MessengerRuntime.init] _onPushTokenChanged (initial)...',
-          );
+          debugPrint('[MessengerRuntime.init] _onPushTokenChanged (в фоне)...');
         }
-        await _onPushTokenChanged(initial);
-        if (kDebugMode) {
-          debugPrint('[MessengerRuntime.init] _onPushTokenChanged OK');
-        }
+        // **issue #77 — НЕ ждём регистрацию.** Она заведомо
+        // необязательна (сама себя лечит на следующем эмите токена и на
+        // следующем запуске) и внутри ретраит с задержками 2+6+20+60
+        // секунд. Когда сети нет, ожидание съедало ВЕСЬ бюджет запуска
+        // host-app (у Chatista — 20 секунд на init), init обрывался по
+        // таймауту, и человек вместо кэша чатов получал полноэкранное
+        // «не удалось подключиться». Причём сессия к этому моменту уже
+        // была поднята из сохранённой (TASK47), то есть кэш чатов лежал
+        // в двух шагах и был недостижим из-за побочной задачи.
+        unawaited(_onPushTokenChanged(initial));
       }
     }
     // **TASK20 followup (a)**: lifecycle observer на уровне runtime —
@@ -919,7 +926,10 @@ class MessengerRuntime with WidgetsBindingObserver {
     }
     // **TASK46 (звонки в фоне)**: VoIP-токен мог прийти из натива (PushKit)
     // ещё до готовности `client` — регистрируем отложенный токен сейчас.
-    await _flushVoipToken();
+    // Тоже в фоне (issue #77): это сетевой вызов, а запуск приложения не
+    // должен зависеть от доступности сервера — токен остаётся pending и
+    // повторится на следующем эмите.
+    unawaited(_flushVoipToken());
     if (kDebugMode) debugPrint('[MessengerRuntime.init] all done');
   }
 
@@ -1023,15 +1033,11 @@ class MessengerRuntime with WidgetsBindingObserver {
     final sm = _sessionManager;
     if (client == null || sm == null || sm.session == null) return;
     try {
-      await withAuthRetry(
-        () => client.messenger.presenceHeartbeat(),
-        sm,
-      );
+      await withAuthRetry(() => client.messenger.presenceHeartbeat(), sm);
     } catch (_) {
       // молча — следующий тик попробует снова
     }
   }
-
 
   /// **Session-recovery fix (a2)**: колбэк для [MessengerEventBus] на
   /// типизированный auth-invalidation в `userEventStream`. Дёргаем
