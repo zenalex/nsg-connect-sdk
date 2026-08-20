@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nsg_connect_client/nsg_connect_client.dart';
 import 'package:nsg_messenger/nsg_messenger.dart';
 import 'package:nsg_messenger/src/admin/nsg_messenger_platform_admin.dart';
 
@@ -27,6 +28,7 @@ void main() {
     ListTenantAuditEventsRpc? listAuditEventsRpc,
   }) => NsgMessengerPlatformAdmin.withRpcs(
     isPlatformAdminRpc: isPlatformAdminRpc ?? () async => true,
+    listDeliveryHealthRpc: () async => const <ProductDeliveryHealth>[],
     listTenantsRpc: listTenantsRpc ?? () async => const [],
     enableAndGenerateRpc:
         enableAndGenerateRpc ??

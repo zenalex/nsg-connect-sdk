@@ -106,8 +106,7 @@ class ContactCardView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final full = size == ContactCardSize.full;
-    final radius =
-        borderRadius ?? BorderRadius.circular(full ? 20 : 16);
+    final radius = borderRadius ?? BorderRadius.circular(full ? 20 : 16);
     final nameColor = card.nameColor != null
         ? parseHex(card.nameColor, Colors.white)
         : contrastOn(_nameBase);
@@ -158,23 +157,28 @@ class ContactCardView extends StatelessWidget {
                     card.displayName ?? '—',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: nameStyle(card.nameFontStyle, nameSize,
-                        card.template == 'photo' ? Colors.white : nameColor),
+                    style: nameStyle(
+                      card.nameFontStyle,
+                      nameSize,
+                      card.template == 'photo' ? Colors.white : nameColor,
+                    ),
                   ),
                   if (full &&
                       (card.jobTitle != null || card.company != null)) ...[
                     const SizedBox(height: 4),
                     Text(
-                      [card.jobTitle, card.company]
-                          .whereType<String>()
-                          .join(' · '),
+                      [
+                        card.jobTitle,
+                        card.company,
+                      ].whereType<String>().join(' · '),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: (card.template == 'photo'
-                                ? Colors.white
-                                : nameColor)
-                            .withValues(alpha: 0.72),
+                        color:
+                            (card.template == 'photo'
+                                    ? Colors.white
+                                    : nameColor)
+                                .withValues(alpha: 0.72),
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                       ),
@@ -214,8 +218,13 @@ class ContactCardView extends StatelessWidget {
       return gradient;
     }
     // Runtime может быть не инициализирован (тесты) — деградация.
-    if (!MessengerRuntime.instance.isInitialized) return gradient;
-    final client = MessengerRuntime.instance.client;
+    //
+    // **issue #145**: спрашиваем именно клиента, а не `isInitialized`. Тот
+    // истинен, если жив ЛЮБОЙ из трёх объектов рантайма, а `dispose` зануляет
+    // их по очереди с await-ами между — значит есть окно, где признак ещё
+    // «да», а клиента уже нет. Бросок отсюда — отказ сборки кадра.
+    final client = MessengerRuntime.instance.clientOrNull;
+    if (client == null) return gradient;
     return Image(
       image: MxcImageProvider(
         mxcUrl: mxc,

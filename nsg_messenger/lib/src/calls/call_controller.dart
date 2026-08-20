@@ -638,7 +638,9 @@ class CallController extends ChangeNotifier {
       );
     }
     // notifyPeer:false — звонок жив на другом устройстве, обрывать нельзя.
-    unawaited(_endCall(call, CallEndReason.answeredElsewhere, notifyPeer: false));
+    unawaited(
+      _endCall(call, CallEndReason.answeredElsewhere, notifyPeer: false),
+    );
   }
 
   void _onHangupOrReject(MessengerEvent event, CallEndReason reason) {

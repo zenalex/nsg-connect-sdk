@@ -346,11 +346,11 @@ class MessengerCacheStore {
   /// ChatScreen открывался ОФФЛАЙН (детали + кэш-сообщения), а не висел на
   /// сетевом `get(roomId)`. Идемпотентно по (userId, roomId).
   Future<void> putRoomDetails(int roomId, RoomDetails details) async {
-    await _db.insert(
-      'cached_room_details',
-      {'userId': userId, 'roomId': roomId, 'json': jsonEncode(details.toJson())},
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await _db.insert('cached_room_details', {
+      'userId': userId,
+      'roomId': roomId,
+      'json': jsonEncode(details.toJson()),
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   /// **TASK47-i2**: кэшированные детали комнаты (read-through fallback для
@@ -374,6 +374,32 @@ class MessengerCacheStore {
         whereArgs: [userId, roomId],
       );
       debugPrint('[MessengerCacheStore] dropped corrupt room_details $roomId');
+      return null;
+    }
+  }
+
+  /// Сколько сообщений комнаты было непрочитано по последним данным с диска.
+  ///
+  /// Нужен, чтобы открыть чат ТАМ, ГДЕ ЧЕЛОВЕК ОСТАНОВИЛСЯ, не дожидаясь
+  /// сети: сетевой ответ приходит уже после первого кадра, и позиция,
+  /// выбранная по нему, означала бы видимый прыжок.
+  ///
+  /// `null` — комнаты в кэше нет или строка битая. Считать это за ноль
+  /// нельзя: «непрочитанного нет» и «мы не знаем» ведут к разной позиции.
+  Future<int?> unreadCount(int roomId) async {
+    final rows = await _db.query(
+      'cached_rooms',
+      columns: const ['json'],
+      where: 'userId = ? AND roomId = ?',
+      whereArgs: [userId, roomId],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    try {
+      final map = jsonDecode(rows.first['json'] as String);
+      final value = (map as Map<String, dynamic>)['unreadCount'];
+      return value is int ? value : null;
+    } catch (_) {
       return null;
     }
   }
@@ -533,8 +559,19 @@ class MessengerCacheStore {
     'json': jsonEncode(m.toJson()),
   };
 
-  /// Последние [limit] сообщений комнаты, в порядке ВОЗРАСТАНИЯ времени
-  /// (как отдаёт `listMessages` для показа). Битые blob-строки пропускаются.
+  /// Последние [limit] сообщений комнаты, **новейшее первым** — тот же
+  /// порядок, что у серверного `listMessages`. Битые blob-строки
+  /// пропускаются.
+  ///
+  /// **issue #112.** Раньше отдавалось по возрастанию, и комментарий врал,
+  /// будто так же отдаёт `listMessages`; на самом деле серверная страница
+  /// идёт DESC (`dir=b`), и лента чата (`reverse: true`) кладёт на дно
+  /// экрана элемент с индексом 0. То есть до прихода сети чат был показан
+  /// ПЕРЕВЁРНУТЫМ: внизу, куда человек смотрит, стояло самое старое
+  /// сохранённое сообщение. Отсюда жалоба «секунду вижу очень старые
+  /// сообщения, потом прыгает к текущим» — прыжка не было, была смена
+  /// порядка. Тем же порядком считается и граница прочитанного
+  /// (`readBoundaryOf`), так что открытие целилось не с того конца.
   Future<List<MessengerMessage>> getMessages(
     int roomId, {
     int limit = 50,
@@ -553,7 +590,7 @@ class MessengerCacheStore {
       keyCol: 'matrixEventId',
       decode: _decodeMessage,
     );
-    return msgs.reversed.toList(); // → ascending
+    return msgs; // SQL уже отсортировал DESC — новейшее первым
   }
 
   /// Realtime `messageCreated`: кладём сообщение и (если оно НОВЕЕ текущего
@@ -583,6 +620,36 @@ class MessengerCacheStore {
     if (sender != null && sender != userId) {
       summary.unreadCount = summary.unreadCount + 1;
     }
+    await putRooms([summary]);
+  }
+
+  /// Realtime `roomUnreadChanged`: счётчик комнаты на диске = то, что
+  /// сказал сервер. No-op, если комнаты в кэше нет.
+  ///
+  /// **issue #112.** Диск знал только два источника правды: полный
+  /// `list()` с сервера и локальный `+1` на каждое чужое сообщение
+  /// ([applyMessageCreated]). Обнуления не было НИ ОДНОГО — ни своего
+  /// markRead, ни чтения с другого устройства. То есть само чтение
+  /// оживлённого чата раздувало его дисковый счётчик, и следующее
+  /// открытие целилось тем дальше в историю, чем усерднее человек читал:
+  /// позицию открытия выбирает именно это число (см. `readBoundaryOf`).
+  ///
+  /// Событие приходит в канал ЭТОГО пользователя и на markRead (0), и на
+  /// инкремент — берём значение как есть, не «максимум с известным»:
+  /// сервер здесь авторитет, а расхождение с ним и было бедой.
+  Future<void> applyRoomUnreadChanged(int roomId, int unreadCount) async {
+    final rows = await _db.query(
+      'cached_rooms',
+      columns: const ['json'],
+      where: 'userId = ? AND roomId = ?',
+      whereArgs: [userId, roomId],
+      limit: 1,
+    );
+    if (rows.isEmpty) return;
+    final summary = _tryDecodeRoom(rows.first['json'] as String);
+    if (summary == null) return;
+    if (summary.unreadCount == unreadCount) return;
+    summary.unreadCount = unreadCount;
     await putRooms([summary]);
   }
 

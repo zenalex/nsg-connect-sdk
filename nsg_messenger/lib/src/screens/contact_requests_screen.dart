@@ -270,7 +270,9 @@ class _RequestCard extends StatelessWidget {
                     ],
                     const SizedBox(height: 6),
                     Text(
-                      note?.isNotEmpty == true ? note! : l.requestWantsToConnect,
+                      note?.isNotEmpty == true
+                          ? note!
+                          : l.requestWantsToConnect,
                       style: const TextStyle(
                         color: _fgMuted,
                         fontSize: 13.5,
@@ -381,7 +383,11 @@ class _EmptyState extends StatelessWidget {
             Text(
               hint,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: _fgMuted, fontSize: 13.5, height: 1.4),
+              style: const TextStyle(
+                color: _fgMuted,
+                fontSize: 13.5,
+                height: 1.4,
+              ),
             ),
           ],
         ),

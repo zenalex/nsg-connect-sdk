@@ -941,10 +941,7 @@ class _ConferenceParticipantTile extends StatelessWidget {
       ConferencePairPhase.connecting => const SizedBox(
         width: 16,
         height: 16,
-        child: CircularProgressIndicator(
-          strokeWidth: 2,
-          color: Colors.white70,
-        ),
+        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
       ),
       ConferencePairPhase.connected => const Icon(
         Icons.graphic_eq,

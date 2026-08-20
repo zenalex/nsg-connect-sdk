@@ -405,6 +405,98 @@ void main() {
     },
   );
 
+  testWidgets('чат открывается на границе прочитанного, а не внизу', (
+    tester,
+  ) async {
+    // Жалоба: чат открывается на сохранённых сообщениях, потом приезжает
+    // сеть и лента проматывается вниз. Позицию должно задавать то, что
+    // известно сразу, — счётчик непрочитанного с диска.
+    //
+    // Лента длиннее экрана, иначе «встать не внизу» невозможно физически.
+    final rpc = _FakeRpc();
+    rpc.listMessagesHandler = (_, _, _) => Future.value(
+      _page([
+        for (var i = 0; i < 40; i++)
+          _msg(eventId: 'h-$i', body: 'сообщение $i'),
+      ]),
+    );
+    final eventCtrl = StreamController<MessengerEvent>.broadcast();
+    final controller = MessagesController(
+      roomId: 1,
+      rpc: rpc,
+      events: eventCtrl.stream,
+      selfMessengerUserId: 42,
+      selfMatrixUserId: '@self:t',
+      unreadOnOpenOverride: 12,
+    );
+    addTearDown(() async {
+      await controller.dispose();
+      await eventCtrl.close();
+    });
+
+    await tester.pumpWidget(
+      wrap(ChatScreen(roomId: 1, controllerOverride: controller)),
+    );
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    // reverse: true → pixels == 0 это низ ленты, самое свежее. Раз мы
+    // ушли от нуля, лента подведена вверх — к непрочитанным.
+    final position = tester
+        .widget<ListView>(find.byType(ListView))
+        .controller!
+        .position;
+    expect(
+      position.pixels,
+      greaterThan(0),
+      reason: 'лента осталась внизу — граница прочитанного не сработала',
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('без непрочитанного чат открывается внизу', (tester) async {
+    // Обратная половина: когда читать нечего, низ ленты — правильное
+    // место, и уводить оттуда некуда.
+    final rpc = _FakeRpc();
+    rpc.listMessagesHandler = (_, _, _) => Future.value(
+      _page([
+        for (var i = 0; i < 40; i++)
+          _msg(eventId: 'h-$i', body: 'сообщение $i'),
+      ]),
+    );
+    final eventCtrl = StreamController<MessengerEvent>.broadcast();
+    final controller = MessagesController(
+      roomId: 1,
+      rpc: rpc,
+      events: eventCtrl.stream,
+      selfMessengerUserId: 42,
+      selfMatrixUserId: '@self:t',
+      unreadOnOpenOverride: 0,
+    );
+    addTearDown(() async {
+      await controller.dispose();
+      await eventCtrl.close();
+    });
+
+    await tester.pumpWidget(
+      wrap(ChatScreen(roomId: 1, controllerOverride: controller)),
+    );
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    expect(
+      tester
+          .widget<ListView>(find.byType(ListView))
+          .controller!
+          .position
+          .pixels,
+      0,
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('empty state — no markRead (no eventId to mark)', (tester) async {
     final rpc = _FakeRpc();
     rpc.listMessagesHandler = (_, _, _) => Future.value(_page([]));
@@ -623,6 +715,7 @@ class _FakeRpc implements MessagesRpc {
   }) async => const <String>[];
 
   @override
-  Future<List<MessengerMessage>> listPinnedMessages({required int roomId}) async =>
-      const <MessengerMessage>[];
+  Future<List<MessengerMessage>> listPinnedMessages({
+    required int roomId,
+  }) async => const <MessengerMessage>[];
 }

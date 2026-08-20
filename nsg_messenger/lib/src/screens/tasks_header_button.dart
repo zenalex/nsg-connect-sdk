@@ -11,7 +11,11 @@ import '../i18n/generated/nsg_l10n.dart';
 /// (иконки нет, а не пустой список по тапу — см. DoD TASK88). Вынесен из
 /// `ChatScreen` отдельным виджетом ради изолированного widget-теста.
 class TasksHeaderButton extends StatelessWidget {
-  const TasksHeaderButton({super.key, required this.stats, required this.onTap});
+  const TasksHeaderButton({
+    super.key,
+    required this.stats,
+    required this.onTap,
+  });
 
   /// Сводка по задачам комнаты (`active`/`total`). null → иконки нет.
   final RoomTaskStats? stats;

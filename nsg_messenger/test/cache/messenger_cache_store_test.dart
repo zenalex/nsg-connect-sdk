@@ -125,7 +125,11 @@ void main() {
     expect(await s.debugLastViewed(1), 999);
   });
 
-  test('messages: upsert + последние N по возрастанию', () async {
+  test('messages: upsert + последние N, НОВЕЙШЕЕ первым', () async {
+    // **issue #112**: порядок здесь — не вкусовщина. Лента чата
+    // (`reverse: true`) кладёт элемент 0 на дно экрана, и серверная
+    // страница приходит DESC. Кэш, отдававший по возрастанию, показывал
+    // чат перевёрнутым всю первую секунду — до прихода сети.
     final s = await open(1);
     addTearDown(s.close);
     await s.putMessages(7, [
@@ -134,7 +138,7 @@ void main() {
       msg(7, 'e3', at: t0.add(const Duration(minutes: 2))),
     ]);
     final last2 = await s.getMessages(7, limit: 2);
-    expect(last2.map((m) => m.matrixEventId).toList(), ['e2', 'e3']);
+    expect(last2.map((m) => m.matrixEventId).toList(), ['e3', 'e2']);
   });
 
   test(
@@ -178,6 +182,40 @@ void main() {
       expect(r.unreadCount, 1, reason: 'своё сообщение не растит unread');
     },
   );
+
+  test('applyRoomUnreadChanged: прочитанное на диске становится нулём',
+      () async {
+    // **issue #112.** Диск умел только прибавлять: +1 на каждое чужое
+    // сообщение, а обнулять — ничего и никогда, до полного `list()` с
+    // сервера. Открытие чата целится по этому же числу (`readBoundaryOf`),
+    // поэтому чтение оживлённого чата само уводило следующее открытие всё
+    // дальше в историю.
+    final s = await open(1);
+    addTearDown(s.close);
+    await s.putRooms([room(11, at: t0, unread: 0)]);
+    await s.applyMessageCreated(
+      msg(11, 'x', at: t0.add(const Duration(minutes: 1)), sender: 2),
+    );
+    expect((await s.getRooms()).single.unreadCount, 1);
+
+    await s.applyRoomUnreadChanged(11, 0);
+    expect(await s.unreadCount(11), 0);
+
+    // Событие приходит и на инкремент (другое устройство/другая комната) —
+    // значение берём как есть, сервер тут авторитет.
+    await s.applyRoomUnreadChanged(11, 3);
+    expect(await s.unreadCount(11), 3);
+  });
+
+  test('applyRoomUnreadChanged: незнакомая комната не создаётся', () async {
+    // Иначе в списке чатов появилась бы строка-призрак без имени и
+    // превью — из одного лишь счётчика.
+    final s = await open(1);
+    addTearDown(s.close);
+    await s.applyRoomUnreadChanged(404, 7);
+    expect(await s.unreadCount(404), isNull);
+    expect(await s.getRooms(), isEmpty);
+  });
 
   test(
     'applyMessageDeleted: пересчёт превью (redacted текст не остаётся)',

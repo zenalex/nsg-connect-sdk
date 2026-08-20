@@ -1,19 +1,15 @@
 {
   "@@locale": "ru",
-
   "commonRetry": "Повторить",
   "commonNewChat": "Новый чат",
   "commonConnectionLost": "Соединение потеряно — показываем кэш",
-
   "chatsListTitle": "Чаты",
   "chatsListEmpty": "Нет чатов",
   "chatsListLoadFailed": "Не удалось загрузить чаты",
-
   "createChatInvalidId": "Введите числовой messengerUserId",
   "createChatPeerUnavailable": "Пользователь недоступен",
   "createChatHelp": "Создание direct-чата по messengerUserId. Поиск по имени — TASK42.",
   "createChatSubmit": "Создать direct-чат",
-
   "chatScreenEmpty": "Сообщений пока нет — напиши первое",
   "chatScreenLoadFailed": "Не удалось загрузить сообщения",
   "chatJumpToLatestTooltip": "К последнему сообщению",
@@ -21,18 +17,15 @@
   "chatDateSeparatorYesterday": "Вчера",
   "chatScreenSendHint": "Сообщение…",
   "chatScreenSendTooltip": "Отправить",
-
   "roomSummaryNoName": "(без имени)",
   "roomSummaryNoMessages": "Нет сообщений",
-
   "composerSplitTitle": "Длинный текст",
   "composerSplitBody": "{count, plural, one{Будет отправлено {count} сообщением} few{Будет отправлено {count} сообщениями} many{Будет отправлено {count} сообщениями} other{Будет отправлено {count} сообщениями}}",
   "composerSplitConfirm": "Отправить",
   "composerEditTooLong": "Правка длиннее лимита в {limit} символов — сократите текст",
-  "composerPastedAsCode": "Оформлено как код",
+  "composerPasteImageFailed": "Не удалось вставить картинку из буфера обмена. Сохраните её в файл и прикрепите скрепкой.",
   "commonUndo": "Отменить",
   "commonCancel": "Отмена",
-
   "roomActionSheetTitle": "Действия",
   "roomActionMute": "Заглушить",
   "roomActionUnmute": "Включить уведомления",
@@ -49,19 +42,16 @@
   "roomActionLeaveConfirmTitle": "Покинуть чат?",
   "roomActionLeaveConfirmBody": "Вас удалят из переписки. Остальные участники увидят, что вы вышли.",
   "roomActionFailedSnack": "Не удалось — попробуйте ещё раз",
-
   "chatsListFilterMenuTooltip": "Фильтр",
   "chatsListFilterActive": "Активные",
   "chatsListFilterArchived": "Архив",
   "chatsListFilterAll": "Все",
-
   "chatsListSearchTooltip": "Поиск",
   "chatsListSearchHint": "Поиск по чатам…",
   "chatsListSearchClearTooltip": "Очистить",
   "chatsListSearchEmpty": "Ничего не найдено",
   "chatsListProductFilterTooltip": "Продукт",
   "chatsListProductFilterAll": "Все продукты",
-
   "chatsListFolderAll": "Все",
   "chatsListFolderPersonal": "Личные",
   "chatsListFolderProductFallback": "Продукт {productId}",
@@ -70,19 +60,16 @@
   "chatsListFolderOtherSection": "Чаты",
   "chatsListFolderSupport": "Поддержка",
   "chatsListFolderCustom": "Папка",
-
   "savedChatsTitle": "Избранное",
   "savedChatsCreateAction": "Новый раздел",
   "savedChatsCreateHint": "Название раздела",
   "savedChatsEmpty": "Отправляйте себе заметки, файлы и ссылки — они синхронизируются на всех ваших устройствах.",
   "savedChatsLimitReached": "Достигнут предел разделов ({limit}). Удалите ненужный.",
   "savedChatsNameTaken": "Раздел с таким названием уже есть.",
-
   "autoCleanupTitle": "Автоудаление сообщений",
   "autoCleanupHint": "Закреплённые сообщения не удаляются",
   "autoCleanupOff": "Никогда",
   "autoCleanupAfterDays": "{days, plural, one{Через {days} день} few{Через {days} дня} many{Через {days} дней} other{Через {days} дня}}",
-
   "attachActionSheetTitle": "Прикрепить",
   "attachActionCamera": "Камера",
   "attachActionGallery": "Галерея",
@@ -98,6 +85,8 @@
   "fileActionSave": "Сохранить на диск",
   "fileSavedTo": "Сохранено: {path}",
   "fileNoHandler": "Нет программы для открытия «{filename}»",
+  "filePreviewWrapOn": "Переносить строки",
+  "filePreviewWrapOff": "Не переносить строки",
   "fileOpenFailed": "Не удалось открыть файл",
   "attachUnnamedFallback": "Без имени",
   "attachTooltip": "Прикрепить файл",
@@ -106,7 +95,6 @@
   "voiceRecordTooShort": "Запись слишком короткая",
   "voiceRecordPermissionDenied": "Нет доступа к микрофону",
   "voiceRecordError": "Не удалось записать",
-
   "messageActionSheetTitle": "Сообщение",
   "messageActionEdit": "Редактировать",
   "messageActionDelete": "Удалить",
@@ -125,6 +113,8 @@
   "messageActionReplyWithMention": "Ответить с упоминанием",
   "mentionParticipantAction": "Упомянуть",
   "emojiPickerTitle": "Выберите реакцию",
+  "emojiInsertPickerTitle": "Выберите эмодзи",
+  "emojiInsertTooltip": "Эмодзи",
   "emojiCategorySmileys": "Смайлы и эмоции",
   "emojiCategoryGestures": "Жесты и люди",
   "emojiCategoryHearts": "Сердца и символы",
@@ -147,6 +137,8 @@
   "messageComposerSaveTooltip": "Сохранить",
   "typingSingle": "{name} печатает…",
   "typingPair": "{name1} и {name2} печатают…",
+  "typingSingleBot": "{name} анализирует…",
+  "typingManyMixed": "{count, plural, one{{count} участник готовит ответ…} few{{count} участника готовят ответ…} many{{count} участников готовят ответ…} other{{count} участника готовят ответ…}}",
   "roomRenameTitle": "Переименовать чат",
   "roomRenameHint": "Новое название",
   "roomRenameSave": "Сохранить",
@@ -158,7 +150,14 @@
   "readReceiptsLargeGroupHint": "Подробный список доступен только для групп до 25 участников. Прочитали {count} из {total}.",
   "readReceiptsNobodyRead": "Пока никто не прочитал",
   "readReceiptsCountLabel": "{count}",
-  "@readReceiptsCountLabel": {"description": "Compact label on bubble for group read count next to eye icon.", "placeholders": {"count": {"type": "int"}}},
+  "@readReceiptsCountLabel": {
+    "description": "Compact label on bubble for group read count next to eye icon.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "groupDissolveAction": "Удалить группу",
   "groupDissolveConfirmTitle": "Удалить группу «{name}»?",
   "groupDissolveConfirmBody": "Все участники будут выкинуты, чат закроется. Действие нельзя отменить.",
@@ -203,11 +202,9 @@
   "settingsPrivacySectionTitle": "Приватность",
   "notificationSettingsDiscoverableTitle": "Меня можно найти в поиске",
   "notificationSettingsDiscoverableSubtitle": "Другие могут найти вас по имени или email. Выключите, чтобы скрыться из поиска.",
-
   "connectionStateHealthy": "Подключено",
   "connectionStateReconnecting": "Переподключение…",
   "connectionStateDisconnected": "Соединение потеряно",
-
   "supportTeamTitle": "Команда поддержки",
   "supportTeamEmpty": "В команде пока нет участников",
   "supportTeamAddByEmail": "По email",
@@ -225,6 +222,7 @@
   "supportTeamTimeoutLabel": "Таймаут авто-эскалации",
   "supportTeamMinutesShort": "мин",
   "supportTeamUnavailable": "Команда поддержки недоступна",
+  "supportTeamAmbiguousProduct": "Ключ продукта заведён сразу в двух тенантах — сервер не может понять, какая команда имеется в виду. Нужно убрать дубль (администратор платформы).",
   "supportTeamActionFailed": "Не удалось выполнить — попробуйте ещё раз",
   "supportTeamLeaveAction": "Покинуть команду",
   "supportTeamLeaveConfirmTitle": "Покинуть команду поддержки?",
@@ -234,7 +232,6 @@
   "supportTeamRemoveConfirmBody": "{name} перестанет получать обращения по этому проекту и выйдет из его чатов поддержки.",
   "supportTeamAddNotFound": "Пользователь с таким email не найден. Он должен хотя бы раз войти в приложение.",
   "supportTeamRetry": "Повторить",
-
   "escalateToDevelopersAction": "Обратиться к разработчикам",
   "escalateToDevelopersDone": "Команда NSG подключена",
   "escalateToDevelopersFailed": "Не удалось подключить команду — попробуйте ещё раз",
@@ -242,7 +239,6 @@
   "escalateSupportDone": "Старший оператор подключён",
   "escalateSupportFailed": "Не удалось эскалировать — попробуйте ещё раз",
   "escalateSupportNoop": "Некого подключать — старших нет или они уже в чате",
-
   "objectRoomsCatalogTitle": "Объектовые чаты — {product}",
   "objectRoomsCatalogEmpty": "Пока нет объектовых чатов",
   "objectRoomsCatalogUnavailable": "Каталог недоступен",
@@ -251,7 +247,6 @@
   "objectRoomsCatalogLeaveAction": "Выйти из чата",
   "objectRoomsCatalogLeaveDone": "Вы вышли из чата",
   "objectRoomsCatalogEntry": "Объектовые чаты",
-
   "callStartTooltip": "Позвонить",
   "callAlreadyActive": "Уже идёт звонок — сначала завершите его",
   "callOutgoingTitle": "Звоним {peer}…",
@@ -291,7 +286,6 @@
   "conferencePickSourceEmpty": "Источники не найдены",
   "conferenceSourceScreen": "Экран",
   "conferenceSourceWindow": "Окно",
-
   "messageActionForward": "Переслать",
   "messageActionPin": "Закрепить",
   "messageActionUnpin": "Открепить",
@@ -329,9 +323,7 @@
   "shareFileTooLarge": "Слишком большой размер: {names}",
   "shareBusy": "Отправка ещё идёт",
   "messageForwardedFrom": "Переслано от {name}",
-
   "forwardSourceUnavailable": "Исходный чат недоступен",
-
   "commonOk": "ОК",
   "statusCardOpenLink": "Открыть",
   "integrationsTitle": "Интеграции",
@@ -379,7 +371,6 @@
   "integrationsRotateSecret": "Пересоздать секрет",
   "integrationsBotDeleteConfirmTitle": "Удалить бота?",
   "integrationsBotDeleteConfirmBody": "Бот будет удалён из комнаты, его подписка на webhook — удалена.",
-
   "botsAdminTitle": "Боты",
   "botsAdminEmpty": "Ботов пока нет. Бот — это программа, которая постит в чаты своим токеном.",
   "botsAdminLoadFailed": "Не удалось загрузить ботов",
@@ -434,7 +425,6 @@
   "botsAdminAuditDiscoverableOn": "Включена видимость в поиске",
   "botsAdminAuditDiscoverableOff": "Скрыт из поиска",
   "botsAdminAuditReadModeSet": "Изменён режим чтения",
-
   "platformAdminCreateTenant": "Новый тенант",
   "platformAdminCreateProduct": "Новый продукт",
   "platformAdminKeyLabel": "Ключ (латиница, цифры, _ и -)",
@@ -443,6 +433,24 @@
   "platformAdminKeyInvalid": "Ключ не годится: строчная латиница, цифры, _ и -, минимум 2 символа",
   "platformAdminAlreadyExists": "Такой ключ уже занят",
   "platformAdminCreated": "Создано",
+  "platformAdminDeleteProduct": "Удалить продукт",
+  "platformAdminDeleteProductConfirm": "Удалить продукт «{name}»? Вместе с ним удалится команда поддержки и выданные ему ключи доступа. Отменить это нельзя.",
+  "platformAdminDeleteProductBusy": "Продукт занят и не удалён: {what}. Сначала разберите это — иначе переписка осталась бы жить без продукта.",
+  "platformAdminDeleted": "Удалено",
+  "platformAdminBusyRooms": "{count, plural, one{{count} комната} few{{count} комнаты} many{{count} комнат} other{{count} комнаты}}",
+  "platformAdminBusyTickets": "{count, plural, one{{count} обращение} few{{count} обращения} many{{count} обращений} other{{count} обращения}}",
+  "platformAdminBusyBots": "{count, plural, one{{count} бот} few{{count} бота} many{{count} ботов} other{{count} бота}}",
+  "platformAdminBusyIdentities": "{count, plural, one{{count} пользователь} few{{count} пользователя} many{{count} пользователей} other{{count} пользователя}}",
+  "platformAdminBusyDevices": "{count, plural, one{{count} устройство} few{{count} устройства} many{{count} устройств} other{{count} устройства}}",
+  "platformAdminBusyWebhooks": "{count, plural, one{{count} вебхук} few{{count} вебхука} many{{count} вебхуков} other{{count} вебхука}}",
+  "platformAdminTenantSupport": "Поддержка тенанта",
+  "platformAdminTenantSupportHint": "Эти люди входят в команду каждого продукта тенанта. Убрали отсюда — исчезнут во всех сразу.",
+  "platformAdminTenantSupportEmpty": "Никого — операторов вписывают в команды продуктов по отдельности",
+  "platformAdminTenantSupportAdd": "Добавить в поддержку тенанта",
+  "platformAdminTenantSupportRemove": "Убрать из поддержки тенанта",
+  "platformAdminTenantSupportRemoveConfirm": "Убрать {name} из поддержки тенанта? Он исчезнет из команд всех продуктов этого тенанта.",
+  "supportTeamInherited": "От тенанта",
+  "supportTeamRemoveInheritedConfirm": "{name} — из поддержки тенанта. Убрать его только из этого продукта? В других продуктах он останется.",
   "platformAdminNoProducts": "Продуктов нет",
   "platformAdminNoSupportTeam": "Команда поддержки не заведена",
   "platformAdminSupportTeamSize": "{count, plural, one{Поддержка: {count} участник} few{Поддержка: {count} участника} many{Поддержка: {count} участников} other{Поддержка: {count} участника}}",
@@ -476,7 +484,6 @@
   "platformAdminAuditEnabledGenerated": "Режим включён, секрет выдан",
   "platformAdminAuditRotated": "Секрет ротирован",
   "platformAdminAuditDisabled": "Режим выключен",
-
   "myBotsTitle": "Мои боты",
   "myBotsEmpty": "Ботов пока нет. Бот — это программа, которая пишет в чаты от собственного аккаунта по токену доступа: уведомления о деплоях, напоминания, интеграции. Создайте бота и добавьте его в свои чаты — или сделайте публичным, чтобы его находили поиском.",
   "myBotsDiscoverable": "Виден в поиске",
@@ -496,7 +503,6 @@
   "myBotsDescriptionEmpty": "Описания нет — в каталоге бот будет без пояснения, что он делает",
   "myBotsEditDescription": "Изменить описание",
   "myBotsDescriptionHint": "Что делает этот бот",
-
   "botCatalogTitle": "Добавить бота",
   "botCatalogIntro": "Бот получит доступ к этому чату. Смотрите, что он читает: это главное, что стоит проверить перед подключением чужой программы.",
   "botCatalogEmpty": "Публичных ботов пока нет. Бот попадает в каталог, только когда его владелец включает видимость в поиске.",
@@ -504,8 +510,8 @@
   "botCatalogConnect": "Подключить",
   "botCatalogConnected": "Бот «{name}» подключён к чату",
   "botCatalogNoDescription": "Автор не добавил описание",
-
   "botCardTitle": "Бот",
+  "openBotCardAction": "Карточка бота",
   "botCardOwner": "Владелец: {owner}",
   "botCardCommandsTitle": "Команды",
   "botCardAddToRoom": "Добавить в чат…",
@@ -518,14 +524,13 @@
   "botCardAddedToRoom": "Бот добавлен в «{room}»",
   "botCardPickRoomTitle": "В какой чат добавить",
   "botCardNoAdminRooms": "Нет чатов, где вы владелец или админ — подключать бота может только админ чата",
-
   "botsPrivacyUnboundTitle": "Приватность подействует не полностью",
   "botsPrivacyUnboundBody": "{count, plural, one{Одна подписка на события заведена администратором платформы и не привязана к боту, поэтому режим чтения на неё не действует.} other{{count} подписок на события заведены администратором платформы и не привязаны к боту, поэтому режим чтения на них не действует.}} Чтение истории боту ограничено, а поток событий продолжит уходить целиком.",
-
   "pulseTitle": "Мониторинг",
   "pulseNoAccess": "У вас нет доступа к мониторингу.",
   "pulseEmpty": "Мониторов пока нет",
   "pulseLoadFailed": "Не удалось загрузить мониторинг",
+  "pulseLoadFailedOffline": "Нет связи с сервером",
   "pulseActionFailed": "Действие не выполнено — попробуйте ещё раз",
   "pulseAddFolder": "Папка",
   "pulseAddMonitor": "Монитор",
@@ -579,6 +584,7 @@
   "pulseRoomLabel": "Комната",
   "pulsePickRoom": "Выберите комнату",
   "pulseMinSeverityLabel": "Минимальная важность",
+  "pulseStatusLabel": "Статус",
   "pulseSeverityWarn": "Предупреждение",
   "pulseSeverityError": "Ошибка",
   "pulseSeverityDown": "Нет связи",
@@ -587,7 +593,6 @@
   "pulseLevel1Helper": "ID пользователей мессенджера через запятую — им уйдёт личка при эскалации.",
   "pulseRuleSummary": "≥ {severity} → комната {room}",
   "pulseDeleteRule": "Удалить правило",
-
   "pulseMembers": "Участники",
   "pulseMembersOf": "Участники · {name}",
   "pulseAddMember": "Добавить участника",
@@ -604,7 +609,6 @@
   "pulseMemberSearchHint": "Email или ник",
   "pulseMemberSearchEmpty": "Никого не нашлось",
   "pulseReadOnlyHint": "У вас доступ только на просмотр",
-
   "contactTitle": "Контакт",
   "contactCustomNameLabel": "Своё имя",
   "contactCustomNameHelper": "Видите только вы — в списке чатов и участниках",
@@ -631,15 +635,30 @@
   "contactUnblock": "Разблокировать",
   "contactBlocked": "Заблокирован",
   "contactBlockConfirm": "Заблокировать «{name}»?",
-  "@contactBlockConfirm": {"placeholders": {"name": {}}},
+  "@contactBlockConfirm": {
+    "placeholders": {
+      "name": {}
+    }
+  },
   "contactBlockBody": "Он не сможет вам писать, взаимные уведомления отключатся. Это можно отменить.",
   "contactBlockFailed": "Не удалось заблокировать",
   "contactUnblockFailed": "Не удалось разблокировать",
   "contactUnblocked": "Разблокирован",
+  "sharedContactListTitle": "Контакты",
+  "sharedContactListAddAll": "Добавить всех",
+  "sharedContactShareLabel": "Поделиться списком",
+  "sharedContactTitle": "Контакт",
+  "sharedContactAdd": "Добавить",
+  "sharedContactAlreadyKnown": "Уже в списке",
+  "sharedContactShare": "Поделиться контактом",
   "contactAddedToContacts": "Добавлен в контакты",
   "contactRequestOfferTitle": "Написать напрямую нельзя",
   "contactRequestOfferBody": "«{name}» ограничил, кто может ему писать. Отправьте заявку со своей визиткой — решение за ним.",
-  "@contactRequestOfferBody": {"placeholders": {"name": {}}},
+  "@contactRequestOfferBody": {
+    "placeholders": {
+      "name": {}
+    }
+  },
   "contactRequestSend": "Отправить заявку",
   "contactRequestSent": "Заявка отправлена",
   "contactRequestSendFailed": "Не удалось отправить заявку",
@@ -675,28 +694,22 @@
   "folderDeleteBody": "Чаты останутся — удалится только папка.",
   "folderChangeFailed": "Не удалось изменить папку",
   "folderDeleteFailed": "Не удалось удалить папку",
-
   "peopleSearchHint": "Поиск по имени или @нику",
   "peopleCount": "Контакты · {count}",
   "peopleNotFound": "Ничего не найдено",
   "peopleWrite": "Написать",
   "peopleProfile": "Профиль контакта",
-
   "folderChatCount": "{count, plural, =0{пусто} one{{count} чат} few{{count} чата} other{{count} чатов}}",
   "folderDone": "Готово",
   "folderDoneN": "Готово · {count}",
   "folderOk": "ОК",
-
   "folderPickerHeader": "Добавить в папку",
-
   "lastSeenJustNow": "был(а) в сети только что",
   "lastSeenMinutes": "был(а) в сети {count} мин назад",
   "lastSeenToday": "был(а) в сети сегодня в {time}",
   "lastSeenYesterday": "был(а) в сети вчера в {time}",
   "lastSeenDate": "был(а) в сети {date}",
-
   "lastSeenOnline": "в сети",
-
   "cardEditorTitle": "Моя визитка",
   "cardSectionStyle": "Стиль",
   "cardSectionFields": "О себе",
@@ -729,14 +742,11 @@
   "settingsWhoCanMessageSubtitle": "Новый чат со мной могут начать только люди, с которыми уже есть общий чат",
   "settingsShowCardsOnCallTitle": "Визитки на звонке",
   "settingsShowCardsOnCallSubtitle": "Показывать визитку звонящего на весь экран входящего звонка",
-
   "settingsPresenceVisibleTitle": "Показывать, когда я в сети",
   "settingsPresenceVisibleSubtitle": "«В сети» и «был(а) в сети…» видны собеседникам. Если выключить — вы тоже не будете видеть чужой статус",
-
   "peopleSelectedCount": "Выбрано: {count}",
   "peopleAssignLabelAction": "Метка",
   "peopleBatchLabelTitle": "Назначить метку · {count}",
-
   "profileLangBase": "Основной",
   "profileLangDefault": "По умолчанию · {locale}",
   "profileLangMakeDefault": "Сделать языком по умолчанию",
@@ -749,7 +759,6 @@
   "profileLangAddTitle": "Добавить язык профиля",
   "profileLangHelper": "Эти поля увидят пользователи с языком {locale}. Пустые поля возьмутся из английской или основной версии.",
   "profileLangSaved": "Версия {locale} сохранена",
-
   "roomCustomNameAction": "Своё название чата",
   "roomCustomNameHint": "Видно только вам — другие участники видят обычное название",
   "roomCustomNameReset": "Сбросить",
@@ -763,17 +772,17 @@
   "roomAdminWriteBannedUntil": "Запрещено до {until}",
   "writeBannedForeverSnack": "Администратор запретил вам писать в этот чат",
   "writeBannedUntilSnack": "Вам запрещено писать в этот чат до {until}",
-
   "threadOpenDiscussion": "Обсуждение ({count})",
   "threadScreenTitle": "Обсуждение задачи",
   "threadScreenEmpty": "Ответов пока нет. Задайте здесь вопрос по задаче.",
-
   "taskBadgeTooltip": "Задача: {status}",
   "taskStageCreated": "Заведена",
   "taskStageNew": "Новая",
   "taskStageInProgress": "В работе",
   "taskStageAccepted": "Принята",
   "taskStageRejected": "Отклонена",
+  "taskStageAwaitingUser": "Ждёт ответа",
+  "taskStageOnHold": "Приостановлена",
   "tasksScreenTitle": "Задачи",
   "tasksTabAll": "Все",
   "tasksTabInitiator": "Я инициатор",
@@ -782,12 +791,230 @@
   "tasksLoadError": "Не удалось загрузить задачи",
   "taskLabel": "Задача",
   "tasksScreenTitleForRoom": "Задачи: {room}",
-  "supportInboxProjectFilterLabel": "Проект:",
-  "supportInboxProjectFilterAll": "Все проекты",
-  "supportInboxProjectFilterTitle": "Фильтр по проекту",
+  "announcementDismiss": "Понятно",
+  "announcementOpen": "Открыть",
+  "attachmentDropHint": "Отпустите — прикрепим файлы",
+  "participantsHiddenToggle": "Скрыть список участников",
+  "participantsHiddenHint": "Состав будут видеть только администраторы",
+  "participantsHiddenNotice": "Администратор скрыл список участников",
   "supportInboxEmpty": "Нет обращений",
   "inAppBannerNewMessage": "Новое сообщение",
   "inAppBannerAttachment": "Вложение",
   "messageActionDirectMessage": "Личное сообщение",
-  "messageActionDirectMessageFailed": "Не удалось открыть чат — попробуйте ещё раз"
+  "messageActionDirectMessageFailed": "Не удалось открыть чат — попробуйте ещё раз",
+  "platformAdminTeams": "Команды тенанта",
+  "platformAdminTeamsHint": "Справочник компании. Людей из одной команды видно друг другу — новичку не надо ни у кого спрашивать адреса. Команда не открывает приватные поля визитки и не отменяет настройку «кто может мне писать».",
+  "platformAdminTeamsEmpty": "Команд нет — новичок увидит пустой список людей",
+  "platformAdminTeamCreate": "Новая команда",
+  "platformAdminTeamName": "Название",
+  "platformAdminTeamDescription": "Описание (необязательно)",
+  "platformAdminTeamNameTaken": "Команда с таким названием уже есть",
+  "platformAdminTeamDelete": "Распустить команду",
+  "platformAdminTeamDeleteConfirm": "Распустить «{name}»? Участники перестанут видеть друг друга по этой команде. Переписка и история останутся.",
+  "@platformAdminTeamDeleteConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "platformAdminTeamMembers": "Состав: {count}",
+  "@platformAdminTeamMembers": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "platformAdminTeamMemberAdd": "Добавить в команду",
+  "platformAdminTeamMemberRemove": "Убрать из команды",
+  "platformAdminTeamMemberRemoveConfirm": "Убрать {name} из команды? Он пропадёт из списка людей у остальных — если не знаком с ними по другой причине (общий чат, другая общая команда).",
+  "@platformAdminTeamMemberRemoveConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "platformAdminTeamMemberAddWarning": "Он увидит весь состав команды, и весь состав увидит его.",
+  "platformAdminTeamFull": "В команде уже предельное число участников",
+  "platformAdminTeamMembersEmpty": "Пусто — команда никого ни с кем не знакомит",
+  "myTeamsTitle": "Команды",
+  "myTeamsHint": "Команда — список людей без переписки: участники видят друг друга. Добавить можно только тех, кого вы уже знаете. Команда не открывает приватные поля визитки и не отменяет настройку «кто может мне писать».",
+  "myTeamsEmpty": "Команд пока нет. Соберите людей, которых знаете, — и они увидят друг друга, не заводя общий чат.",
+  "myTeamsOrgBadge": "Команда компании",
+  "myTeamsCreate": "Новая команда",
+  "myTeamsName": "Название",
+  "myTeamsDescription": "Описание (необязательно)",
+  "myTeamsMembers": "Состав: {count}",
+  "@myTeamsMembers": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "myTeamsMembersEmpty": "Пусто — команда никого ни с кем не знакомит",
+  "myTeamsMemberAdd": "Добавить в команду",
+  "myTeamsMemberAddWarning": "Он увидит весь состав команды, и весь состав увидит его.",
+  "myTeamsMemberRemove": "Убрать из команды",
+  "myTeamsMemberRemoveConfirm": "Убрать {name} из команды? Он пропадёт из списка людей у остальных — если не знаком с ними по другой причине (общий чат, другая общая команда).",
+  "@myTeamsMemberRemoveConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "myTeamsDelete": "Распустить команду",
+  "myTeamsDeleteConfirm": "Распустить «{name}»? Участники перестанут видеть друг друга по этой команде. Переписка и история останутся.",
+  "@myTeamsDeleteConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "myTeamsLeave": "Выйти из команды",
+  "myTeamsLeaveConfirm": "Выйти из «{name}»? Остальные участники пропадут из вашего списка людей — те, с кем вас не связывает ничего другого.",
+  "@myTeamsLeaveConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "myTeamsPeerUnknown": "Этого человека вы ещё не знаете. Познакомьтесь сначала: общий чат, общая команда компании или «Добавить в контакты».",
+  "myTeamsFull": "В команде уже предельное число участников",
+  "myTeamsAccessDenied": "Составом распоряжается владелец команды",
+  "myTeamsActionFailed": "Не удалось выполнить действие",
+  "peopleTeamFromLabel": "Создать команду из метки",
+  "peopleTeamFromLabelDone": "Команда «{name}»: добавлено {count}",
+  "@peopleTeamFromLabelDone": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "contactKnownVia": "Знакомы",
+  "contactKnownViaTeam": "из команды «{name}»",
+  "@contactKnownViaTeam": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "contactKnownViaSharedRoom": "общий чат",
+  "contactKnownViaManual": "добавлен вами",
+  "pushStatusNotConnectedTitle": "Уведомления не подключены",
+  "pushStatusPermissionDenied": "Приложению не разрешено показывать уведомления. Пока разрешения нет, новые сообщения видны только при открытом приложении.",
+  "pushStatusTokenUnavailable": "Разрешение выдано, но устройство не зарегистрировалось в службе доставки. Обычно мешает сеть: Wi-Fi блокирует порт 5223 к push.apple.com — попробуйте мобильный интернет и перезапустите приложение.",
+  "pushStatusOpenSystemSettings": "Открыть настройки",
+  "pushStatusBannerText": "Уведомления не подключены — в фоне сообщения не придут",
+  "pushStatusBannerDismiss": "Скрыть",
+  "avatarCropTitle": "Аватар",
+  "avatarCropDone": "Готово",
+  "avatarCropRotate": "Повернуть",
+  "avatarCropFailed": "Не удалось обрезать изображение",
+  "commonBack": "Назад",
+  "photoEditTitle": "Редактирование",
+  "photoEditDone": "Готово",
+  "photoEditCrop": "Обрезать",
+  "photoEditDraw": "Рисовать",
+  "photoEditUndo": "Отменить",
+  "photoEditToolBrush": "Кисть",
+  "photoEditToolArrow": "Стрелка",
+  "photoEditToolRect": "Рамка",
+  "photoEditToolText": "Текст",
+  "photoEditTextTitle": "Подпись",
+  "photoEditTextOk": "Добавить",
+  "photoEditFailed": "Не удалось обрезать изображение",
+  "pulseKindLabel": "Тип монитора",
+  "pulseKindHeartbeat": "Heartbeat — сервис шлёт сигнал сам",
+  "pulseKindTlsProbe": "TLS-проба — сертификат проверяем мы",
+  "pulseProbeHostLabel": "Хост или IP",
+  "pulseProbePortLabel": "Порт",
+  "pulseProbeSniLabel": "Имя для SNI",
+  "pulseProbeSniHelp": "Отдельно от адреса: DNS может вести на другой сервер",
+  "pulseProbeTimeoutLabel": "Таймаут, сек",
+  "pulseProbeValidationLabel": "Доверие",
+  "pulseProbeValidationPublic": "Публичный УЦ",
+  "pulseProbeValidationPinned": "По отпечатку",
+  "pulseProbeThumbprintLabel": "Ожидаемый отпечаток (SHA-256)",
+  "pulseProbeWarnDaysLabel": "Жёлтый за, дней",
+  "pulseProbeErrorDaysLabel": "Красный за, дней",
+  "pulseCertificateTitle": "Сертификат",
+  "pulseCertNoData": "Проверок ещё не было",
+  "pulseCertSubject": "Кому выдан",
+  "pulseCertIssuer": "Кем выдан",
+  "pulseCertSans": "Имена (SAN)",
+  "pulseCertValidUntil": "Действует до",
+  "pulseCertDaysLeftLabel": "Осталось дней",
+  "pulseCertThumbprint": "Отпечаток",
+  "pulseCertLatency": "Handshake",
+  "pulseCertAddress": "Соединялись с",
+  "pulseCertLastCheck": "Последняя попытка",
+  "pulseCertLastSuccess": "Последний успех",
+  "pulseCertProblem": "Что не так",
+  "pulseProbeRunNow": "Проверить сейчас",
+  "pulseProbeTargetLabel": "Цель",
+  "pulseReminderThresholdsLabel": "Рубежи напоминаний, дней",
+  "pulseReminderThresholdsHelp": "Одна карточка на каждое первое пересечение. Пусто — не напоминать",
+  "pulseReminderLastLabel": "Последнее напоминание",
+  "pulseReminderNone": "ещё не было",
+  "pulseProbeSetKeyLabel": "Набор сертификата (необязательно)",
+  "pulseProbeSetKeyHelp": "Один ключ у endpoint, которые обязаны отдавать один сертификат",
+  "pulseProbeCheckedAgo": "проверено {when}",
+  "pulseProbeNoChecks": "проверок ещё не было",
+  "pulseCertLeftUntil": "{days} дн. до {date}",
+  "pulseCertExpiredShort": "сертификат истёк",
+  "pulseMoveMonitor": "Переместить в папку",
+  "pulseMoveMonitorTitle": "Перенести монитор",
+  "pulseAllowlistTitle": "Разрешённые цели проб",
+  "pulseAllowlistEmpty": "Разрешённых целей пока нет",
+  "pulseAllowlistAdd": "Разрешить цель",
+  "pulseAllowlistAddress": "Адрес или сеть",
+  "pulseAllowlistPrefix": "Маска, бит",
+  "pulseAllowlistNote": "Зачем (читать через год)",
+  "pulseAllowlistRemove": "Убрать из списка",
+  "pulseAllowlistRemoveBody": "Пробы по этой цели начнут отвечать «цель запрещена». Мониторы при этом не гасятся.",
+  "pulseAllowlistRejected": "Адрес не годится: {reason}",
+  "pulsePeriod7d": "раз в неделю",
+  "pulseValues": "Значения",
+  "pulseValuesEmpty": "Чисел ещё не присылали",
+  "pulseValueThresholds": "Пороги по значению",
+  "pulseValueThresholdAdd": "Добавить порог",
+  "pulseValueName": "Имя значения",
+  "pulseValueWarnBelow": "Жёлтый ниже",
+  "pulseValueErrorBelow": "Красный ниже",
+  "pulseValueWarnAbove": "Жёлтый выше",
+  "pulseValueErrorAbove": "Красный выше",
+  "pulseValueThresholdHint": "Хотя бы одна граница. Свободное место тревожит снизу, возраст бэкапа — сверху, температура — с обеих.",
+  "pulseValueNoThreshold": "порога нет",
+  "pulseValueRemoveThreshold": "Убрать порог",
+  "deliveryHealthTitle": "Доставка уведомлений",
+  "deliveryHealthEmpty": "Нет данных о доставке",
+  "deliveryHealthDevices": "устройств: {fcm} FCM · {rustore} RuStore · {voip} VoIP",
+  "deliveryHealthStale": "не продлевались: {count}",
+  "deliveryHealthNever": "регистраций не было",
+  "deliveryHealthOk": "доставка работает",
+  "deliveryHealthNoDevices": "ни одного устройства — приложение не регистрирует токены",
+  "deliveryHealthNoCredentials": "нет ключей отправки — доставлять нечем",
+  "deliveryHealthStaleAll": "все регистрации протухли",
+  "deliveryHealthKeys": "ключи: {list}",
+  "deliveryHealthNoKeys": "ключей нет",
+  "pulseProbeEditTarget": "Изменить цель",
+  "pulseProbeEditTargetBody": "Наблюдения прежней цели сбрасываются: сертификат, отпечаток и сроки принадлежали ей. История инцидентов и участники остаются.",
+  "pulseProbeHost": "Адрес",
+  "pulseProbeSni": "Имя в SNI",
+  "pulseAllowlistPaste": "Вставить списком",
+  "pulseAllowlistPasteHint": "По одной цели в строке: 78.37.191.63:8896. IPv6 — в скобках: [2001:db8::1]:443",
+  "pulseAllowlistPasteCount": "Разобрано целей: {count}",
+  "pulseAllowlistPasteBad": "Не разобрано строк: {count}",
+  "pulseAllowlistPasteResult": "Добавлено {added}, уже было {existing}, отклонено {failed}"
 }

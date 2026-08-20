@@ -26,6 +26,8 @@ abstract class TaskLink implements _i1.SerializableModel {
     required this.externalTaskId,
     this.externalTaskKey,
     required this.externalTaskUrl,
+    this.title,
+    this.stage,
     this.createdByMessengerUserId,
     required this.createdAt,
   });
@@ -39,6 +41,8 @@ abstract class TaskLink implements _i1.SerializableModel {
     required String externalTaskId,
     String? externalTaskKey,
     required String externalTaskUrl,
+    String? title,
+    String? stage,
     int? createdByMessengerUserId,
     required DateTime createdAt,
   }) = _TaskLinkImpl;
@@ -53,6 +57,8 @@ abstract class TaskLink implements _i1.SerializableModel {
       externalTaskId: jsonSerialization['externalTaskId'] as String,
       externalTaskKey: jsonSerialization['externalTaskKey'] as String?,
       externalTaskUrl: jsonSerialization['externalTaskUrl'] as String,
+      title: jsonSerialization['title'] as String?,
+      stage: jsonSerialization['stage'] as String?,
       createdByMessengerUserId:
           jsonSerialization['createdByMessengerUserId'] as int?,
       createdAt: _i1.DateTimeJsonExtension.fromJson(
@@ -87,6 +93,37 @@ abstract class TaskLink implements _i1.SerializableModel {
   /// URL задачи во внешней системе (для confirmation-сообщения / UI).
   String externalTaskUrl;
 
+  /// **TASK90**: заголовок задачи — человекочитаемая строка в списке задач
+  /// комнаты. Приходил в `linkExistingTask(title:)` с самого TASK85 и молча
+  /// выбрасывался в лог; без него строка списка показывала бы один ключ
+  /// `#83`. Nullable: у задач, заведённых до этого поля, взять заголовок
+  /// неоткуда (придумывать задним числом нечего), и у них список покажет
+  /// ключ — так же, как раньше.
+  String? title;
+
+  /// **issue #97**: состояние САМОЙ задачи — `new` / `in_progress` /
+  /// `accepted` / `rejected`. Тот же словарь и та же выводящая функция
+  /// ([TicketService.computeStageFromGitHub]), что у `Ticket.stage`.
+  ///
+  /// Зачем поле вообще. Раньше стадию строки списка брали из `Ticket` по
+  /// `externalTaskUrl`, но тикет — это ОБРАЩЕНИЕ, и у комнаты поддержки он
+  /// один (`UNIQUE roomId`), тогда как задач в обращении сколько угодно.
+  /// Стадию получала ровно одна задача — та, на которую тикет сейчас указывает,
+  /// — а все прочие приходили с `null` и рисовались как «Заведена». Список
+  /// выглядел достоверным и врал: закрытые, отклонённые и сделанные задачи
+  /// показывались одинаково «заведёнными». Состояние задачи должно лежать НА
+  /// ЗАДАЧЕ.
+  ///
+  /// Почему стадия, а не сырые `state` + `state_reason`. Из сырой пары стадию
+  /// всё равно пришлось бы выводить, и это была бы ВТОРАЯ реализация правила,
+  /// живущего в `computeStageFromGitHub`; две копии правила расходятся. Здесь
+  /// хранится уже выведенное значение — из одной функции, одним словарём.
+  ///
+  /// Nullable: у задач, заведённых до этого поля, состояния взять неоткуда до
+  /// разового заполнения из GitHub. `null` означает ровно «не знаем», и
+  /// стадия падает обратно на тикет, если он есть.
+  String? stage;
+
   /// Кто создал задачу (MessengerUser id caller-а).
   int? createdByMessengerUserId;
 
@@ -104,6 +141,8 @@ abstract class TaskLink implements _i1.SerializableModel {
     String? externalTaskId,
     String? externalTaskKey,
     String? externalTaskUrl,
+    String? title,
+    String? stage,
     int? createdByMessengerUserId,
     DateTime? createdAt,
   });
@@ -119,6 +158,8 @@ abstract class TaskLink implements _i1.SerializableModel {
       'externalTaskId': externalTaskId,
       if (externalTaskKey != null) 'externalTaskKey': externalTaskKey,
       'externalTaskUrl': externalTaskUrl,
+      if (title != null) 'title': title,
+      if (stage != null) 'stage': stage,
       if (createdByMessengerUserId != null)
         'createdByMessengerUserId': createdByMessengerUserId,
       'createdAt': createdAt.toJson(),
@@ -143,6 +184,8 @@ class _TaskLinkImpl extends TaskLink {
     required String externalTaskId,
     String? externalTaskKey,
     required String externalTaskUrl,
+    String? title,
+    String? stage,
     int? createdByMessengerUserId,
     required DateTime createdAt,
   }) : super._(
@@ -154,6 +197,8 @@ class _TaskLinkImpl extends TaskLink {
          externalTaskId: externalTaskId,
          externalTaskKey: externalTaskKey,
          externalTaskUrl: externalTaskUrl,
+         title: title,
+         stage: stage,
          createdByMessengerUserId: createdByMessengerUserId,
          createdAt: createdAt,
        );
@@ -171,6 +216,8 @@ class _TaskLinkImpl extends TaskLink {
     String? externalTaskId,
     Object? externalTaskKey = _Undefined,
     String? externalTaskUrl,
+    Object? title = _Undefined,
+    Object? stage = _Undefined,
     Object? createdByMessengerUserId = _Undefined,
     DateTime? createdAt,
   }) {
@@ -185,6 +232,8 @@ class _TaskLinkImpl extends TaskLink {
           ? externalTaskKey
           : this.externalTaskKey,
       externalTaskUrl: externalTaskUrl ?? this.externalTaskUrl,
+      title: title is String? ? title : this.title,
+      stage: stage is String? ? stage : this.stage,
       createdByMessengerUserId: createdByMessengerUserId is int?
           ? createdByMessengerUserId
           : this.createdByMessengerUserId,

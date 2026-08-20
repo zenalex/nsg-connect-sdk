@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nsg_messenger/nsg_messenger.dart';
+import 'package:nsg_messenger/src/i18n/generated/nsg_l10n_ru.dart';
 import 'package:nsg_messenger/src/messages/message_bubble.dart';
 import 'package:nsg_messenger/src/rooms/room_summary_tile.dart'
     show registerTimeagoLocales;
@@ -31,7 +32,8 @@ void main() {
 
   Widget bubble(
     ChatMessage m, {
-    void Function(String?, String?)? onOpenTask,
+    void Function(String?, String?, {String? taskKey, String? taskTitle})?
+    onOpenTask,
     Locale locale = const Locale('en'),
   }) => wrapL10n(
     MessageBubble(
@@ -67,13 +69,43 @@ void main() {
         theme.colorScheme.onSurfaceVariant,
       );
     });
+
+    // **issue #98**: два состояния, в которых работа СТОИТ.
+    test('«ждёт ответа» не путается ни с работой, ни с отказом', () {
+      // Янтарный сказал бы «делаем» (ровно наоборот), красный — «отказали».
+      // Значок зовёт заявителя действовать, и выглядеть должен иначе обоих.
+      final awaiting = taskStageColor('awaiting_user', theme);
+      expect(awaiting, isNot(taskStageColor('in_progress', theme)));
+      expect(awaiting, isNot(taskStageColor('rejected', theme)));
+      expect(awaiting, isNot(theme.colorScheme.onSurfaceVariant));
+    });
+
+    test('«приостановлена» отличима от «заведена»', () {
+      // Оба тихие, но «заведена» — ещё не начинали, а тут начали и отложили.
+      final onHold = taskStageColor('on_hold', theme);
+      expect(onHold, isNot(theme.colorScheme.onSurfaceVariant));
+      expect(onHold, isNot(taskStageColor('awaiting_user', theme)));
+    });
+  });
+
+  group('taskStageLabel (issue #98)', () {
+    final l = NsgL10nRu();
+
+    test('новые стадии подписаны сами, а не падают в «Заведена»', () {
+      // Без своей ветки обе свалились бы в `_ =>` и показались «Заведена» —
+      // той самой ложью, из-за которой завели #97.
+      expect(taskStageLabel('awaiting_user', l), l.taskStageAwaitingUser);
+      expect(taskStageLabel('on_hold', l), l.taskStageOnHold);
+      expect(taskStageLabel('awaiting_user', l), isNot(l.taskStageCreated));
+      expect(taskStageLabel('on_hold', l), isNot(l.taskStageInProgress));
+    });
   });
 
   testWidgets('есть задача + обработчик → значок виден', (tester) async {
     await tester.pumpWidget(
       bubble(
         src(stage: 'in_progress', root: r'$anchor', url: 'https://x/1'),
-        onOpenTask: (_, _) {},
+        onOpenTask: (_, _, {taskKey, taskTitle}) {},
       ),
     );
     expect(find.byKey(const Key('taskBadge')), findsOneWidget);
@@ -85,7 +117,7 @@ void main() {
     await tester.pumpWidget(
       bubble(
         src(stage: 'in_progress', url: 'https://x/1'),
-        onOpenTask: (_, _) {},
+        onOpenTask: (_, _, {taskKey, taskTitle}) {},
       ),
     );
     expect(badgeIconColor(tester), Colors.orange);
@@ -95,7 +127,7 @@ void main() {
     await tester.pumpWidget(
       bubble(
         src(stage: 'accepted', url: 'https://x/1'),
-        onOpenTask: (_, _) {},
+        onOpenTask: (_, _, {taskKey, taskTitle}) {},
       ),
     );
     expect(badgeIconColor(tester), Colors.green);
@@ -103,7 +135,7 @@ void main() {
     await tester.pumpWidget(
       bubble(
         src(stage: 'rejected', url: 'https://x/1'),
-        onOpenTask: (_, _) {},
+        onOpenTask: (_, _, {taskKey, taskTitle}) {},
       ),
     );
     expect(badgeIconColor(tester), Colors.redAccent);
@@ -112,7 +144,10 @@ void main() {
   testWidgets('TaskLink без тикета (стадия null, есть url) → значок есть, '
       'цвет нейтральный', (tester) async {
     await tester.pumpWidget(
-      bubble(src(stage: null, url: 'https://x/1'), onOpenTask: (_, _) {}),
+      bubble(
+        src(stage: null, url: 'https://x/1'),
+        onOpenTask: (_, _, {taskKey, taskTitle}) {},
+      ),
     );
     expect(find.byKey(const Key('taskBadge')), findsOneWidget);
     // Нейтральный цвет = onSurfaceVariant активной темы.
@@ -126,7 +161,7 @@ void main() {
     await tester.pumpWidget(
       bubble(
         src(stage: 'in_progress', root: r'$anchor', url: 'https://x/42'),
-        onOpenTask: (r, u) {
+        onOpenTask: (r, u, {taskKey, taskTitle}) {
           gotRoot = r;
           gotUrl = u;
         },
@@ -146,7 +181,7 @@ void main() {
       await tester.pumpWidget(
         bubble(
           src(stage: null, root: null, url: 'https://x/43'),
-          onOpenTask: (r, u) {
+          onOpenTask: (r, u, {taskKey, taskTitle}) {
             gotRoot = r;
             gotUrl = u;
           },
@@ -160,7 +195,9 @@ void main() {
   );
 
   testWidgets('нет задачи → значка нет', (tester) async {
-    await tester.pumpWidget(bubble(src(), onOpenTask: (_, _) {}));
+    await tester.pumpWidget(
+      bubble(src(), onOpenTask: (_, _, {taskKey, taskTitle}) {}),
+    );
     expect(find.byKey(const Key('taskBadge')), findsNothing);
   });
 
@@ -177,7 +214,7 @@ void main() {
     await tester.pumpWidget(
       bubble(
         src(stage: 'in_progress', url: 'https://x/1'),
-        onOpenTask: (_, _) {},
+        onOpenTask: (_, _, {taskKey, taskTitle}) {},
         locale: const Locale('ru'),
       ),
     );
@@ -198,7 +235,7 @@ void main() {
     await tester.pumpWidget(
       bubble(
         src(stage: 'in_progress', url: 'https://x/1'),
-        onOpenTask: (_, _) {},
+        onOpenTask: (_, _, {taskKey, taskTitle}) {},
         locale: const Locale('ru'),
       ),
     );
@@ -208,7 +245,10 @@ void main() {
 
   testWidgets('TASK88: подпись «Task» на en', (tester) async {
     await tester.pumpWidget(
-      bubble(src(stage: 'accepted', url: 'https://x/1'), onOpenTask: (_, _) {}),
+      bubble(
+        src(stage: 'accepted', url: 'https://x/1'),
+        onOpenTask: (_, _, {taskKey, taskTitle}) {},
+      ),
     );
     expect(find.text('Task'), findsOneWidget);
   });
@@ -217,14 +257,19 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      bubble(src(stage: 'accepted', url: 'https://x/1'), onOpenTask: (_, _) {}),
+      bubble(
+        src(stage: 'accepted', url: 'https://x/1'),
+        onOpenTask: (_, _, {taskKey, taskTitle}) {},
+      ),
     );
     final label = tester.widget<Text>(find.byKey(const Key('taskBadgeLabel')));
     expect(label.style?.color, Colors.green);
   });
 
   testWidgets('TASK88: нет задачи → подписи нет', (tester) async {
-    await tester.pumpWidget(bubble(src(), onOpenTask: (_, _) {}));
+    await tester.pumpWidget(
+      bubble(src(), onOpenTask: (_, _, {taskKey, taskTitle}) {}),
+    );
     expect(find.byKey(const Key('taskBadgeLabel')), findsNothing);
   });
 }

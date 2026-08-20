@@ -28,7 +28,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import 'image_actions.dart' show ImageBytesLoader, ShareFilesFn, WriteTempFileFn;
+import 'image_actions.dart'
+    show ImageBytesLoader, ShareFilesFn, WriteTempFileFn;
 
 /// Инъекция «открыть путь средствами ОС» (по умолчанию — url_launcher).
 typedef OpenPathFn = Future<bool> Function(String path);
@@ -44,10 +45,57 @@ typedef DownloadsDirFn = Future<String?> Function();
 /// пользователь получил бы «непонятный файл» на понятном формате.
 /// `text/*` тоже принимаем (см. [isTextPreviewable]).
 const kPreviewableTextExtensions = <String>{
-  '.md', '.markdown', '.txt', '.log', '.csv', '.json', '.yaml', '.yml',
-  '.xml', '.ini', '.conf', '.sql', '.dart', '.py', '.js', '.ts', '.sh',
-  '.ps1', '.bat', '.html', '.css', '.kt', '.java', '.cs', '.go', '.rs',
+  '.md',
+  '.markdown',
+  '.txt',
+  '.log',
+  '.csv',
+  '.json',
+  '.yaml',
+  '.yml',
+  '.xml',
+  '.ini',
+  '.conf',
+  '.sql',
+  '.dart',
+  '.py',
+  '.js',
+  '.ts',
+  '.sh',
+  '.ps1',
+  '.bat',
+  '.html',
+  '.css',
+  '.kt',
+  '.java',
+  '.cs',
+  '.go',
+  '.rs',
 };
+
+/// Форматы, где ВЫРАВНИВАНИЕ строк несёт смысл: таблицы, отступы, колонки
+/// лога. Перенос по ширине окна их ломает, поэтому там по умолчанию
+/// горизонтальная прокрутка (решение issue #69).
+///
+/// Считаем вычитанием из [kPreviewableTextExtensions], а не отдельным
+/// списком: иначе новый формат добавили бы в один список и забыли про
+/// другой. Всё, что мы вообще показываем текстом, структурно — кроме
+/// `.txt`, то есть простой заметки.
+final kAlignmentSensitiveExtensions = kPreviewableTextExtensions.difference(
+  const {'.txt'},
+);
+
+/// Переносить ли строки при открытии [filename] (issue #89).
+///
+/// Пользователь: «при открытии текстового файла, если окно сжато, текст не
+/// переносится и обрезается». Обрезанная строка выглядит как потерянная —
+/// что её видно боковой прокруткой, догадаться неоткуда. Поэтому обычный
+/// текст переносим, а формат с осмысленным выравниванием — нет.
+///
+/// Неизвестное расширение (файл приехал по mime `text/*`) — простой текст.
+/// В обе стороны это лишь ДЕФОЛТ: на экране есть переключатель.
+bool wrapsLinesByDefault(String filename) => !kAlignmentSensitiveExtensions
+    .contains(p.extension(filename).toLowerCase());
 
 /// Потолок на предпросмотр: 2 МБ текста — это уже не «посмотреть», а
 /// подвесить UI на рендере. Больше — предлагаем открыть внешней программой.
@@ -88,7 +136,8 @@ class FileActions {
 
   /// Конструктор из download-RPC — как у [ImageActions.fromDownloader].
   factory FileActions.fromDownloader(
-    Future<AttachmentBytes> Function({required String mxcUrl}) downloadFullSize, {
+    Future<AttachmentBytes> Function({required String mxcUrl})
+    downloadFullSize, {
     ShareFilesFn? shareFiles,
     WriteTempFileFn? writeTempFile,
     OpenPathFn? openPath,

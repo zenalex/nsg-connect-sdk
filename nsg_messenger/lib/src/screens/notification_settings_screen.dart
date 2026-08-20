@@ -3,7 +3,9 @@ import 'package:nsg_connect_client/nsg_connect_client.dart';
 
 import '../i18n/generated/nsg_l10n.dart';
 import '../messenger_runtime.dart';
+import '../push/push_token_status.dart';
 import '../settings/nsg_messenger_settings.dart';
+import '../widgets/push_status_notice.dart';
 
 /// **TASK20-Phase2 Chunk 4**: simple screen с toggle для message preview.
 /// Reachable from host-app's settings (host-app сам встроит navigation
@@ -14,13 +16,27 @@ import '../settings/nsg_messenger_settings.dart';
 class NotificationSettingsScreen extends StatefulWidget {
   const NotificationSettingsScreen({
     super.key,
+    this.onOpenSystemSettings,
     @visibleForTesting this.settingsOverride,
+    @visibleForTesting this.pushStatusOverride,
+    @visibleForTesting this.initialPushStatusOverride,
   });
+
+  /// **Issue #86**: открыть системные настройки приложения. Пробрасывает
+  /// host-app (у него есть `permission_handler`); `null` — [
+  /// PushStatusNotice] покажет причину без кнопки.
+  final VoidCallback? onOpenSystemSettings;
 
   /// Visible-for-testing — позволяет widget-тестам подменить
   /// `MessengerRuntime.instance.notificationSettings` на in-memory
   /// fake.
   final NsgMessengerSettings? settingsOverride;
+
+  /// Visible-for-testing — поток статуса пушей вместо рантайма.
+  final Stream<PushTokenStatus>? pushStatusOverride;
+
+  /// Visible-for-testing — статус пушей до первого emit-а.
+  final PushTokenStatus? initialPushStatusOverride;
 
   @override
   State<NotificationSettingsScreen> createState() =>
@@ -294,6 +310,16 @@ class _NotificationSettingsScreenState
           final discoverable = _localDiscoverable ?? true;
           return ListView(
             children: [
+              // **Issue #86**: если пуш-токена нет — сказать об этом первым
+              // делом. Это единственный экран, куда человек приходит с
+              // вопросом «почему мне не приходят уведомления», и до
+              // issue #86 он не находил здесь ответа: тумблеры настроены,
+              // а уведомлений нет. Когда всё в порядке — виджет пуст.
+              PushStatusNotice(
+                onOpenSettings: widget.onOpenSystemSettings,
+                statusOverride: widget.pushStatusOverride,
+                initialStatusOverride: widget.initialPushStatusOverride,
+              ),
               SwitchListTile(
                 title: Text(l.notificationSettingsPreviewTitle),
                 subtitle: Text(l.notificationSettingsPreviewSubtitle),

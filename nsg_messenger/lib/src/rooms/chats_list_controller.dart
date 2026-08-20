@@ -57,6 +57,30 @@ class ChatsListController extends ChangeNotifier {
   String? _search;
   Timer? _searchDebounce;
 
+  /// Через сколько повторять неудавшуюся загрузку списка.
+  ///
+  /// Жалоба владельца 10.08.2026: «список чатов может пропасть до
+  /// перезагрузки программы». Механика была такая: единственная сетевая
+  /// неудача (в GlitchTip — 76 таймаутов RPC по 20 секунд) переводила
+  /// список в ошибку, а повторить его было НЕЧЕМ. Обновление запускали
+  /// только события шины и смена состояния сессии; когда сеть моргнула и
+  /// сообщений никто не шлёт, не приходит ни то, ни другое — и пустой
+  /// экран остаётся до перезапуска.
+  ///
+  /// Расписание, а не «раз в N секунд»: первые попытки дешёвые и быстрые,
+  /// дальше редеем, чтобы не долбить мёртвую сеть. Последняя пауза
+  /// повторяется, пока не получится, — сдаваться нельзя, экран без списка
+  /// бесполезен.
+  static const List<Duration> retrySchedule = [
+    Duration(seconds: 2),
+    Duration(seconds: 6),
+    Duration(seconds: 20),
+    Duration(seconds: 60),
+  ];
+
+  Timer? _retryTimer;
+  int _retryAttempt = 0;
+
   /// Длительность debounce между нажатиями клавиш search input-а.
   /// 300ms — баланс между responsiveness (юзер ждёт результат) и
   /// нагрузкой на server (typeahead 5 chars в 1 sec при 100ms = 5
@@ -548,6 +572,8 @@ class ChatsListController extends ChangeNotifier {
     _stateSub = null;
     _searchDebounce?.cancel();
     _searchDebounce = null;
+    _retryTimer?.cancel();
+    _retryTimer = null;
     // Будим всех, кто await-ил `refresh()` — иначе UI висит со
     // spinner-ом, пока widget tree не размонтирован.
     _wakeIdleWaiters();
@@ -676,9 +702,11 @@ class ChatsListController extends ChangeNotifier {
         ChatsListFilter.all => raw,
       };
       _emit(ChatsListReady(rooms: fresh, refreshing: false));
+      _cancelRetry();
     } catch (e) {
       if (_disposed) return;
       _emit(ChatsListError(error: e, lastKnown: lastKnown));
+      _scheduleRetry();
     } finally {
       _refreshInFlight = false;
       if (_pendingRefresh && !_disposed) {
@@ -689,6 +717,29 @@ class ChatsListController extends ChangeNotifier {
         _wakeIdleWaiters();
       }
     }
+  }
+
+  /// Повторить загрузку после неудачи. Идемпотентен: пока таймер тикает,
+  /// новый не заводим — иначе каждая неудача множила бы попытки.
+  void _scheduleRetry() {
+    if (_disposed || _retryTimer != null) return;
+    final i = _retryAttempt < retrySchedule.length
+        ? _retryAttempt
+        : retrySchedule.length - 1;
+    _retryAttempt++;
+    _retryTimer = Timer(retrySchedule[i], () {
+      _retryTimer = null;
+      if (_disposed) return;
+      _scheduleRefresh();
+    });
+  }
+
+  /// Список приехал — счётчик обнуляем, чтобы следующая пропажа связи
+  /// снова начинала с быстрых попыток, а не с минутной паузы.
+  void _cancelRetry() {
+    _retryTimer?.cancel();
+    _retryTimer = null;
+    _retryAttempt = 0;
   }
 
   Future<void> _waitForIdle() {

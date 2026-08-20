@@ -38,11 +38,12 @@ abstract class RoomDetails implements _i1.SerializableModel {
     required this.roomType,
     required this.participants,
     required this.totalParticipants,
+    bool? participantsHidden,
     required this.viewerRole,
     this.supportEscalationTier,
     required this.canEscalateSupport,
     this.autoCleanupTtlSeconds,
-  });
+  }) : participantsHidden = participantsHidden ?? false;
 
   factory RoomDetails({
     required int id,
@@ -60,6 +61,7 @@ abstract class RoomDetails implements _i1.SerializableModel {
     required _i2.RoomType roomType,
     required List<_i3.RoomParticipant> participants,
     required int totalParticipants,
+    bool? participantsHidden,
     required _i4.RoomMemberRole viewerRole,
     int? supportEscalationTier,
     required bool canEscalateSupport,
@@ -91,6 +93,11 @@ abstract class RoomDetails implements _i1.SerializableModel {
         jsonSerialization['participants'],
       ),
       totalParticipants: jsonSerialization['totalParticipants'] as int,
+      participantsHidden: jsonSerialization['participantsHidden'] == null
+          ? null
+          : _i1.BoolJsonExtension.fromJson(
+              jsonSerialization['participantsHidden'],
+            ),
       viewerRole: _i4.RoomMemberRole.fromJson(
         (jsonSerialization['viewerRole'] as String),
       ),
@@ -137,6 +144,13 @@ abstract class RoomDetails implements _i1.SerializableModel {
   int totalParticipants;
 
   /// Роль ТЕКУЩЕГО viewer-а в комнате.
+  /// **issue #62**: состав скрыт админом группы. Клиенту нужен ОТДЕЛЬНЫЙ
+  /// признак, а не пустой [participants]: пустой список неотличим от «ещё
+  /// не загрузился», и UI не смог бы объяснить человеку, почему имён нет.
+  /// Админу/владельцу список приходит как обычно — им нужно управлять
+  /// составом, — поэтому у них флаг стоит, а список непустой.
+  bool participantsHidden;
+
   _i4.RoomMemberRole viewerRole;
 
   /// **TASK48**: текущий достигнутый тир эскалации support-комнаты
@@ -177,6 +191,7 @@ abstract class RoomDetails implements _i1.SerializableModel {
     _i2.RoomType? roomType,
     List<_i3.RoomParticipant>? participants,
     int? totalParticipants,
+    bool? participantsHidden,
     _i4.RoomMemberRole? viewerRole,
     int? supportEscalationTier,
     bool? canEscalateSupport,
@@ -201,6 +216,7 @@ abstract class RoomDetails implements _i1.SerializableModel {
       'roomType': roomType.toJson(),
       'participants': participants.toJson(valueToJson: (v) => v.toJson()),
       'totalParticipants': totalParticipants,
+      'participantsHidden': participantsHidden,
       'viewerRole': viewerRole.toJson(),
       if (supportEscalationTier != null)
         'supportEscalationTier': supportEscalationTier,
@@ -235,6 +251,7 @@ class _RoomDetailsImpl extends RoomDetails {
     required _i2.RoomType roomType,
     required List<_i3.RoomParticipant> participants,
     required int totalParticipants,
+    bool? participantsHidden,
     required _i4.RoomMemberRole viewerRole,
     int? supportEscalationTier,
     required bool canEscalateSupport,
@@ -255,6 +272,7 @@ class _RoomDetailsImpl extends RoomDetails {
          roomType: roomType,
          participants: participants,
          totalParticipants: totalParticipants,
+         participantsHidden: participantsHidden,
          viewerRole: viewerRole,
          supportEscalationTier: supportEscalationTier,
          canEscalateSupport: canEscalateSupport,
@@ -281,6 +299,7 @@ class _RoomDetailsImpl extends RoomDetails {
     _i2.RoomType? roomType,
     List<_i3.RoomParticipant>? participants,
     int? totalParticipants,
+    bool? participantsHidden,
     _i4.RoomMemberRole? viewerRole,
     Object? supportEscalationTier = _Undefined,
     bool? canEscalateSupport,
@@ -311,6 +330,7 @@ class _RoomDetailsImpl extends RoomDetails {
       participants:
           participants ?? this.participants.map((e0) => e0.copyWith()).toList(),
       totalParticipants: totalParticipants ?? this.totalParticipants,
+      participantsHidden: participantsHidden ?? this.participantsHidden,
       viewerRole: viewerRole ?? this.viewerRole,
       supportEscalationTier: supportEscalationTier is int?
           ? supportEscalationTier

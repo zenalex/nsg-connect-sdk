@@ -91,7 +91,8 @@ class NsgL10nRu extends NsgL10n {
   }
 
   @override
-  String get composerPastedAsCode => 'Оформлено как код';
+  String get composerPasteImageFailed =>
+      'Не удалось вставить картинку из буфера обмена. Сохраните её в файл и прикрепите скрепкой.';
 
   @override
   String get commonUndo => 'Отменить';
@@ -315,6 +316,12 @@ class NsgL10nRu extends NsgL10n {
   }
 
   @override
+  String get filePreviewWrapOn => 'Переносить строки';
+
+  @override
+  String get filePreviewWrapOff => 'Не переносить строки';
+
+  @override
   String get fileOpenFailed => 'Не удалось открыть файл';
 
   @override
@@ -395,6 +402,12 @@ class NsgL10nRu extends NsgL10n {
   String get emojiPickerTitle => 'Выберите реакцию';
 
   @override
+  String get emojiInsertPickerTitle => 'Выберите эмодзи';
+
+  @override
+  String get emojiInsertTooltip => 'Эмодзи';
+
+  @override
   String get emojiCategorySmileys => 'Смайлы и эмоции';
 
   @override
@@ -466,6 +479,24 @@ class NsgL10nRu extends NsgL10n {
   @override
   String typingPair(String name1, String name2) {
     return '$name1 и $name2 печатают…';
+  }
+
+  @override
+  String typingSingleBot(String name) {
+    return '$name анализирует…';
+  }
+
+  @override
+  String typingManyMixed(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count участника готовят ответ…',
+      many: '$count участников готовят ответ…',
+      few: '$count участника готовят ответ…',
+      one: '$count участник готовит ответ…',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -744,6 +775,10 @@ class NsgL10nRu extends NsgL10n {
 
   @override
   String get supportTeamUnavailable => 'Команда поддержки недоступна';
+
+  @override
+  String get supportTeamAmbiguousProduct =>
+      'Ключ продукта заведён сразу в двух тенантах — сервер не может понять, какая команда имеется в виду. Нужно убрать дубль (администратор платформы).';
 
   @override
   String get supportTeamActionFailed =>
@@ -1466,6 +1501,130 @@ class NsgL10nRu extends NsgL10n {
   String get platformAdminCreated => 'Создано';
 
   @override
+  String get platformAdminDeleteProduct => 'Удалить продукт';
+
+  @override
+  String platformAdminDeleteProductConfirm(Object name) {
+    return 'Удалить продукт «$name»? Вместе с ним удалится команда поддержки и выданные ему ключи доступа. Отменить это нельзя.';
+  }
+
+  @override
+  String platformAdminDeleteProductBusy(Object what) {
+    return 'Продукт занят и не удалён: $what. Сначала разберите это — иначе переписка осталась бы жить без продукта.';
+  }
+
+  @override
+  String get platformAdminDeleted => 'Удалено';
+
+  @override
+  String platformAdminBusyRooms(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count комнаты',
+      many: '$count комнат',
+      few: '$count комнаты',
+      one: '$count комната',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String platformAdminBusyTickets(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count обращения',
+      many: '$count обращений',
+      few: '$count обращения',
+      one: '$count обращение',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String platformAdminBusyBots(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count бота',
+      many: '$count ботов',
+      few: '$count бота',
+      one: '$count бот',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String platformAdminBusyIdentities(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count пользователя',
+      many: '$count пользователей',
+      few: '$count пользователя',
+      one: '$count пользователь',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String platformAdminBusyDevices(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count устройства',
+      many: '$count устройств',
+      few: '$count устройства',
+      one: '$count устройство',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String platformAdminBusyWebhooks(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count вебхука',
+      many: '$count вебхуков',
+      few: '$count вебхука',
+      one: '$count вебхук',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get platformAdminTenantSupport => 'Поддержка тенанта';
+
+  @override
+  String get platformAdminTenantSupportHint =>
+      'Эти люди входят в команду каждого продукта тенанта. Убрали отсюда — исчезнут во всех сразу.';
+
+  @override
+  String get platformAdminTenantSupportEmpty =>
+      'Никого — операторов вписывают в команды продуктов по отдельности';
+
+  @override
+  String get platformAdminTenantSupportAdd => 'Добавить в поддержку тенанта';
+
+  @override
+  String get platformAdminTenantSupportRemove => 'Убрать из поддержки тенанта';
+
+  @override
+  String platformAdminTenantSupportRemoveConfirm(Object name) {
+    return 'Убрать $name из поддержки тенанта? Он исчезнет из команд всех продуктов этого тенанта.';
+  }
+
+  @override
+  String get supportTeamInherited => 'От тенанта';
+
+  @override
+  String supportTeamRemoveInheritedConfirm(Object name) {
+    return '$name — из поддержки тенанта. Убрать его только из этого продукта? В других продуктах он останется.';
+  }
+
+  @override
   String get platformAdminNoProducts => 'Продуктов нет';
 
   @override
@@ -1683,6 +1842,9 @@ class NsgL10nRu extends NsgL10n {
   String get botCardTitle => 'Бот';
 
   @override
+  String get openBotCardAction => 'Карточка бота';
+
+  @override
   String botCardOwner(String owner) {
     return 'Владелец: $owner';
   }
@@ -1752,6 +1914,9 @@ class NsgL10nRu extends NsgL10n {
 
   @override
   String get pulseLoadFailed => 'Не удалось загрузить мониторинг';
+
+  @override
+  String get pulseLoadFailedOffline => 'Нет связи с сервером';
 
   @override
   String get pulseActionFailed => 'Действие не выполнено — попробуйте ещё раз';
@@ -1918,6 +2083,9 @@ class NsgL10nRu extends NsgL10n {
 
   @override
   String get pulseMinSeverityLabel => 'Минимальная важность';
+
+  @override
+  String get pulseStatusLabel => 'Статус';
 
   @override
   String get pulseSeverityWarn => 'Предупреждение';
@@ -2095,6 +2263,27 @@ class NsgL10nRu extends NsgL10n {
 
   @override
   String get contactUnblocked => 'Разблокирован';
+
+  @override
+  String get sharedContactListTitle => 'Контакты';
+
+  @override
+  String get sharedContactListAddAll => 'Добавить всех';
+
+  @override
+  String get sharedContactShareLabel => 'Поделиться списком';
+
+  @override
+  String get sharedContactTitle => 'Контакт';
+
+  @override
+  String get sharedContactAdd => 'Добавить';
+
+  @override
+  String get sharedContactAlreadyKnown => 'Уже в списке';
+
+  @override
+  String get sharedContactShare => 'Поделиться контактом';
 
   @override
   String get contactAddedToContacts => 'Добавлен в контакты';
@@ -2537,6 +2726,12 @@ class NsgL10nRu extends NsgL10n {
   String get taskStageRejected => 'Отклонена';
 
   @override
+  String get taskStageAwaitingUser => 'Ждёт ответа';
+
+  @override
+  String get taskStageOnHold => 'Приостановлена';
+
+  @override
   String get tasksScreenTitle => 'Задачи';
 
   @override
@@ -2563,13 +2758,24 @@ class NsgL10nRu extends NsgL10n {
   }
 
   @override
-  String get supportInboxProjectFilterLabel => 'Проект:';
+  String get announcementDismiss => 'Понятно';
 
   @override
-  String get supportInboxProjectFilterAll => 'Все проекты';
+  String get announcementOpen => 'Открыть';
 
   @override
-  String get supportInboxProjectFilterTitle => 'Фильтр по проекту';
+  String get attachmentDropHint => 'Отпустите — прикрепим файлы';
+
+  @override
+  String get participantsHiddenToggle => 'Скрыть список участников';
+
+  @override
+  String get participantsHiddenHint =>
+      'Состав будут видеть только администраторы';
+
+  @override
+  String get participantsHiddenNotice =>
+      'Администратор скрыл список участников';
 
   @override
   String get supportInboxEmpty => 'Нет обращений';
@@ -2586,4 +2792,509 @@ class NsgL10nRu extends NsgL10n {
   @override
   String get messageActionDirectMessageFailed =>
       'Не удалось открыть чат — попробуйте ещё раз';
+
+  @override
+  String get platformAdminTeams => 'Команды тенанта';
+
+  @override
+  String get platformAdminTeamsHint =>
+      'Справочник компании. Людей из одной команды видно друг другу — новичку не надо ни у кого спрашивать адреса. Команда не открывает приватные поля визитки и не отменяет настройку «кто может мне писать».';
+
+  @override
+  String get platformAdminTeamsEmpty =>
+      'Команд нет — новичок увидит пустой список людей';
+
+  @override
+  String get platformAdminTeamCreate => 'Новая команда';
+
+  @override
+  String get platformAdminTeamName => 'Название';
+
+  @override
+  String get platformAdminTeamDescription => 'Описание (необязательно)';
+
+  @override
+  String get platformAdminTeamNameTaken => 'Команда с таким названием уже есть';
+
+  @override
+  String get platformAdminTeamDelete => 'Распустить команду';
+
+  @override
+  String platformAdminTeamDeleteConfirm(String name) {
+    return 'Распустить «$name»? Участники перестанут видеть друг друга по этой команде. Переписка и история останутся.';
+  }
+
+  @override
+  String platformAdminTeamMembers(int count) {
+    return 'Состав: $count';
+  }
+
+  @override
+  String get platformAdminTeamMemberAdd => 'Добавить в команду';
+
+  @override
+  String get platformAdminTeamMemberRemove => 'Убрать из команды';
+
+  @override
+  String platformAdminTeamMemberRemoveConfirm(String name) {
+    return 'Убрать $name из команды? Он пропадёт из списка людей у остальных — если не знаком с ними по другой причине (общий чат, другая общая команда).';
+  }
+
+  @override
+  String get platformAdminTeamMemberAddWarning =>
+      'Он увидит весь состав команды, и весь состав увидит его.';
+
+  @override
+  String get platformAdminTeamFull =>
+      'В команде уже предельное число участников';
+
+  @override
+  String get platformAdminTeamMembersEmpty =>
+      'Пусто — команда никого ни с кем не знакомит';
+
+  @override
+  String get myTeamsTitle => 'Команды';
+
+  @override
+  String get myTeamsHint =>
+      'Команда — список людей без переписки: участники видят друг друга. Добавить можно только тех, кого вы уже знаете. Команда не открывает приватные поля визитки и не отменяет настройку «кто может мне писать».';
+
+  @override
+  String get myTeamsEmpty =>
+      'Команд пока нет. Соберите людей, которых знаете, — и они увидят друг друга, не заводя общий чат.';
+
+  @override
+  String get myTeamsOrgBadge => 'Команда компании';
+
+  @override
+  String get myTeamsCreate => 'Новая команда';
+
+  @override
+  String get myTeamsName => 'Название';
+
+  @override
+  String get myTeamsDescription => 'Описание (необязательно)';
+
+  @override
+  String myTeamsMembers(int count) {
+    return 'Состав: $count';
+  }
+
+  @override
+  String get myTeamsMembersEmpty =>
+      'Пусто — команда никого ни с кем не знакомит';
+
+  @override
+  String get myTeamsMemberAdd => 'Добавить в команду';
+
+  @override
+  String get myTeamsMemberAddWarning =>
+      'Он увидит весь состав команды, и весь состав увидит его.';
+
+  @override
+  String get myTeamsMemberRemove => 'Убрать из команды';
+
+  @override
+  String myTeamsMemberRemoveConfirm(String name) {
+    return 'Убрать $name из команды? Он пропадёт из списка людей у остальных — если не знаком с ними по другой причине (общий чат, другая общая команда).';
+  }
+
+  @override
+  String get myTeamsDelete => 'Распустить команду';
+
+  @override
+  String myTeamsDeleteConfirm(String name) {
+    return 'Распустить «$name»? Участники перестанут видеть друг друга по этой команде. Переписка и история останутся.';
+  }
+
+  @override
+  String get myTeamsLeave => 'Выйти из команды';
+
+  @override
+  String myTeamsLeaveConfirm(String name) {
+    return 'Выйти из «$name»? Остальные участники пропадут из вашего списка людей — те, с кем вас не связывает ничего другого.';
+  }
+
+  @override
+  String get myTeamsPeerUnknown =>
+      'Этого человека вы ещё не знаете. Познакомьтесь сначала: общий чат, общая команда компании или «Добавить в контакты».';
+
+  @override
+  String get myTeamsFull => 'В команде уже предельное число участников';
+
+  @override
+  String get myTeamsAccessDenied => 'Составом распоряжается владелец команды';
+
+  @override
+  String get myTeamsActionFailed => 'Не удалось выполнить действие';
+
+  @override
+  String get peopleTeamFromLabel => 'Создать команду из метки';
+
+  @override
+  String peopleTeamFromLabelDone(String name, int count) {
+    return 'Команда «$name»: добавлено $count';
+  }
+
+  @override
+  String get contactKnownVia => 'Знакомы';
+
+  @override
+  String contactKnownViaTeam(String name) {
+    return 'из команды «$name»';
+  }
+
+  @override
+  String get contactKnownViaSharedRoom => 'общий чат';
+
+  @override
+  String get contactKnownViaManual => 'добавлен вами';
+
+  @override
+  String get pushStatusNotConnectedTitle => 'Уведомления не подключены';
+
+  @override
+  String get pushStatusPermissionDenied =>
+      'Приложению не разрешено показывать уведомления. Пока разрешения нет, новые сообщения видны только при открытом приложении.';
+
+  @override
+  String get pushStatusTokenUnavailable =>
+      'Разрешение выдано, но устройство не зарегистрировалось в службе доставки. Обычно мешает сеть: Wi-Fi блокирует порт 5223 к push.apple.com — попробуйте мобильный интернет и перезапустите приложение.';
+
+  @override
+  String get pushStatusOpenSystemSettings => 'Открыть настройки';
+
+  @override
+  String get pushStatusBannerText =>
+      'Уведомления не подключены — в фоне сообщения не придут';
+
+  @override
+  String get pushStatusBannerDismiss => 'Скрыть';
+
+  @override
+  String get avatarCropTitle => 'Аватар';
+
+  @override
+  String get avatarCropDone => 'Готово';
+
+  @override
+  String get avatarCropRotate => 'Повернуть';
+
+  @override
+  String get avatarCropFailed => 'Не удалось обрезать изображение';
+
+  @override
+  String get commonBack => 'Назад';
+
+  @override
+  String get photoEditTitle => 'Редактирование';
+
+  @override
+  String get photoEditDone => 'Готово';
+
+  @override
+  String get photoEditCrop => 'Обрезать';
+
+  @override
+  String get photoEditDraw => 'Рисовать';
+
+  @override
+  String get photoEditUndo => 'Отменить';
+
+  @override
+  String get photoEditToolBrush => 'Кисть';
+
+  @override
+  String get photoEditToolArrow => 'Стрелка';
+
+  @override
+  String get photoEditToolRect => 'Рамка';
+
+  @override
+  String get photoEditToolText => 'Текст';
+
+  @override
+  String get photoEditTextTitle => 'Подпись';
+
+  @override
+  String get photoEditTextOk => 'Добавить';
+
+  @override
+  String get photoEditFailed => 'Не удалось обрезать изображение';
+
+  @override
+  String get pulseKindLabel => 'Тип монитора';
+
+  @override
+  String get pulseKindHeartbeat => 'Heartbeat — сервис шлёт сигнал сам';
+
+  @override
+  String get pulseKindTlsProbe => 'TLS-проба — сертификат проверяем мы';
+
+  @override
+  String get pulseProbeHostLabel => 'Хост или IP';
+
+  @override
+  String get pulseProbePortLabel => 'Порт';
+
+  @override
+  String get pulseProbeSniLabel => 'Имя для SNI';
+
+  @override
+  String get pulseProbeSniHelp =>
+      'Отдельно от адреса: DNS может вести на другой сервер';
+
+  @override
+  String get pulseProbeTimeoutLabel => 'Таймаут, сек';
+
+  @override
+  String get pulseProbeValidationLabel => 'Доверие';
+
+  @override
+  String get pulseProbeValidationPublic => 'Публичный УЦ';
+
+  @override
+  String get pulseProbeValidationPinned => 'По отпечатку';
+
+  @override
+  String get pulseProbeThumbprintLabel => 'Ожидаемый отпечаток (SHA-256)';
+
+  @override
+  String get pulseProbeWarnDaysLabel => 'Жёлтый за, дней';
+
+  @override
+  String get pulseProbeErrorDaysLabel => 'Красный за, дней';
+
+  @override
+  String get pulseCertificateTitle => 'Сертификат';
+
+  @override
+  String get pulseCertNoData => 'Проверок ещё не было';
+
+  @override
+  String get pulseCertSubject => 'Кому выдан';
+
+  @override
+  String get pulseCertIssuer => 'Кем выдан';
+
+  @override
+  String get pulseCertSans => 'Имена (SAN)';
+
+  @override
+  String get pulseCertValidUntil => 'Действует до';
+
+  @override
+  String get pulseCertDaysLeftLabel => 'Осталось дней';
+
+  @override
+  String get pulseCertThumbprint => 'Отпечаток';
+
+  @override
+  String get pulseCertLatency => 'Handshake';
+
+  @override
+  String get pulseCertAddress => 'Соединялись с';
+
+  @override
+  String get pulseCertLastCheck => 'Последняя попытка';
+
+  @override
+  String get pulseCertLastSuccess => 'Последний успех';
+
+  @override
+  String get pulseCertProblem => 'Что не так';
+
+  @override
+  String get pulseProbeRunNow => 'Проверить сейчас';
+
+  @override
+  String get pulseProbeTargetLabel => 'Цель';
+
+  @override
+  String get pulseReminderThresholdsLabel => 'Рубежи напоминаний, дней';
+
+  @override
+  String get pulseReminderThresholdsHelp =>
+      'Одна карточка на каждое первое пересечение. Пусто — не напоминать';
+
+  @override
+  String get pulseReminderLastLabel => 'Последнее напоминание';
+
+  @override
+  String get pulseReminderNone => 'ещё не было';
+
+  @override
+  String get pulseProbeSetKeyLabel => 'Набор сертификата (необязательно)';
+
+  @override
+  String get pulseProbeSetKeyHelp =>
+      'Один ключ у endpoint, которые обязаны отдавать один сертификат';
+
+  @override
+  String pulseProbeCheckedAgo(String when) {
+    return 'проверено $when';
+  }
+
+  @override
+  String get pulseProbeNoChecks => 'проверок ещё не было';
+
+  @override
+  String pulseCertLeftUntil(int days, String date) {
+    return '$days дн. до $date';
+  }
+
+  @override
+  String get pulseCertExpiredShort => 'сертификат истёк';
+
+  @override
+  String get pulseMoveMonitor => 'Переместить в папку';
+
+  @override
+  String get pulseMoveMonitorTitle => 'Перенести монитор';
+
+  @override
+  String get pulseAllowlistTitle => 'Разрешённые цели проб';
+
+  @override
+  String get pulseAllowlistEmpty => 'Разрешённых целей пока нет';
+
+  @override
+  String get pulseAllowlistAdd => 'Разрешить цель';
+
+  @override
+  String get pulseAllowlistAddress => 'Адрес или сеть';
+
+  @override
+  String get pulseAllowlistPrefix => 'Маска, бит';
+
+  @override
+  String get pulseAllowlistNote => 'Зачем (читать через год)';
+
+  @override
+  String get pulseAllowlistRemove => 'Убрать из списка';
+
+  @override
+  String get pulseAllowlistRemoveBody =>
+      'Пробы по этой цели начнут отвечать «цель запрещена». Мониторы при этом не гасятся.';
+
+  @override
+  String get pulseValues => 'Значения';
+
+  @override
+  String get pulseValuesEmpty => 'Чисел ещё не присылали';
+
+  @override
+  String get pulseValueThresholds => 'Пороги по значению';
+
+  @override
+  String get pulseValueThresholdAdd => 'Добавить порог';
+
+  @override
+  String get pulseValueName => 'Имя значения';
+
+  @override
+  String get pulseValueWarnBelow => 'Жёлтый ниже';
+
+  @override
+  String get pulseValueErrorBelow => 'Красный ниже';
+
+  @override
+  String get pulseValueWarnAbove => 'Жёлтый выше';
+
+  @override
+  String get pulseValueErrorAbove => 'Красный выше';
+
+  @override
+  String get pulseValueThresholdHint =>
+      'Хотя бы одна граница. Свободное место тревожит снизу, возраст бэкапа — сверху, температура — с обеих.';
+
+  @override
+  String get pulseValueNoThreshold => 'порога нет';
+
+  @override
+  String get pulseValueRemoveThreshold => 'Убрать порог';
+
+  @override
+  String get deliveryHealthTitle => 'Доставка уведомлений';
+
+  @override
+  String get deliveryHealthEmpty => 'Нет данных о доставке';
+
+  @override
+  String deliveryHealthDevices(int fcm, int rustore, int voip) {
+    return 'устройств: $fcm FCM · $rustore RuStore · $voip VoIP';
+  }
+
+  @override
+  String deliveryHealthStale(int count) {
+    return 'не продлевались: $count';
+  }
+
+  @override
+  String get deliveryHealthNever => 'регистраций не было';
+
+  @override
+  String get deliveryHealthOk => 'доставка работает';
+
+  @override
+  String get deliveryHealthNoDevices =>
+      'ни одного устройства — приложение не регистрирует токены';
+
+  @override
+  String get deliveryHealthNoCredentials =>
+      'нет ключей отправки — доставлять нечем';
+
+  @override
+  String get deliveryHealthStaleAll => 'все регистрации протухли';
+
+  @override
+  String deliveryHealthKeys(String list) {
+    return 'ключи: $list';
+  }
+
+  @override
+  String get deliveryHealthNoKeys => 'ключей нет';
+
+  @override
+  String get pulseProbeEditTarget => 'Изменить цель';
+
+  @override
+  String get pulseProbeEditTargetBody =>
+      'Наблюдения прежней цели сбрасываются: сертификат, отпечаток и сроки принадлежали ей. История инцидентов и участники остаются.';
+
+  @override
+  String get pulseProbeHost => 'Адрес';
+
+  @override
+  String get pulseProbeSni => 'Имя в SNI';
+
+  @override
+  String get pulseAllowlistPaste => 'Вставить списком';
+
+  @override
+  String get pulseAllowlistPasteHint =>
+      'По одной цели в строке: 78.37.191.63:8896. IPv6 — в скобках: [2001:db8::1]:443';
+
+  @override
+  String pulseAllowlistPasteCount(int count) {
+    return 'Разобрано целей: $count';
+  }
+
+  @override
+  String pulseAllowlistPasteBad(int count) {
+    return 'Не разобрано строк: $count';
+  }
+
+  @override
+  String pulseAllowlistPasteResult(int added, int existing, int failed) {
+    return 'Добавлено $added, уже было $existing, отклонено $failed';
+  }
+
+  @override
+  String pulseAllowlistRejected(String reason) {
+    return 'Адрес не годится: $reason';
+  }
+
+  @override
+  String get pulsePeriod7d => 'раз в неделю';
 }

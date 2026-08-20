@@ -3,7 +3,7 @@ import 'dart:collection';
 import 'dart:math' show Random;
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/widgets.dart' show AppLifecycleState;
+import 'package:flutter/widgets.dart' show AppLifecycleState, WidgetsBinding;
 import 'package:nsg_connect_client/nsg_connect_client.dart';
 
 import '../messenger_session_state.dart';
@@ -73,6 +73,21 @@ class MessengerEventBus {
   /// [MessengerConnectionState.disconnected].
   static const int defaultDisconnectedAfterFailures = 3;
 
+  /// **issue #118**: сколько связь должна ЛЕЖАТЬ, прежде чем это станет
+  /// новостью для трекера ошибок.
+  ///
+  /// Прежний порог считался в попытках (`disconnectedAfterFailures`), а с
+  /// нашим backoff-ом (0.5с, 1с, 2с…) третья попытка наступает через
+  /// полторы секунды. Столько длится ЛЮБОЙ рестарт сервера — поэтому каждый
+  /// наш деплой рождал по событию на каждого подключённого клиента, и в
+  /// сутки набегало полторы сотни «связь моргнула».
+  ///
+  /// Две минуты выбраны так, чтобы штатный перезапуск контейнера (десятки
+  /// секунд, лечится сам) молчал, а «сервер не поднялся» и «у клиента
+  /// пропала сеть» — сообщались. Состояние `disconnected` при этом
+  /// наступает как раньше: баннер человеку нужен сразу, трекеру — нет.
+  static const Duration defaultOutageReportAfter = Duration(minutes: 2);
+
   final UserEventStreamFactory _streamFactory;
   final Stream<MessengerSessionState> _sessionStateStream;
   final SetPresenceFn? _setPresence;
@@ -93,6 +108,7 @@ class MessengerEventBus {
   final Future<void> Function()? _onStreamAuthError;
   final List<Duration> _reconnectBackoff;
   final int _disconnectedAfterFailures;
+  final Duration _outageReportAfter;
   final Random _jitterRng;
 
   StreamController<MessengerEvent>? _controller;
@@ -106,6 +122,11 @@ class MessengerEventBus {
   /// successful event (or successful `listen` without error within
   /// the first scheduling pass).
   int _consecutiveFailures = 0;
+
+  /// **issue #118**: когда началась текущая пропажа связи (первая неудача
+  /// после здорового состояния) и сообщили ли мы о ней. `null` — связь есть.
+  DateTime? _outageStartedAt;
+  bool _outageReported = false;
 
   /// Active retry timer (null while bus is healthy or while underlying
   /// sub is currently active). Cancelled on dispose / on explicit
@@ -127,6 +148,35 @@ class MessengerEventBus {
   /// Фактическая задержка (visible-for-testing knob через [attachWithFactory]:
   /// тест ставит мс, чтобы не ждать реальные 2с).
   final Duration _reconnectConfirmDelay;
+
+  // ── сторож живости (issue #84) ─────────────────────────────────────
+  /// **Issue #84**: как часто сторож перепроверяет, что соединение вообще
+  /// существует и приносит что-то.
+  static const Duration defaultWatchdogPeriod = Duration(seconds: 20);
+
+  /// **Issue #84**: сколько тишины считать доказательством смерти.
+  /// Сервер бьёт сердцем раз в минуту (`streamHeartbeatInterval`), так что
+  /// это два пропущенных удара с запасом — редкая сеть тормозит, а рвать
+  /// живое соединение хуже, чем подождать лишние полминуты.
+  static const Duration defaultSilenceTimeout = Duration(seconds: 150);
+
+  final Duration _watchdogPeriod;
+  final Duration _silenceTimeout;
+
+  /// Периодический сторож. Живёт всё время жизни шины; решение «делать
+  /// что-то или нет» принимается внутри тика.
+  Timer? _watchdogTimer;
+
+  /// Когда из underlying-стрима в последний раз пришло ХОТЬ ЧТО-ТО (или
+  /// когда была установлена подписка — с этого момента и идёт отсчёт
+  /// тишины).
+  DateTime? _lastInboundAt;
+
+  /// Видели ли мы хоть один удар сердца от сервера. До первого удара
+  /// молчание ничего не доказывает — на старом сервере (или на сборке
+  /// клиента старее сердцебиения) тишина совершенно нормальна, и рвать
+  /// по ней живую подписку нельзя.
+  bool _sawHeartbeat = false;
 
   MessengerConnectionState _connectionState = MessengerConnectionState.healthy;
   final StreamController<MessengerConnectionState> _connectionStateCtl =
@@ -175,7 +225,10 @@ class MessengerEventBus {
     Future<void> Function()? onStreamAuthError,
     List<Duration>? reconnectBackoff,
     int? disconnectedAfterFailures,
+    Duration? outageReportAfter,
     Duration? reconnectConfirmDelay,
+    Duration? watchdogPeriod,
+    Duration? silenceTimeout,
     Random? jitterRng,
   }) : _deliveryAck =
            deliveryAckSender ??
@@ -191,8 +244,11 @@ class MessengerEventBus {
        _reconnectBackoff = reconnectBackoff ?? defaultReconnectBackoff,
        _disconnectedAfterFailures =
            disconnectedAfterFailures ?? defaultDisconnectedAfterFailures,
+       _outageReportAfter = outageReportAfter ?? defaultOutageReportAfter,
        _reconnectConfirmDelay =
            reconnectConfirmDelay ?? defaultReconnectConfirmDelay,
+       _watchdogPeriod = watchdogPeriod ?? defaultWatchdogPeriod,
+       _silenceTimeout = silenceTimeout ?? defaultSilenceTimeout,
        _jitterRng = jitterRng ?? Random();
 
   /// Production-фабрика. Привязывается к `client.messenger.userEventStream`
@@ -259,7 +315,10 @@ class MessengerEventBus {
     Future<void> Function()? onStreamAuthError,
     List<Duration>? reconnectBackoff,
     int? disconnectedAfterFailures,
+    Duration? outageReportAfter,
     Duration? reconnectConfirmDelay,
+    Duration? watchdogPeriod,
+    Duration? silenceTimeout,
     Random? jitterRng,
   }) {
     final bus = MessengerEventBus._(
@@ -272,7 +331,10 @@ class MessengerEventBus {
       onStreamAuthError: onStreamAuthError,
       reconnectBackoff: reconnectBackoff,
       disconnectedAfterFailures: disconnectedAfterFailures,
+      outageReportAfter: outageReportAfter,
       reconnectConfirmDelay: reconnectConfirmDelay,
+      watchdogPeriod: watchdogPeriod,
+      silenceTimeout: silenceTimeout,
       jitterRng: jitterRng,
     );
     bus._listenToSessionState();
@@ -394,6 +456,8 @@ class MessengerEventBus {
       unawaited(_stopUnderlyingSubscription());
     }
     _consecutiveFailures = 0;
+    _outageStartedAt = null;
+    _outageReported = false;
     _startUnderlyingSubscription();
   }
 
@@ -438,6 +502,12 @@ class MessengerEventBus {
       case AppLifecycleState.detached:
         if (_backgrounded) return; // Идемпотентно — повторный paused.
         _backgrounded = true;
+        // **Issue #84**: гасим подписку сами и обещаем поднять её на
+        // `resume`. Обещание может остаться невыполненным — парное событие
+        // приходит не всегда (см. [_backgroundFlagIsStale]), а сигнала
+        // «сломалось» здесь нет и не будет: мы закрылись добровольно.
+        // Сторож — единственный, кто способен это заметить.
+        _startWatchdog();
         // setPresence до cancel: пусть server успеет узнать пока WS
         // ещё открыт; всё равно fire-and-forget.
         _firePresence(foreground: false);
@@ -499,6 +569,7 @@ class MessengerEventBus {
     _disposed = true;
     _retryTimer?.cancel();
     _retryTimer = null;
+    _stopWatchdog();
     _cancelReconnectConfirm();
     await _stateSub?.cancel();
     _stateSub = null;
@@ -528,6 +599,11 @@ class MessengerEventBus {
             '[MessengerEventBus] onListen fired → _startUnderlyingSubscription',
           );
         }
+        // **Issue #84**: сторож живёт не дольше подписки, которую он
+        // сторожит. Без слушателей стрим закрыт намеренно, и тик всё равно
+        // ничего бы не сделал — а таймер бы тикал. Заводим обратно только
+        // если уже знаем, что сервер бьёт сердцем (иначе повода нет).
+        if (_sawHeartbeat) _startWatchdog();
         _startUnderlyingSubscription();
       },
       onCancel: () {
@@ -538,6 +614,7 @@ class MessengerEventBus {
             '[MessengerEventBus] onCancel fired → _stopUnderlyingSubscription',
           );
         }
+        _stopWatchdog();
         _stopUnderlyingSubscription();
       },
     );
@@ -589,7 +666,17 @@ class MessengerEventBus {
     try {
       _underlyingSub = _streamFactory().listen(
         (event) {
-          if (kDebugMode) {
+          // **Issue #84**: любое входящее — доказательство, что канал жив.
+          // Отсюда сторож и считает тишину.
+          _lastInboundAt = DateTime.now();
+          final isBeat = event.eventType == MessengerEventType.heartbeat;
+          if (isBeat && !_sawHeartbeat) {
+            // Первый удар: сервер умеет их слать — значит с этого момента
+            // тишина будет уликой, и её надо считать.
+            _sawHeartbeat = true;
+            _startWatchdog();
+          }
+          if (kDebugMode && !isBeat) {
             debugPrint(
               '[MessengerEventBus] event received type=${event.eventType.name} roomId=${event.roomId} matrixEventId=${event.message?.matrixEventId} typingIds=${event.typingMatrixUserIds} readReceipt=(${event.readReceiptMatrixUserId}, ${event.readReceiptEventId})',
             );
@@ -601,8 +688,15 @@ class MessengerEventBus {
           if (_consecutiveFailures != 0 ||
               _connectionState != MessengerConnectionState.healthy) {
             _consecutiveFailures = 0;
+            _outageStartedAt = null;
+            _outageReported = false;
             _setConnectionState(MessengerConnectionState.healthy);
           }
+          // Удар сердца несёт ровно один смысл — «канал работает», и он уже
+          // учтён выше. Потребителям (реакторам кэша, экранам) он не нужен:
+          // для них это событие без содержимого, на которое они честно
+          // потратили бы перерисовку.
+          if (isBeat) return;
           // Dedup только при наличии matrixEventId. См. поле
           // `_seenEventIds` для обоснования; state-events без eventId
           // пробрасываются без проверки.
@@ -661,10 +755,14 @@ class MessengerEventBus {
           // transport-reconnect. Token / auth cache НЕ trogаем здесь —
           // это делает ТОЛЬКО session manager внутри selfHeal (red line).
           if (_handleStreamAuthError(e)) return;
-          _onError?.call(e, st);
+          // Репорт — не здесь: обрыв сокета сам по себе не новость (телефон
+          // уснул, сеть переключилась, крышку закрыли). Решает
+          // [_scheduleReconnect], когда станет ясно, что это не моргание.
           _scheduleReconnect(
             reason: 'onError',
             detail: describeTransportError(e),
+            error: e,
+            stack: st,
           );
         },
         onDone: () {
@@ -684,6 +782,10 @@ class MessengerEventBus {
           '[MessengerEventBus] _startUnderlyingSubscription DONE (sub installed)',
         );
       }
+      // **Issue #84**: отсчёт тишины начинается с момента подписки, а не с
+      // последнего события прошлого соединения — иначе сторож снёс бы
+      // только что поднятую подписку, не дав ей шанса заговорить.
+      _lastInboundAt = DateTime.now();
       // Подтверждаем восстановление transport-а для «тихого» аккаунта:
       // healthy без ожидания первого event-а (см. [_armReconnectConfirm]).
       _armReconnectConfirm();
@@ -700,10 +802,11 @@ class MessengerEventBus {
       // фабрика бросила ТИПИЗИРОВАННЫЙ auth-invalidation, self-heal вместо
       // transport-reconnect (иначе бесконечный reconnect на протухшем токене).
       if (_handleStreamAuthError(e)) return;
-      _onError?.call(e, st);
       _scheduleReconnect(
         reason: 'factory threw',
         detail: describeTransportError(e),
+        error: e,
+        stack: st,
       );
     }
   }
@@ -750,8 +853,17 @@ class MessengerEventBus {
   /// [detail] — уже причёсанный текст причины ([describeTransportError]).
   /// Без него в логе оставался голый `reason=onError`, по которому нельзя
   /// отличить «сервер закрыл стрим» от «апгрейд до websocket отклонён».
-  void _scheduleReconnect({required String reason, String? detail}) {
+  void _scheduleReconnect({
+    required String reason,
+    String? detail,
+    Object? error,
+    StackTrace? stack,
+  }) {
     if (_disposed) return;
+    // **Issue #84**: транспорт сломался — дальше любой из выходов ниже
+    // может проглотить сигнал и не оставить попытки. С этого момента за
+    // соединением следит сторож.
+    _startWatchdog();
     // Transport упал — отменяем pending confirm (подтверждать нечего).
     _cancelReconnectConfirm();
     // Sub уже мёртв (onError может прилететь, потом onDone), но
@@ -786,11 +898,48 @@ class MessengerEventBus {
     }
     _consecutiveFailures += 1;
     final attempt = _consecutiveFailures;
+    // **issue #118**: начало пропажи фиксируем на первой неудаче — по нему
+    // считается длительность, а не число попыток.
+    _outageStartedAt ??= DateTime.now();
     final delay = _nextBackoff(attempt);
     final nextState = attempt >= _disconnectedAfterFailures
         ? MessengerConnectionState.disconnected
         : MessengerConnectionState.reconnecting;
     _setConnectionState(nextState);
+    // **Шум в трекере (08.08.2026).** Раньше КАЖДЫЙ обрыв уезжал в GlitchTip
+    // как ошибка: 1936 событий `WebSocketConnectException` — самая громкая
+    // группа проекта, заглушавшая всё остальное. При этом обрыв транзиентен
+    // по своей природе, и шина сама его лечит переподключением.
+    //
+    // Теперь отчёт ровно на границе «моргание кончилось, связи нет» — там же,
+    // где признаём состояние `disconnected`. Строго `==`, а не `>=`: иначе
+    // каждая следующая неудачная попытка репортила бы заново и шум вернулся
+    // бы в новом виде. Счётчик обнуляется при успешном подключении, поэтому
+    // следующий настоящий обрыв снова будет виден.
+    //
+    // Текст — через [describeTransportError]: иначе в трекер едет артефакт
+    // `dart:io` «https://host:0/v1/websocket#», и разбор начинается с погони
+    // за несуществующим портом 0 (я на неё сегодня и потратил время).
+    // **issue #118**: сообщаем по ДЛИТЕЛЬНОСТИ, а не по числу попыток.
+    // Порог в попытках наступал через полторы секунды — столько длится любой
+    // рестарт сервера, поэтому каждый наш деплой рождал по событию на
+    // каждого подключённого клиента (полторы сотни «связь моргнула» в сутки).
+    // Один отчёт на одну пропажу: флаг снимается только восстановлением.
+    final since = _outageStartedAt;
+    if (error != null &&
+        !_outageReported &&
+        since != null &&
+        DateTime.now().difference(since) >= _outageReportAfter) {
+      _outageReported = true;
+      final lasted = DateTime.now().difference(since);
+      _onError?.call(
+        StateError(
+          'Связь со стримом не восстановилась за ${lasted.inSeconds} с '
+          '($attempt попыток): ${describeTransportError(error)}',
+        ),
+        stack ?? StackTrace.current,
+      );
+    }
     if (kDebugMode) {
       debugPrint(
         '[MessengerEventBus] _scheduleReconnect attempt=$attempt '
@@ -849,6 +998,138 @@ class MessengerEventBus {
     _reconnectConfirmTimer = null;
   }
 
+  // ───────────────────────────────────────────────────────────────────
+  // Сторож живости (issue #84)
+  // ───────────────────────────────────────────────────────────────────
+
+  // **Issue #84.** Всё восстановление соединения до сих пор держалось на
+  // СОБЫТИЯХ: закрылся стрим → запланируй попытку; вернулись из фона →
+  // подними подписку. У такой схемы два способа замолчать навсегда, и оба
+  // мы поймали в проде:
+  //
+  //   * сигнал проглочен — `_scheduleReconnect` выходит молча, если уже
+  //     висит таймер, если приложение в фоне или если слушателей нет; ни
+  //     одна из этих веток не оставляет после себя того, кто попробует
+  //     снова, а внешнее событие может и не прийти;
+  //   * сигнала не было вовсе — половинчато закрытый сокет не приносит ни
+  //     ошибки, ни закрытия. Подписка «жива», состояние `healthy`, баннера
+  //     нет, отправка сообщений работает (она идёт по HTTP) — и клиент
+  //     молчит сутками, выглядя полностью исправным.
+  //
+  // Сторож снимает зависимость от событий: пока приложение активно, он сам
+  // смотрит на факты и чинит.
+
+  /// Завести сторожа. Зовётся не при рождении шины, а когда появляется
+  /// что сторожить, — таких поводов ровно два, и оба означают, что за
+  /// соединением теперь надо следить:
+  ///
+  ///   * что-то сломалось ([_scheduleReconnect]) — дальше возможен
+  ///     проглоченный сигнал;
+  ///   * пришёл первый удар сердца — с этого момента тишина становится
+  ///     уликой, и её есть смысл считать.
+  ///
+  /// Идемпотентно: повторный вызов не сдвигает срок следующего тика.
+  void _startWatchdog() {
+    if (_disposed || _watchdogTimer != null) return;
+    _watchdogTimer = Timer.periodic(_watchdogPeriod, (_) => _watchdogTick());
+  }
+
+  void _stopWatchdog() {
+    _watchdogTimer?.cancel();
+    _watchdogTimer = null;
+  }
+
+  void _watchdogTick() {
+    if (_disposed || _stopping) return;
+    // Нет слушателей — чинить нечего (ленивый режим шины).
+    if (!hasListeners) return;
+    if (_backgrounded && !_backgroundFlagIsStale()) return;
+
+    // (1) Ни подписки, ни запланированной попытки — значит сигнал был
+    // проглочен и ждать больше нечего.
+    if (_underlyingSub == null) {
+      if (_retryTimer != null) return; // попытка уже назначена, не мешаем
+      if (kDebugMode) {
+        debugPrint(
+          '[MessengerEventBus] сторож: подписки нет и попытка не назначена '
+          '→ поднимаю сам',
+        );
+      }
+      _startUnderlyingSubscription();
+      return;
+    }
+
+    // (2) Подписка есть, но давно ничего не приносит. Улика годится только
+    // если сервер вообще умеет бить сердцем — иначе тишина законна.
+    if (!_sawHeartbeat) return;
+    final last = _lastInboundAt;
+    if (last == null) return;
+    final silence = DateTime.now().difference(last);
+    if (silence < _silenceTimeout) return;
+    if (kDebugMode) {
+      debugPrint(
+        '[MessengerEventBus] сторож: тишина ${silence.inSeconds}с при живом '
+        'сердцебиении → пересоздаю подписку',
+      );
+    }
+    unawaited(_forceResubscribe());
+  }
+
+  /// **Issue #84, вторая половина.** Наш флаг «в фоне» ставится по событию
+  /// `paused` и снимается по `resume` — то есть держится на обещании, что
+  /// парное событие придёт. Обещание не выполняется: владелец описал ровно
+  /// это — «просто возврат из фона не помогает, минимизация тоже». Пока
+  /// флаг висит, подписка не поднимается ничем, и клиент молчит навсегда.
+  ///
+  /// Поэтому спрашиваем не собственную память, а фреймворк: он знает
+  /// текущее состояние приложения независимо от того, дошло ли до нас
+  /// парное событие. Считаем флаг протухшим, только если фреймворк ЯВНО
+  /// говорит, что приложение не в фоне; молчание (биндинга нет, состояние
+  /// неизвестно) поводом не считаем — гасить стрим в фоне на телефоне
+  /// по-прежнему правильно, там это батарея и пуши.
+  bool _backgroundFlagIsStale() {
+    final live = _platformLifecycle;
+    if (live == null ||
+        live == AppLifecycleState.paused ||
+        live == AppLifecycleState.detached) {
+      return false;
+    }
+    if (kDebugMode) {
+      debugPrint(
+        '[MessengerEventBus] сторож: флаг фона протух (система говорит '
+        '$live) → снимаю',
+      );
+    }
+    _backgrounded = false;
+    return true;
+  }
+
+  /// Текущее состояние приложения по мнению фреймворка. `null`, если
+  /// биндинг ещё не поднят (чистый юнит-тест) — тогда мы просто не знаем.
+  AppLifecycleState? get _platformLifecycle {
+    try {
+      return WidgetsBinding.instance.lifecycleState;
+    } catch (_) {
+      // Биндинга нет вовсе — спрашивать некого. Молчание трактуем как «не
+      // знаем», а не как «фон закончился».
+      return null;
+    }
+  }
+
+  /// Снести подписку и поднять заново, не спрашивая ни таймер повтора, ни
+  /// состояние соединения. Отличается от [forceReconnect] тем, что не имеет
+  /// быстрого выхода «всё хорошо»: сторож зовёт её именно тогда, когда
+  /// «хорошо» — и есть ложь.
+  Future<void> _forceResubscribe() async {
+    _retryTimer?.cancel();
+    _retryTimer = null;
+    // Состояние честное: соединения нет, пока не докажем обратное.
+    _setConnectionState(MessengerConnectionState.reconnecting);
+    await _stopUnderlyingSubscription();
+    if (_disposed || !hasListeners || _backgrounded) return;
+    _startUnderlyingSubscription();
+  }
+
   /// Возвращает следующую задержку из [_reconnectBackoff] с ±20% jitter.
   /// Если `attempt` превышает длину массива — используется последний
   /// элемент (cap).
@@ -902,6 +1183,21 @@ class MessengerEventBus {
     }
     try {
       await sub.cancel();
+    } catch (e, st) {
+      // **Issue #84**: отмена подписки на УЖЕ мёртвом транспорте бросает.
+      // Serverpod в `onCancel` пишет в сокет команду «закрой поток», а
+      // сокета нет — летит `StateError`. Раньше он уходил наружу и уносил
+      // с собой всё, что шло после отмены (в т.ч. повторный подъём
+      // подписки), — то есть падал ровно тот путь, который и должен был
+      // вылечить мёртвое соединение. Прощание с трупом не может быть
+      // причиной не жить дальше.
+      if (kDebugMode) {
+        debugPrint(
+          '[MessengerEventBus] cancel() мёртвой подписки бросил '
+          '${e.runtimeType}: $e — продолжаем',
+        );
+      }
+      _onError?.call(e, st);
     } finally {
       _underlyingSub = null;
       _stopping = false;

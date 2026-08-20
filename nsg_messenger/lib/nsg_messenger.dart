@@ -112,6 +112,8 @@ export 'src/screens/platform_admin_screen.dart' show PlatformAdminScreen;
 // **TASK60 (Connect Pulse — heartbeat-мониторинг)**: API дашборда мониторинга
 // (папки/мониторы/правила/инциденты + realtime-стрим) + экран `PulseScreen`.
 export 'src/pulse/nsg_messenger_pulse.dart' show NsgMessengerPulse;
+export 'src/pulse/pulse_kinds.dart'
+    show PulseMonitorKinds, PulseValidationModes;
 // TASK63: организация контактов (alias / заметка / метки).
 export 'src/contacts/nsg_messenger_contacts.dart' show NsgMessengerContacts;
 // TASK52 итер.1: личная визитка (Contact Card).
@@ -126,6 +128,16 @@ export 'src/screens/contact_card_editor_screen.dart'
 export 'src/i18n/profile_locales.dart'
     show kProfileLocaleNames, profileLocaleLabel;
 export 'src/screens/pulse_screen.dart' show PulseScreen;
+// Issue #102: обрезка аватара перед загрузкой — нужна и хост-приложениям
+// (Chatista зовёт из настроек профиля), поэтому наружу.
+export 'src/screens/avatar_crop_screen.dart'
+    show AvatarCropScreen, CroppedAvatar, showAvatarCropper, mimeOfImageBytes;
+// Issue #103: редактор фото перед отправкой — обрезка и кисть.
+export 'src/screens/photo_edit_screen.dart'
+    show EditedPhoto, PhotoEditScreen, showPhotoEditor;
+// Issue #101: модальная шторка с гарантированно достижимой ручкой.
+export 'src/widgets/nsg_modal_sheet.dart'
+    show sheetMaxHeight, showNsgModalSheet;
 
 // Admin/moderation widgets (TASK29 Chunk 2).
 export 'src/rooms/participant_action_sheet.dart'
@@ -146,9 +158,15 @@ export 'src/rooms/chat_folder.dart'
         ChatFolderRow,
         buildFolders,
         buildRootRows,
+        supportRootRows,
         foldersVisible,
         isSupportInboxRoom,
         isDismissedSupportRoom,
+        // **Системные папки продуктов**: предикат «это моё собственное
+        // обращение». Host-app-у нужен, чтобы не спутать свой чат с
+        // поддержкой с чужим обращением в операторском инбоксе — рендер
+        // и место в списке у них разные.
+        isOwnSupportRequest,
         // **TASK68**: предикат «эта комната — раздел Избранного». Нужен
         // host-app-у, чтобы self-чаты не сыпались в его собственные
         // фильтры («Личные» / «Группы») наравне с настоящими чатами.
@@ -176,12 +194,36 @@ export 'src/share/share_limits.dart' show SharedFileTooLargeException;
 // widgets рендерили локализованные строки.
 export 'src/i18n/generated/nsg_l10n.dart' show NsgL10n;
 
+// Надпись индикатора «печатает…» / «анализирует…». Экспортируем, потому
+// что список чатов host-app рисует своей строкой (chatista GlassChatRow),
+// а формулировка должна быть ОДНА со списком в SDK и с чат-экраном —
+// иначе поверхности расходятся в словах.
+export 'src/messages/typing_label.dart' show typingIndicatorLabel;
+
+// Плашка «Бот» + её предикат `NsgBotBadge.isNonHuman`. Экспортируем
+// вместе с надписью выше: host-app-у нужен ТОТ ЖЕ признак «не человек»,
+// иначе на своих поверхностях он заведёт свою трактовку и она разойдётся
+// с бейджем.
+export 'src/widgets/nsg_bot_badge.dart' show NsgBotBadge;
+
 // Push API (TASK20 Chunk 3).
 // Public PushTokenProvider interface + InMemoryPushTokenProvider для
 // embed-mode без push / тестов host-app. Production-имплементация
 // (FirebasePushTokenProvider) — в отдельном пакете `nsg_messenger_push`.
 export 'src/push/push_token_provider.dart'
     show PushTokenProvider, InMemoryPushTokenProvider, DeviceInfo;
+// **Issue #86**: почему пушей нет — состояние, а не молчание. Провайдеры
+// его выставляют, `MessengerRuntime.pushStatus` раздаёт, виджеты ниже
+// показывают человеку.
+export 'src/push/push_token_status.dart' show PushTokenStatus, PushTokenStatusX;
+export 'src/widgets/push_status_notice.dart'
+    show PushStatusBanner, PushStatusNotice;
+
+// **Issue #117**: точка подключения трекера ошибок. SDK от Sentry не
+// зависит — он переиспользуемый; хост вешает сюда свой приёмник, и молчащие
+// фоновые отказы (квитанции прочтения) перестают быть невидимыми.
+export 'src/diagnostics/nsg_messenger_diagnostics.dart'
+    show NsgMessengerDiagnostics, NsgPersistentFailureSink;
 
 // Messages API (TASK15 Chunk 1).
 export 'src/messages/messages_controller.dart' show MessagesController;
@@ -210,6 +252,14 @@ export 'src/messages/messages_rpc.dart' show MessagesRpc, ClientMessagesRpc;
 // (Chatista). Один источник маппинга — иначе один статус читался бы разным
 // цветом в ленте и в списке.
 export 'src/messages/message_bubble.dart' show taskStageColor, taskStageLabel;
+// **issue #90**: превью ссылок. Наружу — стор и его RPC-абстракция (host
+// может подменить источник) и чистое правило «какой ссылке превью»:
+// по нему же host решает, что показывать в своих собственных лентах.
+export 'src/messages/link_preview_store.dart'
+    show LinkPreviewRpc, ClientLinkPreviewRpc, LinkPreviewStore;
+export 'src/messages/link_preview_urls.dart' show extractPreviewUrls;
+export 'src/messages/link_preview_card.dart'
+    show LinkPreviewCard, LinkPreviewSection;
 
 // **TASK46 (SDK)**: голосовые звонки 1:1. CallController (ChangeNotifier)
 // + sealed CallState — готовы к UI-биндингу (overlay — отдельная задача).
@@ -267,6 +317,11 @@ export 'src/runtime/active_room.dart' show ActiveRoom;
 // Окно, спрятанное в трей, Flutter активным считать не перестаёт —
 // host-app сообщает об этом сам, иначе клиент подтвердит доставку и
 // человек не получит уведомление на телефон.
+/// **TASK91 (issue #65)**: объявления при входе в приложение. Хост зовёт
+/// [showPendingAnnouncements] после init и передаёт свой обработчик маршрута —
+/// куда вести, знает только он.
+export 'src/announcements/announcements.dart'
+    show showPendingAnnouncements, AnnouncementsRpc, ClientAnnouncementsRpc;
 export 'src/runtime/app_visibility.dart' show AppVisibility;
 export 'src/calls/conference_call_state.dart'
     show
@@ -279,6 +334,8 @@ export 'src/calls/conference_call_state.dart'
         ConferenceEndReason,
         ConferenceParticipantView,
         ConferencePairPhase;
+export 'src/errors/fatal_error_screen.dart'
+    show NsgFatalErrorScreen, NsgFatalErrorStrings, installNsgErrorWidget;
 export 'src/calls/conference_rpc.dart' show ConferenceRpc, ClientConferenceRpc;
 export 'src/calls/webrtc_adapter.dart'
     show

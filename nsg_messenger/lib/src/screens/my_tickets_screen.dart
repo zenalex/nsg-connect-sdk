@@ -7,6 +7,7 @@ import '../messenger_runtime.dart';
 import '../support/my_tickets_controller.dart';
 import '../support/my_tickets_rpc.dart';
 import '../support/my_tickets_state.dart';
+import '../widgets/unread_pill.dart';
 import 'chat_screen.dart';
 import 'thread_screen.dart';
 
@@ -80,11 +81,21 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
         builder: (_) => ThreadScreen(
           roomId: ticket.roomId,
           threadRootEventId: root,
-          title: ticket.title,
+          // **issue #94**: в шапке треда — тема ЗАДАЧИ (для неё поле и
+          // задумано, см. ThreadScreen.title). Запасной путь остаётся
+          // прежним — имя комнаты: оно хотя бы говорит, чьё это обращение,
+          // тогда как «Ошибка · #89» в шапке не сообщает ничего.
+          title: _taskTitleOrRoom(ticket),
           statusLabel: _TicketTile._stageStyle(ticket.stage).label,
         ),
       ),
     );
+  }
+
+  /// Тема задачи, иначе имя комнаты (см. вызов выше).
+  static String? _taskTitleOrRoom(TicketView t) {
+    final task = t.taskTitle?.trim();
+    return (task != null && task.isNotEmpty) ? task : t.title;
   }
 
   Future<void> _openRoom(int roomId) async {
@@ -152,7 +163,11 @@ class _TicketTile extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-      trailing: _StatusBadge(text: stage.label, color: stage.color),
+      // **issue #113**: непрочитанное в треде обращения — перед стадией.
+      trailing: UnreadThenStage(
+        unreadCount: ticket.unreadCount,
+        stage: _StatusBadge(text: stage.label, color: stage.color),
+      ),
       onTap: onTap,
     );
   }
@@ -172,10 +187,29 @@ class _TicketTile extends StatelessWidget {
         'in_progress' => (label: 'В работе', color: Colors.orange),
         'accepted' => (label: 'Принято', color: Colors.green),
         'rejected' => (label: 'Отклонено', color: Colors.redAccent),
+        // **issue #98**: здесь «Новое» уже синее, поэтому «ждёт ответа» —
+        // индиго: рядом в одном списке два одинаково синих бейджа с разным
+        // смыслом читались бы как один.
+        'awaiting_user' => (label: 'Ждём ответа', color: Colors.indigo),
+        'on_hold' => (label: 'Приостановлено', color: Colors.blueGrey),
         _ => (label: 'Новое', color: Colors.blue),
       };
 
+  /// **issue #94**: строка списка должна отвечать на вопрос «что за задача».
+  ///
+  /// Запрос пользователя: «в списке задач задача пишется в виде #89, нужно
+  /// краткое описание по каждой задаче писать». Ключ отвечает «которая по
+  /// счёту», а список открывают, чтобы узнать «о чём».
+  ///
+  /// Заголовок ЗАМЕНЯЕТ ключ, а не дописывается к нему: строка одна, и ключ
+  /// съел бы её начало — то самое место, куда смотрят первым делом. Ключ
+  /// остаётся видимым на самой задаче (и в строке — когда заголовка нет).
+  ///
+  /// Вид обращения (`Ошибка` / `Идея`) не дублируем текстом: он уже показан
+  /// иконкой слева, и повторять его словом значит отнимать ширину у сути.
   static String _titleFor(TicketView t) {
+    final taskTitle = t.taskTitle?.trim();
+    if (taskTitle != null && taskTitle.isNotEmpty) return taskTitle;
     final kind = switch (t.kind) {
       'bug' => 'Ошибка',
       'idea' => 'Идея',

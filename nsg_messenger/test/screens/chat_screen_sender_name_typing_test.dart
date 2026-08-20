@@ -198,10 +198,7 @@ void main() {
     testWidgets('групповой чат (>2 участников) — подпись видна', (
       tester,
     ) async {
-      await pumpChat(
-        tester,
-        roomDetails: details(roomType: RoomType.group),
-      );
+      await pumpChat(tester, roomDetails: details(roomType: RoomType.group));
 
       expect(find.text('Помощник'), findsOneWidget);
       expect(find.text('Мария'), findsOneWidget);
@@ -404,6 +401,101 @@ void main() {
         reason: 'фон плашки и есть источник контраста (см. #38)',
       );
     });
+  });
+
+  // ───────────────────── бот «анализирует», а не «печатает» ────────────
+  //
+  // Бот поддержки — агент: он думает МИНУТАМИ и всё это время честно шлёт
+  // Matrix `m.typing`. Индикатор при этом исправен, врёт СЛОВО — «печатает
+  // 10 минут» читается как зависание. Проверяем именно выбор глагола.
+  group('индикатор для бота', () {
+    /// Событие «печатают» с явным указанием, кто из них не человек.
+    MessengerEvent typing({
+      required List<String> ids,
+      List<String>? botIds,
+      int minute = 0,
+    }) => MessengerEvent(
+      eventType: MessengerEventType.typingChanged,
+      serverTimestamp: DateTime.utc(2026, 1, 1, 0, minute),
+      roomId: 7,
+      typingMatrixUserIds: ids,
+      typingBotMatrixUserIds: botIds,
+    );
+
+    testWidgets('печатает бот → «thinking», слова «typing» нет', (
+      tester,
+    ) async {
+      final events = await pumpChat(tester, roomDetails: details());
+      events.add(typing(ids: const [botMxid], botIds: const [botMxid]));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Помощник is thinking'), findsOneWidget);
+      expect(
+        find.textContaining('is typing'),
+        findsNothing,
+        reason: 'ровно эта надпись про бота и была багом',
+      );
+    });
+
+    testWidgets('печатает человек → прежнее «typing»', (tester) async {
+      final events = await pumpChat(tester, roomDetails: details());
+      events.add(typing(ids: const [operatorMxid], botIds: const []));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Мария is typing'), findsOneWidget);
+    });
+
+    testWidgets('человек и бот вместе → нейтрально, без «typing»', (
+      tester,
+    ) async {
+      final events = await pumpChat(tester, roomDetails: details());
+      events.add(
+        typing(ids: const [operatorMxid, botMxid], botIds: const [botMxid]),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('preparing a reply'),
+        findsOneWidget,
+        reason: '«печатают» соврало бы про бота, «думают» — про человека',
+      );
+      expect(find.textContaining('is typing'), findsNothing);
+      expect(find.textContaining('are typing'), findsNothing);
+    });
+
+    testWidgets(
+      'бот, которого нет в загруженных участниках → признак из события',
+      (tester) async {
+        // Единственный источник признака здесь — поле события: список
+        // участников загружен раньше, чем бота подключили к комнате.
+        // Тот же случай, что в списке чатов, где участников нет вовсе.
+        const lateBotMxid = '@late-bot:t';
+        final events = await pumpChat(tester, roomDetails: details());
+        events.add(
+          typing(ids: const [lateBotMxid], botIds: const [lateBotMxid]),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.textContaining('late-bot is thinking'), findsOneWidget);
+        expect(find.textContaining('is typing'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'старый сервер (поля нет) → бот всё равно распознан по участникам',
+      (tester) async {
+        // В открытом чате участники уже загружены, и `participantKind`
+        // бота нам известен — надпись остаётся честной даже без нового
+        // поля события. (В списке чатов такой страховки нет, там поле
+        // события — единственный источник.)
+        final events = await pumpChat(tester, roomDetails: details());
+        events.add(typing(ids: const [botMxid]));
+        await tester.pumpAndSettle();
+
+        expect(find.textContaining('Помощник is thinking'), findsOneWidget);
+        expect(find.textContaining('is typing'), findsNothing);
+      },
+    );
   });
 }
 

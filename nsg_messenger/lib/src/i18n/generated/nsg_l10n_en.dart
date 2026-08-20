@@ -89,7 +89,8 @@ class NsgL10nEn extends NsgL10n {
   }
 
   @override
-  String get composerPastedAsCode => 'Formatted as code';
+  String get composerPasteImageFailed =>
+      'Could not paste the image from the clipboard. Save it to a file and attach it with the paperclip.';
 
   @override
   String get commonUndo => 'Undo';
@@ -309,6 +310,12 @@ class NsgL10nEn extends NsgL10n {
   }
 
   @override
+  String get filePreviewWrapOn => 'Wrap lines';
+
+  @override
+  String get filePreviewWrapOff => 'Do not wrap lines';
+
+  @override
   String get fileOpenFailed => 'Could not open the file';
 
   @override
@@ -388,6 +395,12 @@ class NsgL10nEn extends NsgL10n {
   String get emojiPickerTitle => 'Choose a reaction';
 
   @override
+  String get emojiInsertPickerTitle => 'Choose an emoji';
+
+  @override
+  String get emojiInsertTooltip => 'Emoji';
+
+  @override
   String get emojiCategorySmileys => 'Smileys & emotion';
 
   @override
@@ -459,6 +472,22 @@ class NsgL10nEn extends NsgL10n {
   @override
   String typingPair(String name1, String name2) {
     return '$name1 and $name2 are typing…';
+  }
+
+  @override
+  String typingSingleBot(String name) {
+    return '$name is thinking…';
+  }
+
+  @override
+  String typingManyMixed(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count participants are preparing a reply…',
+      one: '$count participant is preparing a reply…',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -730,6 +759,10 @@ class NsgL10nEn extends NsgL10n {
 
   @override
   String get supportTeamUnavailable => 'Support team is not available';
+
+  @override
+  String get supportTeamAmbiguousProduct =>
+      'This product key exists in more than one tenant — the server cannot tell which team you mean. Ask the platform admin to remove the duplicate.';
 
   @override
   String get supportTeamActionFailed => 'Action failed — please try again';
@@ -1443,6 +1476,118 @@ class NsgL10nEn extends NsgL10n {
   String get platformAdminCreated => 'Created';
 
   @override
+  String get platformAdminDeleteProduct => 'Delete product';
+
+  @override
+  String platformAdminDeleteProductConfirm(Object name) {
+    return 'Delete product “$name”? Its support team and issued access keys go with it. This cannot be undone.';
+  }
+
+  @override
+  String platformAdminDeleteProductBusy(Object what) {
+    return 'Product is in use and was not deleted: $what. Clear that first — otherwise conversations would outlive the product.';
+  }
+
+  @override
+  String get platformAdminDeleted => 'Deleted';
+
+  @override
+  String platformAdminBusyRooms(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count rooms',
+      one: '$count room',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String platformAdminBusyTickets(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count tickets',
+      one: '$count ticket',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String platformAdminBusyBots(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count bots',
+      one: '$count bot',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String platformAdminBusyIdentities(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count users',
+      one: '$count user',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String platformAdminBusyDevices(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count devices',
+      one: '$count device',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String platformAdminBusyWebhooks(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count webhooks',
+      one: '$count webhook',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get platformAdminTenantSupport => 'Tenant support';
+
+  @override
+  String get platformAdminTenantSupportHint =>
+      'These people belong to every product team of the tenant. Remove here and they disappear from all of them at once.';
+
+  @override
+  String get platformAdminTenantSupportEmpty =>
+      'Nobody — operators are listed per product team';
+
+  @override
+  String get platformAdminTenantSupportAdd => 'Add to tenant support';
+
+  @override
+  String get platformAdminTenantSupportRemove => 'Remove from tenant support';
+
+  @override
+  String platformAdminTenantSupportRemoveConfirm(Object name) {
+    return 'Remove $name from tenant support? They will disappear from every product team of this tenant.';
+  }
+
+  @override
+  String get supportTeamInherited => 'From tenant';
+
+  @override
+  String supportTeamRemoveInheritedConfirm(Object name) {
+    return '$name comes from tenant support. Remove them from this product only? They stay in other products.';
+  }
+
+  @override
   String get platformAdminNoProducts => 'No products';
 
   @override
@@ -1656,6 +1801,9 @@ class NsgL10nEn extends NsgL10n {
   String get botCardTitle => 'Bot';
 
   @override
+  String get openBotCardAction => 'Bot card';
+
+  @override
   String botCardOwner(String owner) {
     return 'Owner: $owner';
   }
@@ -1725,6 +1873,9 @@ class NsgL10nEn extends NsgL10n {
 
   @override
   String get pulseLoadFailed => 'Failed to load monitoring';
+
+  @override
+  String get pulseLoadFailedOffline => 'No connection to the server';
 
   @override
   String get pulseActionFailed => 'Action failed — try again';
@@ -1891,6 +2042,9 @@ class NsgL10nEn extends NsgL10n {
 
   @override
   String get pulseMinSeverityLabel => 'Minimum severity';
+
+  @override
+  String get pulseStatusLabel => 'Status';
 
   @override
   String get pulseSeverityWarn => 'Warning';
@@ -2069,6 +2223,27 @@ class NsgL10nEn extends NsgL10n {
 
   @override
   String get contactUnblocked => 'Unblocked';
+
+  @override
+  String get sharedContactListTitle => 'Contacts';
+
+  @override
+  String get sharedContactListAddAll => 'Add all';
+
+  @override
+  String get sharedContactShareLabel => 'Share list';
+
+  @override
+  String get sharedContactTitle => 'Contact';
+
+  @override
+  String get sharedContactAdd => 'Add';
+
+  @override
+  String get sharedContactAlreadyKnown => 'Already in list';
+
+  @override
+  String get sharedContactShare => 'Share contact';
 
   @override
   String get contactAddedToContacts => 'Added to contacts';
@@ -2511,6 +2686,12 @@ class NsgL10nEn extends NsgL10n {
   String get taskStageRejected => 'Rejected';
 
   @override
+  String get taskStageAwaitingUser => 'Awaiting your reply';
+
+  @override
+  String get taskStageOnHold => 'On hold';
+
+  @override
   String get tasksScreenTitle => 'Tasks';
 
   @override
@@ -2537,13 +2718,23 @@ class NsgL10nEn extends NsgL10n {
   }
 
   @override
-  String get supportInboxProjectFilterLabel => 'Project:';
+  String get announcementDismiss => 'Got it';
 
   @override
-  String get supportInboxProjectFilterAll => 'All projects';
+  String get announcementOpen => 'Open';
 
   @override
-  String get supportInboxProjectFilterTitle => 'Filter by project';
+  String get attachmentDropHint => 'Drop files to attach';
+
+  @override
+  String get participantsHiddenToggle => 'Hide member list';
+
+  @override
+  String get participantsHiddenHint =>
+      'Only admins will see who is in the group';
+
+  @override
+  String get participantsHiddenNotice => 'The admin has hidden the member list';
 
   @override
   String get supportInboxEmpty => 'No requests';
@@ -2560,4 +2751,509 @@ class NsgL10nEn extends NsgL10n {
   @override
   String get messageActionDirectMessageFailed =>
       'Couldn\'t open the chat — try again';
+
+  @override
+  String get platformAdminTeams => 'Tenant teams';
+
+  @override
+  String get platformAdminTeamsHint =>
+      'Company directory. People in one team can see each other, so a newcomer needs nobody\'s address. A team does not open private card fields and does not override «who can message me».';
+
+  @override
+  String get platformAdminTeamsEmpty =>
+      'No teams yet — a newcomer will see an empty people list';
+
+  @override
+  String get platformAdminTeamCreate => 'New team';
+
+  @override
+  String get platformAdminTeamName => 'Name';
+
+  @override
+  String get platformAdminTeamDescription => 'Description (optional)';
+
+  @override
+  String get platformAdminTeamNameTaken =>
+      'A team with this name already exists';
+
+  @override
+  String get platformAdminTeamDelete => 'Disband team';
+
+  @override
+  String platformAdminTeamDeleteConfirm(String name) {
+    return 'Disband «$name»? Members will stop seeing each other through this team. Chats and history remain.';
+  }
+
+  @override
+  String platformAdminTeamMembers(int count) {
+    return 'Members: $count';
+  }
+
+  @override
+  String get platformAdminTeamMemberAdd => 'Add to team';
+
+  @override
+  String get platformAdminTeamMemberRemove => 'Remove from team';
+
+  @override
+  String platformAdminTeamMemberRemoveConfirm(String name) {
+    return 'Remove $name from the team? They will disappear from other people\'s lists — unless they are known for another reason (a shared chat, another shared team).';
+  }
+
+  @override
+  String get platformAdminTeamMemberAddWarning =>
+      'They will see the whole team, and the whole team will see them.';
+
+  @override
+  String get platformAdminTeamFull => 'The team is already at its member limit';
+
+  @override
+  String get platformAdminTeamMembersEmpty =>
+      'Empty — this team introduces nobody';
+
+  @override
+  String get myTeamsTitle => 'Teams';
+
+  @override
+  String get myTeamsHint =>
+      'A team is a list of people without a chat: members see each other. You can only add people you already know. A team does not open private contact card fields and does not override the «who can message me» setting.';
+
+  @override
+  String get myTeamsEmpty =>
+      'No teams yet. Gather people you already know — they will see each other without starting a group chat.';
+
+  @override
+  String get myTeamsOrgBadge => 'Company team';
+
+  @override
+  String get myTeamsCreate => 'New team';
+
+  @override
+  String get myTeamsName => 'Name';
+
+  @override
+  String get myTeamsDescription => 'Description (optional)';
+
+  @override
+  String myTeamsMembers(int count) {
+    return 'Members: $count';
+  }
+
+  @override
+  String get myTeamsMembersEmpty => 'Empty — this team introduces nobody';
+
+  @override
+  String get myTeamsMemberAdd => 'Add to team';
+
+  @override
+  String get myTeamsMemberAddWarning =>
+      'They will see everyone in the team, and everyone will see them.';
+
+  @override
+  String get myTeamsMemberRemove => 'Remove from team';
+
+  @override
+  String myTeamsMemberRemoveConfirm(String name) {
+    return 'Remove $name from the team? They will disappear from other members\' people list — unless something else connects them (a shared chat, another shared team).';
+  }
+
+  @override
+  String get myTeamsDelete => 'Disband team';
+
+  @override
+  String myTeamsDeleteConfirm(String name) {
+    return 'Disband «$name»? Members will stop seeing each other through this team. Chats and history stay.';
+  }
+
+  @override
+  String get myTeamsLeave => 'Leave team';
+
+  @override
+  String myTeamsLeaveConfirm(String name) {
+    return 'Leave «$name»? Other members will disappear from your people list — those you are not connected to otherwise.';
+  }
+
+  @override
+  String get myTeamsPeerUnknown =>
+      'You do not know this person yet. Get acquainted first: a shared chat, a shared company team, or «Add to contacts».';
+
+  @override
+  String get myTeamsFull =>
+      'This team already has the maximum number of members';
+
+  @override
+  String get myTeamsAccessDenied => 'Only the team owner manages its members';
+
+  @override
+  String get myTeamsActionFailed => 'Could not complete the action';
+
+  @override
+  String get peopleTeamFromLabel => 'Create a team from this label';
+
+  @override
+  String peopleTeamFromLabelDone(String name, int count) {
+    return 'Team «$name»: $count added';
+  }
+
+  @override
+  String get contactKnownVia => 'Known via';
+
+  @override
+  String contactKnownViaTeam(String name) {
+    return 'from team «$name»';
+  }
+
+  @override
+  String get contactKnownViaSharedRoom => 'a shared chat';
+
+  @override
+  String get contactKnownViaManual => 'added by you';
+
+  @override
+  String get pushStatusNotConnectedTitle => 'Notifications are not connected';
+
+  @override
+  String get pushStatusPermissionDenied =>
+      'This app is not allowed to show notifications. Until you allow it, new messages are only visible while the app is open.';
+
+  @override
+  String get pushStatusTokenUnavailable =>
+      'Permission is granted, but the device did not register with the delivery service. Usually the network is at fault: Wi-Fi blocks port 5223 to push.apple.com — try mobile data and restart the app.';
+
+  @override
+  String get pushStatusOpenSystemSettings => 'Open settings';
+
+  @override
+  String get pushStatusBannerText =>
+      'Notifications are not connected — nothing will arrive in the background';
+
+  @override
+  String get pushStatusBannerDismiss => 'Hide';
+
+  @override
+  String get avatarCropTitle => 'Avatar';
+
+  @override
+  String get avatarCropDone => 'Done';
+
+  @override
+  String get avatarCropRotate => 'Rotate';
+
+  @override
+  String get avatarCropFailed => 'Could not crop the image';
+
+  @override
+  String get commonBack => 'Back';
+
+  @override
+  String get photoEditTitle => 'Edit';
+
+  @override
+  String get photoEditDone => 'Done';
+
+  @override
+  String get photoEditCrop => 'Crop';
+
+  @override
+  String get photoEditDraw => 'Draw';
+
+  @override
+  String get photoEditUndo => 'Undo';
+
+  @override
+  String get photoEditToolBrush => 'Brush';
+
+  @override
+  String get photoEditToolArrow => 'Arrow';
+
+  @override
+  String get photoEditToolRect => 'Frame';
+
+  @override
+  String get photoEditToolText => 'Text';
+
+  @override
+  String get photoEditTextTitle => 'Caption';
+
+  @override
+  String get photoEditTextOk => 'Add';
+
+  @override
+  String get photoEditFailed => 'Could not crop the image';
+
+  @override
+  String get pulseKindLabel => 'Monitor type';
+
+  @override
+  String get pulseKindHeartbeat => 'Heartbeat — the service signals us';
+
+  @override
+  String get pulseKindTlsProbe => 'TLS probe — we check the certificate';
+
+  @override
+  String get pulseProbeHostLabel => 'Host or IP';
+
+  @override
+  String get pulseProbePortLabel => 'Port';
+
+  @override
+  String get pulseProbeSniLabel => 'Server name (SNI)';
+
+  @override
+  String get pulseProbeSniHelp =>
+      'Separate from the address: DNS may point to another server';
+
+  @override
+  String get pulseProbeTimeoutLabel => 'Timeout, s';
+
+  @override
+  String get pulseProbeValidationLabel => 'Validation';
+
+  @override
+  String get pulseProbeValidationPublic => 'Public CA';
+
+  @override
+  String get pulseProbeValidationPinned => 'Pinned thumbprint';
+
+  @override
+  String get pulseProbeThumbprintLabel => 'Expected thumbprint (SHA-256)';
+
+  @override
+  String get pulseProbeWarnDaysLabel => 'Warn before, days';
+
+  @override
+  String get pulseProbeErrorDaysLabel => 'Error before, days';
+
+  @override
+  String get pulseCertificateTitle => 'Certificate';
+
+  @override
+  String get pulseCertNoData => 'No checks yet';
+
+  @override
+  String get pulseCertSubject => 'Subject';
+
+  @override
+  String get pulseCertIssuer => 'Issuer';
+
+  @override
+  String get pulseCertSans => 'Names (SAN)';
+
+  @override
+  String get pulseCertValidUntil => 'Valid until';
+
+  @override
+  String get pulseCertDaysLeftLabel => 'Days left';
+
+  @override
+  String get pulseCertThumbprint => 'Thumbprint';
+
+  @override
+  String get pulseCertLatency => 'Handshake';
+
+  @override
+  String get pulseCertAddress => 'Connected to';
+
+  @override
+  String get pulseCertLastCheck => 'Last attempt';
+
+  @override
+  String get pulseCertLastSuccess => 'Last success';
+
+  @override
+  String get pulseCertProblem => 'Problem';
+
+  @override
+  String get pulseProbeRunNow => 'Check now';
+
+  @override
+  String get pulseProbeTargetLabel => 'Target';
+
+  @override
+  String get pulseReminderThresholdsLabel => 'Reminder thresholds, days';
+
+  @override
+  String get pulseReminderThresholdsHelp =>
+      'One card at each first crossing. Empty — no reminders';
+
+  @override
+  String get pulseReminderLastLabel => 'Last reminder';
+
+  @override
+  String get pulseReminderNone => 'none yet';
+
+  @override
+  String get pulseProbeSetKeyLabel => 'Certificate set (optional)';
+
+  @override
+  String get pulseProbeSetKeyHelp =>
+      'Same key on endpoints that must serve the same certificate';
+
+  @override
+  String pulseProbeCheckedAgo(String when) {
+    return 'checked $when';
+  }
+
+  @override
+  String get pulseProbeNoChecks => 'no checks yet';
+
+  @override
+  String pulseCertLeftUntil(int days, String date) {
+    return '$days d until $date';
+  }
+
+  @override
+  String get pulseCertExpiredShort => 'certificate expired';
+
+  @override
+  String get pulseMoveMonitor => 'Move to folder';
+
+  @override
+  String get pulseMoveMonitorTitle => 'Move monitor';
+
+  @override
+  String get pulseAllowlistTitle => 'Allowed probe targets';
+
+  @override
+  String get pulseAllowlistEmpty => 'No allowed targets yet';
+
+  @override
+  String get pulseAllowlistAdd => 'Allow target';
+
+  @override
+  String get pulseAllowlistAddress => 'Address or network';
+
+  @override
+  String get pulseAllowlistPrefix => 'Mask, bits';
+
+  @override
+  String get pulseAllowlistNote => 'Why (visible in a year)';
+
+  @override
+  String get pulseAllowlistRemove => 'Remove from list';
+
+  @override
+  String get pulseAllowlistRemoveBody =>
+      'Probes to this target will start failing with «target not allowed». Monitors are not paused.';
+
+  @override
+  String get pulseValues => 'Values';
+
+  @override
+  String get pulseValuesEmpty => 'No numbers sent yet';
+
+  @override
+  String get pulseValueThresholds => 'Value thresholds';
+
+  @override
+  String get pulseValueThresholdAdd => 'Add threshold';
+
+  @override
+  String get pulseValueName => 'Value name';
+
+  @override
+  String get pulseValueWarnBelow => 'Warn below';
+
+  @override
+  String get pulseValueErrorBelow => 'Error below';
+
+  @override
+  String get pulseValueWarnAbove => 'Warn above';
+
+  @override
+  String get pulseValueErrorAbove => 'Error above';
+
+  @override
+  String get pulseValueThresholdHint =>
+      'At least one bound. Free disk space alarms from below, backup age from above, temperature from both.';
+
+  @override
+  String get pulseValueNoThreshold => 'no threshold';
+
+  @override
+  String get pulseValueRemoveThreshold => 'Remove threshold';
+
+  @override
+  String get deliveryHealthTitle => 'Notification delivery';
+
+  @override
+  String get deliveryHealthEmpty => 'No delivery data';
+
+  @override
+  String deliveryHealthDevices(int fcm, int rustore, int voip) {
+    return 'devices: $fcm FCM · $rustore RuStore · $voip VoIP';
+  }
+
+  @override
+  String deliveryHealthStale(int count) {
+    return 'not refreshed: $count';
+  }
+
+  @override
+  String get deliveryHealthNever => 'no registrations yet';
+
+  @override
+  String get deliveryHealthOk => 'delivery works';
+
+  @override
+  String get deliveryHealthNoDevices =>
+      'no devices — the app does not register tokens';
+
+  @override
+  String get deliveryHealthNoCredentials =>
+      'no sending keys — nothing to deliver with';
+
+  @override
+  String get deliveryHealthStaleAll => 'all registrations are stale';
+
+  @override
+  String deliveryHealthKeys(String list) {
+    return 'keys: $list';
+  }
+
+  @override
+  String get deliveryHealthNoKeys => 'no keys';
+
+  @override
+  String get pulseProbeEditTarget => 'Change target';
+
+  @override
+  String get pulseProbeEditTargetBody =>
+      'Observations of the previous target are cleared: certificate, thumbprint and dates belonged to it. Incident history and members stay.';
+
+  @override
+  String get pulseProbeHost => 'Address';
+
+  @override
+  String get pulseProbeSni => 'SNI name';
+
+  @override
+  String get pulseAllowlistPaste => 'Paste a list';
+
+  @override
+  String get pulseAllowlistPasteHint =>
+      'One target per line: 78.37.191.63:8896. IPv6 in brackets: [2001:db8::1]:443';
+
+  @override
+  String pulseAllowlistPasteCount(int count) {
+    return 'Targets parsed: $count';
+  }
+
+  @override
+  String pulseAllowlistPasteBad(int count) {
+    return 'Lines not parsed: $count';
+  }
+
+  @override
+  String pulseAllowlistPasteResult(int added, int existing, int failed) {
+    return 'Added $added, already there $existing, rejected $failed';
+  }
+
+  @override
+  String pulseAllowlistRejected(String reason) {
+    return 'Address not allowed: $reason';
+  }
+
+  @override
+  String get pulsePeriod7d => 'every 7 days';
 }

@@ -36,12 +36,21 @@ import 'package:serverpod_client/serverpod_client.dart' as _i1;
 ///                    причина — нужен per-delivery статус). Ошибки
 ///                    текущей итерации летят в session.log/Sentry, а
 ///                    строка журнала до enqueue просто не создаётся.
+///   * `unavailable`— устройства у адресата ЕСТЬ, но слать на них нечем:
+///                    для их службы (FCM/RuStore) не загружены креды
+///                    продукта. Единственный исход, который говорит о НАШЕЙ
+///                    неготовности, а не о состоянии адресата, — и потому
+///                    единственный, который нельзя было оставить внутри
+///                    `delivered`. Раньше такой приём отвечал успехом, а
+///                    уведомление умирало в воркере строкой `skipped` в
+///                    логе (этап 2 TASK_TITAN_PRODUCT_PUSH01 §6).
 enum ProductNotificationStatus implements _i1.SerializableModel {
   delivered,
   partial,
   failed,
   deduped,
-  noDevices;
+  noDevices,
+  unavailable;
 
   static ProductNotificationStatus fromJson(String name) {
     switch (name) {
@@ -55,6 +64,8 @@ enum ProductNotificationStatus implements _i1.SerializableModel {
         return ProductNotificationStatus.deduped;
       case 'noDevices':
         return ProductNotificationStatus.noDevices;
+      case 'unavailable':
+        return ProductNotificationStatus.unavailable;
       default:
         throw ArgumentError(
           'Value "$name" cannot be converted to "ProductNotificationStatus"',

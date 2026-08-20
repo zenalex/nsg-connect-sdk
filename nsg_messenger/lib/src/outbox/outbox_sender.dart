@@ -243,7 +243,8 @@ class OutboxSender {
       final exhausted = attempts >= _maxAttempts;
       if (isTransientSendError(e) && !exhausted) {
         final delay = _backoffFor(attempts);
-        final nextAt = DateTime.now().millisecondsSinceEpoch + delay.inMilliseconds;
+        final nextAt =
+            DateTime.now().millisecondsSinceEpoch + delay.inMilliseconds;
         await _store.markOutboxBackoff(
           item.clientTxnId,
           attempts: attempts,

@@ -49,7 +49,78 @@ typedef RotatePulseTokenRpc =
     Future<PulseMonitorCreated> Function({required int id});
 typedef SetPulsePausedRpc =
     Future<PulseMonitor> Function({required int id, required bool paused});
+typedef MovePulseMonitorRpc =
+    Future<PulseMonitor> Function({required int id, int? folderId});
 typedef DeletePulseMonitorRpc = Future<void> Function({required int id});
+
+// ── TLS-пробы (TASK94) ──────────────────────────────────────────────────
+typedef CreatePulseTlsProbeRpc =
+    Future<PulseTlsProbe> Function({
+      required String name,
+      required String connectHost,
+      required int port,
+      required String serverName,
+      int? folderId,
+      required int periodSeconds,
+      required int graceSeconds,
+      required int timeoutSeconds,
+      required String validationMode,
+      String? expectedThumbprint,
+      String? certificateSetKey,
+      required int warnBeforeDays,
+      required int errorBeforeDays,
+    });
+// ── Allowlist проб (TASK94 §2) ──────────────────────────────────────────
+typedef ListPulseProbeAllowlistRpc =
+    Future<List<PulseProbeAllowlistEntry>> Function();
+typedef AddPulseProbeAllowlistRpc =
+    Future<PulseProbeAllowlistEntry> Function({
+      required String address,
+      int? prefixLength,
+      required int port,
+      String? note,
+    });
+typedef RemovePulseProbeAllowlistRpc = Future<void> Function({required int id});
+
+typedef ListPulseTlsProbesRpc = Future<List<PulseTlsProbe>> Function();
+typedef GetPulseTlsProbeRpc =
+    Future<PulseTlsProbe?> Function({required int monitorId});
+typedef RunPulseProbeNowRpc =
+    Future<PulseTlsProbe> Function({required int monitorId});
+
+/// **issue #108**: правка цели пробы — адрес, порт, имя в SNI. Каждое поле
+/// необязательно: не переданное остаётся прежним.
+typedef UpdatePulseProbeTargetRpc =
+    Future<PulseTlsProbe> Function({
+      required int monitorId,
+      String? connectHost,
+      int? port,
+      String? serverName,
+    });
+
+// ── Пороги по значению (issue #116) ─────────────────────────────────────
+typedef ListPulseValueThresholdsRpc =
+    Future<List<PulseValueThreshold>> Function({required int monitorId});
+typedef SetPulseValueThresholdRpc =
+    Future<PulseValueThreshold> Function({
+      required int monitorId,
+      required String name,
+      double? warnBelow,
+      double? errorBelow,
+      double? warnAbove,
+      double? errorAbove,
+    });
+typedef RemovePulseValueThresholdRpc =
+    Future<void> Function({required int monitorId, required String name});
+
+// ── Рубежи напоминаний (TASK94 MR2) ─────────────────────────────────────
+typedef GetPulseExpiryReminderRpc =
+    Future<PulseExpiryReminder?> Function({required int monitorId});
+typedef SetPulseExpiryThresholdsRpc =
+    Future<PulseExpiryReminder> Function({
+      required int monitorId,
+      required String thresholdDays,
+    });
 
 // ── Правила ─────────────────────────────────────────────────────────────
 typedef ListPulseRulesRpc = Future<List<PulseAlertRule>> Function();
@@ -93,6 +164,16 @@ typedef RemovePulseMemberRpc =
       required int messengerUserId,
     });
 
+/// **issue #142**: тип адресного события «твои права изменились».
+///
+/// Контракт с сервером — `pulseEventAccessChanged` в
+/// `nsg_connect_server/src/business/pulse_access_service.dart`. Событие
+/// приходит БЕЗ монитора (менялись права, а не он) и только своему
+/// адресату; клиент по нему перечитывает дерево папок и мониторов, потому
+/// что точечно обновлять нечего — могли открыть целую папку, а могли
+/// отобрать.
+const String pulseEventAccessChanged = 'access.changed';
+
 class NsgMessengerPulse {
   NsgMessengerPulse._({
     required PulseStatusStreamRpc statusStreamRpc,
@@ -104,7 +185,21 @@ class NsgMessengerPulse {
     required CreatePulseMonitorRpc createMonitorRpc,
     required RotatePulseTokenRpc rotateTokenRpc,
     required SetPulsePausedRpc setPausedRpc,
+    required MovePulseMonitorRpc moveMonitorRpc,
     required DeletePulseMonitorRpc deleteMonitorRpc,
+    required CreatePulseTlsProbeRpc createTlsProbeRpc,
+    required ListPulseTlsProbesRpc listTlsProbesRpc,
+    required ListPulseProbeAllowlistRpc listProbeAllowlistRpc,
+    required AddPulseProbeAllowlistRpc addProbeAllowlistRpc,
+    required RemovePulseProbeAllowlistRpc removeProbeAllowlistRpc,
+    required GetPulseTlsProbeRpc getTlsProbeRpc,
+    required RunPulseProbeNowRpc runProbeNowRpc,
+    required UpdatePulseProbeTargetRpc updateProbeTargetRpc,
+    required ListPulseValueThresholdsRpc listValueThresholdsRpc,
+    required SetPulseValueThresholdRpc setValueThresholdRpc,
+    required RemovePulseValueThresholdRpc removeValueThresholdRpc,
+    required GetPulseExpiryReminderRpc getExpiryReminderRpc,
+    required SetPulseExpiryThresholdsRpc setExpiryThresholdsRpc,
     required ListPulseRulesRpc listRulesRpc,
     required CreatePulseRuleRpc createRuleRpc,
     required DeletePulseRuleRpc deleteRuleRpc,
@@ -123,7 +218,21 @@ class NsgMessengerPulse {
        _createMonitorRpc = createMonitorRpc,
        _rotateTokenRpc = rotateTokenRpc,
        _setPausedRpc = setPausedRpc,
+       _moveMonitorRpc = moveMonitorRpc,
        _deleteMonitorRpc = deleteMonitorRpc,
+       _createTlsProbeRpc = createTlsProbeRpc,
+       _listTlsProbesRpc = listTlsProbesRpc,
+       _listProbeAllowlistRpc = listProbeAllowlistRpc,
+       _addProbeAllowlistRpc = addProbeAllowlistRpc,
+       _removeProbeAllowlistRpc = removeProbeAllowlistRpc,
+       _getTlsProbeRpc = getTlsProbeRpc,
+       _runProbeNowRpc = runProbeNowRpc,
+       _updateProbeTargetRpc = updateProbeTargetRpc,
+       _listValueThresholdsRpc = listValueThresholdsRpc,
+       _setValueThresholdRpc = setValueThresholdRpc,
+       _removeValueThresholdRpc = removeValueThresholdRpc,
+       _getExpiryReminderRpc = getExpiryReminderRpc,
+       _setExpiryThresholdsRpc = setExpiryThresholdsRpc,
        _listRulesRpc = listRulesRpc,
        _createRuleRpc = createRuleRpc,
        _deleteRuleRpc = deleteRuleRpc,
@@ -143,7 +252,21 @@ class NsgMessengerPulse {
   final CreatePulseMonitorRpc _createMonitorRpc;
   final RotatePulseTokenRpc _rotateTokenRpc;
   final SetPulsePausedRpc _setPausedRpc;
+  final MovePulseMonitorRpc _moveMonitorRpc;
   final DeletePulseMonitorRpc _deleteMonitorRpc;
+  final CreatePulseTlsProbeRpc _createTlsProbeRpc;
+  final ListPulseTlsProbesRpc _listTlsProbesRpc;
+  final ListPulseProbeAllowlistRpc _listProbeAllowlistRpc;
+  final AddPulseProbeAllowlistRpc _addProbeAllowlistRpc;
+  final RemovePulseProbeAllowlistRpc _removeProbeAllowlistRpc;
+  final GetPulseTlsProbeRpc _getTlsProbeRpc;
+  final RunPulseProbeNowRpc _runProbeNowRpc;
+  final UpdatePulseProbeTargetRpc _updateProbeTargetRpc;
+  final ListPulseValueThresholdsRpc _listValueThresholdsRpc;
+  final SetPulseValueThresholdRpc _setValueThresholdRpc;
+  final RemovePulseValueThresholdRpc _removeValueThresholdRpc;
+  final GetPulseExpiryReminderRpc _getExpiryReminderRpc;
+  final SetPulseExpiryThresholdsRpc _setExpiryThresholdsRpc;
   final ListPulseRulesRpc _listRulesRpc;
   final CreatePulseRuleRpc _createRuleRpc;
   final DeletePulseRuleRpc _deleteRuleRpc;
@@ -201,8 +324,141 @@ class NsgMessengerPulse {
         () => client.pulse.setPaused(id: id, paused: paused),
         session(),
       ),
+      moveMonitorRpc: ({required int id, int? folderId}) => withAuthRetry(
+        () => client.pulse.moveMonitor(id: id, folderId: folderId),
+        session(),
+      ),
       deleteMonitorRpc: ({required int id}) =>
           withAuthRetry(() => client.pulse.deleteMonitor(id: id), session()),
+      createTlsProbeRpc:
+          ({
+            required String name,
+            required String connectHost,
+            required int port,
+            required String serverName,
+            int? folderId,
+            required int periodSeconds,
+            required int graceSeconds,
+            required int timeoutSeconds,
+            required String validationMode,
+            String? expectedThumbprint,
+            String? certificateSetKey,
+            required int warnBeforeDays,
+            required int errorBeforeDays,
+          }) => withAuthRetry(
+            () => client.pulse.createTlsProbeMonitor(
+              name: name,
+              connectHost: connectHost,
+              port: port,
+              serverName: serverName,
+              folderId: folderId,
+              periodSeconds: periodSeconds,
+              graceSeconds: graceSeconds,
+              timeoutSeconds: timeoutSeconds,
+              // Пороги подтверждения формой пока не задаются: два подряд
+              // сетевых отказа до `down` и один успех на выход — то, что
+              // просил интегратор по умолчанию. Правится в БД, а когда
+              // понадобится в UI — поле уже есть.
+              failureThreshold: 2,
+              recoveryThreshold: 1,
+              validationMode: validationMode,
+              expectedThumbprint: expectedThumbprint,
+              certificateSetKey: certificateSetKey,
+              warnBeforeDays: warnBeforeDays,
+              errorBeforeDays: errorBeforeDays,
+            ),
+            session(),
+          ),
+      listTlsProbesRpc: () =>
+          withAuthRetry(() => client.pulse.listTlsProbes(), session()),
+      listProbeAllowlistRpc: () =>
+          withAuthRetry(() => client.pulse.listProbeAllowlist(), session()),
+      addProbeAllowlistRpc:
+          ({
+            required String address,
+            int? prefixLength,
+            required int port,
+            String? note,
+          }) => withAuthRetry(
+            () => client.pulse.addProbeAllowlistEntry(
+              address: address,
+              prefixLength: prefixLength,
+              port: port,
+              note: note,
+            ),
+            session(),
+          ),
+      removeProbeAllowlistRpc: ({required int id}) => withAuthRetry(
+        () => client.pulse.removeProbeAllowlistEntry(id: id),
+        session(),
+      ),
+      getTlsProbeRpc: ({required int monitorId}) => withAuthRetry(
+        () => client.pulse.getTlsProbe(monitorId: monitorId),
+        session(),
+      ),
+      runProbeNowRpc: ({required int monitorId}) => withAuthRetry(
+        () => client.pulse.runProbeNow(monitorId: monitorId),
+        session(),
+      ),
+      updateProbeTargetRpc:
+          ({
+            required int monitorId,
+            String? connectHost,
+            int? port,
+            String? serverName,
+          }) => withAuthRetry(
+            () => client.pulse.updateTlsProbeTarget(
+              monitorId: monitorId,
+              connectHost: connectHost,
+              port: port,
+              serverName: serverName,
+            ),
+            session(),
+          ),
+      listValueThresholdsRpc: ({required int monitorId}) => withAuthRetry(
+        () => client.pulse.listValueThresholds(monitorId: monitorId),
+        session(),
+      ),
+      setValueThresholdRpc:
+          ({
+            required int monitorId,
+            required String name,
+            double? warnBelow,
+            double? errorBelow,
+            double? warnAbove,
+            double? errorAbove,
+          }) => withAuthRetry(
+            () => client.pulse.setValueThreshold(
+              monitorId: monitorId,
+              name: name,
+              warnBelow: warnBelow,
+              errorBelow: errorBelow,
+              warnAbove: warnAbove,
+              errorAbove: errorAbove,
+            ),
+            session(),
+          ),
+      removeValueThresholdRpc: ({required int monitorId, required String name}) =>
+          withAuthRetry(
+            () => client.pulse.removeValueThreshold(
+              monitorId: monitorId,
+              name: name,
+            ),
+            session(),
+          ),
+      getExpiryReminderRpc: ({required int monitorId}) => withAuthRetry(
+        () => client.pulse.getExpiryReminder(monitorId: monitorId),
+        session(),
+      ),
+      setExpiryThresholdsRpc:
+          ({required int monitorId, required String thresholdDays}) =>
+              withAuthRetry(
+                () => client.pulse.setExpiryThresholds(
+                  monitorId: monitorId,
+                  thresholdDays: thresholdDays,
+                ),
+                session(),
+              ),
       listRulesRpc: () =>
           withAuthRetry(() => client.pulse.listRules(), session()),
       createRuleRpc:
@@ -286,7 +542,21 @@ class NsgMessengerPulse {
     required CreatePulseMonitorRpc createMonitorRpc,
     required RotatePulseTokenRpc rotateTokenRpc,
     required SetPulsePausedRpc setPausedRpc,
+    required MovePulseMonitorRpc moveMonitorRpc,
     required DeletePulseMonitorRpc deleteMonitorRpc,
+    required CreatePulseTlsProbeRpc createTlsProbeRpc,
+    required ListPulseTlsProbesRpc listTlsProbesRpc,
+    required ListPulseProbeAllowlistRpc listProbeAllowlistRpc,
+    required AddPulseProbeAllowlistRpc addProbeAllowlistRpc,
+    required RemovePulseProbeAllowlistRpc removeProbeAllowlistRpc,
+    required GetPulseTlsProbeRpc getTlsProbeRpc,
+    required RunPulseProbeNowRpc runProbeNowRpc,
+    required UpdatePulseProbeTargetRpc updateProbeTargetRpc,
+    required ListPulseValueThresholdsRpc listValueThresholdsRpc,
+    required SetPulseValueThresholdRpc setValueThresholdRpc,
+    required RemovePulseValueThresholdRpc removeValueThresholdRpc,
+    required GetPulseExpiryReminderRpc getExpiryReminderRpc,
+    required SetPulseExpiryThresholdsRpc setExpiryThresholdsRpc,
     required ListPulseRulesRpc listRulesRpc,
     required CreatePulseRuleRpc createRuleRpc,
     required DeletePulseRuleRpc deleteRuleRpc,
@@ -306,7 +576,21 @@ class NsgMessengerPulse {
     createMonitorRpc: createMonitorRpc,
     rotateTokenRpc: rotateTokenRpc,
     setPausedRpc: setPausedRpc,
+    moveMonitorRpc: moveMonitorRpc,
     deleteMonitorRpc: deleteMonitorRpc,
+    createTlsProbeRpc: createTlsProbeRpc,
+    listTlsProbesRpc: listTlsProbesRpc,
+    listProbeAllowlistRpc: listProbeAllowlistRpc,
+    addProbeAllowlistRpc: addProbeAllowlistRpc,
+    removeProbeAllowlistRpc: removeProbeAllowlistRpc,
+    getTlsProbeRpc: getTlsProbeRpc,
+    runProbeNowRpc: runProbeNowRpc,
+    updateProbeTargetRpc: updateProbeTargetRpc,
+    listValueThresholdsRpc: listValueThresholdsRpc,
+    setValueThresholdRpc: setValueThresholdRpc,
+    removeValueThresholdRpc: removeValueThresholdRpc,
+    getExpiryReminderRpc: getExpiryReminderRpc,
+    setExpiryThresholdsRpc: setExpiryThresholdsRpc,
     listRulesRpc: listRulesRpc,
     createRuleRpc: createRuleRpc,
     deleteRuleRpc: deleteRuleRpc,
@@ -343,6 +627,133 @@ class NsgMessengerPulse {
 
   /// Создать монитор → beat-токен + готовый URL (в ответе; **показать один
   /// раз**, в БД хранится только хеш).
+  /// **TASK94**: перенести монитор в папку; `folderId == null` — в корень.
+  Future<PulseMonitor> moveMonitor({required int id, int? folderId}) =>
+      _moveMonitorRpc(id: id, folderId: folderId);
+
+  /// **TASK94**: завести монитор-пробу. Токена у него нет — сервер сам
+  /// ходит на цель и проверяет сертификат.
+  Future<PulseTlsProbe> createTlsProbeMonitor({
+    required String name,
+    required String connectHost,
+    required int port,
+    required String serverName,
+    int? folderId,
+    int periodSeconds = 300,
+    int graceSeconds = 120,
+    int timeoutSeconds = 10,
+    String validationMode = 'publicPki',
+    String? expectedThumbprint,
+    String? certificateSetKey,
+    int warnBeforeDays = 30,
+    int errorBeforeDays = 14,
+  }) => _createTlsProbeRpc(
+    name: name,
+    connectHost: connectHost,
+    port: port,
+    serverName: serverName,
+    folderId: folderId,
+    periodSeconds: periodSeconds,
+    graceSeconds: graceSeconds,
+    timeoutSeconds: timeoutSeconds,
+    validationMode: validationMode,
+    expectedThumbprint: expectedThumbprint,
+    certificateSetKey: certificateSetKey,
+    warnBeforeDays: warnBeforeDays,
+    errorBeforeDays: errorBeforeDays,
+  );
+
+  /// **TASK94 §2**: куда пробам вообще разрешено ходить. Правит только
+  /// супер-админ платформы — список говорит, куда вправе ходить НАШ сервер,
+  /// а не что видит арендатор.
+  Future<List<PulseProbeAllowlistEntry>> listProbeAllowlist() =>
+      _listProbeAllowlistRpc();
+
+  Future<PulseProbeAllowlistEntry> addProbeAllowlistEntry({
+    required String address,
+    int? prefixLength,
+    required int port,
+    String? note,
+  }) => _addProbeAllowlistRpc(
+    address: address,
+    prefixLength: prefixLength,
+    port: port,
+    note: note,
+  );
+
+  Future<void> removeProbeAllowlistEntry({required int id}) =>
+      _removeProbeAllowlistRpc(id: id);
+
+  /// Пробы всех видимых мониторов — одним запросом, для списка.
+  Future<List<PulseTlsProbe>> listTlsProbes() => _listTlsProbesRpc();
+
+  /// Цель и последние наблюдения пробы. `null` — монитор не проба.
+  Future<PulseTlsProbe?> getTlsProbe({required int monitorId}) =>
+      _getTlsProbeRpc(monitorId: monitorId);
+
+  /// Проверить прямо сейчас, не дожидаясь периода.
+  Future<PulseTlsProbe> runProbeNow({required int monitorId}) =>
+      _runProbeNowRpc(monitorId: monitorId);
+
+  /// **issue #108**: перевести пробу на другую цель. Монитор, его история
+  /// инцидентов и участники остаются; наблюдения прежней цели сбрасываются
+  /// на сервере, и проверка запускается сразу.
+  Future<PulseTlsProbe> updateProbeTarget({
+    required int monitorId,
+    String? connectHost,
+    int? port,
+    String? serverName,
+  }) => _updateProbeTargetRpc(
+    monitorId: monitorId,
+    connectHost: connectHost,
+    port: port,
+    serverName: serverName,
+  );
+
+  /// **issue #116**: пороги по значению у монитора.
+  Future<List<PulseValueThreshold>> listValueThresholds({
+    required int monitorId,
+  }) => _listValueThresholdsRpc(monitorId: monitorId);
+
+  /// Задать порог. Хотя бы одна граница обязательна — иначе это правило,
+  /// которое никогда не сработает.
+  Future<PulseValueThreshold> setValueThreshold({
+    required int monitorId,
+    required String name,
+    double? warnBelow,
+    double? errorBelow,
+    double? warnAbove,
+    double? errorAbove,
+  }) => _setValueThresholdRpc(
+    monitorId: monitorId,
+    name: name,
+    warnBelow: warnBelow,
+    errorBelow: errorBelow,
+    warnAbove: warnAbove,
+    errorAbove: errorAbove,
+  );
+
+  /// Убрать порог. Число продолжит приходить и показываться.
+  Future<void> removeValueThreshold({
+    required int monitorId,
+    required String name,
+  }) => _removeValueThresholdRpc(monitorId: monitorId, name: name);
+
+  /// **TASK94 MR2**: состояние напоминаний монитора (набор рубежей, срок,
+  /// последний пройденный рубеж). `null` — наблюдений ещё не было.
+  Future<PulseExpiryReminder?> getExpiryReminder({required int monitorId}) =>
+      _getExpiryReminderRpc(monitorId: monitorId);
+
+  /// Набор рубежей: `30,14,7,1` (ACME) или `90,60,30,14,7,1`
+  /// (коммерческие). Пустая строка — не напоминать.
+  Future<PulseExpiryReminder> setExpiryThresholds({
+    required int monitorId,
+    required String thresholdDays,
+  }) => _setExpiryThresholdsRpc(
+    monitorId: monitorId,
+    thresholdDays: thresholdDays,
+  );
+
   Future<PulseMonitorCreated> createMonitor({
     required String name,
     int? folderId,

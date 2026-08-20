@@ -71,9 +71,17 @@ abstract class SupportTeamRpc {
 /// Продакшн-реализация: ходит в generated Serverpod-client через
 /// `withAuthRetry` (self-heal на token-rotation, как в остальном SDK).
 class ClientSupportTeamRpc implements SupportTeamRpc {
-  ClientSupportTeamRpc(this._client);
+  /// [tenantExternalKey] — тенант продукта. Нужен, когда команда живёт в
+  /// ЧУЖОМ тенанте (платформенная админка смотрит продукт заказчика):
+  /// ключ продукта уникален только внутри тенанта, и без тенанта сервер
+  /// не может отличить `titan112_operator` в `titan` от такого же ключа в
+  /// `titan112` — на проде это отдавало состав чужой команды. Живёт в
+  /// конструкторе, а не в каждом методе: на всё время экрана тенант один.
+  ClientSupportTeamRpc(this._client, {String? tenantExternalKey})
+    : _tenantExternalKey = tenantExternalKey;
 
   final Client _client;
+  final String? _tenantExternalKey;
 
   MessengerSessionManager get _session =>
       MessengerRuntime.instance.sessionManager;
@@ -84,6 +92,7 @@ class ClientSupportTeamRpc implements SupportTeamRpc {
   }) => withAuthRetry(
     () => _client.messenger.getSupportTeam(
       productExternalKey: productExternalKey,
+      tenantExternalKey: _tenantExternalKey,
     ),
     _session,
   );
@@ -98,6 +107,7 @@ class ClientSupportTeamRpc implements SupportTeamRpc {
       productExternalKey: productExternalKey,
       email: email,
       tier: tier,
+      tenantExternalKey: _tenantExternalKey,
     ),
     _session,
   );
@@ -110,6 +120,7 @@ class ClientSupportTeamRpc implements SupportTeamRpc {
     () => _client.messenger.removeSupportTeamMember(
       productExternalKey: productExternalKey,
       targetMessengerUserId: targetMessengerUserId,
+      tenantExternalKey: _tenantExternalKey,
     ),
     _session,
   );
@@ -124,6 +135,7 @@ class ClientSupportTeamRpc implements SupportTeamRpc {
       productExternalKey: productExternalKey,
       targetMessengerUserId: targetMessengerUserId,
       tier: tier,
+      tenantExternalKey: _tenantExternalKey,
     ),
     _session,
   );
@@ -136,6 +148,7 @@ class ClientSupportTeamRpc implements SupportTeamRpc {
     () => _client.messenger.setSupportTeamTimeout(
       productExternalKey: productExternalKey,
       minutes: minutes,
+      tenantExternalKey: _tenantExternalKey,
     ),
     _session,
   );
@@ -156,14 +169,15 @@ class ClientSupportTeamRpc implements SupportTeamRpc {
   );
 
   @override
-  Future<SupportTeamView> createTeam({
-    required String productExternalKey,
-  }) => withAuthRetry(
-    () => _client.messenger.createSupportTeam(
-      productExternalKey: productExternalKey,
-    ),
-    _session,
-  );
+  Future<SupportTeamView> createTeam({required String productExternalKey}) =>
+      withAuthRetry(
+        // Self-service создание команды — всегда в СВОЁМ тенанте, поэтому
+        // тенант здесь не передаётся (и серверный метод его не принимает).
+        () => _client.messenger.createSupportTeam(
+          productExternalKey: productExternalKey,
+        ),
+        _session,
+      );
 
   @override
   Future<SupportTeamView> setMemberRole({
@@ -175,6 +189,7 @@ class ClientSupportTeamRpc implements SupportTeamRpc {
       productExternalKey: productExternalKey,
       targetMessengerUserId: targetMessengerUserId,
       role: role,
+      tenantExternalKey: _tenantExternalKey,
     ),
     _session,
   );
@@ -183,6 +198,7 @@ class ClientSupportTeamRpc implements SupportTeamRpc {
   Future<void> leaveTeam({required String productExternalKey}) => withAuthRetry(
     () => _client.messenger.leaveSupportTeam(
       productExternalKey: productExternalKey,
+      tenantExternalKey: _tenantExternalKey,
     ),
     _session,
   );

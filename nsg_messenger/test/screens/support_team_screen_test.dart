@@ -323,6 +323,38 @@ void main() {
       reason: 'повтор тут не поможет — совет должен быть другой',
     );
   });
+
+  /// Ключ продукта заведён сразу в двух тенантах — сервер отказывается
+  /// выбирать команду за вызывающего. Отказ невременный, и «попробуйте ещё
+  /// раз» тут вредный совет: 06.08.2026 в АРМ оператора по этому снекбару
+  /// понять было нельзя ничего, причину искали в логах прода.
+  testWidgets('дубль ключа продукта в двух тенантах → говорим об этом прямо', (
+    tester,
+  ) async {
+    final rpc = _FakeRpc(view([member(selfId, role: SupportTeamRole.owner)]))
+      ..addError = AmbiguousProductKeyException(
+        productExternalKey: 'titan112_operator',
+      );
+    await pumpPushed(tester, rpc);
+
+    await tester.tap(find.text('By email'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'someone@nsg.ru');
+    await tester.tap(find.text('Add').last);
+    await tester.pumpAndSettle();
+
+    expect(rpc.addCalls, 1);
+    expect(
+      find.textContaining('more than one tenant'),
+      findsOneWidget,
+      reason: 'причина конкретная — снекбар обязан её назвать',
+    );
+    expect(
+      find.textContaining('try again'),
+      findsNothing,
+      reason: 'повтор не поможет никогда — советовать его нельзя',
+    );
+  });
 }
 
 /// Fake экрана: `getSupportTeam` + мутации, которые экран действительно

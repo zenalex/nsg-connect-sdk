@@ -25,6 +25,7 @@ abstract class RoomSummary implements _i1.SerializableModel {
     this.name,
     this.avatarUrl,
     this.lastMessagePreview,
+    this.lastMessageThreadRootEventId,
     this.lastMessageAt,
     required this.unreadCount,
     required this.archived,
@@ -41,6 +42,7 @@ abstract class RoomSummary implements _i1.SerializableModel {
     this.supportTicketStage,
     this.supportAwaitingSince,
     this.dismissedUntilMessage,
+    this.supportViewerIsRequester,
     this.autoCleanupTtlSeconds,
   });
 
@@ -49,6 +51,7 @@ abstract class RoomSummary implements _i1.SerializableModel {
     String? name,
     String? avatarUrl,
     String? lastMessagePreview,
+    String? lastMessageThreadRootEventId,
     DateTime? lastMessageAt,
     required int unreadCount,
     required bool archived,
@@ -65,6 +68,7 @@ abstract class RoomSummary implements _i1.SerializableModel {
     String? supportTicketStage,
     DateTime? supportAwaitingSince,
     bool? dismissedUntilMessage,
+    bool? supportViewerIsRequester,
     int? autoCleanupTtlSeconds,
   }) = _RoomSummaryImpl;
 
@@ -74,6 +78,8 @@ abstract class RoomSummary implements _i1.SerializableModel {
       name: jsonSerialization['name'] as String?,
       avatarUrl: jsonSerialization['avatarUrl'] as String?,
       lastMessagePreview: jsonSerialization['lastMessagePreview'] as String?,
+      lastMessageThreadRootEventId:
+          jsonSerialization['lastMessageThreadRootEventId'] as String?,
       lastMessageAt: jsonSerialization['lastMessageAt'] == null
           ? null
           : _i1.DateTimeJsonExtension.fromJson(
@@ -110,6 +116,12 @@ abstract class RoomSummary implements _i1.SerializableModel {
           : _i1.BoolJsonExtension.fromJson(
               jsonSerialization['dismissedUntilMessage'],
             ),
+      supportViewerIsRequester:
+          jsonSerialization['supportViewerIsRequester'] == null
+          ? null
+          : _i1.BoolJsonExtension.fromJson(
+              jsonSerialization['supportViewerIsRequester'],
+            ),
       autoCleanupTtlSeconds: jsonSerialization['autoCleanupTtlSeconds'] as int?,
     );
   }
@@ -128,6 +140,13 @@ abstract class RoomSummary implements _i1.SerializableModel {
   /// в RoomLastMessageWatcher. Для не-text типов (m.image / m.file) —
   /// placeholder типа `📷 image` / `📎 filename`.
   String? lastMessagePreview;
+
+  /// **issue #92**: корень треда, если превью выше — реплика ОБСУЖДЕНИЯ
+  /// задачи, а не сообщение ленты. Не null → тап по строке списка чатов
+  /// обязан открыть тред (комната ложится под ним, чтобы «назад» вело в
+  /// переписку) — ровно тот же маршрут, что уже сделан для тапа по пушу.
+  /// null → обычное сообщение ленты, открываем комнату как раньше.
+  String? lastMessageThreadRootEventId;
 
   DateTime? lastMessageAt;
 
@@ -202,6 +221,26 @@ abstract class RoomSummary implements _i1.SerializableModel {
   /// трактует null как false; сервер всегда проставляет реальное значение.
   bool? dismissedUntilMessage;
 
+  /// **Системные папки продуктов**: смотрящий — ЗАЯВИТЕЛЬ этого обращения
+  /// (`viewerMembership.role == 'owner'`), а не оператор поддержки.
+  ///
+  /// Клиенту это нужно для РАСКЛАДКИ, а не для отображения: собственное
+  /// обращение лежит в корне списка и названо по продукту, а обращения, где
+  /// смотрящий — оператор, собираются в системную папку продукта и названы
+  /// по заявителям. Одним `supportRequesterName` эти два случая не
+  /// различить: он заполнен с обеих сторон, а сравнивать его со своим
+  /// именем — гадание (тёзки, alias, перевод профиля).
+  ///
+  /// Сервер и так вычисляет этот признак в `_toSummary` для
+  /// perspective-именования — отдаём уже посчитанное, лишних запросов нет.
+  ///
+  /// Nullable из-за скью версий: старый сервер пришлёт null. Клиент
+  /// трактует null как «не заявитель» — тогда обращение попадёт в папку
+  /// продукта (косметически неверно для заявителя), тогда как обратный
+  /// дефолт вывалил бы ВЕСЬ операторский инбокс в корень списка.
+  /// Для не-support комнат всегда null.
+  bool? supportViewerIsRequester;
+
   /// **TASK68**: TTL автоочистки в секундах (`Room.autoCleanupTtlSeconds`).
   /// null = выключено. В списке чатов SDK рисует по нему бейдж «⏱ неделя»
   /// на строках self-чатов, не дёргая getRoom за каждой комнатой.
@@ -215,6 +254,7 @@ abstract class RoomSummary implements _i1.SerializableModel {
     String? name,
     String? avatarUrl,
     String? lastMessagePreview,
+    String? lastMessageThreadRootEventId,
     DateTime? lastMessageAt,
     int? unreadCount,
     bool? archived,
@@ -231,6 +271,7 @@ abstract class RoomSummary implements _i1.SerializableModel {
     String? supportTicketStage,
     DateTime? supportAwaitingSince,
     bool? dismissedUntilMessage,
+    bool? supportViewerIsRequester,
     int? autoCleanupTtlSeconds,
   });
   @override
@@ -241,6 +282,8 @@ abstract class RoomSummary implements _i1.SerializableModel {
       if (name != null) 'name': name,
       if (avatarUrl != null) 'avatarUrl': avatarUrl,
       if (lastMessagePreview != null) 'lastMessagePreview': lastMessagePreview,
+      if (lastMessageThreadRootEventId != null)
+        'lastMessageThreadRootEventId': lastMessageThreadRootEventId,
       if (lastMessageAt != null) 'lastMessageAt': lastMessageAt?.toJson(),
       'unreadCount': unreadCount,
       'archived': archived,
@@ -261,6 +304,8 @@ abstract class RoomSummary implements _i1.SerializableModel {
         'supportAwaitingSince': supportAwaitingSince?.toJson(),
       if (dismissedUntilMessage != null)
         'dismissedUntilMessage': dismissedUntilMessage,
+      if (supportViewerIsRequester != null)
+        'supportViewerIsRequester': supportViewerIsRequester,
       if (autoCleanupTtlSeconds != null)
         'autoCleanupTtlSeconds': autoCleanupTtlSeconds,
     };
@@ -280,6 +325,7 @@ class _RoomSummaryImpl extends RoomSummary {
     String? name,
     String? avatarUrl,
     String? lastMessagePreview,
+    String? lastMessageThreadRootEventId,
     DateTime? lastMessageAt,
     required int unreadCount,
     required bool archived,
@@ -296,12 +342,14 @@ class _RoomSummaryImpl extends RoomSummary {
     String? supportTicketStage,
     DateTime? supportAwaitingSince,
     bool? dismissedUntilMessage,
+    bool? supportViewerIsRequester,
     int? autoCleanupTtlSeconds,
   }) : super._(
          id: id,
          name: name,
          avatarUrl: avatarUrl,
          lastMessagePreview: lastMessagePreview,
+         lastMessageThreadRootEventId: lastMessageThreadRootEventId,
          lastMessageAt: lastMessageAt,
          unreadCount: unreadCount,
          archived: archived,
@@ -318,6 +366,7 @@ class _RoomSummaryImpl extends RoomSummary {
          supportTicketStage: supportTicketStage,
          supportAwaitingSince: supportAwaitingSince,
          dismissedUntilMessage: dismissedUntilMessage,
+         supportViewerIsRequester: supportViewerIsRequester,
          autoCleanupTtlSeconds: autoCleanupTtlSeconds,
        );
 
@@ -330,6 +379,7 @@ class _RoomSummaryImpl extends RoomSummary {
     Object? name = _Undefined,
     Object? avatarUrl = _Undefined,
     Object? lastMessagePreview = _Undefined,
+    Object? lastMessageThreadRootEventId = _Undefined,
     Object? lastMessageAt = _Undefined,
     int? unreadCount,
     bool? archived,
@@ -346,6 +396,7 @@ class _RoomSummaryImpl extends RoomSummary {
     Object? supportTicketStage = _Undefined,
     Object? supportAwaitingSince = _Undefined,
     Object? dismissedUntilMessage = _Undefined,
+    Object? supportViewerIsRequester = _Undefined,
     Object? autoCleanupTtlSeconds = _Undefined,
   }) {
     return RoomSummary(
@@ -355,6 +406,9 @@ class _RoomSummaryImpl extends RoomSummary {
       lastMessagePreview: lastMessagePreview is String?
           ? lastMessagePreview
           : this.lastMessagePreview,
+      lastMessageThreadRootEventId: lastMessageThreadRootEventId is String?
+          ? lastMessageThreadRootEventId
+          : this.lastMessageThreadRootEventId,
       lastMessageAt: lastMessageAt is DateTime?
           ? lastMessageAt
           : this.lastMessageAt,
@@ -389,6 +443,9 @@ class _RoomSummaryImpl extends RoomSummary {
       dismissedUntilMessage: dismissedUntilMessage is bool?
           ? dismissedUntilMessage
           : this.dismissedUntilMessage,
+      supportViewerIsRequester: supportViewerIsRequester is bool?
+          ? supportViewerIsRequester
+          : this.supportViewerIsRequester,
       autoCleanupTtlSeconds: autoCleanupTtlSeconds is int?
           ? autoCleanupTtlSeconds
           : this.autoCleanupTtlSeconds,

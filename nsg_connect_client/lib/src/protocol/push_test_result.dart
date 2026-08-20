@@ -21,12 +21,16 @@ abstract class PushTestResult implements _i1.SerializableModel {
     required this.deviceCount,
     required this.providers,
     required this.delaySeconds,
+    this.lastSeenAt,
+    required this.staleCount,
   });
 
   factory PushTestResult({
     required int deviceCount,
     required List<String> providers,
     required int delaySeconds,
+    DateTime? lastSeenAt,
+    required int staleCount,
   }) = _PushTestResultImpl;
 
   factory PushTestResult.fromJson(Map<String, dynamic> jsonSerialization) {
@@ -36,6 +40,10 @@ abstract class PushTestResult implements _i1.SerializableModel {
         jsonSerialization['providers'],
       ),
       delaySeconds: jsonSerialization['delaySeconds'] as int,
+      lastSeenAt: jsonSerialization['lastSeenAt'] == null
+          ? null
+          : _i1.DateTimeJsonExtension.fromJson(jsonSerialization['lastSeenAt']),
+      staleCount: jsonSerialization['staleCount'] as int,
     );
   }
 
@@ -52,6 +60,27 @@ abstract class PushTestResult implements _i1.SerializableModel {
   /// проверил и с открытым, и с закрытым приложением.
   int delaySeconds;
 
+  /// **Issue #86**: когда push-регистрация продлевалась в последний раз —
+  /// самая свежая из тех, что учтены в `deviceCount` (UTC).
+  ///
+  /// Зачем здесь: именно этот вопрос («а токен-то вообще живой?») решает
+  /// жалобу «пуши не приходят», и до сих пор ответ на него был только в
+  /// прод-базе. «Проверить пуш» — ровно то место, куда человек приходит,
+  /// когда уведомления молчат, поэтому дата отдаётся тут, а не новым
+  /// админ-эндпоинтом.
+  ///
+  /// `null` — учитывать нечего (`deviceCount == 0`).
+  DateTime? lastSeenAt;
+
+  /// **Issue #86**: сколько из учтённых регистраций не продлевалось дольше
+  /// порога (`DeviceRegistrationService.registrationFreshness`).
+  ///
+  /// Прод-случай выглядит как `deviceCount == 1, staleCount == 1`: пуш
+  /// формально «уходит на одно устройство», но это установка, которой на
+  /// телефоне уже нет. Само число отправку не отменяет — тест на то и
+  /// тест, чтобы выяснить, жив ли токен.
+  int staleCount;
+
   /// Returns a shallow copy of this [PushTestResult]
   /// with some or all fields replaced by the given arguments.
   @_i1.useResult
@@ -59,6 +88,8 @@ abstract class PushTestResult implements _i1.SerializableModel {
     int? deviceCount,
     List<String>? providers,
     int? delaySeconds,
+    DateTime? lastSeenAt,
+    int? staleCount,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -67,6 +98,8 @@ abstract class PushTestResult implements _i1.SerializableModel {
       'deviceCount': deviceCount,
       'providers': providers.toJson(),
       'delaySeconds': delaySeconds,
+      if (lastSeenAt != null) 'lastSeenAt': lastSeenAt?.toJson(),
+      'staleCount': staleCount,
     };
   }
 
@@ -76,15 +109,21 @@ abstract class PushTestResult implements _i1.SerializableModel {
   }
 }
 
+class _Undefined {}
+
 class _PushTestResultImpl extends PushTestResult {
   _PushTestResultImpl({
     required int deviceCount,
     required List<String> providers,
     required int delaySeconds,
+    DateTime? lastSeenAt,
+    required int staleCount,
   }) : super._(
          deviceCount: deviceCount,
          providers: providers,
          delaySeconds: delaySeconds,
+         lastSeenAt: lastSeenAt,
+         staleCount: staleCount,
        );
 
   /// Returns a shallow copy of this [PushTestResult]
@@ -95,11 +134,15 @@ class _PushTestResultImpl extends PushTestResult {
     int? deviceCount,
     List<String>? providers,
     int? delaySeconds,
+    Object? lastSeenAt = _Undefined,
+    int? staleCount,
   }) {
     return PushTestResult(
       deviceCount: deviceCount ?? this.deviceCount,
       providers: providers ?? this.providers.map((e0) => e0).toList(),
       delaySeconds: delaySeconds ?? this.delaySeconds,
+      lastSeenAt: lastSeenAt is DateTime? ? lastSeenAt : this.lastSeenAt,
+      staleCount: staleCount ?? this.staleCount,
     );
   }
 }

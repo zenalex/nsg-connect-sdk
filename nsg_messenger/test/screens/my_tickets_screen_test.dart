@@ -16,6 +16,8 @@ void main() {
     required String stage,
     String status = 'open',
     String? threadRootEventId,
+    String? taskTitle,
+    String? externalTaskKey,
   }) => TicketView(
     id: id,
     kind: 'bug',
@@ -25,6 +27,8 @@ void main() {
     createdAt: now,
     updatedAt: now,
     threadRootEventId: threadRootEventId,
+    taskTitle: taskTitle,
+    externalTaskKey: externalTaskKey,
   );
 
   Future<void> pump(
@@ -100,6 +104,40 @@ void main() {
 
     expect(openedRoomId, 102);
     expect(openedThread, 0);
+  });
+
+  // ─── issue #94 ─────────────────────────────────────────────────────
+  testWidgets('строка списка называет задачу, а не её номер', (tester) async {
+    // Запрос пользователя: «в списке задач задача пишется в виде #89, нужно
+    // краткое описание по каждой задаче писать, чтоб понимать что за задача».
+    await pump(tester, [
+      ticket(
+        1,
+        stage: 'new',
+        externalTaskKey: '#89',
+        taskTitle: 'Не переносится текст в узком окне',
+      ),
+    ]);
+
+    expect(find.text('Не переносится текст в узком окне'), findsOneWidget);
+    // Ключ ЗАМЕНЁН, а не дописан: строка одна, и номер съел бы её начало —
+    // то самое место, куда смотрят первым делом.
+    expect(find.text('Ошибка · #89'), findsNothing);
+  });
+
+  testWidgets('задача без заголовка → прежняя строка с ключом', (tester) async {
+    // Задачи, заведённые до появления заголовка. Придумывать нечего —
+    // показываем то же, что и раньше.
+    await pump(tester, [ticket(1, stage: 'new', externalTaskKey: '#70')]);
+    expect(find.text('Ошибка · #70'), findsOneWidget);
+  });
+
+  testWidgets('пустой заголовок не оставляет строку пустой', (tester) async {
+    // Пустая первая строка хуже номера.
+    await pump(tester, [
+      ticket(1, stage: 'new', externalTaskKey: '#71', taskTitle: '   '),
+    ]);
+    expect(find.text('Ошибка · #71'), findsOneWidget);
   });
 }
 

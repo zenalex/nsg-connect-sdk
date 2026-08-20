@@ -6,7 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:nsg_connect_client/nsg_connect_client.dart';
 
 import '../i18n/generated/nsg_l10n.dart';
-import '../messages/attachments/attachment_picker.dart' show guessMimeFromExtension;
+import '../messages/attachments/attachment_picker.dart'
+    show guessMimeFromExtension;
 import '../messages/messages_rpc.dart';
 import '../messenger_runtime.dart';
 import '../rooms/room_picker_sheet.dart';
@@ -14,6 +15,7 @@ import '../screens/chat_screen.dart';
 import '../theme/messenger_theme_scope.dart';
 import 'share_limits.dart';
 import 'shared_payload.dart';
+import '../widgets/nsg_modal_sheet.dart';
 
 /// **TASK49 (share-in)**: одноместный слот отложенного share-payload.
 ///
@@ -98,7 +100,8 @@ String _shareMsgTypeForMime(String mime) {
 int _shareTxnSeq = 0;
 
 /// Уникальный clientTxnId для share-send (server-side dedup по нему).
-String _shareTxnId() => 'share-${DateTime.now().microsecondsSinceEpoch}-${_shareTxnSeq++}';
+String _shareTxnId() =>
+    'share-${DateTime.now().microsecondsSinceEpoch}-${_shareTxnSeq++}';
 
 /// Является ли шаренный файл изображением (для album-группировки). MIME
 /// берётся из payload либо выводится из имени/пути.
@@ -175,10 +178,10 @@ Future<void> runShareInFlow(
   //    весь flow «пикер → подтверждение → прогресс» выезжает снизу, как
   //    системный share sheet; центр--AlertDialog убран по итогам
   //    девайс-смоука TASK49).
-  final confirmed = await showModalBottomSheet<bool>(
+  // Issue #105: превью может содержать несколько вложений.
+  final confirmed = await showNsgModalSheet<bool>(
     context: context,
     showDragHandle: true,
-    isScrollControlled: true,
     builder: (sheetCtx) => MessengerThemeScope(
       theme: theme,
       child: _SharePreviewSheet(payload: payload, room: room),

@@ -69,9 +69,9 @@ class SupportTeamController extends ChangeNotifier {
   /// его email — лишняя работа с шансом опечататься. [addMember] по email
   /// остаётся для внешних систем.
   Future<bool> addMemberById(int messengerUserId, {int tier = 1}) async {
-    lastAddNotFound = false;
     final current = _state;
     if (current is! SupportTeamReady) return false;
+    lastActionError = null;
     _emit(current.copyWith(busy: true));
     try {
       final view = await _rpc.addMemberById(
@@ -81,22 +81,19 @@ class SupportTeamController extends ChangeNotifier {
       );
       _emit(SupportTeamReady(view: view));
       return true;
-    } on PeerUnavailableException {
-      lastAddNotFound = true;
-      _emit(current.copyWith(busy: false));
-      return false;
-    } catch (_) {
+    } catch (e) {
+      lastActionError = e;
       _emit(current.copyWith(busy: false));
       return false;
     }
   }
 
   Future<bool> addMember(String email, {int tier = 1}) async {
-    lastAddNotFound = false;
     final trimmed = email.trim();
     if (trimmed.isEmpty) return false;
     final current = _state;
     if (current is! SupportTeamReady) return false;
+    lastActionError = null;
     _emit(current.copyWith(busy: true));
     try {
       final view = await _rpc.addMember(
@@ -106,26 +103,38 @@ class SupportTeamController extends ChangeNotifier {
       );
       _emit(SupportTeamReady(view: view));
       return true;
-    } on PeerUnavailableException {
-      lastAddNotFound = true;
-      _emit(current.copyWith(busy: false));
-      return false;
     } catch (e) {
       // Возвращаем в не-busy состояние с прежним view.
+      lastActionError = e;
       _emit(current.copyWith(busy: false));
       return false;
     }
   }
 
+  /// Ошибка последнего провалившегося действия — **как есть**, типизированной.
+  ///
+  /// Раньше здесь стоял `bool lastAddNotFound` под один-единственный случай
+  /// (TASK73: «email не резолвится»), а всё остальное сворачивалось в `false`
+  /// и показывалось как «не удалось выполнить — попробуйте ещё раз». Совет
+  /// вредный: половина отказов сюда приходит НЕвременная, и повтор не поможет
+  /// никогда. Так, `AmbiguousProductKeyException` (ключ продукта заведён в
+  /// двух тенантах) человек ловил в АРМ оператора 6 августа 2026 и по тексту
+  /// снекбара понять не мог ничего — причина нашлась только в логах прода.
+  ///
+  /// Экран разбирает это значение сам ([supportTeamFailureText]) — контроллер
+  /// не решает за него, какими словами объясняться.
+  Object? lastActionError;
+
   /// **TASK73**: последний [addMember] провалился именно потому, что email
   /// не резолвится в пользователя (а не из-за сети/прав). Читается сразу
   /// после `addMember() == false`.
-  bool lastAddNotFound = false;
+  bool get lastAddNotFound => lastActionError is PeerUnavailableException;
 
   /// **TASK48**: сменить тир участника (owner-only). `true` при успехе.
   Future<bool> setMemberTier(int targetMessengerUserId, int tier) async {
     final current = _state;
     if (current is! SupportTeamReady) return false;
+    lastActionError = null;
     _emit(current.copyWith(busy: true));
     try {
       final view = await _rpc.setMemberTier(
@@ -136,6 +145,7 @@ class SupportTeamController extends ChangeNotifier {
       _emit(SupportTeamReady(view: view));
       return true;
     } catch (e) {
+      lastActionError = e;
       _emit(current.copyWith(busy: false));
       return false;
     }
@@ -146,6 +156,7 @@ class SupportTeamController extends ChangeNotifier {
   Future<bool> setTimeout(int minutes) async {
     final current = _state;
     if (current is! SupportTeamReady) return false;
+    lastActionError = null;
     _emit(current.copyWith(busy: true));
     try {
       final view = await _rpc.setTimeout(
@@ -155,6 +166,7 @@ class SupportTeamController extends ChangeNotifier {
       _emit(SupportTeamReady(view: view));
       return true;
     } catch (e) {
+      lastActionError = e;
       _emit(current.copyWith(busy: false));
       return false;
     }
@@ -169,6 +181,7 @@ class SupportTeamController extends ChangeNotifier {
   ) async {
     final current = _state;
     if (current is! SupportTeamReady) return false;
+    lastActionError = null;
     _emit(current.copyWith(busy: true));
     try {
       final view = await _rpc.setMemberRole(
@@ -179,6 +192,7 @@ class SupportTeamController extends ChangeNotifier {
       _emit(SupportTeamReady(view: view));
       return true;
     } catch (e) {
+      lastActionError = e;
       _emit(current.copyWith(busy: false));
       return false;
     }
@@ -198,6 +212,7 @@ class SupportTeamController extends ChangeNotifier {
   Future<SupportTeamLeaveResult> leave() async {
     final current = _state;
     if (current is! SupportTeamReady) return SupportTeamLeaveResult.failed;
+    lastActionError = null;
     _emit(current.copyWith(busy: true));
     try {
       await _rpc.leaveTeam(productExternalKey: productExternalKey);
@@ -207,6 +222,7 @@ class SupportTeamController extends ChangeNotifier {
       _emit(current.copyWith(busy: false));
       return SupportTeamLeaveResult.lastOwner;
     } catch (e) {
+      lastActionError = e;
       _emit(current.copyWith(busy: false));
       return SupportTeamLeaveResult.failed;
     }
@@ -216,6 +232,7 @@ class SupportTeamController extends ChangeNotifier {
   Future<bool> removeMember(int targetMessengerUserId) async {
     final current = _state;
     if (current is! SupportTeamReady) return false;
+    lastActionError = null;
     _emit(current.copyWith(busy: true));
     try {
       final view = await _rpc.removeMember(
@@ -225,6 +242,7 @@ class SupportTeamController extends ChangeNotifier {
       _emit(SupportTeamReady(view: view));
       return true;
     } catch (e) {
+      lastActionError = e;
       _emit(current.copyWith(busy: false));
       return false;
     }

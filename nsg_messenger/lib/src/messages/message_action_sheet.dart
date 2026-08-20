@@ -7,7 +7,7 @@ import '../messenger_runtime.dart';
 import '../widgets/scroll_more_hint.dart';
 import 'attachments/image_actions.dart';
 import 'chat_message.dart';
-import 'emoji_reaction_picker.dart';
+import 'emoji_picker.dart';
 import 'forward_picker_sheet.dart';
 import 'message_share.dart';
 import 'messages_controller.dart';

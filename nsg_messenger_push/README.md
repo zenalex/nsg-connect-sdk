@@ -70,6 +70,75 @@ TASK20-Phase2 (TBD priority после MVP):
 
 См. [TASK20.md](../../docs/tasks/TASK20.md) Phase2 для full plan.
 
+## Каналы уведомлений Android (этап 3 TASK_TITAN_PRODUCT_PUSH01 §4.1)
+
+На Android 8+ важность, всплытие поверх экрана и право обойти «Не
+беспокоить» — свойства **канала**, а не сообщения. Серверный
+`priority=high` их не заменяет. Без выделенного канала тревога приедет в
+канал по умолчанию: тихо, без всплытия, в общей пачке.
+
+Пакет заводит два канала при инициализации — из
+`FirebasePushTokenProvider.create()` и `RuStorePushTokenProvider.create()`,
+host-app вызывать ничего не обязан:
+
+| id | что | важность |
+|---|---|---|
+| `nsg_alarms` | тревоги (уровень продукта `timeSensitive` / `critical`) | `IMPORTANCE_HIGH` — всплытие и звук |
+| `nsg_general` | рядовые уведомления: статусы объектов, события (`active`) | обычная |
+
+Чат- и звонковые пуши идентификатора канала не несут вовсе — их поведение
+не меняется.
+
+**Идентификаторы обязаны совпадать с серверными дословно**
+(`nsg_connect_server/lib/src/push/notification_channel.dart`). Firebase на
+незнакомый канал молча подставляет канал из манифеста: расхождение в один
+символ превратит тревогу в обычное уведомление, и никакой ошибки не
+придёт. Сверку держит `test/notification_channels_test.dart` — он читает
+серверный файл, а не повторяет строки за ним.
+
+### Что нужно от host-app
+
+1. **Core library desugaring** в `android/app/build.gradle.kts` — иначе
+   релизная сборка падает на `checkReleaseAarMetadata` ещё до компиляции
+   (`flutter_local_notifications` собран против `java.time`):
+
+   ```kotlin
+   android {
+       compileOptions { isCoreLibraryDesugaringEnabled = true }
+   }
+   dependencies {
+       coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+   }
+   ```
+
+2. **Ничего больше.** `POST_NOTIFICATIONS` объявлен в манифесте плагина и
+   мерджится сам; runtime-запрос делают оба провайдера (на FCM-пути —
+   `FirebaseMessaging.requestPermission()`, на RuStore-пути —
+   `requestAndroidNotificationsPermission()`).
+
+Свои подписи категорий (например, при смене языка) — повторным вызовом
+`NsgNotificationChannels.ensureCreated(alarmsName: …)`: имя и описание
+обновляемы, в отличие от важности и звука.
+
+### Отрицательное свидетельство (§6.8 ТЗ)
+
+Убрать канал тревог → тревога обязана прийти тихо и без всплытия. Не
+изменилось — значит канал ничего не нёс.
+
+Каналы живут в системе, а не в приложении: переустановка сборки без
+`ensureCreated` их **не** удалит, и проверка соврёт. Поэтому:
+
+```dart
+await NsgNotificationChannels.deleteAll(); // из отладочной кнопки
+// приложение НЕ перезапускать — на старте каналы заведутся обратно
+```
+
+затем отправить тревогу. Проверять состояние каналов на устройстве:
+
+```bash
+adb shell dumpsys notification_manager | grep nsg_
+```
+
 ## Совместимость с firebase-стеком хост-приложения (TASK71)
 
 Пакет ставится рядом с разными версиями firebase у хоста — пин заменён

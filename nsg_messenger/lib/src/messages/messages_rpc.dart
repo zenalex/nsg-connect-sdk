@@ -15,6 +15,22 @@ import '../session/messenger_session_manager.dart';
 /// (`Client.messenger.listMessages` / `sendMessage`). Если Serverpod
 /// поменяет API — сначала ломается production wiring (compile-time),
 /// а тесты остаются стабильны.
+/// **TASK92**: умение выдать временную ссылку на вложение в S3.
+///
+/// Отдельным интерфейсом, а не методом в [MessagesRpc], сознательно.
+/// `MessagesRpc` реализуют через `implements` 38 тестовых двойников —
+/// новый член интерфейса сломал бы их все ради возможности, которая им
+/// не нужна. Проверка `is AttachmentUrlRpc` в месте использования честно
+/// описывает положение дел: умеет не всякая реализация.
+abstract class AttachmentUrlRpc {
+  /// Ссылка живёт минуты; держать её дольше запроса незачем — перезапрос
+  /// дёшев, подпись считается на сервере локально.
+  Future<AttachmentUrl> getAttachmentUrl({
+    required String mxcUrl,
+    bool thumbnail,
+  });
+}
+
 abstract class MessagesRpc {
   /// Backward-pagination через Matrix `dir=b` (TASK15 Chunk 0).
   /// `fromToken == null` → первая страница (50 наиболее свежих).
@@ -221,7 +237,7 @@ abstract class MessagesRpc {
 /// 200-ответе, который Serverpod 401-retry pipeline НЕ перехватывает).
 /// [MessengerSessionManager] резолвится лениво через
 /// [MessengerRuntime.instance.sessionManager].
-class ClientMessagesRpc implements MessagesRpc {
+class ClientMessagesRpc implements MessagesRpc, AttachmentUrlRpc {
   ClientMessagesRpc(this._client);
   final Client _client;
 
@@ -340,6 +356,18 @@ class ClientMessagesRpc implements MessagesRpc {
         () => _client.messenger.downloadAttachment(mxcUrl: mxcUrl),
         _session,
       );
+
+  @override
+  Future<AttachmentUrl> getAttachmentUrl({
+    required String mxcUrl,
+    bool thumbnail = false,
+  }) => withAuthRetry(
+    () => _client.messenger.getAttachmentUrl(
+      mxcUrl: mxcUrl,
+      thumbnail: thumbnail,
+    ),
+    _session,
+  );
 
   @override
   Future<MessengerMessage> editMessage({

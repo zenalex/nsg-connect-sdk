@@ -9,6 +9,8 @@ import '../messenger_runtime.dart';
 import '../support/my_tasks_controller.dart';
 import '../support/my_tasks_rpc.dart';
 import '../support/my_tasks_state.dart';
+import '../support/room_tasks_controller.dart';
+import '../widgets/unread_pill.dart';
 import 'chat_screen.dart';
 import 'thread_screen.dart';
 
@@ -80,14 +82,12 @@ class _TasksScreenState extends State<TasksScreen> {
                 : l.tasksScreenTitle,
           ),
         ),
-        body: _TasksTab(
+        body: _RoomTasksTab(
           key: const Key('tasksTab_room'),
           rpc: _rpc,
-          filter: tasksFilterAll,
           roomId: roomId,
           emptyText: l.tasksEmptyAll,
           onOpenRoom: widget.onOpenRoom,
-          onOpenThread: widget.onOpenThread,
         ),
       );
     }
@@ -141,7 +141,6 @@ class _TasksTab extends StatefulWidget {
     required this.rpc,
     required this.filter,
     required this.emptyText,
-    this.roomId,
     this.onOpenRoom,
     this.onOpenThread,
   });
@@ -149,8 +148,6 @@ class _TasksTab extends StatefulWidget {
   final MyTasksRpc rpc;
   final String filter;
 
-  /// **TASK88**: сужение до одной комнаты (room-scoped-режим). null → все мои.
-  final int? roomId;
   final String emptyText;
   final void Function(BuildContext context, int roomId)? onOpenRoom;
   final void Function(BuildContext context, TicketView task)? onOpenThread;
@@ -170,11 +167,9 @@ class _TasksTabState extends State<_TasksTab>
   @override
   void initState() {
     super.initState();
-    _controller = MyTasksController(
-      rpc: widget.rpc,
-      filter: widget.filter,
-      roomId: widget.roomId,
-    );
+    // **TASK90**: комнатный режим уехал в [_RoomTasksTab] — здесь только
+    // «все мои задачи» под свой фильтр, без сужения по комнате.
+    _controller = MyTasksController(rpc: widget.rpc, filter: widget.filter);
     unawaited(_controller.init());
   }
 
@@ -204,6 +199,7 @@ class _TasksTabState extends State<_TasksTab>
           roomId: task.roomId,
           threadRootEventId: root,
           title: task.title,
+          taskKey: task.externalTaskKey,
           statusLabel: taskStageLabel(task.stage, l),
         ),
       ),
@@ -251,6 +247,131 @@ class _TasksTabState extends State<_TasksTab>
   }
 }
 
+/// **TASK90**: список задач ОДНОЙ комнаты. Отдельная вкладка от [_TasksTab],
+/// потому что строка другой природы: там обращение (`TicketView`), здесь
+/// задача (`RoomTaskView`). Прежде комнатный список брали из обращений, а у
+/// support-комнаты обращение одно — отсюда «в шапке 10, внутри одна».
+class _RoomTasksTab extends StatefulWidget {
+  const _RoomTasksTab({
+    super.key,
+    required this.rpc,
+    required this.roomId,
+    required this.emptyText,
+    this.onOpenRoom,
+  });
+
+  final MyTasksRpc rpc;
+  final int roomId;
+  final String emptyText;
+  final void Function(BuildContext context, int roomId)? onOpenRoom;
+
+  @override
+  State<_RoomTasksTab> createState() => _RoomTasksTabState();
+}
+
+class _RoomTasksTabState extends State<_RoomTasksTab> {
+  late final RoomTasksController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = RoomTasksController(rpc: widget.rpc, roomId: widget.roomId);
+    unawaited(_controller.init());
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  /// Строка ведёт в ТРЕД задачи: обсуждение шло там, и именно туда приезжают
+  /// комментарии из трекера. Якорь у задачи есть всегда (это сообщение,
+  /// которым её завели), поэтому отката на «просто комната» здесь не нужно —
+  /// в отличие от «Моих обращений», где тикет бывает без треда.
+  Future<void> _openTask(RoomTaskView task) async {
+    final l = NsgL10n.of(context);
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ThreadScreen(
+          roomId: task.roomId,
+          threadRootEventId: task.anchorEventId,
+          // Номер отдельным полем: раньше он подставлялся ВМЕСТО названия и
+          // тогда дублировался бы в подзаголовке.
+          title: task.title,
+          taskKey: task.externalTaskKey,
+          statusLabel: taskStageLabel(task.stage, l),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        final state = _controller.state;
+        return switch (state) {
+          RoomTasksLoading() => const Center(
+            child: CircularProgressIndicator(),
+          ),
+          RoomTasksUnavailable() => _ErrorView(onRetry: _controller.refresh),
+          RoomTasksReady(:final tasks) =>
+            tasks.isEmpty
+                ? _EmptyView(text: widget.emptyText)
+                : RefreshIndicator(
+                    onRefresh: _controller.refresh,
+                    child: ListView.separated(
+                      itemCount: tasks.length,
+                      separatorBuilder: (_, _) => const Divider(height: 1),
+                      itemBuilder: (context, i) => _RoomTaskTile(
+                        task: tasks[i],
+                        onTap: () => _openTask(tasks[i]),
+                      ),
+                    ),
+                  ),
+        };
+      },
+    );
+  }
+}
+
+/// Строка задачи комнаты: заголовок (или ключ, если заголовка нет) + ключ
+/// подписью + значок стадии. Стиль тот же, что у [_TaskTile].
+class _RoomTaskTile extends StatelessWidget {
+  const _RoomTaskTile({required this.task, required this.onTap});
+
+  final RoomTaskView task;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = NsgL10n.of(context);
+    final theme = Theme.of(context);
+    final title = task.title;
+    final hasTitle = title != null && title.trim().isNotEmpty;
+    return ListTile(
+      key: Key('roomTaskTile_${task.id}'),
+      leading: const CircleAvatar(child: Icon(Icons.checklist)),
+      // Без заголовка (задачи, заведённые до TASK90) показываем ключ — строка
+      // обязана быть, иначе список разойдётся с бейджем в шапке.
+      title: Text(hasTitle ? title : (task.externalTaskKey ?? l.taskLabel)),
+      subtitle: hasTitle && task.externalTaskKey != null
+          ? Text(task.externalTaskKey!)
+          : null,
+      trailing: UnreadThenStage(
+        unreadCount: task.unreadCount,
+        stage: _StageBadge(
+          text: taskStageLabel(task.stage, l),
+          color: taskStageColor(task.stage, theme),
+        ),
+      ),
+      onTap: onTap,
+    );
+  }
+}
+
 /// Строка задачи: тема (имя комнаты) + превью последнего события + значок
 /// стадии цветом палитры TASK83. Стиль зеркалит `_TicketTile` «Мои обращения».
 class _TaskTile extends StatelessWidget {
@@ -274,9 +395,12 @@ class _TaskTile extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-      trailing: _StageBadge(
-        text: taskStageLabel(task.stage, l),
-        color: taskStageColor(task.stage, theme),
+      trailing: UnreadThenStage(
+        unreadCount: task.unreadCount,
+        stage: _StageBadge(
+          text: taskStageLabel(task.stage, l),
+          color: taskStageColor(task.stage, theme),
+        ),
       ),
       onTap: onTap,
     );

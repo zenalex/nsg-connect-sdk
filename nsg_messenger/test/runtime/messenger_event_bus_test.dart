@@ -203,9 +203,8 @@ void main() {
     await stateCtl.close();
   });
 
-  test('upstream onError → onError callback fires, listeners НЕ видят error '
-      '(TASK20 followup (a): bus swallows transport errors, переключается '
-      'в reconnecting)', () async {
+  test('upstream onError: listeners НЕ видят error, а трекер — не сразу '
+      '(TASK20 followup (a) + шум в трекере 08.08.2026)', () async {
     final stateCtl = StreamController<MessengerSessionState>.broadcast();
     final upstream = StreamController<MessengerEvent>.broadcast();
     Object? capturedByCallback;
@@ -226,8 +225,17 @@ void main() {
 
     upstream.addError(StateError('fake stream error'));
     await Future<void>.delayed(Duration.zero);
-    // Callback всё ещё видит error (для ErrorReporter / log).
-    expect(capturedByCallback, isA<StateError>());
+    // **Изменено 08.08.2026.** Раньше здесь ожидался немедленный отчёт, и
+    // ровно из-за него в GlitchTip накопилось 1936 `WebSocketConnectException`
+    // — самая громкая группа проекта, заглушавшая настоящие ошибки. Одиночный
+    // обрыв транзиентен (телефон уснул, сеть переключилась), шина лечит его
+    // сама. Отчёт теперь один и на границе «связи нет» — см.
+    // `messenger_event_bus_error_reporting_test.dart`.
+    expect(
+      capturedByCallback,
+      isNull,
+      reason: 'первое моргание — рабочий момент, а не ошибка для трекера',
+    );
     // Но listener-ы НЕ — transport layer handles silently.
     expect(
       capturedByListener,

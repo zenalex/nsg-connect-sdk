@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'chat_screen.dart';
+import 'thread_screen.dart';
 
 /// Имя маршрута открытого чата.
 ///
@@ -61,6 +62,43 @@ Future<void> openChatRoom(
         roomId: roomId,
         initialTargetEventId: initialTargetEventId,
       ),
+    ),
+  );
+}
+
+/// Имя маршрута открытого треда. Тредов в комнате много, поэтому в имени и
+/// комната, и корень — иначе дедуп считал бы два разных обсуждения одним.
+String threadRouteName(int roomId, String threadRootEventId) =>
+    'thread/$roomId/$threadRootEventId';
+
+/// Открыть обсуждение задачи (тред) поверх текущего экрана.
+///
+/// **Инцидент 2026-08-05.** Пуш про ответ в треде уводил в ленту комнаты
+/// искать сообщение, которого там быть не может: реплики тредов в общую
+/// ленту не попадают (разделение лент, TASK82). Приложение честно
+/// прогоняло историю страницами и сдавалось — «Сообщение слишком далеко в
+/// истории». Уведомление вело в никуда.
+///
+/// Дедуп — по [threadRouteName]: повторный тап по тому же уведомлению из
+/// уже открытого треда не кладёт сверху его копию (то же правило, что у
+/// [openChatRoom]).
+Future<void> openThreadRoute(
+  NavigatorState navigator, {
+  required int roomId,
+  required String threadRootEventId,
+}) async {
+  final name = threadRouteName(roomId, threadRootEventId);
+  var onTop = false;
+  navigator.popUntil((route) {
+    onTop = route.settings.name == name;
+    return true;
+  });
+  if (onTop) return;
+  await navigator.push(
+    MaterialPageRoute<void>(
+      settings: RouteSettings(name: name),
+      builder: (_) =>
+          ThreadScreen(roomId: roomId, threadRootEventId: threadRootEventId),
     ),
   );
 }

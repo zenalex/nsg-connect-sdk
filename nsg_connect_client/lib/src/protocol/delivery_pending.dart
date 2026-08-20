@@ -37,6 +37,7 @@ abstract class DeliveryPending implements _i1.SerializableModel {
     required this.matrixEventId,
     required this.roomId,
     required this.payloadsJson,
+    this.instructionsJson,
     required this.createdAt,
   });
 
@@ -45,6 +46,7 @@ abstract class DeliveryPending implements _i1.SerializableModel {
     required String matrixEventId,
     required int roomId,
     required List<String> payloadsJson,
+    List<String>? instructionsJson,
     required DateTime createdAt,
   }) = _DeliveryPendingImpl;
 
@@ -57,6 +59,11 @@ abstract class DeliveryPending implements _i1.SerializableModel {
       payloadsJson: _i2.Protocol().deserialize<List<String>>(
         jsonSerialization['payloadsJson'],
       ),
+      instructionsJson: jsonSerialization['instructionsJson'] == null
+          ? null
+          : _i2.Protocol().deserialize<List<String>>(
+              jsonSerialization['instructionsJson'],
+            ),
       createdAt: _i1.DateTimeJsonExtension.fromJson(
         jsonSerialization['createdAt'],
       ),
@@ -81,6 +88,23 @@ abstract class DeliveryPending implements _i1.SerializableModel {
   /// меняется.
   List<String> payloadsJson;
 
+  /// **Модуль доставки (#121)**: инструкции доставки для продукта, чья
+  /// последняя миля — вебхук. Отдельным списком, а не вперемешку с
+  /// пуш-нагрузками: у них разная форма и разный адресат (устройство
+  /// против человека), и общий список пришлось бы разбирать по признаку,
+  /// который однажды соврёт.
+  ///
+  /// **Почему они вообще придерживаются.** Окно подтверждения общее для
+  /// всех транспортов: человек, уже прочитавший сообщение на другом
+  /// устройстве, не должен получить побудку — независимо от того, кто
+  /// вёз последнюю милю. Иначе мы просто меняем проблему чужого ключа на
+  /// проблему лишних уведомлений.
+  ///
+  /// Nullable: ожидания, сериализованные предыдущей сборкой, лежат в
+  /// кэше и переживают деплой — у них этого ключа нет, и это значит
+  /// «инструкций не было», а не «потеряли».
+  List<String>? instructionsJson;
+
   /// Когда поставили ожидание — для диагностики опозданий.
   DateTime createdAt;
 
@@ -92,6 +116,7 @@ abstract class DeliveryPending implements _i1.SerializableModel {
     String? matrixEventId,
     int? roomId,
     List<String>? payloadsJson,
+    List<String>? instructionsJson,
     DateTime? createdAt,
   });
   @override
@@ -102,6 +127,8 @@ abstract class DeliveryPending implements _i1.SerializableModel {
       'matrixEventId': matrixEventId,
       'roomId': roomId,
       'payloadsJson': payloadsJson.toJson(),
+      if (instructionsJson != null)
+        'instructionsJson': instructionsJson?.toJson(),
       'createdAt': createdAt.toJson(),
     };
   }
@@ -112,18 +139,22 @@ abstract class DeliveryPending implements _i1.SerializableModel {
   }
 }
 
+class _Undefined {}
+
 class _DeliveryPendingImpl extends DeliveryPending {
   _DeliveryPendingImpl({
     required int recipientMessengerUserId,
     required String matrixEventId,
     required int roomId,
     required List<String> payloadsJson,
+    List<String>? instructionsJson,
     required DateTime createdAt,
   }) : super._(
          recipientMessengerUserId: recipientMessengerUserId,
          matrixEventId: matrixEventId,
          roomId: roomId,
          payloadsJson: payloadsJson,
+         instructionsJson: instructionsJson,
          createdAt: createdAt,
        );
 
@@ -136,6 +167,7 @@ class _DeliveryPendingImpl extends DeliveryPending {
     String? matrixEventId,
     int? roomId,
     List<String>? payloadsJson,
+    Object? instructionsJson = _Undefined,
     DateTime? createdAt,
   }) {
     return DeliveryPending(
@@ -144,6 +176,9 @@ class _DeliveryPendingImpl extends DeliveryPending {
       matrixEventId: matrixEventId ?? this.matrixEventId,
       roomId: roomId ?? this.roomId,
       payloadsJson: payloadsJson ?? this.payloadsJson.map((e0) => e0).toList(),
+      instructionsJson: instructionsJson is List<String>?
+          ? instructionsJson
+          : this.instructionsJson?.map((e0) => e0).toList(),
       createdAt: createdAt ?? this.createdAt,
     );
   }

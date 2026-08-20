@@ -67,7 +67,11 @@ void main() {
 
     expect(c.state, isA<MessagesReady>());
     final st = c.state as MessagesReady;
-    expect(st.messages.map((m) => m.matrixEventId).toList(), ['a', 'b']);
+    // **issue #112**: тот же порядок, что у серверной страницы, — новейшее
+    // первым. Иначе оффлайн-лента рисуется вверх ногами (`reverse: true`
+    // кладёт индекс 0 на дно), и внизу экрана стоит самое старое, что есть
+    // в кэше. Ровно это владелец и видел секунду при каждом открытии чата.
+    expect(st.messages.map((m) => m.matrixEventId).toList(), ['b', 'a']);
     await c.dispose();
   });
 
@@ -87,7 +91,7 @@ void main() {
 
     expect(
       (await cache.getMessages(roomId)).map((m) => m.matrixEventId).toList(),
-      ['x', 'y'],
+      ['y', 'x'], // новейшее первым (issue #112)
     );
     await c.dispose();
   });
@@ -136,10 +140,10 @@ void main() {
     await c.init();
     await _waitFor(() async => (await cache.getMessages(roomId)).length == 3);
 
-    // a сохранён (нет сброса), b/c домержены.
+    // a сохранён (нет сброса), b/c домержены. Порядок — новейшее первым.
     expect(
       (await cache.getMessages(roomId)).map((m) => m.matrixEventId).toList(),
-      ['a', 'b', 'c'],
+      ['c', 'b', 'a'],
     );
     await c.dispose();
   });

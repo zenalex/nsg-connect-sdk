@@ -19,24 +19,27 @@ import 'calls/webrtc_adapter.dart';
 import 'calls/webrtc_adapter_real.dart';
 import 'contact_card/nsg_messenger_contact_cards.dart';
 import 'contacts/nsg_messenger_contacts.dart';
+import 'contacts/nsg_messenger_teams.dart';
 import 'admin/nsg_messenger_bots_admin.dart';
 import 'admin/nsg_messenger_platform_admin.dart';
 import 'bots/nsg_messenger_bot_catalog.dart';
 import 'bots/nsg_messenger_my_bots.dart';
 import 'integrations/nsg_messenger_integrations.dart';
+import 'messages/link_preview_store.dart';
 import 'messages/messages_rpc.dart';
 import 'outbox/outbox_sender.dart';
 import 'pulse/nsg_messenger_pulse.dart';
 import 'messenger_mode.dart';
 import 'messenger_session_state.dart';
 import 'push/push_token_provider.dart';
+import 'push/push_token_status.dart';
 import 'rooms/nsg_messenger_rooms.dart';
 import 'rooms/room_summary_tile.dart' show registerTimeagoLocales;
 import 'settings/nsg_messenger_settings.dart';
 import 'runtime/messenger_connection_state.dart';
 import 'runtime/messenger_event_bus.dart';
 import 'runtime/nsg_messenger_config.dart';
-import 'session/auth_retry.dart' show withAuthRetry;
+import 'session/auth_retry.dart' show withAuthRetry, clientConnectionTimeout;
 import 'session/auth_token_store.dart';
 import 'session/messenger_session_manager.dart';
 import 'share/share_intake.dart' show SharePendingSlot;
@@ -92,6 +95,10 @@ class MessengerRuntime with WidgetsBindingObserver {
   // **TASK60**: контроллер дашборда мониторинга Connect Pulse.
   NsgMessengerPulse? _pulse;
   NsgMessengerContacts? _contacts;
+  // **issue #90**: кэш превью ссылок (один на приложение).
+  LinkPreviewStore? _linkPreviews;
+  // Свои команды пользователя (этап 3 DESIGN_TEAMS_AND_CONTACT_SHARING).
+  NsgMessengerTeams? _teams;
   NsgMessengerContactCards? _contactCards;
   // **TASK58**: базовый URL для показа webhook-URL в UI интеграций.
   // Дефолт выводится из apiBaseUrl (см. _deriveHooksBaseUrl); host-app
@@ -136,6 +143,17 @@ class MessengerRuntime with WidgetsBindingObserver {
   PushTokenProvider? _pushTokenProvider;
   StreamSubscription<String?>? _pushTokenSub;
   String? _lastRegisteredToken;
+
+  /// **Issue #86**: вердикт провайдера о доставке пушей. Без провайдера
+  /// (desktop / embed без пушей) — [PushTokenStatus.unsupported]: чинить
+  /// нечего, UI должен молчать.
+  PushTokenStatus _pushStatus = PushTokenStatus.unsupported;
+  StreamSubscription<PushTokenStatus>? _pushStatusSub;
+  // Broadcast-контроллер живёт всю жизнь синглтона (как `_stateCtl`):
+  // подписчик-виджет переживает teardown+reinit при switch аккаунта и не
+  // должен ловить «поток закрыт».
+  final StreamController<PushTokenStatus> _pushStatusCtl =
+      StreamController<PushTokenStatus>.broadcast();
 
   /// Токен, регистрация которого сейчас в процессе (для ретрая — см.
   /// [_onPushTokenChanged]). Если во время backoff-а провайдер отдал
@@ -195,6 +213,15 @@ class MessengerRuntime with WidgetsBindingObserver {
   bool shareUiReady = false;
 
   // ---------- Публичные геттеры (для NsgMessenger / SDK screens) ----------
+
+  /// Клиент, если рантайм поднят, иначе `null`.
+  ///
+  /// **issue #145**: виджетам нужен именно такой доступ. Смена профиля сносит
+  /// рантайм под живым деревом, и бросок из `build` превращается в отказ
+  /// сборки кадра — с последствиями вплоть до бесконечной рекурсии в
+  /// обработчике ошибок. Экранам, которые умеют жить без данных, надо давать
+  /// возможность промолчать, а не падать.
+  Client? get clientOrNull => _client;
 
   Client get client {
     final c = _client;
@@ -419,6 +446,23 @@ class MessengerRuntime with WidgetsBindingObserver {
   MessengerConnectionState get connectionState =>
       _eventBus?.connectionState ?? MessengerConnectionState.healthy;
 
+  /// **Issue #86**: доедут ли до устройства пуш-уведомления и, если нет,
+  /// почему. Ось, независимая и от [connectionState] (транспорт), и от
+  /// [state] (авторизация): пуши могут не работать при полностью здоровых
+  /// обеих. Рисуется виджетами `PushStatusBanner` / `PushStatusNotice`.
+  PushTokenStatus get pushStatus => _pushStatus;
+
+  /// Обновления [pushStatus]. Broadcast; переживает teardown+reinit
+  /// рантайма (switch аккаунта) — подписку можно держать всё время жизни
+  /// виджета.
+  Stream<PushTokenStatus> get pushStatusStream => _pushStatusCtl.stream;
+
+  void _setPushStatus(PushTokenStatus status) {
+    if (_pushStatus == status) return;
+    _pushStatus = status;
+    if (!_pushStatusCtl.isClosed) _pushStatusCtl.add(status);
+  }
+
   /// Внутренний SDK-API. Public expose в TASK17 (когда появятся
   /// stream-wrappers поверх). На TASK13 Chunk 2 используется только
   /// `NsgMessengerRooms` для cache invalidation.
@@ -620,6 +664,14 @@ class MessengerRuntime with WidgetsBindingObserver {
     return p;
   }
 
+  /// **issue #90**: кэш превью ссылок. `null` до `init()` — экраны тогда
+  /// просто не рисуют карточки, ссылка остаётся обычным текстом.
+  ///
+  /// Nullable, а не бросающий геттер (в отличие от соседей): превью —
+  /// украшение, и ронять из-за него открытие чата в тесте или в
+  /// host-приложении без init-а было бы несоразмерно.
+  LinkPreviewStore? get linkPreviews => _linkPreviews;
+
   /// **TASK63**: организация контактов — per-viewer alias/заметка/метки.
   /// Доступен через `NsgMessenger.contacts`.
   NsgMessengerContacts get contacts {
@@ -631,6 +683,19 @@ class MessengerRuntime with WidgetsBindingObserver {
       );
     }
     return c;
+  }
+
+  /// **Этап 3 (`DESIGN_TEAMS_AND_CONTACT_SHARING`)**: свои команды —
+  /// списки людей без переписки. Доступен через `NsgMessenger.teams`.
+  NsgMessengerTeams get teams {
+    final t = _teams;
+    if (t == null) {
+      throw StateError(
+        'NsgMessengerTeams отсутствует. NsgMessenger.init() не вызван '
+        'или dispose() уже отработал.',
+      );
+    }
+    return t;
   }
 
   /// **TASK52 итер.1**: личные визитки (Contact Card) — чужие с TTL-кэшем
@@ -711,7 +776,19 @@ class MessengerRuntime with WidgetsBindingObserver {
     }
     // Регистрируем RU-локаль в timeago (идемпотентно). EN — default.
     registerTimeagoLocales();
-    _client = Client(apiBaseUrl);
+    // **issue #135**: короче двадцати секунд умолчания Serverpod.
+    //
+    // Двадцать секунд до первого признака жизни — вечность для экрана:
+    // человек всё это время смотрит в крутилку, чтобы получить отказ. А
+    // связь, не ответившая за восемь секунд, за двадцать почти никогда не
+    // отвечает — это не медленный ответ, а мёртвый канал. Дешевле короткое
+    // ожидание плюс один повтор (`withTransportRetry`), чем одно долгое
+    // молчание: худший случай стал 16 с вместо 20, а обычный — 8 с.
+    //
+    // Восемь, а не меньше: на слабой мобильной сети первый байт по TLS
+    // законно приходит через несколько секунд, и резать до трёх значило бы
+    // объявлять мёртвыми живые соединения.
+    _client = Client(apiBaseUrl, connectionTimeout: clientConnectionTimeout);
     // **Workaround**: FlutterConnectivityMonitor (connectivity_plus) на
     // Windows-desktop и в некоторых iOS-конфигурациях возвращает "no
     // internet" → Serverpod-client стопорит все RPC в ожидании сети,
@@ -787,6 +864,14 @@ class MessengerRuntime with WidgetsBindingObserver {
     // **TASK63**: организация контактов (alias / заметка / метки).
     // Stateless-прокси над `client.messenger.*` — attach сразу.
     _contacts = NsgMessengerContacts.attach(_client!);
+    // Свои команды — такой же stateless-прокси над `client.messenger.*`.
+    // Кэша нет намеренно: состав правят редко, а показывать устаревший
+    // список людей, которые «видят друг друга», опаснее лишнего запроса.
+    _teams = NsgMessengerTeams.attach(_client!);
+    // **issue #90**: кэш превью ссылок — один на приложение. Одна и та же
+    // ссылка встречается в разных комнатах и всплывает при каждой прокрутке
+    // назад, а поход за ней стоит серверу запроса наружу.
+    _linkPreviews = LinkPreviewStore(ClientLinkPreviewRpc(_client!));
     // **TASK52**: личные визитки — attach сразу (кэш per-user внутри).
     _contactCards = NsgMessengerContactCards.attach(_client!);
     // Realtime-синк: другое устройство изменило метки/alias — сброс кэша.
@@ -870,45 +955,10 @@ class MessengerRuntime with WidgetsBindingObserver {
     // token. Без provider-а push routing не работает (embed-mode без
     // push, или customer обрабатывает push через свою инфру).
     if (pushTokenProvider != null) {
-      _pushTokenProvider = pushTokenProvider;
-      _pushProductExternalKey = productExternalKey;
-      _pushTokenSub = pushTokenProvider.tokenStream().listen(
-        _onPushTokenChanged,
-        onError: (Object e, StackTrace st) {
-          errorReporter?.reportError(
-            e,
-            st,
-            tags: const {'source': 'push_token_stream'},
-          );
-        },
+      attachPushTokenProvider(
+        pushTokenProvider,
+        productExternalKey: productExternalKey,
       );
-      // Initial register если token уже доступен (provider может уже
-      // получить от FCM до listener подписки).
-      if (kDebugMode) {
-        debugPrint('[MessengerRuntime.init] getCurrentToken (initial)...');
-      }
-      final initial = await pushTokenProvider.getCurrentToken();
-      if (kDebugMode) {
-        debugPrint(
-          '[MessengerRuntime.init] getCurrentToken returned '
-          '${initial == null ? "null" : "<token>"}',
-        );
-      }
-      if (initial != null) {
-        if (kDebugMode) {
-          debugPrint('[MessengerRuntime.init] _onPushTokenChanged (в фоне)...');
-        }
-        // **issue #77 — НЕ ждём регистрацию.** Она заведомо
-        // необязательна (сама себя лечит на следующем эмите токена и на
-        // следующем запуске) и внутри ретраит с задержками 2+6+20+60
-        // секунд. Когда сети нет, ожидание съедало ВЕСЬ бюджет запуска
-        // host-app (у Chatista — 20 секунд на init), init обрывался по
-        // таймауту, и человек вместо кэша чатов получал полноэкранное
-        // «не удалось подключиться». Причём сессия к этому моменту уже
-        // была поднята из сохранённой (TASK47), то есть кэш чатов лежал
-        // в двух шагах и был недостижим из-за побочной задачи.
-        unawaited(_onPushTokenChanged(initial));
-      }
     }
     // **TASK20 followup (a)**: lifecycle observer на уровне runtime —
     // bus's `onAppLifecycleChanged` теперь дёрнется автоматически
@@ -931,6 +981,72 @@ class MessengerRuntime with WidgetsBindingObserver {
     // повторится на следующем эмите.
     unawaited(_flushVoipToken());
     if (kDebugMode) debugPrint('[MessengerRuntime.init] all done');
+  }
+
+  /// Подключить провайдер push-токенов — из [init] или **позже**.
+  ///
+  /// Отдельным методом, потому что настройка пушей не должна стоять на пути
+  /// к экрану чатов. Она начинается с запроса разрешения на уведомления, а
+  /// это СИСТЕМНЫЙ ДИАЛОГ: пока человек его не закроет, `create()` не
+  /// вернётся. Раньше это происходило до `init`, и приложение честно ждало
+  /// — со сплэшем на экране, хотя все чаты уже лежали на диске.
+  ///
+  /// Идемпотентен: повторный вызов переподписывается на новый провайдер.
+  /// Регистрация токена на сервере не ожидается — она сама себя лечит на
+  /// следующем эмите и на следующем запуске (issue #77).
+  void attachPushTokenProvider(
+    PushTokenProvider provider, {
+    String? productExternalKey,
+  }) {
+    _pushTokenSub?.cancel();
+    _pushStatusSub?.cancel();
+    _pushTokenProvider = provider;
+    if (productExternalKey != null) {
+      _pushProductExternalKey = productExternalKey;
+    }
+    // **Issue #86**: вердикт «пуши не доедут» обязан доехать до UI.
+    // Подписываемся ДО регистрации токена: провайдер мог уже сдаться
+    // (разрешение не выдано) ещё пока поднималась сессия.
+    _setPushStatus(provider.pushStatus);
+    _pushStatusSub = provider.pushStatusStream().listen(
+      _setPushStatus,
+      onError: (Object e, StackTrace st) {
+        _errorReporter?.reportError(
+          e,
+          st,
+          tags: const {'source': 'push_status_stream'},
+        );
+      },
+    );
+    _pushTokenSub = provider.tokenStream().listen(
+      _onPushTokenChanged,
+      onError: (Object e, StackTrace st) {
+        _errorReporter?.reportError(
+          e,
+          st,
+          tags: const {'source': 'push_token_stream'},
+        );
+      },
+    );
+    // Токен у провайдера может быть уже готов (FCM отдаёт из локального
+    // кэша). Спрашиваем в фоне: у `getCurrentToken` свой таймаут в пару
+    // секунд, и эти пару секунд человек смотрел бы на сплэш.
+    unawaited(
+      provider
+          .getCurrentToken()
+          .then((initial) {
+            if (initial == null || _pushTokenProvider != provider) return null;
+            return _onPushTokenChanged(initial);
+          })
+          .catchError((Object e, StackTrace st) {
+            _errorReporter?.reportError(
+              e,
+              st,
+              tags: const {'source': 'push_initial_token'},
+            );
+            return null;
+          }),
+    );
   }
 
   /// **TASK47**: открывает дисковый кэш и подключает его к rooms. Namespace
@@ -1347,6 +1463,12 @@ class MessengerRuntime with WidgetsBindingObserver {
     // 90+ дней (TASK20-Phase2).
     await _pushTokenSub?.cancel();
     _pushTokenSub = null;
+    // **Issue #86**: провайдер уходит вместе с рантаймом — забываем его
+    // вердикт, иначе после логаута на экране висел бы «уведомления не
+    // подключены» от чужого (уже уничтоженного) провайдера.
+    await _pushStatusSub?.cancel();
+    _pushStatusSub = null;
+    _setPushStatus(PushTokenStatus.unsupported);
     if (_lastRegisteredToken != null && _client != null) {
       try {
         await _client!.messenger.unregisterDevice(
@@ -1413,6 +1535,8 @@ class MessengerRuntime with WidgetsBindingObserver {
     // держит UI, не runtime); сбрасываем ссылку.
     _pulse = null;
     _contacts = null;
+    _teams = null;
+    _linkPreviews = null;
     _contactCards = null;
     _presenceTimer?.cancel();
     _presenceTimer = null;

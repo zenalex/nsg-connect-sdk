@@ -25,7 +25,8 @@ abstract class SupportTeamMemberView implements _i1.SerializableModel {
     required this.tier,
     required this.isBot,
     this.email,
-  });
+    bool? inherited,
+  }) : inherited = inherited ?? false;
 
   factory SupportTeamMemberView({
     required int messengerUserId,
@@ -35,6 +36,7 @@ abstract class SupportTeamMemberView implements _i1.SerializableModel {
     required int tier,
     required bool isBot,
     String? email,
+    bool? inherited,
   }) = _SupportTeamMemberViewImpl;
 
   factory SupportTeamMemberView.fromJson(
@@ -48,6 +50,9 @@ abstract class SupportTeamMemberView implements _i1.SerializableModel {
       tier: jsonSerialization['tier'] as int,
       isBot: _i1.BoolJsonExtension.fromJson(jsonSerialization['isBot']),
       email: jsonSerialization['email'] as String?,
+      inherited: jsonSerialization['inherited'] == null
+          ? null
+          : _i1.BoolJsonExtension.fromJson(jsonSerialization['inherited']),
     );
   }
 
@@ -72,6 +77,13 @@ abstract class SupportTeamMemberView implements _i1.SerializableModel {
   /// Email, по которому добавлен (audit; для бота может быть null).
   String? email;
 
+  /// **Откуда человек в этой команде.** true — он не вписан в команду, а
+  /// унаследован от тенанта (список поддержки заказчика). Экран обязан это
+  /// показывать: у унаследованного другое удаление (исключить в этом
+  /// продукте или убрать из тенанта во всех), и без пометки владелец жал бы
+  /// «убрать» и не понимал, почему человек вернулся.
+  bool inherited;
+
   /// Returns a shallow copy of this [SupportTeamMemberView]
   /// with some or all fields replaced by the given arguments.
   @_i1.useResult
@@ -83,6 +95,7 @@ abstract class SupportTeamMemberView implements _i1.SerializableModel {
     int? tier,
     bool? isBot,
     String? email,
+    bool? inherited,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -95,6 +108,7 @@ abstract class SupportTeamMemberView implements _i1.SerializableModel {
       'tier': tier,
       'isBot': isBot,
       if (email != null) 'email': email,
+      'inherited': inherited,
     };
   }
 
@@ -115,6 +129,7 @@ class _SupportTeamMemberViewImpl extends SupportTeamMemberView {
     required int tier,
     required bool isBot,
     String? email,
+    bool? inherited,
   }) : super._(
          messengerUserId: messengerUserId,
          displayName: displayName,
@@ -123,6 +138,7 @@ class _SupportTeamMemberViewImpl extends SupportTeamMemberView {
          tier: tier,
          isBot: isBot,
          email: email,
+         inherited: inherited,
        );
 
   /// Returns a shallow copy of this [SupportTeamMemberView]
@@ -137,6 +153,7 @@ class _SupportTeamMemberViewImpl extends SupportTeamMemberView {
     int? tier,
     bool? isBot,
     Object? email = _Undefined,
+    bool? inherited,
   }) {
     return SupportTeamMemberView(
       messengerUserId: messengerUserId ?? this.messengerUserId,
@@ -146,6 +163,7 @@ class _SupportTeamMemberViewImpl extends SupportTeamMemberView {
       tier: tier ?? this.tier,
       isBot: isBot ?? this.isBot,
       email: email is String? ? email : this.email,
+      inherited: inherited ?? this.inherited,
     );
   }
 }

@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:nsg_connect_client/nsg_connect_client.dart';
 
+import 'push_token_status.dart';
+
 /// Контракт получения push-токена устройства от платформенного API.
 /// Используется `MessengerRuntime` (TASK20 Chunk 3) для регистрации
 /// токенов в серверной БД через `client.messenger.registerDevice`.
@@ -34,6 +36,21 @@ abstract class PushTokenProvider {
   ///     reinstall, expired credentials, и т.п.).
   /// `null` value emit-ит когда token revoked (logout / OS-level reset).
   Stream<String?> tokenStream();
+
+  /// **Issue #86**: почему токена нет. Часть контракта, а НЕ опциональная
+  /// добавка: провайдер, который умеет вернуть `null` из
+  /// [getCurrentToken] и на этом замолчать, — ровно тот баг, из-за
+  /// которого человек две недели не получал уведомлений и не мог понять
+  /// причину.
+  ///
+  /// Значение обязано доехать до UI (см. `MessengerRuntime.pushStatus`),
+  /// поэтому оно не логируется, а выражается состоянием.
+  PushTokenStatus get pushStatus;
+
+  /// Обновления [pushStatus]. Вердикт почти всегда приходит асинхронно
+  /// (разрешение спрашивается у ОС, APNs-токен доезжает секундами позже),
+  /// поэтому одного геттера мало — UI подписывается на поток.
+  Stream<PushTokenStatus> pushStatusStream();
 }
 
 /// Метаданные устройства, которые SDK передаёт в server-side
@@ -79,7 +96,10 @@ class DeviceInfo {
 /// `init` и при каждом emit на [tokenStream].
 class InMemoryPushTokenProvider implements PushTokenProvider {
   InMemoryPushTokenProvider({required this.deviceInfo, String? initialToken})
-    : _token = initialToken {
+    : _token = initialToken,
+      _status = initialToken != null
+          ? PushTokenStatus.ready
+          : PushTokenStatus.pending {
     if (initialToken != null) {
       // Эмитим initial token в next-tick, чтобы listener-ы в `init`
       // успели подписаться.
@@ -91,14 +111,34 @@ class InMemoryPushTokenProvider implements PushTokenProvider {
 
   final DeviceInfo deviceInfo;
   String? _token;
+  PushTokenStatus _status;
   final StreamController<String?> _controller =
       StreamController<String?>.broadcast();
+  final StreamController<PushTokenStatus> _statusController =
+      StreamController<PushTokenStatus>.broadcast();
 
   /// Симулирует token rotation от FCM/APNs (выдан новый token /
   /// revoked). Передайте null для simulation logout / token reset.
+  ///
+  /// Статус ведём следом за токеном, но БЕЗ выдумывания причины: пришёл
+  /// токен — [PushTokenStatus.ready]; токен отозвали — [
+  /// PushTokenStatus.pending], потому что фейку неоткуда знать, разрешение
+  /// сняли или отвалилась сеть. Нужна конкретная причина в тесте —
+  /// [setStatus].
   void setToken(String? newToken) {
     _token = newToken;
     if (!_controller.isClosed) _controller.add(newToken);
+    setStatus(
+      newToken != null ? PushTokenStatus.ready : PushTokenStatus.pending,
+    );
+  }
+
+  /// Симулирует вердикт провайдера напрямую (issue #86) — например
+  /// «разрешение не выдано» без всякого токена.
+  void setStatus(PushTokenStatus status) {
+    if (_status == status) return;
+    _status = status;
+    if (!_statusController.isClosed) _statusController.add(status);
   }
 
   @override
@@ -110,7 +150,16 @@ class InMemoryPushTokenProvider implements PushTokenProvider {
   @override
   Stream<String?> tokenStream() => _controller.stream;
 
+  @override
+  PushTokenStatus get pushStatus => _status;
+
+  @override
+  Stream<PushTokenStatus> pushStatusStream() => _statusController.stream;
+
   /// Очистка ресурсов. После dispose `tokenStream` закрыт; повторный
   /// `setToken` — no-op.
-  Future<void> dispose() => _controller.close();
+  Future<void> dispose() async {
+    await _controller.close();
+    await _statusController.close();
+  }
 }

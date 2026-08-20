@@ -144,7 +144,25 @@ enum MessengerEventType implements _i1.SerializableModel {
   /// Гейтится capability `task-badge` (легаси-путь; современный клиент покрыт
   /// knownEventTypes-фильтром — новое enum-значение старый клиент не
   /// десериализует и уронил бы стрим; урок callNegotiate/presence/conference).
-  taskBadgeUpdated;
+  taskBadgeUpdated,
+
+  /// **Issue #84 — сердцебиение стрима.** Единственное событие, которое
+  /// не сообщает НИЧЕГО о переписке: его смысл в самом факте прихода.
+  ///
+  /// Без него клиент не может отличить «в чатах тихо» от «сокет мёртв, а
+  /// выглядит живым»: у половинчато закрытого соединения нет ни ошибки,
+  /// ни закрытия — просто вечная тишина, неотличимая от выходных. Именно
+  /// так клиент и молчал сутками, считая себя здоровым. Сервер шлёт удар
+  /// только когда в стриме тишина (см. `beatOnSilence`), поэтому на живом
+  /// аккаунте он не стоит ничего.
+  ///
+  /// Полезной нагрузки нет и не будет: `roomId`/`message` пустые. SDK
+  /// потребителям его НЕ отдаёт — отмечает живость и гасит.
+  ///
+  /// Шлётся ТОЛЬКО объявившим его в `knownEventTypes` (капабилити нет:
+  /// легаси-клиент не десериализует новое значение enum и уронил бы весь
+  /// стрим — тот же урок, что с callNegotiate/presence/conference).
+  heartbeat;
 
   static MessengerEventType fromJson(String name) {
     switch (name) {
@@ -210,6 +228,8 @@ enum MessengerEventType implements _i1.SerializableModel {
         return MessengerEventType.conferenceUpdated;
       case 'taskBadgeUpdated':
         return MessengerEventType.taskBadgeUpdated;
+      case 'heartbeat':
+        return MessengerEventType.heartbeat;
       default:
         throw ArgumentError(
           'Value "$name" cannot be converted to "MessengerEventType"',

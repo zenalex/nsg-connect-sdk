@@ -6,6 +6,7 @@ import '../bots/nsg_messenger_my_bots.dart';
 import '../i18n/generated/nsg_l10n.dart';
 import '../messenger_runtime.dart';
 import 'bot_common_widgets.dart';
+import '../widgets/nsg_modal_sheet.dart';
 
 /// **Issue #49 (открытая платформа ботов)**: экран «Мои боты» — полный
 /// self-service ОБЫЧНОГО пользователя: создать бота из профиля, получить
@@ -204,17 +205,17 @@ class _MyBotsScreenState extends State<MyBotsScreen> {
   }
 
   Future<void> _showRooms(Bot bot) {
-    return showModalBottomSheet<void>(
+    // Issue #105: списки комнат и журнал аудита растут без предела.
+    return showNsgModalSheet<void>(
       context: context,
-      isScrollControlled: true,
       builder: (ctx) => _BotRoomsSheet(myBots: _myBots, bot: bot),
     );
   }
 
   Future<void> _showAudit(Bot bot) {
-    return showModalBottomSheet<void>(
+    // Issue #105: списки комнат и журнал аудита растут без предела.
+    return showNsgModalSheet<void>(
       context: context,
-      isScrollControlled: true,
       builder: (ctx) => BotAuditSheet(
         botName: bot.name,
         loader: () => _myBots.listAuditEvents(botId: bot.id!),

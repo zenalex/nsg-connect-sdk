@@ -82,5 +82,32 @@ void main() {
     test('константа типа совпадает с серверной строкой', () {
       expect(readSyncPushType, 'read_sync');
     });
+
+    // **Issue #140**: ключ стопки треда. Сообщения внутри треда помечены
+    // им, а не `roomId`, поэтому без него снятие их не задевало вовсе.
+    group('ключ стопки треда', () {
+      test('threadKey разобран как есть — ГОТОВЫМ ключом', () {
+        // Именно как есть: формат ключа знает сервер, он же им и помечает
+        // уведомление. Собирать его ещё и здесь значило бы завести третье
+        // место, где формат может разъехаться.
+        final d = ReadSyncPushData.tryParse(<String, dynamic>{
+          ...payload(),
+          'threadKey': r'thread:$task-root',
+        });
+        expect(d?.threadKey, r'thread:$task-root');
+      });
+
+      test('нет поля → null (основная лента или старый сервер)', () {
+        expect(ReadSyncPushData.tryParse(payload())?.threadKey, isNull);
+      });
+
+      test('пустая строка → null, а не «снять стопку без имени»', () {
+        final d = ReadSyncPushData.tryParse(<String, dynamic>{
+          ...payload(),
+          'threadKey': '  ',
+        });
+        expect(d?.threadKey, isNull);
+      });
+    });
   });
 }

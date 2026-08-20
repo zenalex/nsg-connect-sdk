@@ -183,6 +183,21 @@ class PickedAttachment {
   final Uint8List bytes;
   final String mimeType;
   final String originalFilename;
+
+  /// **Issue #103**: та же картинка после редактора.
+  ///
+  /// Имя сохраняем: человек его узнаёт, и подменять «фото.jpg» на что-то
+  /// своё значило бы потерять единственную подпись, по которой он отличает
+  /// одно вложение от другого в ленте черновика. А тип меняем — сведение
+  /// штрихов отдаёт PNG независимо от исходного формата.
+  PickedAttachment copyWithEdited({
+    required Uint8List bytes,
+    required String mimeType,
+  }) => PickedAttachment(
+    bytes: bytes,
+    mimeType: mimeType,
+    originalFilename: originalFilename,
+  );
 }
 
 /// Bottom-sheet с действиями attach в `MessageComposer`.

@@ -91,7 +91,8 @@ class ImageActions {
   /// Signature совпадает с `MessagesController.downloadFullSize` и
   /// `DownloadAttachmentRpc`.
   factory ImageActions.fromDownloader(
-    Future<AttachmentBytes> Function({required String mxcUrl}) downloadFullSize, {
+    Future<AttachmentBytes> Function({required String mxcUrl})
+    downloadFullSize, {
     ShareFilesFn? shareFiles,
     CopyImageBytesFn? copyImageBytes,
     CopyFilesFn? copyFiles,

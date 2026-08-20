@@ -47,6 +47,8 @@ abstract class MessengerMessage implements _i1.SerializableModel {
     this.taskStage,
     this.taskThreadRootEventId,
     this.taskUrl,
+    this.taskKey,
+    this.taskTitle,
     required this.serverTimestamp,
     this.clientTxnId,
     this.attachment,
@@ -74,6 +76,8 @@ abstract class MessengerMessage implements _i1.SerializableModel {
     String? taskStage,
     String? taskThreadRootEventId,
     String? taskUrl,
+    String? taskKey,
+    String? taskTitle,
     required DateTime serverTimestamp,
     String? clientTxnId,
     _i3.AttachmentRef? attachment,
@@ -109,6 +113,8 @@ abstract class MessengerMessage implements _i1.SerializableModel {
       taskThreadRootEventId:
           jsonSerialization['taskThreadRootEventId'] as String?,
       taskUrl: jsonSerialization['taskUrl'] as String?,
+      taskKey: jsonSerialization['taskKey'] as String?,
+      taskTitle: jsonSerialization['taskTitle'] as String?,
       serverTimestamp: _i1.DateTimeJsonExtension.fromJson(
         jsonSerialization['serverTimestamp'],
       ),
@@ -200,6 +206,20 @@ abstract class MessengerMessage implements _i1.SerializableModel {
   String? taskThreadRootEventId;
 
   String? taskUrl;
+
+  /// **Issue #99**: чем задача НАЗЫВАЕТСЯ — номер и краткое описание, ровно
+  /// как в списке задач. Нужны, чтобы шапка треда, открытого тапом по значку,
+  /// не была безымянным «Обсуждение задачи»: у сообщения-источника не было
+  /// под рукой ничего, кроме стадии и ссылки, поэтому назвать задачу было
+  /// нечем.
+  ///
+  /// Источник — тот же `TaskLink`, что и у значка (`externalTaskKey` /
+  /// `title`), так что расхождения со списком задач быть не может по
+  /// построению. `taskTitle` пуст у задач, заведённых до TASK90 (заголовок
+  /// тогда уходил в лог, а не в связь) — тогда в шапке остаётся один номер.
+  String? taskKey;
+
+  String? taskTitle;
 
   DateTime serverTimestamp;
 
@@ -301,6 +321,8 @@ abstract class MessengerMessage implements _i1.SerializableModel {
     String? taskStage,
     String? taskThreadRootEventId,
     String? taskUrl,
+    String? taskKey,
+    String? taskTitle,
     DateTime? serverTimestamp,
     String? clientTxnId,
     _i3.AttachmentRef? attachment,
@@ -333,6 +355,8 @@ abstract class MessengerMessage implements _i1.SerializableModel {
       if (taskThreadRootEventId != null)
         'taskThreadRootEventId': taskThreadRootEventId,
       if (taskUrl != null) 'taskUrl': taskUrl,
+      if (taskKey != null) 'taskKey': taskKey,
+      if (taskTitle != null) 'taskTitle': taskTitle,
       'serverTimestamp': serverTimestamp.toJson(),
       if (clientTxnId != null) 'clientTxnId': clientTxnId,
       if (attachment != null) 'attachment': attachment?.toJson(),
@@ -371,6 +395,8 @@ class _MessengerMessageImpl extends MessengerMessage {
     String? taskStage,
     String? taskThreadRootEventId,
     String? taskUrl,
+    String? taskKey,
+    String? taskTitle,
     required DateTime serverTimestamp,
     String? clientTxnId,
     _i3.AttachmentRef? attachment,
@@ -396,6 +422,8 @@ class _MessengerMessageImpl extends MessengerMessage {
          taskStage: taskStage,
          taskThreadRootEventId: taskThreadRootEventId,
          taskUrl: taskUrl,
+         taskKey: taskKey,
+         taskTitle: taskTitle,
          serverTimestamp: serverTimestamp,
          clientTxnId: clientTxnId,
          attachment: attachment,
@@ -427,6 +455,8 @@ class _MessengerMessageImpl extends MessengerMessage {
     Object? taskStage = _Undefined,
     Object? taskThreadRootEventId = _Undefined,
     Object? taskUrl = _Undefined,
+    Object? taskKey = _Undefined,
+    Object? taskTitle = _Undefined,
     DateTime? serverTimestamp,
     Object? clientTxnId = _Undefined,
     Object? attachment = _Undefined,
@@ -465,6 +495,8 @@ class _MessengerMessageImpl extends MessengerMessage {
           ? taskThreadRootEventId
           : this.taskThreadRootEventId,
       taskUrl: taskUrl is String? ? taskUrl : this.taskUrl,
+      taskKey: taskKey is String? ? taskKey : this.taskKey,
+      taskTitle: taskTitle is String? ? taskTitle : this.taskTitle,
       serverTimestamp: serverTimestamp ?? this.serverTimestamp,
       clientTxnId: clientTxnId is String? ? clientTxnId : this.clientTxnId,
       attachment: attachment is _i3.AttachmentRef?

@@ -231,9 +231,9 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
             Text(
               l.integrationsWebhookUrlOnce,
               style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
-                color: Theme.of(ctx).colorScheme.onSurface.withValues(
-                  alpha: 0.6,
-                ),
+                color: Theme.of(
+                  ctx,
+                ).colorScheme.onSurface.withValues(alpha: 0.6),
               ),
             ),
           ],
@@ -799,7 +799,10 @@ class _CredField extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          CopyableField(value: value, copiedMessage: l.integrationsCopiedGeneric),
+          CopyableField(
+            value: value,
+            copiedMessage: l.integrationsCopiedGeneric,
+          ),
           if (caption != null) ...[
             const SizedBox(height: 4),
             Text(
@@ -914,9 +917,7 @@ class _BotTile extends StatelessWidget {
           PopupMenuItem(
             value: _BotAction.toggleEnabled,
             child: _botMenuRow(
-              active
-                  ? Icons.pause_circle_outline
-                  : Icons.play_circle_outline,
+              active ? Icons.pause_circle_outline : Icons.play_circle_outline,
               active ? l.integrationsDisable : l.integrationsEnable,
             ),
           ),

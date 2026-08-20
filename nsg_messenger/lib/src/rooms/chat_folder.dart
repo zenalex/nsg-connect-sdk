@@ -21,6 +21,33 @@ import 'package:nsg_connect_client/nsg_connect_client.dart';
 ///     обычные группы. В модели folder-as-row они остаются обычными
 ///     строками-чатами в корне (не заворачиваются в папку).
 ///
+/// # Системные папки продуктов для чатов поддержки (решение владельца)
+///
+/// Обращения в поддержку раскладываются **по продуктам**: на каждый
+/// продукт, по которому смотрящий — ОПЕРАТОР хотя бы одного обращения,
+/// получается папка с именем продукта, а внутри чаты уже названы по
+/// заявителям (perspective-именование делает сервер, см.
+/// `SupportRoomNaming.perspectiveName`). Единый агрегат «Поддержка» этим
+/// заменён: у оператора трёх продуктов в одной куче лежали чужие друг
+/// другу очереди.
+///
+/// **Собственное обращение человека в папку НЕ попадает.** Оно остаётся
+/// обычной строкой в корне списка и названо по продукту («Чатиста») —
+/// это его личный чат с поддержкой, а не элемент чьей-то очереди.
+/// Различить два случая можно только по `supportViewerIsRequester`:
+/// `supportRequesterName` заполнен с обеих сторон.
+///
+/// **Почему папки СИСТЕМНЫЕ, а не обычные с автозаполнением.** Обычную
+/// папку человек вправе переименовать, удалить или вынуть из неё чат — и
+/// тогда автоматика с ним конфликтует: вынул чат — вернули, удалил папку
+/// — создали заново. Если же не трогать, раскладка со временем врёт.
+/// Поэтому системная папка не хранится вовсе: она вычисляется при каждом
+/// чтении из текущего списка комнат и потому всегда верна, а
+/// переименовать / удалить / вынуть из неё чат нельзя — см.
+/// [ChatFolder.isSystem]. Тот же принцип выбран для команд: считать при
+/// чтении, синхронизация постоянная (см.
+/// `platform/docs/DESIGN_TEAMS_AND_CONTACT_SHARING.md`).
+///
 /// **Обёртка-папка скрыта при одной группе.** Если у пользователя комнаты
 /// только одного «происхождения» (например, только один продукт и нет
 /// личных), заворачивать чаты в папку смысла нет — список показывается
@@ -93,43 +120,70 @@ class ChatFolder {
   /// `null`, если у самого свежего чата нет превью / папка пуста.
   final String? lastMessagePreview;
 
-  /// **TASK75**: стабильный ключ агрегатной папки «Поддержка».
-  static const String supportSelectionKey = '__support__';
+  /// **Системные папки продуктов**: префикс ключа папки продукта, в
+  /// которой лежит операторский инбокс (`kind == support`). Полный ключ —
+  /// `support:<productId>`. Отдельный префикс (а не общий `product:`)
+  /// нужен UI: по нему drill-in экран узнаёт, что строки надо рисовать
+  /// операторским рендером (заявитель + «светофор» SLA + стадия тикета),
+  /// не спрашивая у контроллера саму папку.
+  static const String supportSelectionPrefix = 'support:';
 
   /// **TASK68**: стабильный ключ агрегатной папки «Избранное» (self-чаты).
   static const String savedSelectionKey = '__saved__';
 
   /// Стабильный ключ выбора/идентификации папки. `all` / `personal` /
-  /// `support` / `saved` — по виду; `product` — по `productId`; `custom` —
+  /// `saved` — по виду; `product` / `support` — по `productId`; `custom` —
   /// по серверному id.
   String get selectionKey => switch (kind) {
     ChatFolderKind.all => '__all__',
     ChatFolderKind.personal => '__personal__',
-    ChatFolderKind.support => supportSelectionKey,
     ChatFolderKind.saved => savedSelectionKey,
+    ChatFolderKind.support => '$supportSelectionPrefix$productId',
     ChatFolderKind.product => 'product:$productId',
     ChatFolderKind.custom => 'custom:$customFolderId',
   };
+
+  /// **Системная папка** — вычисляется при чтении из текущего списка
+  /// комнат, а не хранится. Системными являются все папки, кроме
+  /// пользовательских (`custom`, TASK62).
+  ///
+  /// Что именно человеку запрещено и чем это обеспечено: у системной папки
+  /// нет строки в `chat_folders`, поэтому [customFolderId] у неё всегда
+  /// `null`, а весь мутирующий API (`renameChatFolder` / `deleteChatFolder`
+  /// / `setRoomInChatFolder`) адресуется ИМЕННО этим `int folderId`.
+  /// То есть переименовать, удалить или вынуть чат нельзя не по запрету в
+  /// коде, а потому, что вызову нечего передать — запрет структурный, его
+  /// нельзя обойти ни из UI, ни с другого клиента. Обратная сторона того
+  /// же свойства: раскладка не может «протухнуть» — она пересчитывается на
+  /// каждом чтении списка.
+  ///
+  /// Положить тот же чат ещё и в свою ручную папку человеку можно: ручная
+  /// папка — быстрый доступ, а не перемещение (см. `buildRootRows`), и на
+  /// системную раскладку она не влияет.
+  bool get isSystem => kind != ChatFolderKind.custom;
 
   /// Проходит ли комната фильтр этой папки.
   ///
   ///   * `all` — все комнаты.
   ///   * `personal` — только `productId == null`.
-  ///   * `support` (**TASK75**) — только support-комнаты, НЕ «закрытые»
-  ///     оператором (`dismissedUntilMessage`).
   ///   * `saved` (**TASK68**) — только self-чаты «Избранного».
-  ///   * `product` — комнаты с совпадающим `productId`, КРОМЕ support
-  ///     (они живут в агрегатной папке «Поддержка», не в продуктовых).
+  ///   * `product` / `support` — комнаты с совпадающим `productId`. Из них
+  ///     исключены собственные обращения смотрящего (их место — корень
+  ///     списка) и «закрытые» оператором support-комнаты (скрыты до
+  ///     сообщения заявителя). Правило одно на два вида: `support` — это
+  ///     та же папка продукта, просто в ней есть операторские обращения,
+  ///     и вид отличает лишь рендер (иконка + операторские строки).
   ///   * `custom` — только комнаты из явного [roomIds] (TASK62).
   bool matches(RoomSummary room) => switch (kind) {
     ChatFolderKind.all => true,
     // **TASK68**: self-чаты не «личные» — у них своя папка «Избранное».
     // Без этого исключения они дублировались бы в двух местах списка.
     ChatFolderKind.personal => room.productId == null && !isSavedRoom(room),
-    ChatFolderKind.support => isSupportInboxRoom(room),
     ChatFolderKind.saved => isSavedRoom(room),
-    ChatFolderKind.product =>
-      room.productId == productId && room.roomType != RoomType.support,
+    ChatFolderKind.support || ChatFolderKind.product =>
+      room.productId == productId &&
+          !isOwnSupportRequest(room) &&
+          !isDismissedSupportRoom(room),
     ChatFolderKind.custom => roomIds?.contains(room.id) ?? false,
   };
 
@@ -169,8 +223,14 @@ class ChatFolder {
       'unread=$unreadCount, rooms=$roomCount, lastAt=$lastMessageAt)';
 }
 
-/// Вид папки. `all`/`personal`/`product`/`support`/`saved` — авто
-/// (TASK44/75/68); `custom` — пользовательская server-side папка (TASK62).
+/// Вид папки. `all`/`personal`/`product`/`support`/`saved` — системные,
+/// вычисляемые при чтении (TASK44/75/68 + системные папки продуктов);
+/// `custom` — пользовательская server-side папка (TASK62).
+///
+/// `support` — это папка ПРОДУКТА, в которой есть обращения, где смотрящий
+/// оператор. От `product` она отличается только рендером (иконка + строки
+/// операторским стилем): состав считается одним правилом, см.
+/// [ChatFolder.matches].
 enum ChatFolderKind { all, personal, support, saved, product, custom }
 
 /// **TASK68**: комната — раздел «Избранного» (self-чат, единственный
@@ -179,13 +239,31 @@ enum ChatFolderKind { all, personal, support, saved, product, custom }
 /// «заметки», «файлообмен» и т.д. забивали бы ленту чатов).
 bool isSavedRoom(RoomSummary room) => room.roomType == RoomType.saved;
 
+/// **Системные папки продуктов**: комната — СОБСТВЕННОЕ обращение
+/// смотрящего (он в ней заявитель, а не оператор). Такие чаты живут в
+/// корне списка и названы по продукту; в системную папку продукта они не
+/// попадают, иначе человек искал бы свой вопрос среди чужих очередей.
+///
+/// `supportViewerIsRequester == null` (старый сервер) трактуем как «не
+/// заявитель»: тогда чат просто окажется в папке продукта. Обратный дефолт
+/// вывалил бы весь операторский инбокс в корень — цена ошибки несимметрична.
+bool isOwnSupportRequest(RoomSummary room) =>
+    room.roomType == RoomType.support &&
+    (room.supportViewerIsRequester ?? false);
+
 /// **TASK75**: комната относится к операторскому support-инбоксу — это
 /// support-комната, которую текущий оператор ещё НЕ «закрыл до ответа»
 /// (`dismissedUntilMessage != true`). «Закрытые» комнаты прячутся из всех
 /// списков до нового сообщения заявителя (сервер сбрасывает флаг). Общий
-/// предикат для агрегатной папки, root-rows и фильтрации в UI.
+/// предикат для системных папок продуктов, root-rows и фильтрации в UI.
+///
+/// **Системные папки продуктов**: собственное обращение смотрящего
+/// инбоксом не является — оператор разбирает чужие вопросы, а свой ведёт
+/// как обычный чат (см. [isOwnSupportRequest]).
 bool isSupportInboxRoom(RoomSummary room) =>
-    room.roomType == RoomType.support && !(room.dismissedUntilMessage ?? false);
+    room.roomType == RoomType.support &&
+    !(room.dismissedUntilMessage ?? false) &&
+    !isOwnSupportRequest(room);
 
 /// **TASK75**: «закрытая» (dismissed) оператором support-комната — скрыта
 /// из всех списков до следующего сообщения заявителя.
@@ -211,7 +289,10 @@ bool isDismissedSupportRoom(RoomSummary room) =>
 ///
 /// Пустые папки не создаются: продуктовая папка появляется, только если
 /// по этому продукту есть хоть одна комната; «Личные» — только если есть
-/// комнаты без продукта.
+/// комнаты без продукта. **Системные папки продуктов**: собственное
+/// обращение смотрящего комнатой папки не считается, поэтому по продукту,
+/// куда человек только написал сам, папки не заводится вовсе — будет один
+/// чат в корне.
 /// [customFolders] (TASK62) — пользовательские server-side папки
 /// (`listChatFolders`). Каждая превращается в [ChatFolder] с
 /// `kind=custom` и агрегатами по её комнатам, присутствующим в [rooms].
@@ -233,11 +314,11 @@ List<ChatFolder> buildFolders(
   RoomSummary? personalFreshest;
   var totalUnread = 0;
   RoomSummary? allFreshest;
-  // **TASK75**: агрегат «Поддержка» — все support-комнаты (кроме
-  // «закрытых» оператором) по всем продуктам.
-  var supportUnread = 0;
-  var supportRooms = 0;
-  RoomSummary? supportFreshest;
+  // **Системные папки продуктов**: продукты, по которым у смотрящего есть
+  // хотя бы одно обращение в роли ОПЕРАТОРА. Только они делают папку
+  // продукта операторским инбоксом (`kind == support`) — с иконкой
+  // наушников и операторским рендером строк внутри.
+  final productHasOperatorSupport = <int>{};
   // **TASK68**: агрегат «Избранное» — все self-чаты пользователя.
   var savedUnread = 0;
   var savedRooms = 0;
@@ -261,14 +342,6 @@ List<ChatFolder> buildFolders(
     if (isDismissedSupportRoom(r)) continue;
     totalUnread += r.unreadCount;
     if (isFresher(r, allFreshest)) allFreshest = r;
-    // **TASK75**: support-комнаты уходят в агрегат «Поддержка», а НЕ в
-    // продуктовые/личные папки (оператор работает единым инбоксом).
-    if (r.roomType == RoomType.support) {
-      supportUnread += r.unreadCount;
-      supportRooms += 1;
-      if (isFresher(r, supportFreshest)) supportFreshest = r;
-      continue;
-    }
     // **TASK68**: self-чаты уходят в агрегат «Избранное», а НЕ в «Личные»
     // (у них `productId == null`, иначе провалились бы туда ниже).
     if (isSavedRoom(r)) {
@@ -278,7 +351,16 @@ List<ChatFolder> buildFolders(
       continue;
     }
     final pid = r.productId;
+    // **Системные папки продуктов**: собственное обращение в агрегаты
+    // папки не идёт вообще — его место в корне списка (см. `buildRootRows`).
+    // Иначе бейдж папки считал бы непрочитанное по своему же вопросу, а сам
+    // вопрос человек искал бы среди чужих обращений.
+    if (isOwnSupportRequest(r)) continue;
     if (pid == null) {
+      // Support-комната без продукта — аномалия (обращения заводятся через
+      // `getOrCreateProductRoom`, продукт есть всегда). Раскладывать её
+      // некуда, поэтому считаем «личной»: показать чат в корне честнее,
+      // чем потерять его вместе с несуществующей папкой.
       personalUnread += r.unreadCount;
       personalRooms += 1;
       if (isFresher(r, personalFreshest)) personalFreshest = r;
@@ -286,6 +368,7 @@ List<ChatFolder> buildFolders(
       productUnread[pid] = (productUnread[pid] ?? 0) + r.unreadCount;
       productRooms[pid] = (productRooms[pid] ?? 0) + 1;
       if (isFresher(r, productFreshest[pid])) productFreshest[pid] = r;
+      if (r.roomType == RoomType.support) productHasOperatorSupport.add(pid);
     }
   }
 
@@ -308,22 +391,7 @@ List<ChatFolder> buildFolders(
     ),
   ];
 
-  // **TASK75**: агрегатная папка «Поддержка» — сразу после «Все», перед
-  // кастомными/продуктовыми (операторский инбокс приоритетен). Появляется,
-  // только если есть хоть одна НЕ-«закрытая» support-комната.
-  if (supportRooms > 0) {
-    folders.add(
-      ChatFolder(
-        kind: ChatFolderKind.support,
-        unreadCount: supportUnread,
-        roomCount: supportRooms,
-        lastMessageAt: supportFreshest?.lastMessageAt,
-        lastMessagePreview: supportFreshest?.lastMessagePreview,
-      ),
-    );
-  }
-
-  // **TASK68**: агрегатная папка «Избранное» — сразу после «Поддержки»,
+  // **TASK68**: агрегатная папка «Избранное» — сразу после «Все»,
   // перед кастомными/продуктовыми (свои заметки под рукой). Появляется,
   // только если у пользователя есть хоть один self-чат: дефолтный
   // «Избранное» сервер создаёт по первому входу в раздел, до этого
@@ -376,7 +444,14 @@ List<ChatFolder> buildFolders(
     final freshest = productFreshest[pid];
     folders.add(
       ChatFolder(
-        kind: ChatFolderKind.product,
+        // **Системные папки продуктов**: на продукт ровно ОДНА папка. Если
+        // среди её комнат есть обращения, где смотрящий — оператор, папка
+        // становится его инбоксом по этому продукту (`support`). Два вида
+        // на один продукт не заводим: человек увидел бы две папки с
+        // одинаковым именем и гадал, в какой из них искать.
+        kind: productHasOperatorSupport.contains(pid)
+            ? ChatFolderKind.support
+            : ChatFolderKind.product,
         productId: pid,
         productKey: product?.externalKey,
         productDisplayName: product?.displayName,
@@ -475,9 +550,13 @@ List<ChatRootRow> buildRootRows(
   // прячутся из корня: папка — быстрый доступ, не перемещение (один чат
   // может быть в нескольких папках и одновременно личным).
   //
-  // **TASK75**: агрегатная папка «Поддержка» — тоже всегда строкой (если
-  // есть support-комнаты). Сами support-комнаты в корень плоскими строками
-  // НЕ выносятся — они живут только внутри этой папки.
+  // **Системные папки продуктов**: папка продукта с операторским инбоксом
+  // (`support`) закреплена ВСЕГДА, в том числе когда содержательная группа
+  // всего одна и обёртка по правилу [foldersVisible] не нужна. Системная
+  // папка обязана быть верна при любом составе списка, а «развернуть» её —
+  // значит высыпать чужие обращения в корень рядом с собственным чатом по
+  // тому же продукту: два одинаково выглядящих чата, из которых один твой,
+  // а другой — чей-то вопрос.
   //
   // **TASK68**: то же для «Избранного» — разделы self-чатов видны только
   // внутри своей папки, иначе «заметки»/«файлообмен»/«документы» забили бы
@@ -490,33 +569,58 @@ List<ChatRootRow> buildRootRows(
         ChatFolderRow(f),
   ];
 
+  // Комната идёт в корень плоской строкой? «Закрытые» и операторские
+  // обращения — нет (их место в папке продукта), self-чаты — нет
+  // («Избранное»). Собственное обращение — ДА, даже если у него есть
+  // продукт и папка этого продукта существует.
+  bool isRootChat(RoomSummary r) =>
+      !isDismissedSupportRoom(r) && !isSupportInboxRoom(r) && !isSavedRoom(r);
+
   // Одна авто-группа или пусто → плоский список (плюс закреплённые папки).
   if (!foldersVisible(folders)) {
     final rows = <ChatRootRow>[
       ...pinnedRows,
       for (final r in rooms)
-        if (r.roomType != RoomType.support && !isSavedRoom(r)) ChatRoomRow(r),
+        if (isRootChat(r)) ChatRoomRow(r),
     ];
     _sortRootRows(rows);
     return rows;
   }
 
   final rows = <ChatRootRow>[...pinnedRows];
-  // Безпродуктовые комнаты — обычными строками (кроме support и saved).
+  // Безпродуктовые комнаты — обычными строками; плюс собственные обращения
+  // (у них продукт есть, но папка — не их место).
   for (final r in rooms) {
-    if (r.productId == null &&
-        r.roomType != RoomType.support &&
-        !isSavedRoom(r)) {
-      rows.add(ChatRoomRow(r));
-    }
+    if (!isRootChat(r)) continue;
+    if (r.productId == null || isOwnSupportRequest(r)) rows.add(ChatRoomRow(r));
   }
-  // Продуктовые папки — синтетическими строками.
+  // Продуктовые папки без операторского инбокса — синтетическими строками
+  // (папки с инбоксом уже закреплены выше).
   for (final f in folders) {
     if (f.kind == ChatFolderKind.product) rows.add(ChatFolderRow(f));
   }
   _sortRootRows(rows);
   return rows;
 }
+
+/// Только поддержка: операторские очереди папками, свои обращения строками.
+///
+/// Предложение владельца 10.08.2026: подвид «Группы» оказался бесполезен —
+/// «туда попадает по сути всё». На его месте нужен разрез, который человек
+/// действительно ищет: где мои обращения и где очереди по продуктам.
+///
+/// Это ФИЛЬТР готового корневого списка, а не вторая раскладка: внутри всё
+/// выглядит ровно как на вкладке «Все» — чужие обращения папками продуктов,
+/// свои отдельными строками. Иначе один и тот же чат выглядел бы по-разному
+/// в двух местах.
+List<ChatRootRow> supportRootRows(List<ChatRootRow> rows) => [
+  for (final row in rows)
+    if (switch (row) {
+      ChatFolderRow(:final folder) => folder.kind == ChatFolderKind.support,
+      ChatRoomRow(:final room) => isOwnSupportRequest(room),
+    })
+      row,
+];
 
 /// Стабильная сортировка корневых строк: свежие сверху, `null`-sortKey —
 /// в конец (с сохранением исходного относительного порядка).

@@ -227,8 +227,7 @@ class _ParticipantsScreenState extends State<ParticipantsScreen> {
                                       roomId: widget.roomId,
                                     )
                                   : ContactProfileScreen(
-                                      contactMessengerUserId:
-                                          p.messengerUserId,
+                                      contactMessengerUserId: p.messengerUserId,
                                     ),
                             ),
                           ),

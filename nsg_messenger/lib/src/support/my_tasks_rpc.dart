@@ -26,6 +26,15 @@ abstract class MyTasksRpc {
   /// **TASK88**: [roomId] опционально сужает выборку до ОДНОЙ комнаты (иконка
   /// задач в шапке чата → отфильтрованный список). null → все мои комнаты.
   Future<List<TicketView>> listMyTasks(String filter, {int? roomId});
+
+  /// **TASK90**: задачи ОДНОЙ комнаты — то же множество, что считает бейдж в
+  /// шапке чата.
+  ///
+  /// Отдельный вход, а не `listMyTasks(roomId:)`, потому что сущность другая:
+  /// там обращения (`TicketView`), здесь задачи (`RoomTaskView`). У
+  /// support-комнаты обращение ровно одно, поэтому прежний путь при любом
+  /// числе задач отдавал одну строку.
+  Future<List<RoomTaskView>> listRoomTasks(int roomId);
 }
 
 /// Продакшн-реализация: generated Serverpod-client через `withAuthRetry`
@@ -44,4 +53,10 @@ class ClientMyTasksRpc implements MyTasksRpc {
         () => _client.messenger.listMyTasks(filter: filter, roomId: roomId),
         _session,
       );
+
+  @override
+  Future<List<RoomTaskView>> listRoomTasks(int roomId) => withAuthRetry(
+    () => _client.messenger.listRoomTasks(roomId: roomId),
+    _session,
+  );
 }

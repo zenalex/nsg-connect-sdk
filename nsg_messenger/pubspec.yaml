@@ -24,6 +24,9 @@ dependencies:
   flutter_secure_storage: ^9.2.2
   # Для fingerprint-а MessengerAuthContext (sha256 без accessToken).
   crypto: ^3.0.3
+  # http — прямое скачивание вложений из S3 по presigned-ссылке
+  # (TASK92). До этого был только транзитивной зависимостью.
+  http: ^1.6.0
   # Web-only: paste картинки из буфера в composer (Ctrl+V). Используется
   # только в clipboard_image_web.dart (conditional import) — на не-web
   # платформах не компилируется. Pure-dart web-interop, без native кода.
@@ -57,10 +60,21 @@ dependencies:
   # покрывает все нужные платформы (Win/mac/Linux/iOS/Android/web) и
   # с image_picker не конфликтует — разные плагины, разные каналы.
   file_picker: ^8.1.7
+  # Перетаскивание файлов из проводника в чат (просьба пользователей,
+  # 2026-08-03). Плагин ставит нативный drop-target на окно; на mobile
+  # его каналов нет, поэтому вся обвязка в SDK гейтится по платформе.
+  desktop_drop: ^0.6.0
   # TASK19 Chunk 3: fullscreen image viewer с pinch-zoom для tap-on-
   # bubble в chat. Используется только в `AttachmentImageViewer`,
   # никаких других usage-ов в SDK.
   photo_view: ^0.15.0
+  # crop_your_image — обрезка аватара (issue #102). Чистый Dart: у
+  # image_cropper в pubspec объявлены только android/ios/web, а мы
+  # собираемся ещё под windows и macos.
+  crop_your_image: ^2.0.0
+  # image — поворот кадра на 90° в редакторе аватара. Уже приезжает
+  # транзитивно с crop_your_image; объявляем явно, раз импортируем.
+  image: ^4.8.0
   # B-voice: запись микрофона на mobile + desktop (Win/Mac/Linux).
   # Composer показывает microphone button в empty state; long-press →
   # record → release → send как `m.audio` attachment.

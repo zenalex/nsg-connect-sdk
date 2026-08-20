@@ -50,4 +50,47 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('chat 7'), findsOneWidget);
   });
+
+  test(
+    'threadRouteName — комната И корень, иначе два обсуждения слипнутся',
+    () {
+      // Тредов в комнате много. Если бы имя было только по комнате, дедуп
+      // счёл бы открытым уже открытое ЧУЖОЕ обсуждение и не пустил бы в нужное.
+      expect(threadRouteName(13, r'$root'), r'thread/13/$root');
+      expect(threadRouteName(13, r'$a'), isNot(threadRouteName(13, r'$b')));
+      expect(threadRouteName(13, r'$a'), isNot(threadRouteName(14, r'$a')));
+      // С маршрутом чата той же комнаты тоже не должно совпадать.
+      expect(threadRouteName(13, r'$a'), isNot(chatRouteName(13)));
+    },
+  );
+
+  testWidgets(
+    'openThreadRoute — повторный тап по открытому треду не плодит копию',
+    (tester) async {
+      // Инцидент 2026-08-05: тап по уведомлению теперь ведёт в тред. Если
+      // человек нажмёт ещё раз, находясь в нём же, сверху не должен лечь
+      // второй такой же экран.
+      final key = GlobalKey<NavigatorState>();
+      await tester.pumpWidget(
+        MaterialApp(navigatorKey: key, home: const Text('root')),
+      );
+      final navigator = key.currentState!;
+      navigator.push(
+        MaterialPageRoute<void>(
+          settings: RouteSettings(name: threadRouteName(13, r'$root')),
+          builder: (_) => const Text('тред 13'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await openThreadRoute(navigator, roomId: 13, threadRootEventId: r'$root');
+      await tester.pumpAndSettle();
+
+      // Экран остался один и тот же — второго не появилось.
+      expect(find.text('тред 13'), findsOneWidget);
+      navigator.pop();
+      await tester.pumpAndSettle();
+      expect(find.text('root'), findsOneWidget);
+    },
+  );
 }

@@ -151,7 +151,8 @@ class StatusCardLink {
   int get hashCode => Object.hash(url, label);
 
   @override
-  String toString() => 'StatusCardLink($url${label != null ? " '$label'" : ""})';
+  String toString() =>
+      'StatusCardLink($url${label != null ? " '$label'" : ""})';
 }
 
 /// Уровень статус-карточки — определяет акцентный цвет (рамка/заголовок).

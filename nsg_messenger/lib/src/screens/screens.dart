@@ -12,6 +12,7 @@ export 'contact_profile_screen.dart';
 export 'create_chat_screen.dart';
 export 'folder_chats_screen.dart';
 export 'group_settings_screen.dart';
+export 'my_teams_screen.dart';
 export 'notification_settings_screen.dart';
 export 'participants_screen.dart';
 export 'people_screen.dart';

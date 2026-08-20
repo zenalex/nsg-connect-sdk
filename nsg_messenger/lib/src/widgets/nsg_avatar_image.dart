@@ -38,7 +38,17 @@ class NsgAvatarImage extends StatelessWidget {
       return _GradientFallback(name: fallbackName, size: size);
     }
 
-    final client = MessengerRuntime.instance.client;
+    // **issue #145**: рантайм может быть уже снесён — так делает смена
+    // профиля (`switchAccount` → `NsgMessenger.dispose()`) под живым
+    // деревом, а аватарки в нём остаются. `MessengerRuntime.instance.client`
+    // в этом случае БРОСАЕТ, отказ ловит `inflateWidget` — и дальше всё
+    // зависит от того, что подставит `ErrorWidget.builder`. Ронять сборку
+    // кадра ради картинки не стоит вовсе: без клиента аватарка — просто
+    // градиент с буквой, он здесь уже есть.
+    final client = MessengerRuntime.instance.clientOrNull;
+    if (client == null) {
+      return _GradientFallback(name: fallbackName, size: size);
+    }
     final dpr = MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1.0;
     final pxSize = (size * dpr).round();
     final provider = MxcImageProvider(

@@ -31,16 +31,20 @@ abstract class Room implements _i1.SerializableModel {
     this.productEntityType,
     this.productEntityId,
     this.name,
+    String? contentLocale,
     this.avatarUrl,
     required this.createdAt,
     required this.updatedAt,
     this.lastMessageAt,
     this.lastMessageBody,
+    this.lastMessageThreadRootEventId,
     this.supportEscalationTier,
     this.awaitingOperatorSince,
     this.autoCleanupTtlSeconds,
+    bool? participantsHidden,
     this.directPairKey,
-  });
+  }) : contentLocale = contentLocale ?? 'ru',
+       participantsHidden = participantsHidden ?? false;
 
   factory Room({
     int? id,
@@ -53,14 +57,17 @@ abstract class Room implements _i1.SerializableModel {
     String? productEntityType,
     String? productEntityId,
     String? name,
+    String? contentLocale,
     String? avatarUrl,
     required DateTime createdAt,
     required DateTime updatedAt,
     DateTime? lastMessageAt,
     String? lastMessageBody,
+    String? lastMessageThreadRootEventId,
     int? supportEscalationTier,
     DateTime? awaitingOperatorSince,
     int? autoCleanupTtlSeconds,
+    bool? participantsHidden,
     String? directPairKey,
   }) = _RoomImpl;
 
@@ -80,6 +87,7 @@ abstract class Room implements _i1.SerializableModel {
       productEntityType: jsonSerialization['productEntityType'] as String?,
       productEntityId: jsonSerialization['productEntityId'] as String?,
       name: jsonSerialization['name'] as String?,
+      contentLocale: jsonSerialization['contentLocale'] as String?,
       avatarUrl: jsonSerialization['avatarUrl'] as String?,
       createdAt: _i1.DateTimeJsonExtension.fromJson(
         jsonSerialization['createdAt'],
@@ -93,6 +101,8 @@ abstract class Room implements _i1.SerializableModel {
               jsonSerialization['lastMessageAt'],
             ),
       lastMessageBody: jsonSerialization['lastMessageBody'] as String?,
+      lastMessageThreadRootEventId:
+          jsonSerialization['lastMessageThreadRootEventId'] as String?,
       supportEscalationTier: jsonSerialization['supportEscalationTier'] as int?,
       awaitingOperatorSince: jsonSerialization['awaitingOperatorSince'] == null
           ? null
@@ -100,6 +110,11 @@ abstract class Room implements _i1.SerializableModel {
               jsonSerialization['awaitingOperatorSince'],
             ),
       autoCleanupTtlSeconds: jsonSerialization['autoCleanupTtlSeconds'] as int?,
+      participantsHidden: jsonSerialization['participantsHidden'] == null
+          ? null
+          : _i1.BoolJsonExtension.fromJson(
+              jsonSerialization['participantsHidden'],
+            ),
       directPairKey: jsonSerialization['directPairKey'] as String?,
     );
   }
@@ -130,6 +145,15 @@ abstract class Room implements _i1.SerializableModel {
 
   String? name;
 
+  /// **issue #127**: язык, на котором сервер пишет В ЭТУ КОМНАТУ —
+  /// карточки мониторинга, «Задача создана», приветствие поддержки.
+  ///
+  /// Почему свойство КОМНАТЫ, а не получателя: сообщение в комнате одно
+  /// на всех, и «под зрителя» его не перевести. Язык задаётся при
+  /// создании по языку создателя; всем существующим комнатам миграция
+  /// ставит `ru` — они такими и были.
+  String contentLocale;
+
   /// **B16-ext (group avatar)**: mxc-URL аватара группы. Заполняется
   /// `setRoomAvatar` endpoint-ом (owner/admin only) + при `/sync`
   /// парсинге `m.room.avatar` state event. Для direct-чатов поле
@@ -147,6 +171,20 @@ abstract class Room implements _i1.SerializableModel {
   DateTime? lastMessageAt;
 
   String? lastMessageBody;
+
+  /// **issue #92**: корень треда последнего сообщения — не null, если превью
+  /// выше показывает реплику ОБСУЖДЕНИЯ задачи, а не сообщение ленты.
+  ///
+  /// Зачем. Реплики тредов двигают превью и шлют пуши как обычные сообщения,
+  /// но в ленту комнаты не попадают (разделение лент, TASK82). Без этого поля
+  /// строка списка чатов показывает текст, а тап по ней открывает ленту, где
+  /// текста нет и быть не может: человек видит сообщение, нажимает и приходит
+  /// туда, где его нет. Пометка `💬` (см. RoomLastMessageWatcher) сняла ложное
+  /// обещание, но пути не дала — путь даёт этот корень.
+  ///
+  /// Пишется ВЕЗДЕ, где пишется `lastMessageBody`, и всегда вместе с ним:
+  /// разъехавшись, они дадут либо пометку без пути, либо путь в чужой тред.
+  String? lastMessageThreadRootEventId;
 
   /// **TASK48**: текущий достигнутый тир эскалации support-комнаты.
   /// `null` = базовый уровень (фронт-линия, не эскалировано). При явной
@@ -202,6 +240,16 @@ abstract class Room implements _i1.SerializableModel {
   /// Legacy-комнаты (созданные до миграции) стартуют с `null` и
   /// добираются лениво: `_findExistingDirect` при fallback-поиске по
   /// RoomMembership проставляет ключ найденной комнате.
+  /// **issue #62**: админ группы скрыл СОСТАВ от рядовых участников.
+  /// Запрос владельца: «в групповых чатах не видно участников, возможно
+  /// нужно показывать опционально — решает админ чата». По умолчанию false
+  /// (как было: состав открыт всем), включает владелец/админ комнаты.
+  ///
+  /// Скрывается именно СПИСОК ИМЁН, а не число: «сколько нас» — не тайна,
+  /// оно видно и по ленте сообщений, а прятать его значило бы сделать
+  /// комнату непонятной без всякой выгоды.
+  bool participantsHidden;
+
   String? directPairKey;
 
   /// Returns a shallow copy of this [Room]
@@ -218,14 +266,17 @@ abstract class Room implements _i1.SerializableModel {
     String? productEntityType,
     String? productEntityId,
     String? name,
+    String? contentLocale,
     String? avatarUrl,
     DateTime? createdAt,
     DateTime? updatedAt,
     DateTime? lastMessageAt,
     String? lastMessageBody,
+    String? lastMessageThreadRootEventId,
     int? supportEscalationTier,
     DateTime? awaitingOperatorSince,
     int? autoCleanupTtlSeconds,
+    bool? participantsHidden,
     String? directPairKey,
   });
   @override
@@ -242,17 +293,21 @@ abstract class Room implements _i1.SerializableModel {
       if (productEntityType != null) 'productEntityType': productEntityType,
       if (productEntityId != null) 'productEntityId': productEntityId,
       if (name != null) 'name': name,
+      'contentLocale': contentLocale,
       if (avatarUrl != null) 'avatarUrl': avatarUrl,
       'createdAt': createdAt.toJson(),
       'updatedAt': updatedAt.toJson(),
       if (lastMessageAt != null) 'lastMessageAt': lastMessageAt?.toJson(),
       if (lastMessageBody != null) 'lastMessageBody': lastMessageBody,
+      if (lastMessageThreadRootEventId != null)
+        'lastMessageThreadRootEventId': lastMessageThreadRootEventId,
       if (supportEscalationTier != null)
         'supportEscalationTier': supportEscalationTier,
       if (awaitingOperatorSince != null)
         'awaitingOperatorSince': awaitingOperatorSince?.toJson(),
       if (autoCleanupTtlSeconds != null)
         'autoCleanupTtlSeconds': autoCleanupTtlSeconds,
+      'participantsHidden': participantsHidden,
       if (directPairKey != null) 'directPairKey': directPairKey,
     };
   }
@@ -277,14 +332,17 @@ class _RoomImpl extends Room {
     String? productEntityType,
     String? productEntityId,
     String? name,
+    String? contentLocale,
     String? avatarUrl,
     required DateTime createdAt,
     required DateTime updatedAt,
     DateTime? lastMessageAt,
     String? lastMessageBody,
+    String? lastMessageThreadRootEventId,
     int? supportEscalationTier,
     DateTime? awaitingOperatorSince,
     int? autoCleanupTtlSeconds,
+    bool? participantsHidden,
     String? directPairKey,
   }) : super._(
          id: id,
@@ -297,14 +355,17 @@ class _RoomImpl extends Room {
          productEntityType: productEntityType,
          productEntityId: productEntityId,
          name: name,
+         contentLocale: contentLocale,
          avatarUrl: avatarUrl,
          createdAt: createdAt,
          updatedAt: updatedAt,
          lastMessageAt: lastMessageAt,
          lastMessageBody: lastMessageBody,
+         lastMessageThreadRootEventId: lastMessageThreadRootEventId,
          supportEscalationTier: supportEscalationTier,
          awaitingOperatorSince: awaitingOperatorSince,
          autoCleanupTtlSeconds: autoCleanupTtlSeconds,
+         participantsHidden: participantsHidden,
          directPairKey: directPairKey,
        );
 
@@ -323,14 +384,17 @@ class _RoomImpl extends Room {
     Object? productEntityType = _Undefined,
     Object? productEntityId = _Undefined,
     Object? name = _Undefined,
+    String? contentLocale,
     Object? avatarUrl = _Undefined,
     DateTime? createdAt,
     DateTime? updatedAt,
     Object? lastMessageAt = _Undefined,
     Object? lastMessageBody = _Undefined,
+    Object? lastMessageThreadRootEventId = _Undefined,
     Object? supportEscalationTier = _Undefined,
     Object? awaitingOperatorSince = _Undefined,
     Object? autoCleanupTtlSeconds = _Undefined,
+    bool? participantsHidden,
     Object? directPairKey = _Undefined,
   }) {
     return Room(
@@ -348,6 +412,7 @@ class _RoomImpl extends Room {
           ? productEntityId
           : this.productEntityId,
       name: name is String? ? name : this.name,
+      contentLocale: contentLocale ?? this.contentLocale,
       avatarUrl: avatarUrl is String? ? avatarUrl : this.avatarUrl,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -357,6 +422,9 @@ class _RoomImpl extends Room {
       lastMessageBody: lastMessageBody is String?
           ? lastMessageBody
           : this.lastMessageBody,
+      lastMessageThreadRootEventId: lastMessageThreadRootEventId is String?
+          ? lastMessageThreadRootEventId
+          : this.lastMessageThreadRootEventId,
       supportEscalationTier: supportEscalationTier is int?
           ? supportEscalationTier
           : this.supportEscalationTier,
@@ -366,6 +434,7 @@ class _RoomImpl extends Room {
       autoCleanupTtlSeconds: autoCleanupTtlSeconds is int?
           ? autoCleanupTtlSeconds
           : this.autoCleanupTtlSeconds,
+      participantsHidden: participantsHidden ?? this.participantsHidden,
       directPairKey: directPairKey is String?
           ? directPairKey
           : this.directPairKey,

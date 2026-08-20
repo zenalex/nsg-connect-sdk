@@ -125,10 +125,11 @@ class NsgMessengerIntegrations {
         () => client.incomingWebhook.rotateToken(id: id),
         session(),
       ),
-      setEnabledRpc: ({required int id, required bool enabled}) => withAuthRetry(
-        () => client.incomingWebhook.setEnabled(id: id, enabled: enabled),
-        session(),
-      ),
+      setEnabledRpc: ({required int id, required bool enabled}) =>
+          withAuthRetry(
+            () => client.incomingWebhook.setEnabled(id: id, enabled: enabled),
+            session(),
+          ),
       deleteWebhookRpc: ({required int id}) => withAuthRetry(
         () => client.incomingWebhook.deleteWebhook(id: id),
         session(),
@@ -162,8 +163,10 @@ class NsgMessengerIntegrations {
       ),
       setBotEnabledRpc: ({required int botId, required bool enabled}) =>
           withAuthRetry(
-            () =>
-                client.botIntegration.setEnabled(botId: botId, enabled: enabled),
+            () => client.botIntegration.setEnabled(
+              botId: botId,
+              enabled: enabled,
+            ),
             session(),
           ),
       deleteBotIntegrationRpc: ({required int botId}) => withAuthRetry(
@@ -240,9 +243,8 @@ class NsgMessengerIntegrations {
 
   /// Список бот-интеграций комнаты (безопасный вид, без токенов/секретов) —
   /// секция «Боты» на экране «Интеграции».
-  Future<List<BotIntegrationView>> listBotIntegrations({
-    required int roomId,
-  }) => _listBotIntegrationsRpc(roomId: roomId);
+  Future<List<BotIntegrationView>> listBotIntegrations({required int roomId}) =>
+      _listBotIntegrationsRpc(roomId: roomId);
 
   /// Создать бот-интеграцию: заводит бота (`send_messages`) в комнате +
   /// room-scoped подписку на webhook-URL разработчика. Возвращает bot-токен

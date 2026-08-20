@@ -16,10 +16,18 @@ import 'package:serverpod_client/serverpod_client.dart' as _i1;
 /// media repo. Возвращается из `messenger.uploadAttachment` и идёт в
 /// `MessengerMessage.attachment` для render-а в SDK MessageBubble.
 ///
-/// `mxcUrl` — Matrix Content URI (`mxc://server/mediaId`). НЕ HTTP URL;
-/// SDK не качает напрямую — только через server-proxy
+/// `mxcUrl` — Matrix Content URI (`mxc://server/mediaId`). НЕ HTTP URL.
+///
+/// Для вложений БЕЗ `storageKey` (всё, что загружено до TASK92) SDK не
+/// качает напрямую — только через server-proxy
 /// `messenger.downloadAttachment` (TASK07 invariant: matrix token не
 /// покидает сервер; Matrix C-S 1.11+ Authenticated Media обязателен).
+///
+/// Для вложений СО `storageKey` (TASK92) прокси не нужен: ограничение
+/// касалось matrix-токена, а presigned-ссылка им не является. Там `mxcUrl`
+/// синтетический (`mxc://<server>/s3_<id>`), в Synapse не существует и
+/// служит только идентичностью — ключом клиентского кэша и полем `url`
+/// Matrix-события.
 ///
 /// `width`/`height` server-probed для image (через `image` package).
 /// Для HEIC/HEIF Dart нет хорошего decoder-а на TASK19 MVP — поля
@@ -39,6 +47,8 @@ abstract class AttachmentRef implements _i1.SerializableModel {
     this.height,
     this.durationMs,
     this.thumbnailMxcUrl,
+    this.storageKey,
+    this.thumbnailStorageKey,
   });
 
   factory AttachmentRef({
@@ -50,6 +60,8 @@ abstract class AttachmentRef implements _i1.SerializableModel {
     int? height,
     int? durationMs,
     String? thumbnailMxcUrl,
+    String? storageKey,
+    String? thumbnailStorageKey,
   }) = _AttachmentRefImpl;
 
   factory AttachmentRef.fromJson(Map<String, dynamic> jsonSerialization) {
@@ -62,6 +74,8 @@ abstract class AttachmentRef implements _i1.SerializableModel {
       height: jsonSerialization['height'] as int?,
       durationMs: jsonSerialization['durationMs'] as int?,
       thumbnailMxcUrl: jsonSerialization['thumbnailMxcUrl'] as String?,
+      storageKey: jsonSerialization['storageKey'] as String?,
+      thumbnailStorageKey: jsonSerialization['thumbnailStorageKey'] as String?,
     );
   }
 
@@ -89,6 +103,27 @@ abstract class AttachmentRef implements _i1.SerializableModel {
   /// serve-ит scaled через `/thumbnail` endpoint (server делает, не SDK).
   String? thumbnailMxcUrl;
 
+  /// **TASK92**: ключ объекта в S3. Не null → вложение лежит в бакете, а
+  /// не в media-store Synapse, и клиент качает его САМ по presigned-ссылке
+  /// (`getAttachmentUrl`), минуя и Serverpod, и Synapse.
+  ///
+  /// null → старый путь через `downloadAttachment` байтами. Так работают
+  /// все вложения, загруженные до TASK92; трогать их эта задача не
+  /// собирается.
+  ///
+  /// Поле едет и в Matrix-событие (`info['nsg.storage_key']`), чтобы
+  /// сообщение, вернувшееся синком, разбиралось без обращения к БД —
+  /// `parseAttachmentFromContent` остаётся чистой функцией.
+  ///
+  /// Секретом ключ не является: без подписи по нему ничего не отдаётся,
+  /// а видят его ровно участники комнаты, то есть те, кому вложение и
+  /// предназначено.
+  String? storageKey;
+
+  /// Ключ уменьшенной копии. null у того, чему превью не делали
+  /// (документы, видео, HEIC) — клиент рисует иконку по типу.
+  String? thumbnailStorageKey;
+
   /// Returns a shallow copy of this [AttachmentRef]
   /// with some or all fields replaced by the given arguments.
   @_i1.useResult
@@ -101,6 +136,8 @@ abstract class AttachmentRef implements _i1.SerializableModel {
     int? height,
     int? durationMs,
     String? thumbnailMxcUrl,
+    String? storageKey,
+    String? thumbnailStorageKey,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -114,6 +151,9 @@ abstract class AttachmentRef implements _i1.SerializableModel {
       if (height != null) 'height': height,
       if (durationMs != null) 'durationMs': durationMs,
       if (thumbnailMxcUrl != null) 'thumbnailMxcUrl': thumbnailMxcUrl,
+      if (storageKey != null) 'storageKey': storageKey,
+      if (thumbnailStorageKey != null)
+        'thumbnailStorageKey': thumbnailStorageKey,
     };
   }
 
@@ -135,6 +175,8 @@ class _AttachmentRefImpl extends AttachmentRef {
     int? height,
     int? durationMs,
     String? thumbnailMxcUrl,
+    String? storageKey,
+    String? thumbnailStorageKey,
   }) : super._(
          mxcUrl: mxcUrl,
          mimeType: mimeType,
@@ -144,6 +186,8 @@ class _AttachmentRefImpl extends AttachmentRef {
          height: height,
          durationMs: durationMs,
          thumbnailMxcUrl: thumbnailMxcUrl,
+         storageKey: storageKey,
+         thumbnailStorageKey: thumbnailStorageKey,
        );
 
   /// Returns a shallow copy of this [AttachmentRef]
@@ -159,6 +203,8 @@ class _AttachmentRefImpl extends AttachmentRef {
     Object? height = _Undefined,
     Object? durationMs = _Undefined,
     Object? thumbnailMxcUrl = _Undefined,
+    Object? storageKey = _Undefined,
+    Object? thumbnailStorageKey = _Undefined,
   }) {
     return AttachmentRef(
       mxcUrl: mxcUrl ?? this.mxcUrl,
@@ -171,6 +217,10 @@ class _AttachmentRefImpl extends AttachmentRef {
       thumbnailMxcUrl: thumbnailMxcUrl is String?
           ? thumbnailMxcUrl
           : this.thumbnailMxcUrl,
+      storageKey: storageKey is String? ? storageKey : this.storageKey,
+      thumbnailStorageKey: thumbnailStorageKey is String?
+          ? thumbnailStorageKey
+          : this.thumbnailStorageKey,
     );
   }
 }

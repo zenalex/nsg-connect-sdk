@@ -49,6 +49,7 @@ typedef ListRoomsRpc =
       required int limit,
       String? cursor,
     });
+
 /// **issue #46** — постраничный `listRooms` ВМЕСТЕ с курсором. Отличие
 /// от [ListRoomsRpc] ровно одно: ответ говорит, есть ли ещё комнаты, —
 /// без этого клиент не мог уйти дальше первой страницы.
@@ -88,6 +89,10 @@ typedef MuteRoomRpc =
       DateTime? mutedUntil,
       int? muteForSeconds,
     });
+
+/// **issue #62**: админ группы скрывает/открывает СПИСОК УЧАСТНИКОВ.
+typedef SetParticipantsHiddenRpc =
+    Future<void> Function({required int roomId, required bool hidden});
 typedef UnmuteRoomRpc = Future<void> Function({required int roomId});
 typedef ArchiveRoomRpc = Future<void> Function({required int roomId});
 typedef UnarchiveRoomRpc = Future<void> Function({required int roomId});
@@ -248,6 +253,7 @@ class NsgMessengerRooms {
   final SearchUsersRpc _searchUsersRpc;
   final InviteToRoomRpc _inviteToRoomRpc;
   final RenameRoomRpc _renameRoomRpc;
+  final SetParticipantsHiddenRpc _setParticipantsHiddenRpc;
   final DissolveRoomRpc _dissolveRoomRpc;
   final ListKnownContactsRpc _listKnownContactsRpc;
   final SetRoomAvatarRpc _setRoomAvatarRpc;
@@ -325,6 +331,15 @@ class NsgMessengerRooms {
           if (roomId != null && evtId != null) {
             await cache.applyMessageDeleted(roomId, evtId);
           }
+        case MessengerEventType.roomUnreadChanged:
+          // **issue #112**: до этого диск умел только прибавлять (+1 на
+          // чужое сообщение) и ждать полного `list()`. Прочитанный чат
+          // оставался на диске непрочитанным — и открывался тем дальше в
+          // истории, чем больше в нём читали.
+          final unread = event.unreadCount;
+          if (roomId != null && unread != null) {
+            await cache.applyRoomUnreadChanged(roomId, unread);
+          }
         case MessengerEventType.membershipLeft:
         case MessengerEventType.membershipRemoved:
           if (roomId != null &&
@@ -363,6 +378,18 @@ class NsgMessengerRooms {
   /// matrix-id вида `nsg-nsg-oe6bsvh2hwbix7vy`.
   final Map<int, List<String>> _typingNamesByRoom = <int, List<String>>{};
 
+  /// Подмножество [_typingByRoom]: кто из печатающих — не человек
+  /// (бот / интеграция / ИИ-агент). Именно подмножество, а не
+  /// параллельный список: [_typingByRoom] — `Set` без гарантий порядка,
+  /// позиционное соответствие тут развалилось бы.
+  ///
+  /// Нужно, чтобы строка списка чатов писала про бота «анализирует…»:
+  /// агент думает минутами и всё это время шлёт `m.typing`, а «печатает
+  /// 10 минут» читается как поломка. Пусто = ботов среди печатающих нет
+  /// ИЛИ сервер старый (поля не прислал) — в обоих случаях поведение
+  /// прежнее.
+  final Map<int, Set<String>> _typingBotsByRoom = <int, Set<String>>{};
+
   final ValueNotifier<int> _typingVersion = ValueNotifier(0);
 
   /// ValueListenable инкрементируется на каждом изменении
@@ -380,6 +407,13 @@ class NsgMessengerRooms {
   /// использует эти строки прямо для рендера.
   List<String> typingDisplayNamesFor(int roomId) =>
       _typingNamesByRoom[roomId] ?? const <String>[];
+
+  /// Snapshot matrix-id-ов печатающих, которые НЕ люди — подмножество
+  /// [typingMatrixUserIdsFor]. UI по нему выбирает глагол надписи
+  /// (см. `typingIndicatorLabel`). Пусто = все печатающие — люди либо
+  /// сервер старше этого поля.
+  Set<String> typingBotMatrixUserIdsFor(int roomId) =>
+      _typingBotsByRoom[roomId] ?? const <String>{};
 
   NsgMessengerRooms._({
     required ListRoomsRpc listRpc,
@@ -403,6 +437,7 @@ class NsgMessengerRooms {
     required SearchUsersRpc searchUsersRpc,
     required InviteToRoomRpc inviteToRoomRpc,
     required RenameRoomRpc renameRoomRpc,
+    required SetParticipantsHiddenRpc setParticipantsHiddenRpc,
     required DissolveRoomRpc dissolveRoomRpc,
     required ListKnownContactsRpc listKnownContactsRpc,
     required SetRoomAvatarRpc setRoomAvatarRpc,
@@ -428,6 +463,7 @@ class NsgMessengerRooms {
        _searchUsersRpc = searchUsersRpc,
        _inviteToRoomRpc = inviteToRoomRpc,
        _renameRoomRpc = renameRoomRpc,
+       _setParticipantsHiddenRpc = setParticipantsHiddenRpc,
        _dissolveRoomRpc = dissolveRoomRpc,
        _listKnownContactsRpc = listKnownContactsRpc,
        _setRoomAvatarRpc = setRoomAvatarRpc,
@@ -638,6 +674,14 @@ class NsgMessengerRooms {
                 ),
                 session(),
               ),
+      setParticipantsHiddenRpc: ({required int roomId, required bool hidden}) =>
+          withAuthRetry(
+            () => client.messenger.setParticipantsHidden(
+              roomId: roomId,
+              hidden: hidden,
+            ),
+            session(),
+          ),
       renameRoomRpc: ({required int roomId, required String newName}) =>
           withAuthRetry(
             () => client.messenger.renameRoom(roomId: roomId, newName: newName),
@@ -767,6 +811,7 @@ class NsgMessengerRooms {
     SearchUsersRpc? searchUsersRpc,
     InviteToRoomRpc? inviteToRoomRpc,
     RenameRoomRpc? renameRoomRpc,
+    SetParticipantsHiddenRpc? setParticipantsHiddenRpc,
     DissolveRoomRpc? dissolveRoomRpc,
     ListKnownContactsRpc? listKnownContactsRpc,
     SetRoomAvatarRpc? setRoomAvatarRpc,
@@ -794,6 +839,11 @@ class NsgMessengerRooms {
             );
     renameRoomRpc ??= ({required int roomId, required String newName}) async =>
         throw UnimplementedError('renameRoomRpc not set in attachWithRpcs');
+    setParticipantsHiddenRpc ??=
+        ({required int roomId, required bool hidden}) async =>
+            throw UnimplementedError(
+              'setParticipantsHiddenRpc not set in attachWithRpcs',
+            );
     dissolveRoomRpc ??= ({required int roomId}) async =>
         throw UnimplementedError('dissolveRoomRpc not set in attachWithRpcs');
     listKnownContactsRpc ??= () async => const <RoomParticipant>[];
@@ -827,6 +877,7 @@ class NsgMessengerRooms {
       searchUsersRpc: searchUsersRpc,
       inviteToRoomRpc: inviteToRoomRpc,
       renameRoomRpc: renameRoomRpc,
+      setParticipantsHiddenRpc: setParticipantsHiddenRpc,
       dissolveRoomRpc: dissolveRoomRpc,
       listKnownContactsRpc: listKnownContactsRpc,
       setRoomAvatarRpc: setRoomAvatarRpc,
@@ -1483,6 +1534,14 @@ class NsgMessengerRooms {
   /// который inval-идирует list/details кэши автоматически. Здесь
   /// дополнительно invalidate-им сразу, чтобы next `list()`/`get()`
   /// после await-а вернули свежие данные без задержки sync.
+  /// **issue #62**: скрыть/открыть список участников группы. Право — у
+  /// владельца и админа комнаты; сервер проверяет сам, клиентский гейт
+  /// только прячет переключатель.
+  Future<void> setParticipantsHidden({
+    required int roomId,
+    required bool hidden,
+  }) => _setParticipantsHiddenRpc(roomId: roomId, hidden: hidden);
+
   Future<void> renameRoom({
     required int roomId,
     required String newName,
@@ -1667,6 +1726,7 @@ class NsgMessengerRooms {
     _detailsCache.clear();
     _typingByRoom.clear();
     _typingNamesByRoom.clear();
+    _typingBotsByRoom.clear();
     _typingVersion.dispose();
   }
 
@@ -1851,13 +1911,20 @@ class NsgMessengerRooms {
         if (roomId != null) {
           final ids = event.typingMatrixUserIds;
           final names = event.typingDisplayNames;
+          final bots = event.typingBotMatrixUserIds;
           if (ids == null || ids.isEmpty) {
             _typingByRoom.remove(roomId);
             _typingNamesByRoom.remove(roomId);
+            _typingBotsByRoom.remove(roomId);
           } else {
             _typingByRoom[roomId] = Set<String>.unmodifiable(ids);
             _typingNamesByRoom[roomId] = List<String>.unmodifiable(
               names ?? const <String>[],
+            );
+            // null (старый сервер) трактуем как «ботов нет» — надпись
+            // остаётся прежней, ничего не ломается.
+            _typingBotsByRoom[roomId] = Set<String>.unmodifiable(
+              bots ?? const <String>[],
             );
           }
           _typingVersion.value = _typingVersion.value + 1;
@@ -1932,6 +1999,12 @@ class NsgMessengerRooms {
         // **Realtime-синк**: alias мог смениться — имена direct-комнат
         // в списке устарели; кэш меток сбрасывает runtime-листенер.
         invalidate();
+        return;
+      case MessengerEventType.heartbeat:
+        // **Issue #84**: удар сердца сюда не долетает — шина гасит его у
+        // себя, отметив живость транспорта. Ветка нужна только чтобы
+        // switch остался исчерпывающим: содержимого у события нет и кэш
+        // комнат оно не касается по определению.
         return;
     }
   }

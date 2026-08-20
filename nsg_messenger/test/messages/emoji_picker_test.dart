@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nsg_messenger/nsg_messenger.dart';
-import 'package:nsg_messenger/src/messages/emoji_reaction_picker.dart';
+import 'package:nsg_messenger/src/messages/emoji_picker.dart';
 
 /// F2 ч.1: полный emoji-picker для реакций.
 void main() {

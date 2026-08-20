@@ -50,7 +50,68 @@ void main() {
     rotateTokenRpc: ({required int id}) => throw UnimplementedError(),
     setPausedRpc: ({required int id, required bool paused}) =>
         throw UnimplementedError(),
-    deleteMonitorRpc: ({required int id}) => throw UnimplementedError(),
+    moveMonitorRpc: ({required int id, int? folderId}) =>
+      throw UnimplementedError(),
+  deleteMonitorRpc: ({required int id}) => throw UnimplementedError(),
+    // TASK94: экран участников проб не касается — заглушки должны
+    // ПАДАТЬ, а не возвращать пустоту: молчаливый ответ спрятал бы
+    // случайный вызов вместо того, чтобы показать его.
+    createTlsProbeRpc:
+        ({
+          required String name,
+          required String connectHost,
+          required int port,
+          required String serverName,
+          int? folderId,
+          required int periodSeconds,
+          required int graceSeconds,
+          required int timeoutSeconds,
+          required String validationMode,
+          String? expectedThumbprint,
+          String? certificateSetKey,
+          required int warnBeforeDays,
+          required int errorBeforeDays,
+        }) => throw UnimplementedError(),
+    listProbeAllowlistRpc: () async =>
+        const <PulseProbeAllowlistEntry>[],
+    addProbeAllowlistRpc:
+        ({
+          required String address,
+          int? prefixLength,
+          required int port,
+          String? note,
+        }) => throw UnimplementedError(),
+    removeProbeAllowlistRpc: ({required int id}) =>
+        throw UnimplementedError(),
+    listTlsProbesRpc: () async => const <PulseTlsProbe>[],
+  getTlsProbeRpc: ({required int monitorId}) => throw UnimplementedError(),
+    runProbeNowRpc: ({required int monitorId}) => throw UnimplementedError(),
+    listValueThresholdsRpc: ({required int monitorId}) async =>
+        const <PulseValueThreshold>[],
+    setValueThresholdRpc:
+        ({
+          required int monitorId,
+          required String name,
+          double? warnBelow,
+          double? errorBelow,
+          double? warnAbove,
+          double? errorAbove,
+        }) => throw UnimplementedError(),
+    removeValueThresholdRpc:
+        ({required int monitorId, required String name}) =>
+            throw UnimplementedError(),
+    updateProbeTargetRpc:
+        ({
+          required int monitorId,
+          String? connectHost,
+          int? port,
+          String? serverName,
+        }) => throw UnimplementedError(),
+    getExpiryReminderRpc: ({required int monitorId}) =>
+        throw UnimplementedError(),
+    setExpiryThresholdsRpc:
+        ({required int monitorId, required String thresholdDays}) =>
+            throw UnimplementedError(),
     listRulesRpc: () async => const [],
     createRuleRpc:
         ({

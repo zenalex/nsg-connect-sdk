@@ -39,6 +39,7 @@ typedef CreateBotRpc =
       // **TASK77 итер.2**: режим чтения (`read_addressed` / `read_all`).
       required String readMode,
     });
+
 /// **TASK77 итер.3**: ответ несёт и число webhook-подписок БЕЗ `botId`,
 /// покрывающих комнаты бота — каналы, где privacy mode не сработает.
 typedef SetBotReadModeRpc =
@@ -52,14 +53,23 @@ typedef SetBotAdminEnabledRpc =
 typedef AddBotToRoomRpc =
     Future<void> Function({required int botId, required int roomId});
 typedef ListBotAuditEventsRpc =
-    Future<List<BotAuditEvent>> Function({required int botId, required int limit});
+    Future<List<BotAuditEvent>> Function({
+      required int botId,
+      required int limit,
+    });
 
 /// **issue #50**: все активные комнаты tenant-а (для пикера «добавить
 /// бота в комнату»); обычный rooms.list() отдаёт лишь комнаты самого
 /// админа.
-typedef ListAdminRoomsRpc = Future<List<RoomSummary>> Function({
-  required int limit,
-});
+typedef ListAdminRoomsRpc =
+    Future<List<RoomSummary>> Function({required int limit});
+
+/// Видимость бота в поиске и каталоге — админский путь к тому же флагу,
+/// что «Мои боты». Без него бот, заведённый админом на чужой ownerEmail,
+/// нельзя было сделать видимым вообще: владелец гейта не проходил, а сам
+/// админ такого метода не имел.
+typedef SetBotDiscoverableRpc =
+    Future<Bot> Function({required int botId, required bool discoverable});
 
 /// **issue #50 follow-up**: id комнат, где бот уже состоит, — пикер
 /// помечает их «уже добавлен».
@@ -77,6 +87,7 @@ class NsgMessengerBotsAdmin {
     required ListBotAuditEventsRpc listAuditEventsRpc,
     ListAdminRoomsRpc? listAllRoomsRpc,
     ListBotRoomIdsRpc? listBotRoomIdsRpc,
+    SetBotDiscoverableRpc? setBotDiscoverableRpc,
   }) : _isBotAdminRpc = isBotAdminRpc,
        _listBotsRpc = listBotsRpc,
        _createBotRpc = createBotRpc,
@@ -86,7 +97,8 @@ class NsgMessengerBotsAdmin {
        _addBotToRoomRpc = addBotToRoomRpc,
        _listAuditEventsRpc = listAuditEventsRpc,
        _listAllRoomsRpc = listAllRoomsRpc,
-       _listBotRoomIdsRpc = listBotRoomIdsRpc;
+       _listBotRoomIdsRpc = listBotRoomIdsRpc,
+       _setBotDiscoverableRpc = setBotDiscoverableRpc;
 
   final IsBotAdminRpc _isBotAdminRpc;
   final ListBotsRpc _listBotsRpc;
@@ -96,6 +108,10 @@ class NsgMessengerBotsAdmin {
   final SetBotReadModeRpc _setBotReadModeRpc;
   final AddBotToRoomRpc _addBotToRoomRpc;
   final ListBotAuditEventsRpc _listAuditEventsRpc;
+
+  /// Nullable по той же причине, что `_listAllRoomsRpc`: не ломать
+  /// существующие call-site-ы [withRpcs] новым required-полем.
+  final SetBotDiscoverableRpc? _setBotDiscoverableRpc;
 
   /// Nullable по той же причине, что поздние RPC в NsgMessengerRooms:
   /// не ломать существующие call-site-ы [withRpcs] новым required-полем.
@@ -228,6 +244,14 @@ class NsgMessengerBotsAdmin {
             () => client.botAdmin.setBotEnabled(botId: botId, enabled: enabled),
             session(),
           ),
+      setBotDiscoverableRpc:
+          ({required int botId, required bool discoverable}) => withAuthRetry(
+            () => client.botAdmin.setBotDiscoverable(
+              botId: botId,
+              discoverable: discoverable,
+            ),
+            session(),
+          ),
       setBotReadModeRpc: ({required int botId, required String readMode}) =>
           withAuthRetry(
             () => client.botAdmin.setBotReadMode(
@@ -269,6 +293,7 @@ class NsgMessengerBotsAdmin {
     required ListBotAuditEventsRpc listAuditEventsRpc,
     ListAdminRoomsRpc? listAllRoomsRpc,
     ListBotRoomIdsRpc? listBotRoomIdsRpc,
+    SetBotDiscoverableRpc? setBotDiscoverableRpc,
   }) => NsgMessengerBotsAdmin._(
     isBotAdminRpc: isBotAdminRpc,
     listBotsRpc: listBotsRpc,
@@ -280,6 +305,7 @@ class NsgMessengerBotsAdmin {
     listAuditEventsRpc: listAuditEventsRpc,
     listAllRoomsRpc: listAllRoomsRpc,
     listBotRoomIdsRpc: listBotRoomIdsRpc,
+    setBotDiscoverableRpc: setBotDiscoverableRpc,
   );
 
   // ───────────────────────────────────────────────────────────────────
@@ -351,6 +377,23 @@ class NsgMessengerBotsAdmin {
   /// Kill-switch: `enabled=false` → любое gated-действие бота отклоняется.
   Future<Bot> setEnabled({required int botId, required bool enabled}) =>
       _setBotEnabledRpc(botId: botId, enabled: enabled);
+
+  /// Показывать ли бота в поиске и каталоге. Дефолт у нового бота —
+  /// `false` (issue #49): публичность включают осознанно.
+  ///
+  /// [UnsupportedError] — сервер старее этого метода (или fake в тесте его
+  /// не подставил). Молча «успешно ничего не сделать» тут нельзя: админ
+  /// решит, что бот стал видимым, и будет искать его в каталоге.
+  Future<Bot> setDiscoverable({
+    required int botId,
+    required bool discoverable,
+  }) {
+    final rpc = _setBotDiscoverableRpc;
+    if (rpc == null) {
+      throw UnsupportedError('botAdmin.setBotDiscoverable недоступен');
+    }
+    return rpc(botId: botId, discoverable: discoverable);
+  }
 
   /// Добавить бота в комнату (идемпотентно).
   Future<void> addToRoom({required int botId, required int roomId}) =>

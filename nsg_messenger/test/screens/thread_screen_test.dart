@@ -250,6 +250,76 @@ void main() {
     expect(find.byKey(const Key('threadLink')), findsNothing);
   });
 
+  // ── issue #99: шапка треда должна называть задачу ────────────────────
+  //
+  // Жалоба владельца: «в комнате-треде обсуждения задачи сверху заголовок
+  // „Обсуждение задачи“. Давай туда Задача номер и краткое описание —
+  // название как в списке задач». Раньше вход по значку задачи не передавал
+  // ничего, и обсуждение открывалось безымянным.
+
+  Future<void> pumpHeader(
+    WidgetTester tester, {
+    String? title,
+    String? taskKey,
+    String? statusLabel,
+  }) async {
+    final rpc = _FakeRpc()..threadPage = [_msg(eventId: _root, body: 'Задача')];
+    await tester.pumpWidget(
+      wrap(
+        ThreadScreen(
+          roomId: _room,
+          threadRootEventId: _root,
+          title: title,
+          taskKey: taskKey,
+          statusLabel: statusLabel,
+          controllerOverride: make(rpc, threadRootEventId: _root),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+  }
+
+  testWidgets('шапка: название сверху, номер и статус — подзаголовком', (
+    tester,
+  ) async {
+    // Порядок как в списке задач: название главное, номер под ним.
+    await pumpHeader(
+      tester,
+      title: 'Не грузятся фото',
+      taskKey: '#99',
+      statusLabel: 'В работе',
+    );
+    expect(find.text('Не грузятся фото'), findsOneWidget);
+    expect(find.text('#99 · В работе'), findsOneWidget);
+  });
+
+  testWidgets('шапка: без статуса остаётся один номер', (tester) async {
+    await pumpHeader(tester, title: 'Не грузятся фото', taskKey: '#99');
+    expect(find.text('#99'), findsOneWidget);
+  });
+
+  testWidgets('шапка: нет названия — номер идёт в заголовок, а не теряется', (
+    tester,
+  ) async {
+    // У задач до TASK90 заголовок уходил в лог, а не в связь. Номер в шапке
+    // лучше безымянного «Обсуждение задачи»: задачу можно назвать вслух и
+    // найти в списке.
+    await pumpHeader(tester, taskKey: '#99', statusLabel: 'В работе');
+    expect(find.text('#99'), findsOneWidget);
+    expect(find.text('Обсуждение задачи'), findsNothing);
+    // И номер не должен продублироваться в подзаголовке.
+    expect(find.text('#99 · В работе'), findsNothing);
+    expect(find.text('В работе'), findsOneWidget);
+  });
+
+  testWidgets('шапка: совсем ничего не известно — общий заголовок', (
+    tester,
+  ) async {
+    await pumpHeader(tester);
+    expect(find.text('Обсуждение задачи'), findsOneWidget);
+  });
+
   testWidgets('ThreadScreen: отправка из композера уходит с threadId', (
     tester,
   ) async {

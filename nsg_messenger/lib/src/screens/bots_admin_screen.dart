@@ -6,6 +6,7 @@ import '../i18n/generated/nsg_l10n.dart';
 import '../messenger_runtime.dart';
 import '../rooms/room_picker_sheet.dart';
 import 'bot_common_widgets.dart';
+import '../widgets/nsg_modal_sheet.dart';
 
 /// **TASK36 (admin panel для ботов)**: экран управления ботами tenant-а.
 /// Закрывает DoD «создать бота через admin panel и получить access token» —
@@ -120,6 +121,29 @@ class _BotsAdminScreenState extends State<BotsAdminScreen> {
     await _refresh();
   }
 
+  /// Показывать ли бота в поиске и каталоге.
+  ///
+  /// У нового бота видимость выключена (issue #49) — публичность включают
+  /// осознанно. Но включить её мог только владелец по `ownerEmail`, а бота
+  /// заводит админ и нередко на чужой адрес: владелец мог и не знать, что
+  /// на него что-то записано. Единственным выходом оставался SQL по живой
+  /// базе — то есть ровно то, ради чего админка и делалась.
+  Future<void> _toggleDiscoverable(Bot bot) async {
+    final l = NsgL10n.of(context);
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    try {
+      await _admin.setDiscoverable(
+        botId: bot.id!,
+        discoverable: !bot.discoverable,
+      );
+    } catch (_) {
+      messenger?.showSnackBar(SnackBar(content: Text(l.botsAdminActionFailed)));
+      return;
+    }
+    if (!mounted) return;
+    await _refresh();
+  }
+
   Future<void> _toggleEnabled(Bot bot) async {
     final l = NsgL10n.of(context);
     final messenger = ScaffoldMessenger.maybeOf(context);
@@ -199,9 +223,9 @@ class _BotsAdminScreenState extends State<BotsAdminScreen> {
   }
 
   Future<void> _showAudit(Bot bot) {
-    return showModalBottomSheet<void>(
+    // Issue #105: журнал аудита длинный по своей природе.
+    return showNsgModalSheet<void>(
       context: context,
-      isScrollControlled: true,
       builder: (ctx) => BotAuditSheet(
         botName: bot.name,
         loader: () => _admin.listAuditEvents(botId: bot.id!),
@@ -278,6 +302,7 @@ class _BotsAdminScreenState extends State<BotsAdminScreen> {
                 bot: bots[i],
                 onRotate: () => _rotate(bots[i]),
                 onToggleEnabled: () => _toggleEnabled(bots[i]),
+                onToggleDiscoverable: () => _toggleDiscoverable(bots[i]),
                 onToggleReadMode: () => _toggleReadMode(bots[i]),
                 onAddToRoom: () => _addToRoom(bots[i]),
                 onShowAudit: () => _showAudit(bots[i]),
@@ -298,6 +323,7 @@ class _BotAdminTile extends StatelessWidget {
     required this.bot,
     required this.onRotate,
     required this.onToggleEnabled,
+    required this.onToggleDiscoverable,
     required this.onToggleReadMode,
     required this.onAddToRoom,
     required this.onShowAudit,
@@ -306,6 +332,7 @@ class _BotAdminTile extends StatelessWidget {
   final Bot bot;
   final VoidCallback onRotate;
   final VoidCallback onToggleEnabled;
+  final VoidCallback onToggleDiscoverable;
   final VoidCallback onToggleReadMode;
   final VoidCallback onAddToRoom;
   final VoidCallback onShowAudit;
@@ -397,6 +424,8 @@ class _BotAdminTile extends StatelessWidget {
               onAddToRoom();
             case _BotAdminAction.toggleEnabled:
               onToggleEnabled();
+            case _BotAdminAction.toggleDiscoverable:
+              onToggleDiscoverable();
             case _BotAdminAction.toggleReadMode:
               onToggleReadMode();
             case _BotAdminAction.audit:
@@ -419,6 +448,15 @@ class _BotAdminTile extends StatelessWidget {
                   ? Icons.pause_circle_outline
                   : Icons.play_circle_outline,
               bot.enabled ? l.botsAdminDisable : l.botsAdminEnable,
+            ),
+          ),
+          PopupMenuItem(
+            value: _BotAdminAction.toggleDiscoverable,
+            child: _menuRow(
+              bot.discoverable
+                  ? Icons.visibility_off_outlined
+                  : Icons.travel_explore,
+              bot.discoverable ? l.myBotsMakeHidden : l.myBotsMakeDiscoverable,
             ),
           ),
           PopupMenuItem(
@@ -470,6 +508,10 @@ enum _BotAdminAction {
   rotate,
   addToRoom,
   toggleEnabled,
+  // Видимость в поиске/каталоге (issue #49) — админский путь к тому же
+  // флагу, что «Мои боты». Без него бота на чужом ownerEmail нельзя было
+  // сделать видимым вообще.
+  toggleDiscoverable,
   // TASK77 итер.2: read_all ⇄ read_addressed.
   toggleReadMode,
   audit,

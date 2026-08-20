@@ -76,8 +76,9 @@ Future<void> main() async {
     // internal errors here. Without it errors go to debugPrint.
     errorReporter: null,
 
-    // Optional — Firebase push provider. Without it push registration
-    // is skipped (still works in foreground via WebSocket stream).
+    // Firebase push provider. Without it push registration is skipped
+    // silently — the app works, but only while it is open. See
+    // "Push notifications" below before leaving this null.
     pushTokenProvider: null,
 
     // Optional — externalKey of the product this app embeds (for
@@ -264,6 +265,7 @@ Most-used public surface (see `nsg_messenger.dart` for the full export list — 
 - `NsgMessenger.sessionStateStream()` — session lifecycle for connection banners.
 - `NsgMessenger.connectionStateStream` / `connectionState` / `forceReconnect()` — transport state.
 - `NsgMessenger.updateTheme(theme)` — swap the SDK theme at runtime, without `dispose()` + `init()`.
+- `showPendingAnnouncements(context, productExternalKey: ..., onOpenRoute: ...)` — in-app announcements shown on entry (planned maintenance, release notes, a nudge to open a screen). The server decides **what** to show — expiry, per-user "already seen", product targeting; do not re-implement those rules on your side. `onOpenRoute` receives a product-defined route and an opaque payload; omit it and route-kind announcements render as plain text instead of showing a button that goes nowhere. Errors are swallowed: failing to show an announcement is bad, breaking app start is worse. See [tasks/TASK91.md](../tasks/TASK91.md).
 - `NsgMessenger.routeObserver` — add to `MaterialApp.navigatorObservers` (required, see the embed snippet above); for a nested `Navigator` that pushes screens over an embedded chat use `NsgMessenger.createNestedRouteObserver()` / `releaseNestedRouteObserver()`.
 
 > `NsgMessenger.openProductRoom(...)` is **not implemented** — it throws
@@ -383,9 +385,35 @@ Prerequisites, both easy to miss:
 - Server side (issued-token flow) must be wired first — see
   [CONNECT_PRODUCT_QUICKSTART.md](../CONNECT_PRODUCT_QUICKSTART.md).
 
-## Push notifications (optional)
+## Push notifications
 
-If you want FCM/APNs push, add `nsg_messenger_push` (see pubspec snippet above) and pass a `FirebasePushTokenProvider` at init time:
+**Optional to build, not optional to skip.** Without push your users only see
+messages while the app is open — the SDK keeps a WebSocket while in
+foreground and nothing wakes the device otherwise. On 11.08.2026 we found
+that *every* integrated product except Chatista had **zero registered
+devices**: our side was complete, the host apps simply never passed a
+provider, and nobody noticed because missing notifications look like silence
+(issue #120).
+
+It takes two sides. Neither works alone:
+
+| your side | our side |
+|---|---|
+| add `nsg_messenger_push`, wire Firebase into the app, pass `pushTokenProvider` at init | mount your Firebase service-account JSON and set `PUSH_FCM_<PRODUCT>` |
+| pass `productExternalKey` so devices are scoped to your product | route wake-ups only to devices of that product |
+| upload your APNs key to **your** Firebase console (iOS) | — we never see the `.p8` |
+| RuStore build: send the RuStore project credentials | set `PUSH_RUSTORE_<PRODUCT>` |
+
+**How to verify it landed.** Ask us to check the delivery-health screen: it
+shows, per product, how many devices are registered, when a registration was
+last refreshed and whether the sending keys are configured. Verdicts are
+worded, not coloured — `no devices` is your side, `no keys` is ours.
+
+Also worth knowing: a device registration is refreshed on every app start and
+on token rotation, so a stale timestamp means nobody has opened the app —
+not that push is broken.
+
+To wire it up, add `nsg_messenger_push` (see pubspec snippet above) and pass a `FirebasePushTokenProvider` at init time:
 
 ```dart
 import 'package:nsg_messenger/nsg_messenger.dart';

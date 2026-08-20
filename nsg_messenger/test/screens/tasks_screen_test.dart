@@ -154,24 +154,37 @@ void main() {
     expect(find.text('Вы ещё не заводили задач.'), findsOneWidget);
   });
 
-  // ── TASK88: room-scoped режим (задачи одной комнаты) ───────────────────
+  // ── TASK90: room-scoped режим — задачи комнаты, а не её обращение ──────
 
-  testWidgets('TASK88: roomId → один список без вкладок, заголовок '
-      '«Задачи: <комната>», RPC зовётся с roomId', (tester) async {
-    final rpc = _FakeRpc({
-      'all': [task(1, stage: 'in_progress', title: 'Заявка A')],
-    });
+  /// Комнатный список раньше брали из обращений, а у support-комнаты
+  /// обращение одно (`UNIQUE roomId` в tickets): бейдж показывал 10, экран —
+  /// одну строку. Жалоба владельца дословно: «горит цифра 10, нажимаю — вижу
+  /// только последнюю созданную задачу».
+  RoomTaskView roomTask(int id, {String? title, String? stage}) => RoomTaskView(
+    id: id,
+    roomId: 555,
+    externalTaskUrl: 'https://github.com/zenalex/nsg-connect/issues/$id',
+    externalTaskKey: '#$id',
+    title: title,
+    stage: stage,
+    anchorEventId: '\$anchor-$id',
+    createdAt: DateTime.utc(2026, 8, id),
+  );
+
+  testWidgets('TASK90: сколько задач у комнаты — столько строк', (
+    tester,
+  ) async {
+    final rpc = _FakeRpc(
+      const {},
+      roomTasks: [
+        roomTask(1, title: 'Окно из трея'),
+        roomTask(2, title: 'Вставка скриншота'),
+        roomTask(3, title: 'Две иконки в трее'),
+      ],
+    );
     await tester.pumpWidget(
-      MaterialApp(
-        locale: const Locale('ru'),
-        localizationsDelegates: const [
-          NsgL10n.delegate,
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        supportedLocales: NsgL10n.supportedLocales,
-        home: TasksScreen(
+      _app(
+        TasksScreen(
           roomId: 555,
           roomTitle: 'Поддержка',
           rpcOverride: rpc,
@@ -181,53 +194,104 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Заголовок «Задачи: <комната>».
-    expect(find.text('Задачи: Поддержка'), findsOneWidget);
-    // Один список без вкладок «Все»/«Я инициатор».
-    expect(find.text('Я инициатор'), findsNothing);
-    // RPC вызван строго с этим roomId (membership-скоуп на сервере).
-    expect(rpc.roomIdCalls, [555]);
-    expect(find.text('Заявка A'), findsOneWidget);
+    expect(find.byType(ListTile), findsNWidgets(3));
+    expect(find.text('Окно из трея'), findsOneWidget);
+    expect(find.text('Две иконки в трее'), findsOneWidget);
+    // Комнатный режим НЕ должен ходить в «Мои обращения» — там другая
+    // сущность, и именно её подмена породила баг.
+    expect(rpc.calls, isEmpty);
+    expect(rpc.roomTaskCalls, [555]);
   });
 
-  testWidgets('TASK88: roomId без имени комнаты → общий заголовок «Задачи»', (
+  testWidgets('TASK90: задача без заголовка показывается ключом', (
     tester,
   ) async {
-    final rpc = _FakeRpc({'all': const []});
+    // У задач, заведённых до TASK90, заголовка нет. Спрятать их нельзя:
+    // бейдж их считает, и числа обязаны сойтись.
+    final rpc = _FakeRpc(const {}, roomTasks: [roomTask(89)]);
     await tester.pumpWidget(
-      MaterialApp(
-        locale: const Locale('ru'),
-        localizationsDelegates: const [
-          NsgL10n.delegate,
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        supportedLocales: NsgL10n.supportedLocales,
-        home: TasksScreen(roomId: 7, rpcOverride: rpc, onOpenRoom: (_, _) {}),
-      ),
+      _app(TasksScreen(roomId: 555, rpcOverride: rpc, onOpenRoom: (_, _) {})),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('#89'), findsOneWidget);
+  });
+
+  testWidgets(
+    'TASK88 сохранён: один список без вкладок, заголовок с комнатой',
+    (tester) async {
+      final rpc = _FakeRpc(const {}, roomTasks: [roomTask(1, title: 'A')]);
+      await tester.pumpWidget(
+        _app(
+          TasksScreen(
+            roomId: 555,
+            roomTitle: 'Поддержка',
+            rpcOverride: rpc,
+            onOpenRoom: (_, _) {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Задачи: Поддержка'), findsOneWidget);
+      expect(find.text('Я инициатор'), findsNothing);
+    },
+  );
+
+  testWidgets('TASK88 сохранён: без имени комнаты — общий заголовок', (
+    tester,
+  ) async {
+    final rpc = _FakeRpc(const {});
+    await tester.pumpWidget(
+      _app(TasksScreen(roomId: 7, rpcOverride: rpc, onOpenRoom: (_, _) {})),
     );
     await tester.pumpAndSettle();
 
     expect(find.text('Задачи'), findsOneWidget);
-    expect(rpc.roomIdCalls, [7]);
+    expect(rpc.roomTaskCalls, [7]);
   });
 }
+
+/// Обёртка с локализацией — одна на все room-scoped тесты.
+Widget _app(Widget home) => MaterialApp(
+  locale: const Locale('ru'),
+  localizationsDelegates: const [
+    NsgL10n.delegate,
+    GlobalMaterialLocalizations.delegate,
+    GlobalWidgetsLocalizations.delegate,
+    GlobalCupertinoLocalizations.delegate,
+  ],
+  supportedLocales: NsgL10n.supportedLocales,
+  home: home,
+);
 
 /// Fake RPC: отдаёт заранее заданный список под каждый фильтр и ЗАПОМИНАЕТ, с
 /// какими фильтрами его звали (проверка «вкладка → нужный filter»). **TASK88**:
 /// также запоминает `roomId` каждого вызова (room-scoped-режим).
 class _FakeRpc implements MyTasksRpc {
-  _FakeRpc(this._byFilter);
+  _FakeRpc(this._byFilter, {List<RoomTaskView>? roomTasks})
+    : _roomTasks = roomTasks ?? const [];
 
   final Map<String, List<TicketView>> _byFilter;
+  final List<RoomTaskView> _roomTasks;
   final List<String> calls = [];
   final List<int?> roomIdCalls = [];
+
+  /// **TASK90**: с какими комнатами звали комнатный вход. Отдельный список от
+  /// [calls] — тест обязан видеть, что комнатный режим НЕ ходит в «Мои
+  /// обращения»: подмена одного другим и была причиной бага.
+  final List<int> roomTaskCalls = [];
 
   @override
   Future<List<TicketView>> listMyTasks(String filter, {int? roomId}) async {
     calls.add(filter);
     roomIdCalls.add(roomId);
     return _byFilter[filter] ?? const [];
+  }
+
+  @override
+  Future<List<RoomTaskView>> listRoomTasks(int roomId) async {
+    roomTaskCalls.add(roomId);
+    return _roomTasks;
   }
 }

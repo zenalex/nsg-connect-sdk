@@ -3,6 +3,7 @@ import 'package:nsg_connect_client/nsg_connect_client.dart';
 
 import '../messenger_runtime.dart';
 import 'room_summary_tile.dart';
+import '../widgets/nsg_modal_sheet.dart';
 
 /// **Переиспользуемое ядро «выбор чата»** (bottom-sheet со списком комнат +
 /// поиском). Общая база для внутренней пересылки (`showForwardPicker`,
@@ -50,9 +51,9 @@ Future<RoomSummary?> showRoomPicker({
 }) {
   final loader =
       roomsLoader ?? () => MessengerRuntime.instance.rooms.list(limit: 100);
-  return showModalBottomSheet<RoomSummary>(
+  // Issue #105: список чатов — самый длинный из всех.
+  return showNsgModalSheet<RoomSummary>(
     context: context,
-    isScrollControlled: true,
     showDragHandle: true,
     builder: (sheetCtx) => _RoomPickerBody(
       loader: loader,
@@ -83,9 +84,9 @@ Future<List<RoomSummary>?> showMultiRoomPicker({
 }) {
   final loader =
       roomsLoader ?? () => MessengerRuntime.instance.rooms.list(limit: 100);
-  return showModalBottomSheet<List<RoomSummary>>(
+  // Issue #105: то же для множественного выбора.
+  return showNsgModalSheet<List<RoomSummary>>(
     context: context,
-    isScrollControlled: true,
     showDragHandle: true,
     builder: (sheetCtx) => _RoomPickerBody(
       loader: loader,
@@ -239,9 +240,7 @@ class _RoomPickerBodyState extends State<_RoomPickerBody> {
                     itemCount: rooms.length,
                     itemBuilder: (_, i) {
                       final room = rooms[i];
-                      final disabled = widget.disabledRoomIds.contains(
-                        room.id,
-                      );
+                      final disabled = widget.disabledRoomIds.contains(room.id);
                       if (disabled) {
                         // Приглушённая нетапаемая строка + бейдж-причина.
                         return Opacity(

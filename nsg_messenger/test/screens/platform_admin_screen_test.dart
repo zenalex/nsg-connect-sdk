@@ -49,7 +49,8 @@ void main() {
     Future<String> Function(String key, int? graceSeconds)? onRotate,
     Future<void> Function(String key)? onDisable,
     Future<List<ConnectKeyAuditEvent>> Function(String key)? onAudit,
-    Future<ConnectTenantStatus> Function(String key, String name)? onCreateTenant,
+    Future<ConnectTenantStatus> Function(String key, String name)?
+    onCreateTenant,
     Future<void> Function(String tenantKey, String key, String name)?
     onCreateProduct,
   }) => NsgMessengerPlatformAdmin.withRpcs(
@@ -63,8 +64,13 @@ void main() {
           required String externalKey,
           required String displayName,
         }) =>
-            onCreateProduct?.call(tenantExternalKey, externalKey, displayName) ??
+            onCreateProduct?.call(
+              tenantExternalKey,
+              externalKey,
+              displayName,
+            ) ??
             Future.value(),
+    listDeliveryHealthRpc: () async => const <ProductDeliveryHealth>[],
     listTenantsRpc: () =>
         onList?.call() ?? Future.value(const <ConnectTenantStatus>[]),
     enableAndGenerateRpc: ({required String tenantExternalKey}) =>
@@ -104,7 +110,12 @@ void main() {
                 name: 'Титан 112',
                 graceUntil: DateTime.utc(2027, 1, 1, 12),
               ),
-              tenant(key: 'off-t', name: 'Off', enabled: false, hasSecret: false),
+              tenant(
+                key: 'off-t',
+                name: 'Off',
+                enabled: false,
+                hasSecret: false,
+              ),
             ],
           ),
         ),
@@ -197,7 +208,9 @@ void main() {
   ) async {
     await tester.pumpWidget(
       wrapL10n(
-        PlatformAdminScreen(adminOverride: makeAdmin(onList: () async => [tenant()])),
+        PlatformAdminScreen(
+          adminOverride: makeAdmin(onList: () async => [tenant()]),
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -305,6 +318,7 @@ void _provisionTests() {
     final calls = <List<String>>[];
     final admin = NsgMessengerPlatformAdmin.withRpcs(
       isPlatformAdminRpc: () async => true,
+      listDeliveryHealthRpc: () async => const <ProductDeliveryHealth>[],
       listTenantsRpc: () async => const <ConnectTenantStatus>[],
       createTenantRpc: ({required String externalKey, required String name}) {
         calls.add([externalKey, name]);
@@ -354,6 +368,7 @@ void _provisionTests() {
     // разное: во втором случае менять ключ, а не чинить формат.
     final admin = NsgMessengerPlatformAdmin.withRpcs(
       isPlatformAdminRpc: () async => true,
+      listDeliveryHealthRpc: () async => const <ProductDeliveryHealth>[],
       listTenantsRpc: () async => const <ConnectTenantStatus>[],
       createTenantRpc: ({required String externalKey, required String name}) =>
           Future.error(TenantAlreadyExistsException(tenantExternalKey: 'x')),
@@ -387,4 +402,404 @@ void _provisionTests() {
 
     expect(find.text('Такой ключ уже занят'), findsOneWidget);
   });
+
+  testWidgets(
+    'продукт заводится из меню самого тенанта, без вопроса «в каком»',
+    (tester) async {
+      // Искать «добавить продукт» идут в меню тенанта: продукт живёт внутри
+      // него, и человек уже стоит на нужной строке. Тенант при этом
+      // спрашивать второй раз незачем — он известен.
+      final calls = <List<String>>[];
+      var products = <ProductAdminView>[];
+      final admin = NsgMessengerPlatformAdmin.withRpcs(
+        isPlatformAdminRpc: () async => true,
+        listDeliveryHealthRpc: () async => const <ProductDeliveryHealth>[],
+        listTenantsRpc: () async => [
+          ConnectTenantStatus(
+            tenantExternalKey: 'titan',
+            tenantName: 'Titan',
+            enabled: true,
+            hasSecret: true,
+          ),
+        ],
+        listProductsRpc: ({required String tenantExternalKey}) async =>
+            products,
+        createProductRpc:
+            ({
+              required String tenantExternalKey,
+              required String externalKey,
+              required String displayName,
+            }) async {
+              calls.add([tenantExternalKey, externalKey, displayName]);
+              // Сервер завёл продукт — следующий listProducts обязан его
+              // отдать, иначе экрану нечего показывать.
+              products = [
+                ProductAdminView(
+                  externalKey: externalKey,
+                  displayName: displayName,
+                  hasSupportTeam: false,
+                  supportTeamSize: 0,
+                ),
+              ];
+            },
+        enableAndGenerateRpc: ({required String tenantExternalKey}) async => '',
+        rotateSecretRpc:
+            ({required String tenantExternalKey, int? graceSeconds}) async =>
+                '',
+        disableRpc: ({required String tenantExternalKey}) async {},
+        statusRpc: ({required String tenantExternalKey}) =>
+            throw UnimplementedError(),
+        listAuditEventsRpc:
+            ({required String tenantExternalKey, required int limit}) async =>
+                const <ConnectKeyAuditEvent>[],
+      );
+
+      await tester.pumpWidget(wrap(PlatformAdminScreen(adminOverride: admin)));
+      await tester.pumpAndSettle();
+
+      // ⋮ у строки тенанта — не «+» в заголовке экрана.
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Новый продукт'));
+      await tester.pumpAndSettle();
+
+      // Диалога выбора тенанта быть не должно — сразу поля ключа и названия.
+      expect(find.byType(TextField), findsNWidgets(2));
+      await tester.enterText(find.byType(TextField).at(0), 'titan112');
+      await tester.enterText(find.byType(TextField).at(1), 'Титан 112');
+      await tester.tap(find.text('Создать'));
+      await tester.pumpAndSettle();
+
+      expect(calls, [
+        ['titan', 'titan112', 'Титан 112'],
+      ]);
+    },
+  );
+
+  testWidgets('созданный продукт сразу виден в списке тенанта', (tester) async {
+    // Раньше список продуктов оставался закэшированным, и «создалось»
+    // выглядело как «не создалось» — человек шёл создавать заново.
+    var products = <ProductAdminView>[];
+    final admin = NsgMessengerPlatformAdmin.withRpcs(
+      isPlatformAdminRpc: () async => true,
+      listDeliveryHealthRpc: () async => const <ProductDeliveryHealth>[],
+      listTenantsRpc: () async => [
+        ConnectTenantStatus(
+          tenantExternalKey: 'titan',
+          tenantName: 'Titan',
+          enabled: true,
+          hasSecret: true,
+        ),
+      ],
+      listProductsRpc: ({required String tenantExternalKey}) async => products,
+      createProductRpc:
+          ({
+            required String tenantExternalKey,
+            required String externalKey,
+            required String displayName,
+          }) async {
+            products = [
+              ProductAdminView(
+                externalKey: externalKey,
+                displayName: displayName,
+                hasSupportTeam: false,
+                supportTeamSize: 0,
+              ),
+            ];
+          },
+      enableAndGenerateRpc: ({required String tenantExternalKey}) async => '',
+      rotateSecretRpc:
+          ({required String tenantExternalKey, int? graceSeconds}) async => '',
+      disableRpc: ({required String tenantExternalKey}) async {},
+      statusRpc: ({required String tenantExternalKey}) =>
+          throw UnimplementedError(),
+      listAuditEventsRpc:
+          ({required String tenantExternalKey, required int limit}) async =>
+              const <ConnectKeyAuditEvent>[],
+    );
+
+    await tester.pumpWidget(wrap(PlatformAdminScreen(adminOverride: admin)));
+    await tester.pumpAndSettle();
+    // Раскрываем тенант — список продуктов пуст и закэширован пустым.
+    await tester.tap(find.text('Titan'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Новый продукт'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).at(0), 'titan112');
+    await tester.enterText(find.byType(TextField).at(1), 'Титан 112');
+    await tester.tap(find.text('Создать'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Титан 112'), findsOneWidget);
+  });
+
+  testWidgets(
+    'удаление продукта: подтверждение обязательно, отмена не зовёт RPC',
+    (tester) async {
+      var calls = 0;
+      final admin = NsgMessengerPlatformAdmin.withRpcs(
+        isPlatformAdminRpc: () async => true,
+        listDeliveryHealthRpc: () async => const <ProductDeliveryHealth>[],
+        listTenantsRpc: () async => [
+          ConnectTenantStatus(
+            tenantExternalKey: 'titan',
+            tenantName: 'Titan',
+            enabled: true,
+            hasSecret: true,
+          ),
+        ],
+        listProductsRpc: ({required String tenantExternalKey}) async => [
+          ProductAdminView(
+            externalKey: 'titan112',
+            displayName: 'Титан 112',
+            hasSupportTeam: false,
+            supportTeamSize: 0,
+          ),
+        ],
+        deleteProductRpc:
+            ({
+              required String tenantExternalKey,
+              required String productExternalKey,
+            }) async => calls++,
+        enableAndGenerateRpc: ({required String tenantExternalKey}) async => '',
+        rotateSecretRpc:
+            ({required String tenantExternalKey, int? graceSeconds}) async =>
+                '',
+        disableRpc: ({required String tenantExternalKey}) async {},
+        statusRpc: ({required String tenantExternalKey}) =>
+            throw UnimplementedError(),
+        listAuditEventsRpc:
+            ({required String tenantExternalKey, required int limit}) async =>
+                const <ConnectKeyAuditEvent>[],
+      );
+
+      await tester.pumpWidget(wrap(PlatformAdminScreen(adminOverride: admin)));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Titan'));
+      await tester.pumpAndSettle();
+
+      // Меню продукта (не тенанта) — последний more_vert в дереве.
+      await tester.tap(find.byIcon(Icons.more_vert).last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Удалить продукт'));
+      await tester.pumpAndSettle();
+
+      // Подтверждение называет, что уйдёт вместе с продуктом.
+      expect(find.textContaining('команда поддержки'), findsOneWidget);
+      await tester.tap(find.text('Отмена'));
+      await tester.pumpAndSettle();
+      expect(calls, 0, reason: 'отмена не должна ничего удалять');
+    },
+  );
+
+  testWidgets(
+    'удаление продукта: подтверждённое доходит до сервера и убирает строку',
+    (tester) async {
+      final deleted = <List<String>>[];
+      var products = [
+        ProductAdminView(
+          externalKey: 'titan112',
+          displayName: 'Титан 112',
+          hasSupportTeam: false,
+          supportTeamSize: 0,
+        ),
+      ];
+      final admin = NsgMessengerPlatformAdmin.withRpcs(
+        isPlatformAdminRpc: () async => true,
+        listDeliveryHealthRpc: () async => const <ProductDeliveryHealth>[],
+        listTenantsRpc: () async => [
+          ConnectTenantStatus(
+            tenantExternalKey: 'titan',
+            tenantName: 'Titan',
+            enabled: true,
+            hasSecret: true,
+          ),
+        ],
+        listProductsRpc: ({required String tenantExternalKey}) async =>
+            products,
+        deleteProductRpc:
+            ({
+              required String tenantExternalKey,
+              required String productExternalKey,
+            }) async {
+              deleted.add([tenantExternalKey, productExternalKey]);
+              products = [];
+            },
+        enableAndGenerateRpc: ({required String tenantExternalKey}) async => '',
+        rotateSecretRpc:
+            ({required String tenantExternalKey, int? graceSeconds}) async =>
+                '',
+        disableRpc: ({required String tenantExternalKey}) async {},
+        statusRpc: ({required String tenantExternalKey}) =>
+            throw UnimplementedError(),
+        listAuditEventsRpc:
+            ({required String tenantExternalKey, required int limit}) async =>
+                const <ConnectKeyAuditEvent>[],
+      );
+
+      await tester.pumpWidget(wrap(PlatformAdminScreen(adminOverride: admin)));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Titan'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.more_vert).last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Удалить продукт'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Удалить продукт'));
+      await tester.pumpAndSettle();
+
+      expect(deleted, [
+        ['titan', 'titan112'],
+      ]);
+      // Список перечитан: удалённого продукта на экране больше нет.
+      expect(find.textContaining('Титан 112'), findsNothing);
+    },
+  );
+
+  testWidgets('занятый продукт: отказ перечисляет, что мешает', (tester) async {
+    // «Действие не удалось» не отвечает на вопрос «что разбирать» —
+    // а разбирать придётся именно перечисленное.
+    final admin = NsgMessengerPlatformAdmin.withRpcs(
+      isPlatformAdminRpc: () async => true,
+      listDeliveryHealthRpc: () async => const <ProductDeliveryHealth>[],
+      listTenantsRpc: () async => [
+        ConnectTenantStatus(
+          tenantExternalKey: 'titan',
+          tenantName: 'Titan',
+          enabled: true,
+          hasSecret: true,
+        ),
+      ],
+      listProductsRpc: ({required String tenantExternalKey}) async => [
+        ProductAdminView(
+          externalKey: 'titan_control',
+          displayName: 'Titan Control',
+          hasSupportTeam: false,
+          supportTeamSize: 0,
+        ),
+      ],
+      deleteProductRpc:
+          ({
+            required String tenantExternalKey,
+            required String productExternalKey,
+          }) => Future.error(
+            ProductInUseException(
+              productExternalKey: 'titan_control',
+              rooms: 4,
+              tickets: 3,
+              bots: 1,
+              identities: 10,
+              devices: 0,
+              webhooks: 0,
+            ),
+          ),
+      enableAndGenerateRpc: ({required String tenantExternalKey}) async => '',
+      rotateSecretRpc:
+          ({required String tenantExternalKey, int? graceSeconds}) async => '',
+      disableRpc: ({required String tenantExternalKey}) async {},
+      statusRpc: ({required String tenantExternalKey}) =>
+          throw UnimplementedError(),
+      listAuditEventsRpc:
+          ({required String tenantExternalKey, required int limit}) async =>
+              const <ConnectKeyAuditEvent>[],
+    );
+
+    await tester.pumpWidget(wrap(PlatformAdminScreen(adminOverride: admin)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Titan'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.more_vert).last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Удалить продукт'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Удалить продукт'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('4 комнаты'), findsOneWidget);
+    expect(find.textContaining('3 обращения'), findsOneWidget);
+    expect(find.textContaining('1 бот'), findsOneWidget);
+    expect(find.textContaining('10 пользователей'), findsOneWidget);
+    // Нулевых слагаемых в перечислении быть не должно.
+    expect(find.textContaining('0 устройств'), findsNothing);
+  });
+
+  testWidgets(
+    'поддержка тенанта: открывается из меню тенанта и правит список',
+    (tester) async {
+      // Люди отсюда попадают в команду каждого продукта тенанта — поэтому
+      // пункт живёт у ТЕНАНТА, а не у продукта.
+      var members = <TenantSupportMemberView>[
+        TenantSupportMemberView(
+          messengerUserId: 7,
+          displayName: 'Оператор Один',
+          tier: 1,
+        ),
+      ];
+      final removed = <List<Object>>[];
+      final admin = NsgMessengerPlatformAdmin.withRpcs(
+        isPlatformAdminRpc: () async => true,
+        listDeliveryHealthRpc: () async => const <ProductDeliveryHealth>[],
+        listTenantsRpc: () async => [
+          ConnectTenantStatus(
+            tenantExternalKey: 'titan',
+            tenantName: 'Titan',
+            enabled: true,
+            hasSecret: true,
+          ),
+        ],
+        listTenantSupportRpc: ({required String tenantExternalKey}) async =>
+            members,
+        removeTenantSupportRpc:
+            ({
+              required String tenantExternalKey,
+              required int messengerUserId,
+            }) async {
+              removed.add([tenantExternalKey, messengerUserId]);
+              members = [];
+            },
+        enableAndGenerateRpc: ({required String tenantExternalKey}) async => '',
+        rotateSecretRpc:
+            ({required String tenantExternalKey, int? graceSeconds}) async =>
+                '',
+        disableRpc: ({required String tenantExternalKey}) async {},
+        statusRpc: ({required String tenantExternalKey}) =>
+            throw UnimplementedError(),
+        listAuditEventsRpc:
+            ({required String tenantExternalKey, required int limit}) async =>
+                const <ConnectKeyAuditEvent>[],
+      );
+
+      await tester.pumpWidget(wrap(PlatformAdminScreen(adminOverride: admin)));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Поддержка тенанта'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Оператор Один'), findsOneWidget);
+      // Подсказка обязана объяснять последствие: убрали здесь — исчез везде.
+      expect(find.textContaining('каждого продукта'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.person_remove_outlined));
+      await tester.pumpAndSettle();
+      // Подтверждение называет последствие, а не просто «убрать?».
+      expect(find.textContaining('всех продуктов'), findsOneWidget);
+      await tester.tap(
+        find.widgetWithText(FilledButton, 'Убрать из поддержки тенанта'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(removed, [
+        ['titan', 7],
+      ]);
+      expect(
+        find.text('Оператор Один'),
+        findsNothing,
+        reason: 'список перечитан',
+      );
+    },
+  );
 }

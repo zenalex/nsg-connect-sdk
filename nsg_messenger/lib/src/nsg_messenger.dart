@@ -11,6 +11,7 @@ import 'demo/demo_runtime.dart';
 import 'i18n/generated/nsg_l10n.dart';
 import 'contact_card/nsg_messenger_contact_cards.dart';
 import 'contacts/nsg_messenger_contacts.dart';
+import 'contacts/nsg_messenger_teams.dart';
 import 'admin/nsg_messenger_bots_admin.dart';
 import 'admin/nsg_messenger_platform_admin.dart';
 import 'bots/nsg_messenger_bot_catalog.dart';
@@ -282,6 +283,11 @@ class NsgMessenger {
   /// [ContactProfileScreen].
   static NsgMessengerContacts get contacts =>
       MessengerRuntime.instance.contacts;
+
+  /// **Свои команды** (этап 3 `DESIGN_TEAMS_AND_CONTACT_SHARING.md`) —
+  /// списки людей без переписки: собрал группу, участники увидели друг
+  /// друга. См. [NsgMessengerTeams] и `MyTeamsScreen`.
+  static NsgMessengerTeams get teams => MessengerRuntime.instance.teams;
 
   /// **TASK52 итер.1**: личные визитки (Contact Card) — чужие с TTL-кэшем
   /// и prefetch-ем для экрана звонка, своя — для редактора. См.
@@ -562,10 +568,11 @@ class NsgMessenger {
 
   /// **TASK64**: пометить язык профилем по умолчанию (перевод ↔ база
   /// меняются местами, см. TASK64.md §3).
-  static Future<void> setDefaultProfileLocale(String locale) =>
-      MessengerRuntime.instance.client.messenger.setDefaultProfileLocale(
-        locale: locale,
-      );
+  static Future<void> setDefaultProfileLocale(String locale) => MessengerRuntime
+      .instance
+      .client
+      .messenger
+      .setDefaultProfileLocale(locale: locale);
 
   /// **TASK64**: сообщить серверу локаль интерфейса — по ней он выбирает
   /// языковые версии ЧУЖИХ профилей для этого пользователя.

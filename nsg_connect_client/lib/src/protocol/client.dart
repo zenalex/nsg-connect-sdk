@@ -19,118 +19,138 @@ import 'package:serverpod_auth_core_client/serverpod_auth_core_client.dart'
 import 'package:nsg_connect_client/src/protocol/webhook_subscription.dart'
     as _i5;
 import 'package:nsg_connect_client/src/protocol/webhook_delivery.dart' as _i6;
-import 'package:nsg_connect_client/src/protocol/bot.dart' as _i7;
+import 'package:nsg_connect_client/src/protocol/announcement.dart' as _i7;
+import 'package:nsg_connect_client/src/protocol/bot.dart' as _i8;
 import 'package:nsg_connect_client/src/protocol/bot_read_mode_result.dart'
-    as _i8;
-import 'package:nsg_connect_client/src/protocol/bot_audit_event.dart' as _i9;
-import 'package:nsg_connect_client/src/protocol/room_summary.dart' as _i10;
-import 'package:nsg_connect_client/src/protocol/available_bot.dart' as _i11;
+    as _i9;
+import 'package:nsg_connect_client/src/protocol/bot_audit_event.dart' as _i10;
+import 'package:nsg_connect_client/src/protocol/room_summary.dart' as _i11;
+import 'package:nsg_connect_client/src/protocol/available_bot.dart' as _i12;
 import 'package:nsg_connect_client/src/protocol/bot_integration_created.dart'
-    as _i12;
-import 'package:nsg_connect_client/src/protocol/bot_integration_view.dart'
     as _i13;
-import 'package:nsg_connect_client/src/protocol/connect_tenant_status.dart'
+import 'package:nsg_connect_client/src/protocol/bot_integration_view.dart'
     as _i14;
-import 'package:nsg_connect_client/src/protocol/product_admin_view.dart'
+import 'package:nsg_connect_client/src/protocol/connect_tenant_status.dart'
     as _i15;
-import 'package:nsg_connect_client/src/protocol/connect_key_audit_event.dart'
+import 'package:nsg_connect_client/src/protocol/product_delivery_health.dart'
     as _i16;
-import 'package:nsg_connect_client/src/protocol/connect_issued_token_result.dart'
+import 'package:nsg_connect_client/src/protocol/tenant_support_member_view.dart'
     as _i17;
-import 'package:nsg_connect_client/src/protocol/messenger_auth_context.dart'
+import 'package:nsg_connect_client/src/protocol/product_admin_view.dart'
     as _i18;
-import 'package:nsg_connect_client/src/protocol/enums/device_platform.dart'
+import 'package:nsg_connect_client/src/protocol/connect_key_audit_event.dart'
     as _i19;
-import 'package:nsg_connect_client/src/protocol/device_session_info.dart'
-    as _i20;
-import 'package:nsg_connect_client/src/protocol/incoming_webhook.dart' as _i21;
-import 'package:nsg_connect_client/src/protocol/incoming_webhook_created.dart'
+import 'package:nsg_connect_client/src/protocol/team_view.dart' as _i20;
+import 'package:nsg_connect_client/src/protocol/team_member_view.dart' as _i21;
+import 'package:nsg_connect_client/src/protocol/connect_issued_token_result.dart'
     as _i22;
-import 'package:nsg_connect_client/src/protocol/messenger_session.dart' as _i23;
-import 'package:nsg_connect_client/src/protocol/messenger_message.dart' as _i24;
-import 'package:nsg_connect_client/src/protocol/attachment_ref.dart' as _i25;
-import 'package:nsg_connect_client/src/protocol/task_link.dart' as _i26;
-import 'package:nsg_connect_client/src/protocol/ticket.dart' as _i27;
-import 'package:nsg_connect_client/src/protocol/bot_command.dart' as _i28;
-import 'package:nsg_connect_client/src/protocol/room_bot_commands.dart' as _i29;
-import 'package:nsg_connect_client/src/protocol/enums/call_event_type.dart'
-    as _i30;
-import 'package:nsg_connect_client/src/protocol/call_ice_candidate.dart'
-    as _i31;
-import 'package:nsg_connect_client/src/protocol/turn_credentials.dart' as _i32;
-import 'package:nsg_connect_client/src/protocol/messenger_event.dart' as _i33;
-import 'package:nsg_connect_client/src/protocol/call_history_entry.dart'
+import 'package:nsg_connect_client/src/protocol/messenger_auth_context.dart'
+    as _i23;
+import 'package:nsg_connect_client/src/protocol/enums/device_platform.dart'
+    as _i24;
+import 'package:nsg_connect_client/src/protocol/device_session_info.dart'
+    as _i25;
+import 'package:nsg_connect_client/src/protocol/incoming_webhook.dart' as _i26;
+import 'package:nsg_connect_client/src/protocol/incoming_webhook_created.dart'
+    as _i27;
+import 'package:nsg_connect_client/src/protocol/messenger_session.dart' as _i28;
+import 'package:nsg_connect_client/src/protocol/messenger_message.dart' as _i29;
+import 'package:nsg_connect_client/src/protocol/attachment_ref.dart' as _i30;
+import 'package:nsg_connect_client/src/protocol/task_link.dart' as _i31;
+import 'package:nsg_connect_client/src/protocol/ticket.dart' as _i32;
+import 'package:nsg_connect_client/src/protocol/bot_command.dart' as _i33;
+import 'package:nsg_connect_client/src/protocol/bot_channel_health.dart'
     as _i34;
-import 'package:nsg_connect_client/src/protocol/conference_state.dart' as _i35;
-import 'package:nsg_connect_client/src/protocol/enums/room_member_role.dart'
+import 'package:nsg_connect_client/src/protocol/room_bot_commands.dart' as _i35;
+import 'package:nsg_connect_client/src/protocol/enums/call_event_type.dart'
     as _i36;
-import 'package:nsg_connect_client/src/protocol/room_participant.dart' as _i37;
-import 'dart:typed_data' as _i38;
-import 'package:nsg_connect_client/src/protocol/attachment_bytes.dart' as _i39;
-import 'package:nsg_connect_client/src/protocol/messenger_message_list_page.dart'
+import 'package:nsg_connect_client/src/protocol/call_ice_candidate.dart'
+    as _i37;
+import 'package:nsg_connect_client/src/protocol/turn_credentials.dart' as _i38;
+import 'package:nsg_connect_client/src/protocol/messenger_event.dart' as _i39;
+import 'package:nsg_connect_client/src/protocol/call_history_entry.dart'
     as _i40;
+import 'package:nsg_connect_client/src/protocol/conference_state.dart' as _i41;
+import 'package:nsg_connect_client/src/protocol/link_preview_view.dart' as _i42;
+import 'package:nsg_connect_client/src/protocol/enums/room_member_role.dart'
+    as _i43;
+import 'package:nsg_connect_client/src/protocol/room_participant.dart' as _i44;
+import 'dart:typed_data' as _i45;
+import 'package:nsg_connect_client/src/protocol/attachment_bytes.dart' as _i46;
+import 'package:nsg_connect_client/src/protocol/attachment_url.dart' as _i47;
+import 'package:nsg_connect_client/src/protocol/messenger_message_list_page.dart'
+    as _i48;
 import 'package:nsg_connect_client/src/protocol/device_registration.dart'
-    as _i41;
+    as _i49;
 import 'package:nsg_connect_client/src/protocol/enums/push_service.dart'
-    as _i42;
-import 'package:nsg_connect_client/src/protocol/enums/room_state.dart' as _i43;
-import 'package:nsg_connect_client/src/protocol/room_list_page.dart' as _i44;
-import 'package:nsg_connect_client/src/protocol/room_details.dart' as _i45;
-import 'package:nsg_connect_client/src/protocol/enums/room_type.dart' as _i46;
-import 'package:nsg_connect_client/src/protocol/ticket_view.dart' as _i47;
-import 'package:nsg_connect_client/src/protocol/room_task_stats.dart' as _i48;
-import 'package:nsg_connect_client/src/protocol/presence_info.dart' as _i49;
-import 'package:nsg_connect_client/src/protocol/chat_folder_view.dart' as _i50;
-import 'package:nsg_connect_client/src/protocol/contact_relation.dart' as _i51;
+    as _i50;
+import 'package:nsg_connect_client/src/protocol/enums/room_state.dart' as _i51;
+import 'package:nsg_connect_client/src/protocol/room_list_page.dart' as _i52;
+import 'package:nsg_connect_client/src/protocol/room_details.dart' as _i53;
+import 'package:nsg_connect_client/src/protocol/enums/room_type.dart' as _i54;
+import 'package:nsg_connect_client/src/protocol/ticket_view.dart' as _i55;
+import 'package:nsg_connect_client/src/protocol/announcement_view.dart' as _i56;
+import 'package:nsg_connect_client/src/protocol/room_task_view.dart' as _i57;
+import 'package:nsg_connect_client/src/protocol/room_task_stats.dart' as _i58;
+import 'package:nsg_connect_client/src/protocol/presence_info.dart' as _i59;
+import 'package:nsg_connect_client/src/protocol/chat_folder_view.dart' as _i60;
+import 'package:nsg_connect_client/src/protocol/contact_relation.dart' as _i61;
 import 'package:nsg_connect_client/src/protocol/contact_request_view.dart'
-    as _i52;
+    as _i62;
 import 'package:nsg_connect_client/src/protocol/trust_token_issued.dart'
-    as _i53;
-import 'package:nsg_connect_client/src/protocol/enums/trust_token_kind.dart'
-    as _i54;
-import 'package:nsg_connect_client/src/protocol/trust_redeem_result.dart'
-    as _i55;
-import 'package:nsg_connect_client/src/protocol/nearby_confirm_result.dart'
-    as _i56;
-import 'package:nsg_connect_client/src/protocol/contact_card_info.dart' as _i57;
-import 'package:nsg_connect_client/src/protocol/contact_card.dart' as _i58;
-import 'package:nsg_connect_client/src/protocol/contact_profile_view.dart'
-    as _i59;
-import 'package:nsg_connect_client/src/protocol/contact_label.dart' as _i60;
-import 'package:nsg_connect_client/src/protocol/contact_label_assignment.dart'
-    as _i61;
-import 'package:nsg_connect_client/src/protocol/support_team_view.dart' as _i62;
-import 'package:nsg_connect_client/src/protocol/enums/support_team_role.dart'
     as _i63;
-import 'package:nsg_connect_client/src/protocol/product_object_room.dart'
+import 'package:nsg_connect_client/src/protocol/enums/trust_token_kind.dart'
     as _i64;
-import 'package:nsg_connect_client/src/protocol/escalation_result.dart' as _i65;
-import 'package:nsg_connect_client/src/protocol/product.dart' as _i66;
-import 'package:nsg_connect_client/src/protocol/presence_state.dart' as _i67;
-import 'package:nsg_connect_client/src/protocol/notification_settings.dart'
-    as _i68;
-import 'package:nsg_connect_client/src/protocol/push_test_result.dart' as _i69;
-import 'package:nsg_connect_client/src/protocol/profile_translation.dart'
-    as _i70;
-import 'package:nsg_connect_client/src/protocol/product_notification_send_result.dart'
+import 'package:nsg_connect_client/src/protocol/trust_redeem_result.dart'
+    as _i65;
+import 'package:nsg_connect_client/src/protocol/nearby_confirm_result.dart'
+    as _i66;
+import 'package:nsg_connect_client/src/protocol/contact_card_info.dart' as _i67;
+import 'package:nsg_connect_client/src/protocol/contact_card.dart' as _i68;
+import 'package:nsg_connect_client/src/protocol/contact_profile_view.dart'
+    as _i69;
+import 'package:nsg_connect_client/src/protocol/contact_label.dart' as _i70;
+import 'package:nsg_connect_client/src/protocol/contact_label_assignment.dart'
     as _i71;
-import 'package:nsg_connect_client/src/protocol/pulse_event.dart' as _i72;
-import 'package:nsg_connect_client/src/protocol/pulse_folder.dart' as _i73;
-import 'package:nsg_connect_client/src/protocol/pulse_monitor.dart' as _i74;
-import 'package:nsg_connect_client/src/protocol/pulse_monitor_created.dart'
-    as _i75;
-import 'package:nsg_connect_client/src/protocol/pulse_alert_rule.dart' as _i76;
-import 'package:nsg_connect_client/src/protocol/pulse_incident.dart' as _i77;
-import 'package:nsg_connect_client/src/protocol/pulse_access_entry.dart'
+import 'package:nsg_connect_client/src/protocol/support_team_view.dart' as _i72;
+import 'package:nsg_connect_client/src/protocol/enums/support_team_role.dart'
+    as _i73;
+import 'package:nsg_connect_client/src/protocol/product_object_room.dart'
+    as _i74;
+import 'package:nsg_connect_client/src/protocol/escalation_result.dart' as _i75;
+import 'package:nsg_connect_client/src/protocol/product.dart' as _i76;
+import 'package:nsg_connect_client/src/protocol/presence_state.dart' as _i77;
+import 'package:nsg_connect_client/src/protocol/notification_settings.dart'
     as _i78;
-import 'package:nsg_connect_client/src/protocol/pulse_member_view.dart' as _i79;
-import 'package:nsg_connect_client/src/protocol/pulse_access_audit_event.dart'
+import 'package:nsg_connect_client/src/protocol/push_test_result.dart' as _i79;
+import 'package:nsg_connect_client/src/protocol/profile_translation.dart'
     as _i80;
-import 'package:nsg_connect_client/src/protocol/task_manager_config.dart'
+import 'package:nsg_connect_client/src/protocol/product_notification_send_result.dart'
     as _i81;
+import 'package:nsg_connect_client/src/protocol/pulse_event.dart' as _i82;
+import 'package:nsg_connect_client/src/protocol/pulse_folder.dart' as _i83;
+import 'package:nsg_connect_client/src/protocol/pulse_monitor.dart' as _i84;
+import 'package:nsg_connect_client/src/protocol/pulse_monitor_created.dart'
+    as _i85;
+import 'package:nsg_connect_client/src/protocol/pulse_alert_rule.dart' as _i86;
+import 'package:nsg_connect_client/src/protocol/pulse_incident.dart' as _i87;
+import 'package:nsg_connect_client/src/protocol/pulse_access_entry.dart'
+    as _i88;
+import 'package:nsg_connect_client/src/protocol/pulse_member_view.dart' as _i89;
+import 'package:nsg_connect_client/src/protocol/pulse_access_audit_event.dart'
+    as _i90;
+import 'package:nsg_connect_client/src/protocol/pulse_tls_probe.dart' as _i91;
+import 'package:nsg_connect_client/src/protocol/pulse_expiry_reminder.dart'
+    as _i92;
+import 'package:nsg_connect_client/src/protocol/pulse_value_threshold.dart'
+    as _i93;
+import 'package:nsg_connect_client/src/protocol/pulse_probe_allowlist_entry.dart'
+    as _i94;
+import 'package:nsg_connect_client/src/protocol/task_manager_config.dart'
+    as _i95;
 import 'package:nsg_connect_client/src/protocol/greetings/greeting.dart'
-    as _i82;
-import 'protocol.dart' as _i83;
+    as _i96;
+import 'protocol.dart' as _i97;
 
 /// By extending [EmailIdpBaseEndpoint], the email identity provider endpoints
 /// are made available on the server and enable the corresponding sign-in widget
@@ -457,6 +477,79 @@ class EndpointAdminWebhook extends _i2.EndpointRef {
   );
 }
 
+/// **TASK91 (issue #65)**: заведение объявлений оператором.
+///
+/// Отдельный админский вход, как у ботов и вебхуков: объявление видят ВСЕ
+/// пользователи тенанта, и право его создать — не пользовательское.
+///
+/// Продукт и тенант задаются внешними ключами, а не id: оператор работает с
+/// `chatista`/`titan112`, а не с числами, и числа в чужих руках — источник
+/// ошибок, которые заметны только после показа объявления всем.
+/// {@category Endpoint}
+class EndpointAnnouncementAdmin extends _i2.EndpointRef {
+  EndpointAnnouncementAdmin(_i2.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'announcementAdmin';
+
+  /// Завести объявление.
+  ///
+  /// [kind] `text` — показать текст; `route` — предложить открыть экран
+  /// приложения ([route] + [payloadJson]). Маршрут сервер не разбирает: он в
+  /// терминах продукта, и знать чужие пути серверу не положено.
+  _i3.Future<_i7.Announcement> createAnnouncement({
+    required String tenantExternalKey,
+    String? productExternalKey,
+    required String title,
+    required String body,
+    required String kind,
+    String? route,
+    String? payloadJson,
+    required String severity,
+    DateTime? startsAt,
+    DateTime? expiresAt,
+  }) => caller.callServerEndpoint<_i7.Announcement>(
+    'announcementAdmin',
+    'createAnnouncement',
+    {
+      'tenantExternalKey': tenantExternalKey,
+      'productExternalKey': productExternalKey,
+      'title': title,
+      'body': body,
+      'kind': kind,
+      'route': route,
+      'payloadJson': payloadJson,
+      'severity': severity,
+      'startsAt': startsAt,
+      'expiresAt': expiresAt,
+    },
+  );
+
+  /// Список объявлений тенанта (включая выключенные и протухшие) — оператору
+  /// нужно видеть всё, что он заводил, а не только живое.
+  _i3.Future<List<_i7.Announcement>> listAnnouncements({
+    required String tenantExternalKey,
+  }) => caller.callServerEndpoint<List<_i7.Announcement>>(
+    'announcementAdmin',
+    'listAnnouncements',
+    {'tenantExternalKey': tenantExternalKey},
+  );
+
+  /// Снять объявление с показа, не удаляя: отметки о просмотре переживут
+  /// выключение, и при повторном включении никто не увидит его дважды.
+  _i3.Future<_i7.Announcement> setAnnouncementEnabled({
+    required int id,
+    required bool enabled,
+  }) => caller.callServerEndpoint<_i7.Announcement>(
+    'announcementAdmin',
+    'setAnnouncementEnabled',
+    {
+      'id': id,
+      'enabled': enabled,
+    },
+  );
+}
+
 /// **TASK36**: admin-only управление ботами (программными клиентами
 /// мессенджера). КАЖДЫЙ метод gate-ится через [requireMessengerUserId] +
 /// email caller-а в allowlist-е env `BOT_ADMIN_EMAILS` (CSV). Unauthorized
@@ -498,7 +591,7 @@ class EndpointBotAdmin extends _i2.EndpointRef {
   /// default) либо `read_all` («бот читает все сообщения» — осознанный
   /// выбор, видимый в админ-экране). Старый клиент параметр не шлёт и
   /// получает приватный дефолт.
-  _i3.Future<_i7.Bot> createBot({
+  _i3.Future<_i8.Bot> createBot({
     required String tenantExternalKey,
     String? productExternalKey,
     required String name,
@@ -506,7 +599,7 @@ class EndpointBotAdmin extends _i2.EndpointRef {
     required String capabilities,
     required bool discoverable,
     required String readMode,
-  }) => caller.callServerEndpoint<_i7.Bot>(
+  }) => caller.callServerEndpoint<_i8.Bot>(
     'botAdmin',
     'createBot',
     {
@@ -529,10 +622,10 @@ class EndpointBotAdmin extends _i2.EndpointRef {
   /// `read_addressed` это ровно те каналы, где privacy mode не сработает
   /// (фильтровать нечем — у подписки нет владельца-бота). Не блокируем,
   /// но говорим вслух.
-  _i3.Future<_i8.BotReadModeResult> setBotReadMode({
+  _i3.Future<_i9.BotReadModeResult> setBotReadMode({
     required int botId,
     required String readMode,
-  }) => caller.callServerEndpoint<_i8.BotReadModeResult>(
+  }) => caller.callServerEndpoint<_i9.BotReadModeResult>(
     'botAdmin',
     'setBotReadMode',
     {
@@ -548,8 +641,8 @@ class EndpointBotAdmin extends _i2.EndpointRef {
   /// Возвращаемый [Bot] содержит новый `accessToken` — показать админу ОДИН
   /// раз. Программе бота нужно подставить новый токен: до этого момента её
   /// вызовы будут отвергнуты (старый токен отозван немедленно).
-  _i3.Future<_i7.Bot> rotateBotToken({required int botId}) =>
-      caller.callServerEndpoint<_i7.Bot>(
+  _i3.Future<_i8.Bot> rotateBotToken({required int botId}) =>
+      caller.callServerEndpoint<_i8.Bot>(
         'botAdmin',
         'rotateBotToken',
         {'botId': botId},
@@ -558,10 +651,10 @@ class EndpointBotAdmin extends _i2.EndpointRef {
   /// **TASK36 (аудит)**: журнал событий бота, свежие сверху. Кто завёл,
   /// кто ротировал credential, кто выключал, куда добавляли, во что бот
   /// ломился без grant-а (`capability_denied`).
-  _i3.Future<List<_i9.BotAuditEvent>> listAuditEvents({
+  _i3.Future<List<_i10.BotAuditEvent>> listAuditEvents({
     required int botId,
     required int limit,
-  }) => caller.callServerEndpoint<List<_i9.BotAuditEvent>>(
+  }) => caller.callServerEndpoint<List<_i10.BotAuditEvent>>(
     'botAdmin',
     'listAuditEvents',
     {
@@ -574,8 +667,8 @@ class EndpointBotAdmin extends _i2.EndpointRef {
   /// credential виден один раз — в ответе [createBot] / [rotateBotToken].
   /// Скрытия в UI недостаточно — иначе токены всех ботов уезжали бы на
   /// клиента (wire/логи/память) при каждом открытии списка.
-  _i3.Future<List<_i7.Bot>> listBots({required String tenantExternalKey}) =>
-      caller.callServerEndpoint<List<_i7.Bot>>(
+  _i3.Future<List<_i8.Bot>> listBots({required String tenantExternalKey}) =>
+      caller.callServerEndpoint<List<_i8.Bot>>(
         'botAdmin',
         'listBots',
         {'tenantExternalKey': tenantExternalKey},
@@ -583,15 +676,36 @@ class EndpointBotAdmin extends _i2.EndpointRef {
 
   /// Включить / выключить бота (kill-switch). `enabled=false` →
   /// requireCapability бросает на любой gated-action.
-  _i3.Future<_i7.Bot> setBotEnabled({
+  _i3.Future<_i8.Bot> setBotEnabled({
     required int botId,
     required bool enabled,
-  }) => caller.callServerEndpoint<_i7.Bot>(
+  }) => caller.callServerEndpoint<_i8.Bot>(
     'botAdmin',
     'setBotEnabled',
     {
       'botId': botId,
       'enabled': enabled,
+    },
+  );
+
+  /// Видимость бота в поиске и каталоге — админский путь к тому же флагу,
+  /// что `myBots.setDiscoverable`.
+  ///
+  /// Раньше его тут не было, и это оставляло тупик: бот, заведённый админом
+  /// на ЧУЖОЙ `ownerEmail`, невидим по умолчанию (`discoverable` = false,
+  /// issue #49), а включить видимость мог только владелец — гейт `_ownedBot`
+  /// сверяет `ownerEmail` с вызывающим. Владелец при этом мог и не знать,
+  /// что на него записан бот. Единственным выходом оставался SQL по живой
+  /// базе — то есть ровно то, ради чего админку и делали.
+  _i3.Future<_i8.Bot> setBotDiscoverable({
+    required int botId,
+    required bool discoverable,
+  }) => caller.callServerEndpoint<_i8.Bot>(
+    'botAdmin',
+    'setBotDiscoverable',
+    {
+      'botId': botId,
+      'discoverable': discoverable,
     },
   );
 
@@ -601,8 +715,8 @@ class EndpointBotAdmin extends _i2.EndpointRef {
   /// [addBotToRoom] членства caller-а не требует. Anti-enumeration не
   /// аргумент: caller уже прошёл BOT_ADMIN_EMAILS-гейт и видит все боты
   /// tenant-а.
-  _i3.Future<List<_i10.RoomSummary>> listAllRooms({required int limit}) =>
-      caller.callServerEndpoint<List<_i10.RoomSummary>>(
+  _i3.Future<List<_i11.RoomSummary>> listAllRooms({required int limit}) =>
+      caller.callServerEndpoint<List<_i11.RoomSummary>>(
         'botAdmin',
         'listAllRooms',
         {'limit': limit},
@@ -667,8 +781,8 @@ class EndpointBotCatalog extends _i2.EndpointRef {
   /// тенанта не секрет, а «кто где сидит» уже да. Не участник → каталог без
   /// пометок, без ошибки (это hot-path UI, а не защита: реальные права
   /// проверит [addBotToMyRoom]).
-  _i3.Future<List<_i11.AvailableBot>> listAvailableBots({int? roomId}) =>
-      caller.callServerEndpoint<List<_i11.AvailableBot>>(
+  _i3.Future<List<_i12.AvailableBot>> listAvailableBots({int? roomId}) =>
+      caller.callServerEndpoint<List<_i12.AvailableBot>>(
         'botCatalog',
         'listAvailableBots',
         {'roomId': roomId},
@@ -680,10 +794,10 @@ class EndpointBotCatalog extends _i2.EndpointRef {
   /// caller-ом комнате: именно про такого бота важнее всего знать, что он
   /// читает. `null` — бота нет, он из чужого тенанта или caller не имеет к
   /// нему отношения (одинаковый ответ на все три случая).
-  _i3.Future<_i11.AvailableBot?> getBotCard({
+  _i3.Future<_i12.AvailableBot?> getBotCard({
     required int botMessengerUserId,
     int? roomId,
-  }) => caller.callServerEndpoint<_i11.AvailableBot?>(
+  }) => caller.callServerEndpoint<_i12.AvailableBot?>(
     'botCatalog',
     'getBotCard',
     {
@@ -696,8 +810,8 @@ class EndpointBotCatalog extends _i2.EndpointRef {
   /// Источник данных для кнопки «добавить в комнату…» в карточке: показывать
   /// пикер со всеми комнатами, половина которых ответит отказом, — значит
   /// врать пользователю про его права.
-  _i3.Future<List<_i10.RoomSummary>> listMyAdminRooms({required int limit}) =>
-      caller.callServerEndpoint<List<_i10.RoomSummary>>(
+  _i3.Future<List<_i11.RoomSummary>> listMyAdminRooms({required int limit}) =>
+      caller.callServerEndpoint<List<_i11.RoomSummary>>(
         'botCatalog',
         'listMyAdminRooms',
         {'limit': limit},
@@ -763,12 +877,12 @@ class EndpointBotIntegration extends _i2.EndpointRef {
   /// Создать бот-интеграцию: бот (`send_messages`) в комнате + room-scoped
   /// подписка на webhook-URL разработчика. Возвращает bot-токен + webhook-
   /// секрет + apiBase (показать один раз).
-  _i3.Future<_i12.BotIntegrationCreated> createBotIntegration({
+  _i3.Future<_i13.BotIntegrationCreated> createBotIntegration({
     required int roomId,
     required String name,
     required String webhookUrl,
     required String eventTypes,
-  }) => caller.callServerEndpoint<_i12.BotIntegrationCreated>(
+  }) => caller.callServerEndpoint<_i13.BotIntegrationCreated>(
     'botIntegration',
     'createBotIntegration',
     {
@@ -780,9 +894,9 @@ class EndpointBotIntegration extends _i2.EndpointRef {
   );
 
   /// Список бот-интеграций комнаты (безопасный вид, без токенов/секретов).
-  _i3.Future<List<_i13.BotIntegrationView>> listBotIntegrations({
+  _i3.Future<List<_i14.BotIntegrationView>> listBotIntegrations({
     required int roomId,
-  }) => caller.callServerEndpoint<List<_i13.BotIntegrationView>>(
+  }) => caller.callServerEndpoint<List<_i14.BotIntegrationView>>(
     'botIntegration',
     'listBotIntegrations',
     {'roomId': roomId},
@@ -790,9 +904,9 @@ class EndpointBotIntegration extends _i2.EndpointRef {
 
   /// Ротация webhook-секрета (тот же бот). Старая подпись немедленно
   /// перестаёт совпадать. Возвращает новый секрет (показать один раз).
-  _i3.Future<_i12.BotIntegrationCreated> rotateWebhookSecret({
+  _i3.Future<_i13.BotIntegrationCreated> rotateWebhookSecret({
     required int botId,
-  }) => caller.callServerEndpoint<_i12.BotIntegrationCreated>(
+  }) => caller.callServerEndpoint<_i13.BotIntegrationCreated>(
     'botIntegration',
     'rotateWebhookSecret',
     {'botId': botId},
@@ -855,10 +969,26 @@ class EndpointConnectTenantAdmin extends _i2.EndpointRef {
   /// **TASK78 п.3 (админ-UI)**: статусы issued-token-режима ВСЕХ
   /// tenant-ов (externalKey/имя/включён/секрет/grace, без секретов) —
   /// стартовый список админ-экрана. Гейт тот же, что у остальных методов.
-  _i3.Future<List<_i14.ConnectTenantStatus>> listTenants() =>
-      caller.callServerEndpoint<List<_i14.ConnectTenantStatus>>(
+  _i3.Future<List<_i15.ConnectTenantStatus>> listTenants() =>
+      caller.callServerEndpoint<List<_i15.ConnectTenantStatus>>(
         'connectTenantAdmin',
         'listTenants',
+        {},
+      );
+
+  /// **issue #120**: здоровье доставки уведомлений по каждому продукту.
+  ///
+  /// Отсутствие пушей выглядит как тишина: ни экрана, ни лога. Что у всех
+  /// продуктов, кроме Chatista, ноль зарегистрированных устройств —
+  /// выяснилось запросом в прод-базу, при полностью готовой нашей стороне.
+  /// Здесь это становится видно без похода в базу.
+  ///
+  /// Гейт тот же: список показывает, у кого из клиентов интеграция не
+  /// доведена, — знать это посторонним незачем.
+  _i3.Future<List<_i16.ProductDeliveryHealth>> listDeliveryHealth() =>
+      caller.callServerEndpoint<List<_i16.ProductDeliveryHealth>>(
+        'connectTenantAdmin',
+        'listDeliveryHealth',
         {},
       );
 
@@ -873,10 +1003,10 @@ class EndpointConnectTenantAdmin extends _i2.EndpointRef {
   /// сам регистрирует sandbox-тенант по email-верификации, с квотами и
   /// защитой от захвата чужого ключа. Здесь — кнопка для владельца
   /// платформы, провижн остаётся ручной операцией.
-  _i3.Future<_i14.ConnectTenantStatus> createTenant({
+  _i3.Future<_i15.ConnectTenantStatus> createTenant({
     required String externalKey,
     required String name,
-  }) => caller.callServerEndpoint<_i14.ConnectTenantStatus>(
+  }) => caller.callServerEndpoint<_i15.ConnectTenantStatus>(
     'connectTenantAdmin',
     'createTenant',
     {
@@ -901,12 +1031,97 @@ class EndpointConnectTenantAdmin extends _i2.EndpointRef {
     },
   );
 
+  /// **Удалить продукт** — только пустой, с гейтом и аудитом.
+  ///
+  /// Отказ [ProductInUseException] несёт счётчики того, что мешает: молча
+  /// осиротить комнаты и обращения (`SET NULL` по FK) нельзя, а «действие
+  /// не удалось» не говорит администратору, что именно разбирать.
+  _i3.Future<void> deleteProduct({
+    required String tenantExternalKey,
+    required String productExternalKey,
+  }) => caller.callServerEndpoint<void>(
+    'connectTenantAdmin',
+    'deleteProduct',
+    {
+      'tenantExternalKey': tenantExternalKey,
+      'productExternalKey': productExternalKey,
+    },
+  );
+
+  /// **Транспорт последней мили продукта** (issue #121): `platformPush`
+  /// (сами дёргаем ключи продукта) или `webhook` (шлём инструкцию их
+  /// серверу существующей машиной подписок).
+  ///
+  /// Решение «будить ли этого человека» этой ручкой не меняется — оно
+  /// остаётся у платформы при любом транспорте.
+  ///
+  /// **Незнакомое значение отвергаем здесь.** Внутри платформы разбор
+  /// терпимый (незнакомое едет `platformPush`, чтобы опечатка не значила
+  /// «не доставлять»), но принять её на входе значило бы позволить
+  /// администратору думать, что он настроил вебхук, когда доставка идёт
+  /// нашими ключами.
+  _i3.Future<void> setProductDeliveryTransport({
+    required String tenantExternalKey,
+    required String productExternalKey,
+    required String transport,
+  }) => caller.callServerEndpoint<void>(
+    'connectTenantAdmin',
+    'setProductDeliveryTransport',
+    {
+      'tenantExternalKey': tenantExternalKey,
+      'productExternalKey': productExternalKey,
+      'transport': transport,
+    },
+  );
+
+  /// **Список поддержки тенанта.** Эти люди числятся в команде КАЖДОГО
+  /// продукта тенанта, пока состоят здесь: одни и те же операторы ведут
+  /// все продукты заказчика, а вписывать их приходилось в каждую команду
+  /// заново.
+  _i3.Future<List<_i17.TenantSupportMemberView>> listTenantSupport({
+    required String tenantExternalKey,
+  }) => caller.callServerEndpoint<List<_i17.TenantSupportMemberView>>(
+    'connectTenantAdmin',
+    'listTenantSupport',
+    {'tenantExternalKey': tenantExternalKey},
+  );
+
+  /// Добавить человека в поддержку тенанта — появится в командах всех его
+  /// продуктов. Идемпотентно.
+  _i3.Future<void> addTenantSupportMember({
+    required String tenantExternalKey,
+    required int messengerUserId,
+    int? tier,
+  }) => caller.callServerEndpoint<void>(
+    'connectTenantAdmin',
+    'addTenantSupportMember',
+    {
+      'tenantExternalKey': tenantExternalKey,
+      'messengerUserId': messengerUserId,
+      'tier': tier,
+    },
+  );
+
+  /// Убрать человека из поддержки тенанта — исчезнет из команд ВСЕХ его
+  /// продуктов сразу (в этом и смысл живого наследования).
+  _i3.Future<void> removeTenantSupportMember({
+    required String tenantExternalKey,
+    required int messengerUserId,
+  }) => caller.callServerEndpoint<void>(
+    'connectTenantAdmin',
+    'removeTenantSupportMember',
+    {
+      'tenantExternalKey': tenantExternalKey,
+      'messengerUserId': messengerUserId,
+    },
+  );
+
   /// Продукты тенанта — второй уровень дерева «тенант → продукт →
   /// команда поддержки». Раньше продукты в админке не показывались вовсе:
   /// завести можно было, увидеть — нет.
-  _i3.Future<List<_i15.ProductAdminView>> listProducts({
+  _i3.Future<List<_i18.ProductAdminView>> listProducts({
     required String tenantExternalKey,
-  }) => caller.callServerEndpoint<List<_i15.ProductAdminView>>(
+  }) => caller.callServerEndpoint<List<_i18.ProductAdminView>>(
     'connectTenantAdmin',
     'listProducts',
     {'tenantExternalKey': tenantExternalKey},
@@ -973,9 +1188,9 @@ class EndpointConnectTenantAdmin extends _i2.EndpointRef {
 
   /// Статус режима (без секретов): включён / есть ли секрет / активен ли
   /// grace ротации.
-  _i3.Future<_i14.ConnectTenantStatus> status({
+  _i3.Future<_i15.ConnectTenantStatus> status({
     required String tenantExternalKey,
-  }) => caller.callServerEndpoint<_i14.ConnectTenantStatus>(
+  }) => caller.callServerEndpoint<_i15.ConnectTenantStatus>(
     'connectTenantAdmin',
     'status',
     {'tenantExternalKey': tenantExternalKey},
@@ -983,15 +1198,99 @@ class EndpointConnectTenantAdmin extends _i2.EndpointRef {
 
   /// Журнал операций с ключами tenant-а (свежие сверху), для аудита и
   /// диагностики. Секретов не содержит.
-  _i3.Future<List<_i16.ConnectKeyAuditEvent>> listAuditEvents({
+  _i3.Future<List<_i19.ConnectKeyAuditEvent>> listAuditEvents({
     required String tenantExternalKey,
     required int limit,
-  }) => caller.callServerEndpoint<List<_i16.ConnectKeyAuditEvent>>(
+  }) => caller.callServerEndpoint<List<_i19.ConnectKeyAuditEvent>>(
     'connectTenantAdmin',
     'listAuditEvents',
     {
       'tenantExternalKey': tenantExternalKey,
       'limit': limit,
+    },
+  );
+
+  /// Команды тенанта с размером состава.
+  _i3.Future<List<_i20.TeamView>> listTeams({
+    required String tenantExternalKey,
+  }) => caller.callServerEndpoint<List<_i20.TeamView>>(
+    'connectTenantAdmin',
+    'listTeams',
+    {'tenantExternalKey': tenantExternalKey},
+  );
+
+  /// Завести оргкоманду. Тёзка в том же тенанте — отказ: справочник с
+  /// двумя «Разработками» бесполезен.
+  _i3.Future<_i20.TeamView> createTeam({
+    required String tenantExternalKey,
+    required String name,
+    String? description,
+  }) => caller.callServerEndpoint<_i20.TeamView>(
+    'connectTenantAdmin',
+    'createTeam',
+    {
+      'tenantExternalKey': tenantExternalKey,
+      'name': name,
+      'description': description,
+    },
+  );
+
+  /// Удалить команду. Переписку не трогает: пропадает знакомство, а
+  /// комнаты, сообщения и история остаются.
+  _i3.Future<void> deleteTeam({
+    required String tenantExternalKey,
+    required int teamId,
+  }) => caller.callServerEndpoint<void>(
+    'connectTenantAdmin',
+    'deleteTeam',
+    {
+      'tenantExternalKey': tenantExternalKey,
+      'teamId': teamId,
+    },
+  );
+
+  _i3.Future<List<_i21.TeamMemberView>> listTeamMembers({
+    required String tenantExternalKey,
+    required int teamId,
+  }) => caller.callServerEndpoint<List<_i21.TeamMemberView>>(
+    'connectTenantAdmin',
+    'listTeamMembers',
+    {
+      'tenantExternalKey': tenantExternalKey,
+      'teamId': teamId,
+    },
+  );
+
+  /// Добавить человека в команду. Идемпотентно; чужой тенант и перебор
+  /// потолка отсекаются в сервисе.
+  _i3.Future<void> addTeamMember({
+    required String tenantExternalKey,
+    required int teamId,
+    required int messengerUserId,
+  }) => caller.callServerEndpoint<void>(
+    'connectTenantAdmin',
+    'addTeamMember',
+    {
+      'tenantExternalKey': tenantExternalKey,
+      'teamId': teamId,
+      'messengerUserId': messengerUserId,
+    },
+  );
+
+  /// Убрать человека из команды. Он исчезнет из списка знакомых у
+  /// остальных — если не остался знакомым по другой причине (общий чат,
+  /// ручной контакт, другая общая команда).
+  _i3.Future<void> removeTeamMember({
+    required String tenantExternalKey,
+    required int teamId,
+    required int messengerUserId,
+  }) => caller.callServerEndpoint<void>(
+    'connectTenantAdmin',
+    'removeTeamMember',
+    {
+      'tenantExternalKey': tenantExternalKey,
+      'teamId': teamId,
+      'messengerUserId': messengerUserId,
     },
   );
 }
@@ -1032,14 +1331,14 @@ class EndpointConnectToken extends _i2.EndpointRef {
   /// контрактом, что у legacy-адаптеров варианта B. Продукт-сервер уже
   /// доказал себя serviceSecret-ом, поэтому claims-ам доверяем как и
   /// externalUserId/displayName.
-  _i3.Future<_i17.ConnectIssuedTokenResult> issueToken({
+  _i3.Future<_i22.ConnectIssuedTokenResult> issueToken({
     required String tenantExternalKey,
     required String productExternalKey,
     required String serviceSecret,
     required String externalUserId,
     required String displayName,
     Map<String, String>? claims,
-  }) => caller.callServerEndpoint<_i17.ConnectIssuedTokenResult>(
+  }) => caller.callServerEndpoint<_i22.ConnectIssuedTokenResult>(
     'connectToken',
     'issueToken',
     {
@@ -1102,7 +1401,7 @@ class EndpointEmailAuth extends _i2.EndpointRef {
   /// в `EmailAuthAdapter` (reason='email_not_verified') до ввода кода из
   /// письма. Код отправляется здесь РОВНО ОДИН раз; повторная отправка —
   /// только явный [resendVerification] (rate-limited).
-  _i3.Future<_i18.MessengerAuthContext> signUp({
+  _i3.Future<_i23.MessengerAuthContext> signUp({
     required String email,
     required String password,
     required String username,
@@ -1110,10 +1409,10 @@ class EndpointEmailAuth extends _i2.EndpointRef {
     required String tenantExternalKey,
     String? productExternalKey,
     String? deviceId,
-    _i19.DevicePlatform? platform,
+    _i24.DevicePlatform? platform,
     String? deviceName,
     String? appVersion,
-  }) => caller.callServerEndpoint<_i18.MessengerAuthContext>(
+  }) => caller.callServerEndpoint<_i23.MessengerAuthContext>(
     'emailAuth',
     'signUp',
     {
@@ -1172,16 +1471,16 @@ class EndpointEmailAuth extends _i2.EndpointRef {
   /// НЕ обменивается на messenger-сессию — `EmailAuthAdapter` отвергает
   /// его с reason='email_not_verified' до подтверждения. Клиент после
   /// signIn читает [getAccountVerifiedStatus] и ведёт на экран кода.
-  _i3.Future<_i18.MessengerAuthContext> signIn({
+  _i3.Future<_i23.MessengerAuthContext> signIn({
     required String email,
     required String password,
     required String tenantExternalKey,
     String? productExternalKey,
     String? deviceId,
-    _i19.DevicePlatform? platform,
+    _i24.DevicePlatform? platform,
     String? deviceName,
     String? appVersion,
-  }) => caller.callServerEndpoint<_i18.MessengerAuthContext>(
+  }) => caller.callServerEndpoint<_i23.MessengerAuthContext>(
     'emailAuth',
     'signIn',
     {
@@ -1261,9 +1560,9 @@ class EndpointEmailAuth extends _i2.EndpointRef {
   ///
   /// **Безопасность**: наружу отдаётся только `EmailSession.id` (не
   /// секрет), а не `sessionToken` других устройств.
-  _i3.Future<List<_i20.DeviceSessionInfo>> listMyDevices({
+  _i3.Future<List<_i25.DeviceSessionInfo>> listMyDevices({
     required String sessionToken,
-  }) => caller.callServerEndpoint<List<_i20.DeviceSessionInfo>>(
+  }) => caller.callServerEndpoint<List<_i25.DeviceSessionInfo>>(
     'emailAuth',
     'listMyDevices',
     {'sessionToken': sessionToken},
@@ -1317,7 +1616,7 @@ class EndpointEmailAuth extends _i2.EndpointRef {
   /// измениться, если бэкфиллить нечего).
   _i3.Future<bool> updateMyDeviceInfo({
     required String sessionToken,
-    _i19.DevicePlatform? platform,
+    _i24.DevicePlatform? platform,
     String? deviceName,
     String? appVersion,
   }) => caller.callServerEndpoint<bool>(
@@ -1344,13 +1643,13 @@ class EndpointEmailAuth extends _i2.EndpointRef {
   ///   * `code_invalid` — no match.
   ///   * `code_expired` — found but past expiresAt.
   ///   * `code_already_used` — usedAt is set.
-  _i3.Future<_i18.MessengerAuthContext> verifyEmail({
+  _i3.Future<_i23.MessengerAuthContext> verifyEmail({
     required String sessionToken,
     required String code,
     required String tenantExternalKey,
     String? productExternalKey,
     String? deviceId,
-  }) => caller.callServerEndpoint<_i18.MessengerAuthContext>(
+  }) => caller.callServerEndpoint<_i23.MessengerAuthContext>(
     'emailAuth',
     'verifyEmail',
     {
@@ -1462,8 +1761,8 @@ class EndpointIncomingWebhook extends _i2.EndpointRef {
   String get name => 'incomingWebhook';
 
   /// Список интеграций комнаты (вкладка «Интеграции»).
-  _i3.Future<List<_i21.IncomingWebhook>> listWebhooks({required int roomId}) =>
-      caller.callServerEndpoint<List<_i21.IncomingWebhook>>(
+  _i3.Future<List<_i26.IncomingWebhook>> listWebhooks({required int roomId}) =>
+      caller.callServerEndpoint<List<_i26.IncomingWebhook>>(
         'incomingWebhook',
         'listWebhooks',
         {'roomId': roomId},
@@ -1471,10 +1770,10 @@ class EndpointIncomingWebhook extends _i2.EndpointRef {
 
   /// Создать автопост-webhook: заводит бота-подпорку, добавляет в комнату,
   /// генерит токен. Возвращает webhook + публичный токен (показать один раз).
-  _i3.Future<_i22.IncomingWebhookCreated> createWebhook({
+  _i3.Future<_i27.IncomingWebhookCreated> createWebhook({
     required int roomId,
     required String name,
-  }) => caller.callServerEndpoint<_i22.IncomingWebhookCreated>(
+  }) => caller.callServerEndpoint<_i27.IncomingWebhookCreated>(
     'incomingWebhook',
     'createWebhook',
     {
@@ -1485,18 +1784,18 @@ class EndpointIncomingWebhook extends _i2.EndpointRef {
 
   /// Ротация токена: новый публичный токен, тот же бот-подпорка (имя/история
   /// постов сохраняются). Старый токен немедленно перестаёт резолвиться.
-  _i3.Future<_i22.IncomingWebhookCreated> rotateToken({required int id}) =>
-      caller.callServerEndpoint<_i22.IncomingWebhookCreated>(
+  _i3.Future<_i27.IncomingWebhookCreated> rotateToken({required int id}) =>
+      caller.callServerEndpoint<_i27.IncomingWebhookCreated>(
         'incomingWebhook',
         'rotateToken',
         {'id': id},
       );
 
   /// Вкл/выкл webhook без удаления.
-  _i3.Future<_i21.IncomingWebhook> setEnabled({
+  _i3.Future<_i26.IncomingWebhook> setEnabled({
     required int id,
     required bool enabled,
-  }) => caller.callServerEndpoint<_i21.IncomingWebhook>(
+  }) => caller.callServerEndpoint<_i26.IncomingWebhook>(
     'incomingWebhook',
     'setEnabled',
     {
@@ -1555,8 +1854,8 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// на клиенте триггерит `refreshAuthKey` перед каждым запросом, что
   /// рекурсивно зовёт сюда же → deadlock. См. doc у
   /// `RefresherClientAuthKeyProvider` в `serverpod_client`.
-  _i3.Future<_i23.MessengerSession> session(_i18.MessengerAuthContext ctx) =>
-      caller.callServerEndpoint<_i23.MessengerSession>(
+  _i3.Future<_i28.MessengerSession> session(_i23.MessengerAuthContext ctx) =>
+      caller.callServerEndpoint<_i28.MessengerSession>(
         'messenger',
         'session',
         {'ctx': ctx},
@@ -1595,10 +1894,10 @@ class EndpointMessenger extends _i2.EndpointRef {
   ///
   /// **[unauthenticatedClientCall]**: аналогично [session], нужно чтобы
   /// клиентский mutex-refresher не зацикливал refresh → authHeader → refresh.
-  _i3.Future<_i23.MessengerSession> refresh(
-    _i18.MessengerAuthContext ctx, {
+  _i3.Future<_i28.MessengerSession> refresh(
+    _i23.MessengerAuthContext ctx, {
     String? previousToken,
-  }) => caller.callServerEndpoint<_i23.MessengerSession>(
+  }) => caller.callServerEndpoint<_i28.MessengerSession>(
     'messenger',
     'refresh',
     {
@@ -1659,21 +1958,24 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// `uploadAttachment`. Если задана, server переопределяет `msgtype`
   /// на `m.image`/`m.video`/`m.file` per `attachment.mimeType` и кладёт
   /// `info` block в Matrix content (mxc url, dimensions, size).
-  _i3.Future<_i24.MessengerMessage> sendMessage({
+  _i3.Future<_i29.MessengerMessage> sendMessage({
     required int roomId,
     required String body,
     required String msgType,
     String? clientTxnId,
     String? threadId,
     String? replyToMatrixEventId,
-    _i25.AttachmentRef? attachment,
+    _i30.AttachmentRef? attachment,
     List<int>? mentionedMessengerUserIds,
     String? albumId,
     String? forwardedFromName,
     int? forwardedFromMessengerUserId,
     int? forwardedFromRoomId,
     String? forwardedFromEventId,
-  }) => caller.callServerEndpoint<_i24.MessengerMessage>(
+    int? sharedContactMessengerUserId,
+    List<int>? sharedContactListMessengerUserIds,
+    String? sharedContactListLabel,
+  }) => caller.callServerEndpoint<_i29.MessengerMessage>(
     'messenger',
     'sendMessage',
     {
@@ -1690,6 +1992,9 @@ class EndpointMessenger extends _i2.EndpointRef {
       'forwardedFromMessengerUserId': forwardedFromMessengerUserId,
       'forwardedFromRoomId': forwardedFromRoomId,
       'forwardedFromEventId': forwardedFromEventId,
+      'sharedContactMessengerUserId': sharedContactMessengerUserId,
+      'sharedContactListMessengerUserIds': sharedContactListMessengerUserIds,
+      'sharedContactListLabel': sharedContactListLabel,
     },
   );
 
@@ -1699,11 +2004,11 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// URL, пишет [TaskLink] и best-effort постит confirmation через
   /// `@nsg-system`. Нет enabled-конфига →
   /// [TaskIntegrationNotConfiguredException].
-  _i3.Future<_i26.TaskLink> createTaskFromMessage({
+  _i3.Future<_i31.TaskLink> createTaskFromMessage({
     required int roomId,
     required String matrixEventId,
     required String body,
-  }) => caller.callServerEndpoint<_i26.TaskLink>(
+  }) => caller.callServerEndpoint<_i31.TaskLink>(
     'messenger',
     'createTaskFromMessage',
     {
@@ -1723,13 +2028,13 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// Authz как у [createTaskFromMessage]: в support-комнате — оператор/бот
   /// (не заявитель). Идемпотентно: повтор (ретрай бота) не плодит связей.
   /// [kind]/[title] — черновик issue от бота (справочные, см. сервис).
-  _i3.Future<_i26.TaskLink> linkExistingTask({
+  _i3.Future<_i31.TaskLink> linkExistingTask({
     required int roomId,
     required String matrixEventId,
     required String issueUrl,
     String? kind,
     String? title,
-  }) => caller.callServerEndpoint<_i26.TaskLink>(
+  }) => caller.callServerEndpoint<_i31.TaskLink>(
     'messenger',
     'linkExistingTask',
     {
@@ -1748,10 +2053,10 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// мост выведен, см. `sendMessage`). Возвращает [Ticket] или `null` (тред не
   /// про задачу ЭТОЙ комнаты). Authz: caller обязан быть членом комнаты —
   /// anti-enumeration, чужие тред-корни не пробиваются (null, не исключение).
-  _i3.Future<_i27.Ticket?> taskByThreadRoot({
+  _i3.Future<_i32.Ticket?> taskByThreadRoot({
     required int roomId,
     required String threadRootEventId,
-  }) => caller.callServerEndpoint<_i27.Ticket?>(
+  }) => caller.callServerEndpoint<_i32.Ticket?>(
     'messenger',
     'taskByThreadRoot',
     {
@@ -1779,12 +2084,12 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// `newBody` empty/whitespace → `ArgumentError`. Edit deleted →
   /// [MessageDeletedException]. Msgtype preserved (Q2 invariant —
   /// `m.image` остаётся `m.image`, edit меняет только body/caption).
-  _i3.Future<_i24.MessengerMessage> editMessage({
+  _i3.Future<_i29.MessengerMessage> editMessage({
     required int roomId,
     required String matrixEventId,
     required String newBody,
     List<int>? mentionedMessengerUserIds,
-  }) => caller.callServerEndpoint<_i24.MessengerMessage>(
+  }) => caller.callServerEndpoint<_i29.MessengerMessage>(
     'messenger',
     'editMessage',
     {
@@ -1885,13 +2190,37 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// (serializable → `400` с `reason`+`detail`; раньше был `ArgumentError`,
   /// а он уходил наружу голым `500`), реестр не портится. Смена списка
   /// пишется в `BotAuditEvent` (`commands_set`).
-  _i3.Future<List<_i28.BotCommand>> setMyCommands({
-    required List<_i28.BotCommand> commands,
-  }) => caller.callServerEndpoint<List<_i28.BotCommand>>(
+  _i3.Future<List<_i33.BotCommand>> setMyCommands({
+    required List<_i33.BotCommand> commands,
+  }) => caller.callServerEndpoint<List<_i33.BotCommand>>(
     'messenger',
     'setMyCommands',
     {'commands': commands},
   );
+
+  /// **issue #131**: бот спрашивает СВОИМ токеном, доходят ли до него
+  /// события.
+  ///
+  /// Ради этого метод и появился: 11.08 канал поддержки молчал сутки, и
+  /// снаружи это было неотличимо от исправности — процесс жил, порт слушал,
+  /// туннель стоял. Единственный сломанный признак лежал в колонке БД,
+  /// куда никто не смотрит.
+  ///
+  /// Гейт — bot-идентичность caller-а, как у [setMyCommands]: спрашивают о
+  /// себе. Платформенных админ-кред для этого не нужно, и это главное —
+  /// сторож живёт на рабочей машине, класть туда ключи от всей платформы
+  /// нельзя.
+  ///
+  /// Отдаёт счётчики и вердикт, но ни url, ни секретов, ни идентификаторов
+  /// подписок: «здоровье» не повод отдавать на клиентскую машину устройство
+  /// чужой доставки. Область ответа — в самом ответе (`scope`), см.
+  /// [ChannelHealthService.forBot].
+  _i3.Future<_i34.BotChannelHealth> myChannelHealth() =>
+      caller.callServerEndpoint<_i34.BotChannelHealth>(
+        'messenger',
+        'myChannelHealth',
+        {},
+      );
 
   /// **TASK77 итер.3**: бот описывает СЕБЯ своим токеном — симметрично
   /// [setMyCommands] (аналог Telegram `setMyDescription`). Это тот текст,
@@ -1924,9 +2253,9 @@ class EndpointMessenger extends _i2.EndpointRef {
   ///
   /// Боты выключенные и без объявленных команд не возвращаются (см.
   /// [BotService.listRoomBotCommands]).
-  _i3.Future<List<_i29.RoomBotCommands>> listRoomBotCommands({
+  _i3.Future<List<_i35.RoomBotCommands>> listRoomBotCommands({
     required int roomId,
-  }) => caller.callServerEndpoint<List<_i29.RoomBotCommands>>(
+  }) => caller.callServerEndpoint<List<_i35.RoomBotCommands>>(
     'messenger',
     'listRoomBotCommands',
     {'roomId': roomId},
@@ -1974,9 +2303,9 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// [MessengerMessage]-DTO (для плашки закреплённых). Доступно любому
   /// участнику. Порядок — oldest-first (как в `m.room.pinned_events`).
   /// Пустой список — если ничего не закреплено.
-  _i3.Future<List<_i24.MessengerMessage>> listPinnedMessages({
+  _i3.Future<List<_i29.MessengerMessage>> listPinnedMessages({
     required int roomId,
-  }) => caller.callServerEndpoint<List<_i24.MessengerMessage>>(
+  }) => caller.callServerEndpoint<List<_i29.MessengerMessage>>(
     'messenger',
     'listPinnedMessages',
     {'roomId': roomId},
@@ -2007,11 +2336,11 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// безлимитным. Превышение → [RateLimitExceededException].
   _i3.Future<void> sendCallEvent({
     required int roomId,
-    required _i30.CallEventType eventType,
+    required _i36.CallEventType eventType,
     required String callId,
     required String partyId,
     String? sdp,
-    List<_i31.CallIceCandidate>? candidates,
+    List<_i37.CallIceCandidate>? candidates,
     String? hangupReason,
     String? selectedPartyId,
     String? sdpType,
@@ -2043,8 +2372,8 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// `turnStaticAuthSecret`) — возвращает `urls:[]` (фича выключена, клиент
   /// использует только публичные STUN). Не бросает — feature-toggle, не
   /// ошибка конфигурации.
-  _i3.Future<_i32.TurnCredentials> getTurnCredentials() =>
-      caller.callServerEndpoint<_i32.TurnCredentials>(
+  _i3.Future<_i38.TurnCredentials> getTurnCredentials() =>
+      caller.callServerEndpoint<_i38.TurnCredentials>(
         'messenger',
         'getTurnCredentials',
         {},
@@ -2063,8 +2392,8 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// `MatrixSyncDispatcher._processCallEvent` на callInvite, TTL ~65с =
   /// invite-lifetime). Возвращает `null`, если звонок завершён/истёк.
   /// Скоуп по текущему пользователю — чужой SDP не отдаём.
-  _i3.Future<_i33.MessengerEvent?> fetchCallInvite({required String callId}) =>
-      caller.callServerEndpoint<_i33.MessengerEvent?>(
+  _i3.Future<_i39.MessengerEvent?> fetchCallInvite({required String callId}) =>
+      caller.callServerEndpoint<_i39.MessengerEvent?>(
         'messenger',
         'fetchCallInvite',
         {'callId': callId},
@@ -2075,9 +2404,9 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// рисует их во вкладке «Звонки»: направление/пропущенный выводит
   /// per-viewer (viewer==caller → исходящий), имя собеседника резолвит
   /// по `roomId`. [limit] капается в диапазон 1..200.
-  _i3.Future<List<_i34.CallHistoryEntry>> listCallHistory({
+  _i3.Future<List<_i40.CallHistoryEntry>> listCallHistory({
     required int limit,
-  }) => caller.callServerEndpoint<List<_i34.CallHistoryEntry>>(
+  }) => caller.callServerEndpoint<List<_i40.CallHistoryEntry>>(
     'messenger',
     'listCallHistory',
     {'limit': limit},
@@ -2099,10 +2428,10 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// Отказы: [RoomUnavailableException] (нет комнаты / не участник —
   /// единый вид, anti-enumeration), [ConferenceFullException] (серверный
   /// лимит mesh, §3A.5), [RateLimitExceededException].
-  _i3.Future<_i35.ConferenceState> joinConference({
+  _i3.Future<_i41.ConferenceState> joinConference({
     required int roomId,
     required String partyId,
-  }) => caller.callServerEndpoint<_i35.ConferenceState>(
+  }) => caller.callServerEndpoint<_i41.ConferenceState>(
     'messenger',
     'joinConference',
     {
@@ -2127,8 +2456,8 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// `null`, если её нет. Поздний участник (и просто открывший комнату)
   /// получает состав одним запросом — для бейджа «идёт конференция,
   /// N человек» и решения войти. [RoomUnavailableException] — не участник.
-  _i3.Future<_i35.ConferenceState?> getConference({required int roomId}) =>
-      caller.callServerEndpoint<_i35.ConferenceState?>(
+  _i3.Future<_i41.ConferenceState?> getConference({required int roomId}) =>
+      caller.callServerEndpoint<_i41.ConferenceState?>(
         'messenger',
         'getConference',
         {'roomId': roomId},
@@ -2149,10 +2478,10 @@ class EndpointMessenger extends _i2.EndpointRef {
   ///
   /// Идемпотентно для своего показа (реконнект). [partyId] обязан
   /// совпадать с тем, которым caller состоит в конференции.
-  _i3.Future<_i35.ConferenceState> startScreenShare({
+  _i3.Future<_i41.ConferenceState> startScreenShare({
     required int roomId,
     required String partyId,
-  }) => caller.callServerEndpoint<_i35.ConferenceState>(
+  }) => caller.callServerEndpoint<_i41.ConferenceState>(
     'messenger',
     'startScreenShare',
     {
@@ -2177,10 +2506,10 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// `MessengerEvent`-ы (тот же shape что realtime). SDK скармливает их
   /// в aggregation-путь после `listMessages`, чтобы реакции были видны
   /// сразу при открытии чата. Пустой `eventIds` → пустой list.
-  _i3.Future<List<_i33.MessengerEvent>> listReactions({
+  _i3.Future<List<_i39.MessengerEvent>> listReactions({
     required int roomId,
     required List<String> eventIds,
-  }) => caller.callServerEndpoint<List<_i33.MessengerEvent>>(
+  }) => caller.callServerEndpoint<List<_i39.MessengerEvent>>(
     'messenger',
     'listReactions',
     {
@@ -2196,9 +2525,9 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// чтобы ✓✓ были видны сразу (раньше терялись до первого realtime
   /// receipt-а, т.к. `_peerLastReadAt` volatile). Локальный SELECT, БЕЗ
   /// обращения к Matrix.
-  _i3.Future<List<_i33.MessengerEvent>> listReadReceipts({
+  _i3.Future<List<_i39.MessengerEvent>> listReadReceipts({
     required int roomId,
-  }) => caller.callServerEndpoint<List<_i33.MessengerEvent>>(
+  }) => caller.callServerEndpoint<List<_i39.MessengerEvent>>(
     'messenger',
     'listReadReceipts',
     {'roomId': roomId},
@@ -2223,6 +2552,39 @@ class EndpointMessenger extends _i2.EndpointRef {
       'roomId': roomId,
       'targetMessengerUserId': targetMessengerUserId,
       'reason': reason,
+    },
+  );
+
+  /// **issue #90**: превью ссылок из сообщения — заголовок/описание/картинка.
+  ///
+  /// Ходит по ссылке СЕРВЕР, не клиент: иначе каждый участник чата своим IP
+  /// стучался бы на чужой сайт по любой присланной ссылке, и ссылка-ловушка
+  /// собирала бы адреса всех, кто открыл переписку. Результат кэшируется —
+  /// один поход наружу за всех.
+  ///
+  /// Батч, потому что в одном сообщении ссылок бывает несколько, а экран
+  /// открывается сразу со многими сообщениями. Ссылки без превью в ответ
+  /// просто не попадают: клиент показывает такую ссылку обычным текстом.
+  _i3.Future<List<_i42.LinkPreviewView>> getLinkPreviews({
+    required List<String> urls,
+  }) => caller.callServerEndpoint<List<_i42.LinkPreviewView>>(
+    'messenger',
+    'getLinkPreviews',
+    {'urls': urls},
+  );
+
+  /// **issue #62**: админ/владелец группы скрывает состав от рядовых
+  /// участников (или снова открывает). Само число участников остаётся видимым
+  /// — прячется только список имён.
+  _i3.Future<void> setParticipantsHidden({
+    required int roomId,
+    required bool hidden,
+  }) => caller.callServerEndpoint<void>(
+    'messenger',
+    'setParticipantsHidden',
+    {
+      'roomId': roomId,
+      'hidden': hidden,
     },
   );
 
@@ -2310,7 +2672,7 @@ class EndpointMessenger extends _i2.EndpointRef {
   _i3.Future<void> setRoomMemberRole({
     required int roomId,
     required int targetMessengerUserId,
-    required _i36.RoomMemberRole newRole,
+    required _i43.RoomMemberRole newRole,
   }) => caller.callServerEndpoint<void>(
     'messenger',
     'setRoomMemberRole',
@@ -2324,9 +2686,9 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// **TASK29 Chunk 2**: список banned users в комнате — для admin
   /// `BannedUsersScreen` UI. Caller `role >= admin`. Federation banned
   /// users отфильтрованы (DTO requires non-null messengerUserId).
-  _i3.Future<List<_i37.RoomParticipant>> listBannedUsers({
+  _i3.Future<List<_i44.RoomParticipant>> listBannedUsers({
     required int roomId,
-  }) => caller.callServerEndpoint<List<_i37.RoomParticipant>>(
+  }) => caller.callServerEndpoint<List<_i44.RoomParticipant>>(
     'messenger',
     'listBannedUsers',
     {'roomId': roomId},
@@ -2339,11 +2701,11 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// image (image package, header-only fast).
   ///
   /// Возвращает [AttachmentRef] для последующего `sendMessage(attachment:)`.
-  _i3.Future<_i25.AttachmentRef> uploadAttachment({
-    required _i38.ByteData bytes,
+  _i3.Future<_i30.AttachmentRef> uploadAttachment({
+    required _i45.ByteData bytes,
     required String mimeType,
     required String originalFilename,
-  }) => caller.callServerEndpoint<_i25.AttachmentRef>(
+  }) => caller.callServerEndpoint<_i30.AttachmentRef>(
     'messenger',
     'uploadAttachment',
     {
@@ -2370,7 +2732,7 @@ class EndpointMessenger extends _i2.EndpointRef {
   ///
   /// Возвращает обновлённый `MessengerUser.avatarUrl` (= mxcUrl).
   _i3.Future<String> uploadUserAvatar({
-    required _i38.ByteData bytes,
+    required _i45.ByteData bytes,
     required String mimeType,
   }) => caller.callServerEndpoint<String>(
     'messenger',
@@ -2395,7 +2757,7 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// Возвращает mxcUrl.
   _i3.Future<String> setRoomAvatar({
     required int roomId,
-    required _i38.ByteData bytes,
+    required _i45.ByteData bytes,
     required String mimeType,
   }) => caller.callServerEndpoint<String>(
     'messenger',
@@ -2419,11 +2781,11 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// не может доказать, что файл прилетел в адресованном боту сообщении, и
   /// отвечает [BotReadRestrictedException]. Оба значения бот берёт из
   /// события/истории, которые ему и так доставили.
-  _i3.Future<_i39.AttachmentBytes> downloadAttachment({
+  _i3.Future<_i46.AttachmentBytes> downloadAttachment({
     required String mxcUrl,
     int? roomId,
     String? messageEventId,
-  }) => caller.callServerEndpoint<_i39.AttachmentBytes>(
+  }) => caller.callServerEndpoint<_i46.AttachmentBytes>(
     'messenger',
     'downloadAttachment',
     {
@@ -2442,19 +2804,47 @@ class EndpointMessenger extends _i2.EndpointRef {
   ///
   /// **TASK77 итер.2**: [roomId] + [messageEventId] — как в
   /// [downloadAttachment] (для бота с `read_addressed` обязательны).
-  _i3.Future<_i39.AttachmentBytes> downloadAttachmentThumbnail({
+  _i3.Future<_i46.AttachmentBytes> downloadAttachmentThumbnail({
     required String mxcUrl,
     int? width,
     int? height,
     int? roomId,
     String? messageEventId,
-  }) => caller.callServerEndpoint<_i39.AttachmentBytes>(
+  }) => caller.callServerEndpoint<_i46.AttachmentBytes>(
     'messenger',
     'downloadAttachmentThumbnail',
     {
       'mxcUrl': mxcUrl,
       'width': width,
       'height': height,
+      'roomId': roomId,
+      'messageEventId': messageEventId,
+    },
+  );
+
+  /// **TASK92**: временная ссылка, по которой клиент скачивает вложение из
+  /// S3 напрямую — минуя и сервер, и Synapse.
+  ///
+  /// Применим только к вложениям со `storageKey` (загруженным после
+  /// TASK92). Для остальных — прежние `downloadAttachment` /
+  /// `downloadAttachmentThumbnail` байтами: они лежат в Synapse, и
+  /// подписать на них ссылку не из чего.
+  ///
+  /// Проверок доступа две, и они про разное. [_requireAttachmentReadable]
+  /// — это режим чтения бота (`read_addressed`, TASK77), тот же гейт, что
+  /// у скачивания байтами. Членство же в комнате проверяет сам
+  /// `resolveUrl`: раньше это делал Matrix, у S3-объектов Matrix-а нет.
+  _i3.Future<_i47.AttachmentUrl> getAttachmentUrl({
+    required String mxcUrl,
+    required bool thumbnail,
+    int? roomId,
+    String? messageEventId,
+  }) => caller.callServerEndpoint<_i47.AttachmentUrl>(
+    'messenger',
+    'getAttachmentUrl',
+    {
+      'mxcUrl': mxcUrl,
+      'thumbnail': thumbnail,
       'roomId': roomId,
       'messageEventId': messageEventId,
     },
@@ -2471,11 +2861,11 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// TASK15: возвращаем [MessengerMessageListPage] с tokens (на TASK09
   /// был просто `List` без pagination — закрыто с приходом SDK
   /// `MessagesController.loadMore`).
-  _i3.Future<_i40.MessengerMessageListPage> listMessages({
+  _i3.Future<_i48.MessengerMessageListPage> listMessages({
     required int roomId,
     String? fromToken,
     required int limit,
-  }) => caller.callServerEndpoint<_i40.MessengerMessageListPage>(
+  }) => caller.callServerEndpoint<_i48.MessengerMessageListPage>(
     'messenger',
     'listMessages',
     {
@@ -2492,12 +2882,12 @@ class EndpointMessenger extends _i2.EndpointRef {
   ///
   /// Членство в комнате enforce-ится Matrix-токеном вызывающего (Matrix
   /// отклоняет не-членов 403) — тем же путём, что [listMessages].
-  _i3.Future<_i40.MessengerMessageListPage> listThreadMessages({
+  _i3.Future<_i48.MessengerMessageListPage> listThreadMessages({
     required int roomId,
     required String threadRootEventId,
     String? fromToken,
     required int limit,
-  }) => caller.callServerEndpoint<_i40.MessengerMessageListPage>(
+  }) => caller.callServerEndpoint<_i48.MessengerMessageListPage>(
     'messenger',
     'listThreadMessages',
     {
@@ -2514,11 +2904,11 @@ class EndpointMessenger extends _i2.EndpointRef {
   ///
   /// Membership enforce-ится caller's matrix token (Matrix-side reject
   /// non-members с 403). Empty/short query → пустой list (no DoS).
-  _i3.Future<List<_i24.MessengerMessage>> searchMessages({
+  _i3.Future<List<_i29.MessengerMessage>> searchMessages({
     required int roomId,
     required String query,
     required int limit,
-  }) => caller.callServerEndpoint<List<_i24.MessengerMessage>>(
+  }) => caller.callServerEndpoint<List<_i29.MessengerMessage>>(
     'messenger',
     'searchMessages',
     {
@@ -2539,10 +2929,10 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// поэтому старый Matrix `/search`-путь промахивался мимо сообщений с
   /// другим регистром. Старый [MatrixMessageService.searchAllMessages]
   /// оставлен в коде, но endpoint теперь идёт через индекс.
-  _i3.Future<List<_i24.MessengerMessage>> searchAllMessages({
+  _i3.Future<List<_i29.MessengerMessage>> searchAllMessages({
     required String query,
     required int limit,
-  }) => caller.callServerEndpoint<List<_i24.MessengerMessage>>(
+  }) => caller.callServerEndpoint<List<_i29.MessengerMessage>>(
     'messenger',
     'searchAllMessages',
     {
@@ -2587,15 +2977,15 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// `productExternalKey` опциональный — для standalone Chatista
   /// можно null; для embedded SDK customer-app передаёт свой product.
   /// Resolves в `productId` через `Product.externalKey`.
-  _i3.Future<_i41.DeviceRegistration> registerDevice({
-    required _i19.DevicePlatform platform,
+  _i3.Future<_i49.DeviceRegistration> registerDevice({
+    required _i24.DevicePlatform platform,
     required String pushToken,
-    required _i42.PushService pushService,
+    required _i50.PushService pushService,
     required String locale,
     required String appVersion,
     String? deviceModel,
     String? productExternalKey,
-  }) => caller.callServerEndpoint<_i41.DeviceRegistration>(
+  }) => caller.callServerEndpoint<_i49.DeviceRegistration>(
     'messenger',
     'registerDevice',
     {
@@ -2644,13 +3034,13 @@ class EndpointMessenger extends _i2.EndpointRef {
         {'matrixEventIds': matrixEventIds},
       );
 
-  _i3.Stream<_i33.MessengerEvent> userEventStream({
+  _i3.Stream<_i39.MessengerEvent> userEventStream({
     List<String>? capabilities,
     List<String>? knownEventTypes,
   }) =>
       caller.callStreamingServerEndpoint<
-        _i3.Stream<_i33.MessengerEvent>,
-        _i33.MessengerEvent
+        _i3.Stream<_i39.MessengerEvent>,
+        _i39.MessengerEvent
       >(
         'messenger',
         'userEventStream',
@@ -2666,14 +3056,14 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// Параметры `state` / `search` / `includeArchived` заложены в
   /// сигнатуре, но фильтрация — TASK42 (UX); сейчас работают только
   /// `productId` + `cursor`.
-  _i3.Future<List<_i10.RoomSummary>> listRooms({
+  _i3.Future<List<_i11.RoomSummary>> listRooms({
     int? productId,
-    _i43.RoomState? state,
+    _i51.RoomState? state,
     String? search,
     bool? includeArchived,
     required int limit,
     String? cursor,
-  }) => caller.callServerEndpoint<List<_i10.RoomSummary>>(
+  }) => caller.callServerEndpoint<List<_i11.RoomSummary>>(
     'messenger',
     'listRooms',
     {
@@ -2696,14 +3086,14 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// SDK крутит этот метод в цикле до `nextCursor == null` (полный синк
   /// списка комнат), поэтому [listRooms] не тронут — по нему продолжают
   /// ходить клиенты в поле.
-  _i3.Future<_i44.RoomListPage> listRoomsPage({
+  _i3.Future<_i52.RoomListPage> listRoomsPage({
     int? productId,
-    _i43.RoomState? state,
+    _i51.RoomState? state,
     String? search,
     bool? includeArchived,
     required int limit,
     String? cursor,
-  }) => caller.callServerEndpoint<_i44.RoomListPage>(
+  }) => caller.callServerEndpoint<_i52.RoomListPage>(
     'messenger',
     'listRoomsPage',
     {
@@ -2719,8 +3109,8 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// Подробности конкретной комнаты + первые 30 участников + viewer-роль.
   /// Если caller не состоит в membership — `RoomUnavailableException`
   /// (anti-enumeration).
-  _i3.Future<_i45.RoomDetails> getRoom({required int roomId}) =>
-      caller.callServerEndpoint<_i45.RoomDetails>(
+  _i3.Future<_i53.RoomDetails> getRoom({required int roomId}) =>
+      caller.callServerEndpoint<_i53.RoomDetails>(
         'messenger',
         'getRoom',
         {'roomId': roomId},
@@ -2729,9 +3119,9 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// Идемпотентно создать direct chat caller↔peer. Заменяет старый
   /// `getOrCreateDirect`. Cross-tenant / non-existent peer →
   /// `PeerUnavailableException` (anti-enumeration).
-  _i3.Future<_i45.RoomDetails> createDirect({
+  _i3.Future<_i53.RoomDetails> createDirect({
     required int peerMessengerUserId,
-  }) => caller.callServerEndpoint<_i45.RoomDetails>(
+  }) => caller.callServerEndpoint<_i53.RoomDetails>(
     'messenger',
     'createDirect',
     {'peerMessengerUserId': peerMessengerUserId},
@@ -2753,10 +3143,10 @@ class EndpointMessenger extends _i2.EndpointRef {
   ///   * EmailAccount существует но MessengerUser ещё не создан
   ///     (signedUp но не вызывал messenger.session()) → тоже
   ///     PeerUnavailableException.
-  _i3.Future<_i37.RoomParticipant> findUserByEmail({
+  _i3.Future<_i44.RoomParticipant> findUserByEmail({
     required String email,
     required String tenantExternalKey,
-  }) => caller.callServerEndpoint<_i37.RoomParticipant>(
+  }) => caller.callServerEndpoint<_i44.RoomParticipant>(
     'messenger',
     'findUserByEmail',
     {
@@ -2780,8 +3170,8 @@ class EndpointMessenger extends _i2.EndpointRef {
   ///
   /// Возвращает пустой list если у caller нет ни одной комнаты или нет
   /// peer-ов в комнатах.
-  _i3.Future<List<_i37.RoomParticipant>> listKnownContacts() =>
-      caller.callServerEndpoint<List<_i37.RoomParticipant>>(
+  _i3.Future<List<_i44.RoomParticipant>> listKnownContacts() =>
+      caller.callServerEndpoint<List<_i44.RoomParticipant>>(
         'messenger',
         'listKnownContacts',
         {},
@@ -2803,11 +3193,11 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// **Edge cases**:
   ///   * Empty query → пустой list (no DoS surface).
   ///   * Query короче 2 символов → пустой list (anti-fishing).
-  _i3.Future<List<_i37.RoomParticipant>> searchUsers({
+  _i3.Future<List<_i44.RoomParticipant>> searchUsers({
     required String query,
     required int limit,
     required String tenantExternalKey,
-  }) => caller.callServerEndpoint<List<_i37.RoomParticipant>>(
+  }) => caller.callServerEndpoint<List<_i44.RoomParticipant>>(
     'messenger',
     'searchUsers',
     {
@@ -2842,11 +3232,11 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// silently dedup-ятся, caller silently удаляется из списка если
   /// был добавлен. Cross-tenant / non-existent member →
   /// `PeerUnavailableException`.
-  _i3.Future<_i45.RoomDetails> createGroup({
+  _i3.Future<_i53.RoomDetails> createGroup({
     required String name,
     required List<int> memberMessengerUserIds,
     int? productId,
-  }) => caller.callServerEndpoint<_i45.RoomDetails>(
+  }) => caller.callServerEndpoint<_i53.RoomDetails>(
     'messenger',
     'createGroup',
     {
@@ -2859,12 +3249,12 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// Идемпотентно создать / найти комнату для продуктовой сущности
   /// `(productExternalKey, entityType, entityId)`. При cache hit caller
   /// auto-join-ится в membership, если ещё не там.
-  _i3.Future<_i45.RoomDetails> getOrCreateProductRoom({
+  _i3.Future<_i53.RoomDetails> getOrCreateProductRoom({
     required String productExternalKey,
     required String entityType,
     required String entityId,
-    required _i46.RoomType roomType,
-  }) => caller.callServerEndpoint<_i45.RoomDetails>(
+    required _i54.RoomType roomType,
+  }) => caller.callServerEndpoint<_i53.RoomDetails>(
     'messenger',
     'getOrCreateProductRoom',
     {
@@ -2878,10 +3268,10 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// Поддержка по `contextId`. На MVP — частный случай productRoom
   /// с `entityType='support_ticket'` без pre-defined operator-а
   /// (TASK29 / customer config добавит).
-  _i3.Future<_i45.RoomDetails> openSupportChat({
+  _i3.Future<_i53.RoomDetails> openSupportChat({
     required String productExternalKey,
     required String contextId,
-  }) => caller.callServerEndpoint<_i45.RoomDetails>(
+  }) => caller.callServerEndpoint<_i53.RoomDetails>(
     'messenger',
     'openSupportChat',
     {
@@ -2892,8 +3282,8 @@ class EndpointMessenger extends _i2.EndpointRef {
 
   /// **TASK57 фаза 1**: «Мои обращения» — список тикетов текущего пользователя
   /// со статусами (open/closed) и ссылкой на GitHub issue (если заведён).
-  _i3.Future<List<_i47.TicketView>> listMyTickets() =>
-      caller.callServerEndpoint<List<_i47.TicketView>>(
+  _i3.Future<List<_i55.TicketView>> listMyTickets() =>
+      caller.callServerEndpoint<List<_i55.TicketView>>(
         'messenger',
         'listMyTickets',
         {},
@@ -2907,10 +3297,10 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// **TASK88**: [roomId] опционально сужает список до одной комнаты (тап по
   /// иконке задач в шапке чата). Фильтр — в рамках membership-скоупа: не член
   /// → пустой список (anti-enumeration).
-  _i3.Future<List<_i47.TicketView>> listMyTasks({
+  _i3.Future<List<_i55.TicketView>> listMyTasks({
     required String filter,
     int? roomId,
-  }) => caller.callServerEndpoint<List<_i47.TicketView>>(
+  }) => caller.callServerEndpoint<List<_i55.TicketView>>(
     'messenger',
     'listMyTasks',
     {
@@ -2919,12 +3309,57 @@ class EndpointMessenger extends _i2.EndpointRef {
     },
   );
 
+  /// **TASK91 (issue #65)**: объявления, которые надо показать при входе —
+  /// живые, подходящие продукту и ещё не виденные этим человеком.
+  ///
+  /// [productExternalKey] — из какого приложения зашли. Не задан → только
+  /// общие объявления тенанта. Неизвестный ключ → тоже только общие: врать
+  /// про несуществующий продукт нечем, а падать на опечатке в конфиге
+  /// приложения значило бы уронить вход.
+  ///
+  /// Пустой список — норма и самый частый ответ.
+  _i3.Future<List<_i56.AnnouncementView>> listAnnouncements({
+    String? productExternalKey,
+  }) => caller.callServerEndpoint<List<_i56.AnnouncementView>>(
+    'messenger',
+    'listAnnouncements',
+    {'productExternalKey': productExternalKey},
+  );
+
+  /// **TASK91**: «прочитано» — больше это объявление человеку не показываем.
+  /// Идемпотентно: повторный вызов не ошибка (двойной тап, ретрай на сети).
+  _i3.Future<void> markAnnouncementSeen({required int announcementId}) =>
+      caller.callServerEndpoint<void>(
+        'messenger',
+        'markAnnouncementSeen',
+        {'announcementId': announcementId},
+      );
+
+  /// **TASK90**: задачи КОМНАТЫ — то, что открывается тапом по иконке в
+  /// шапке. Считает ровно то же множество, что и бейдж [roomTaskStats]:
+  /// связи `TaskLink`, дедуп по URL issue.
+  ///
+  /// Отдельный вход от [listMyTasks] намеренно. Тот отдаёт `TicketView` —
+  /// ОБРАЩЕНИЯ, а у support-комнаты обращение одно (`UNIQUE roomId` в
+  /// `tickets`), и сужение его по `roomId` всегда давало одну строку при
+  /// любом числе задач: «в шапке 10, внутри одна». Разные сущности — разные
+  /// входы, а не общий с флажком.
+  ///
+  /// Authz как у [roomTaskStats]: не член комнаты → пустой список (не
+  /// подтверждаем существование комнаты по подобранному id).
+  _i3.Future<List<_i57.RoomTaskView>> listRoomTasks({required int roomId}) =>
+      caller.callServerEndpoint<List<_i57.RoomTaskView>>(
+        'messenger',
+        'listRoomTasks',
+        {'roomId': roomId},
+      );
+
   /// **TASK88**: сводка по задачам комнаты для иконки в шапке чата
   /// (`active`/`total`). Дёшево — зовётся при открытии чата (best-effort).
   /// Authz: не член комнаты → `(0, 0)` (иконка просто не покажется, без
   /// утечки существования комнаты по подобранному id).
-  _i3.Future<_i48.RoomTaskStats> roomTaskStats({required int roomId}) =>
-      caller.callServerEndpoint<_i48.RoomTaskStats>(
+  _i3.Future<_i58.RoomTaskStats> roomTaskStats({required int roomId}) =>
+      caller.callServerEndpoint<_i58.RoomTaskStats>(
         'messenger',
         'roomTaskStats',
         {'roomId': roomId},
@@ -2942,9 +3377,9 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// пользователям с общей комнатой (тот же tenant); боты/чужие id тихо
   /// отбрасываются. `lastActiveAt` огрублён до минуты. НЕ путать с
   /// [getPresence] (foreground-кэш для UI «онлайн сейчас», single-id).
-  _i3.Future<List<_i49.PresenceInfo>> getLastSeen({
+  _i3.Future<List<_i59.PresenceInfo>> getLastSeen({
     required List<int> userIds,
-  }) => caller.callServerEndpoint<List<_i49.PresenceInfo>>(
+  }) => caller.callServerEndpoint<List<_i59.PresenceInfo>>(
     'messenger',
     'getLastSeen',
     {'userIds': userIds},
@@ -2954,35 +3389,35 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// TTL ~5 мин — SDK повторяет при открытом чате). Возвращает актуальный
   /// снапшот. События придут в userEventStream при объявленной capability
   /// `presence`.
-  _i3.Future<List<_i49.PresenceInfo>> subscribePresence({
+  _i3.Future<List<_i59.PresenceInfo>> subscribePresence({
     required List<int> userIds,
-  }) => caller.callServerEndpoint<List<_i49.PresenceInfo>>(
+  }) => caller.callServerEndpoint<List<_i59.PresenceInfo>>(
     'messenger',
     'subscribePresence',
     {'userIds': userIds},
   );
 
   /// **TASK62**: список папок текущего пользователя (с roomIds).
-  _i3.Future<List<_i50.ChatFolderView>> listChatFolders() =>
-      caller.callServerEndpoint<List<_i50.ChatFolderView>>(
+  _i3.Future<List<_i60.ChatFolderView>> listChatFolders() =>
+      caller.callServerEndpoint<List<_i60.ChatFolderView>>(
         'messenger',
         'listChatFolders',
         {},
       );
 
   /// **TASK62**: создать папку (имя 1..64, уникально per user, ≤50 папок).
-  _i3.Future<_i50.ChatFolderView> createChatFolder({required String name}) =>
-      caller.callServerEndpoint<_i50.ChatFolderView>(
+  _i3.Future<_i60.ChatFolderView> createChatFolder({required String name}) =>
+      caller.callServerEndpoint<_i60.ChatFolderView>(
         'messenger',
         'createChatFolder',
         {'name': name},
       );
 
   /// **TASK62**: переименовать свою папку.
-  _i3.Future<_i50.ChatFolderView> renameChatFolder({
+  _i3.Future<_i60.ChatFolderView> renameChatFolder({
     required int folderId,
     required String name,
-  }) => caller.callServerEndpoint<_i50.ChatFolderView>(
+  }) => caller.callServerEndpoint<_i60.ChatFolderView>(
     'messenger',
     'renameChatFolder',
     {
@@ -3033,8 +3468,8 @@ class EndpointMessenger extends _i2.EndpointRef {
   ///
   /// Self-чат — обычная Matrix-комната с единственным участником, поэтому
   /// синхронизация между устройствами идёт штатным `/sync` (см. TASK68 §4).
-  _i3.Future<_i45.RoomDetails> getOrCreateSelfRoom() =>
-      caller.callServerEndpoint<_i45.RoomDetails>(
+  _i3.Future<_i53.RoomDetails> getOrCreateSelfRoom() =>
+      caller.callServerEndpoint<_i53.RoomDetails>(
         'messenger',
         'getOrCreateSelfRoom',
         {},
@@ -3047,8 +3482,8 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// (пустое / длиннее [SavedChatPolicy.maxNameLength]), `saved_chat_limit`
   /// (потолок [SavedChatPolicy.maxSavedChatsPerUser] разделов),
   /// `saved_chat_name_taken` (такой раздел уже есть).
-  _i3.Future<_i45.RoomDetails> createSavedChat({required String name}) =>
-      caller.callServerEndpoint<_i45.RoomDetails>(
+  _i3.Future<_i53.RoomDetails> createSavedChat({required String name}) =>
+      caller.callServerEndpoint<_i53.RoomDetails>(
         'messenger',
         'createSavedChat',
         {'name': name},
@@ -3057,8 +3492,8 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// **TASK68**: все self-чаты текущего пользователя — теми же
   /// [RoomSummary], что и общий список чатов (одинаковые строки в UI).
   /// Пустой список, если пользователь ещё не заходил в «Избранное».
-  _i3.Future<List<_i10.RoomSummary>> listSavedChats() =>
-      caller.callServerEndpoint<List<_i10.RoomSummary>>(
+  _i3.Future<List<_i11.RoomSummary>> listSavedChats() =>
+      caller.callServerEndpoint<List<_i11.RoomSummary>>(
         'messenger',
         'listSavedChats',
         {},
@@ -3071,10 +3506,10 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// Throws [RoomUnavailableException] (не участник / нет комнаты) или
   /// [StateError] с кодом `saved_chat_ttl_unsupported` (комната не
   /// «Избранное») / `saved_chat_ttl_invalid` (TTL вне допустимых границ).
-  _i3.Future<_i45.RoomDetails> setRoomAutoCleanupTtl({
+  _i3.Future<_i53.RoomDetails> setRoomAutoCleanupTtl({
     required int roomId,
     int? ttlSeconds,
-  }) => caller.callServerEndpoint<_i45.RoomDetails>(
+  }) => caller.callServerEndpoint<_i53.RoomDetails>(
     'messenger',
     'setRoomAutoCleanupTtl',
     {
@@ -3085,9 +3520,9 @@ class EndpointMessenger extends _i2.EndpointRef {
 
   /// **TASK52**: отношение текущего пользователя к другому (для UI:
   /// кнопки контакта/блокировки, интро-карточка).
-  _i3.Future<_i51.ContactRelation> getContactRelation({
+  _i3.Future<_i61.ContactRelation> getContactRelation({
     required int otherMessengerUserId,
-  }) => caller.callServerEndpoint<_i51.ContactRelation>(
+  }) => caller.callServerEndpoint<_i61.ContactRelation>(
     'messenger',
     'getContactRelation',
     {'otherMessengerUserId': otherMessengerUserId},
@@ -3110,6 +3545,87 @@ class EndpointMessenger extends _i2.EndpointRef {
         'messenger',
         'removeContact',
         {'contactMessengerUserId': contactMessengerUserId},
+      );
+
+  /// Команды, в которых я состою: свои и оргкоманды тенанта.
+  _i3.Future<List<_i20.TeamView>> listMyTeams() =>
+      caller.callServerEndpoint<List<_i20.TeamView>>(
+        'messenger',
+        'listMyTeams',
+        {},
+      );
+
+  /// Завести свою команду. Тёзки разрешены: «Проект» у меня и «Проект» у
+  /// коллеги — разные списки разных людей.
+  _i3.Future<_i20.TeamView> createMyTeam({
+    required String name,
+    String? description,
+  }) => caller.callServerEndpoint<_i20.TeamView>(
+    'messenger',
+    'createMyTeam',
+    {
+      'name': name,
+      'description': description,
+    },
+  );
+
+  /// Распустить свою команду. Переписку не трогает: пропадает знакомство,
+  /// а комнаты, сообщения и история остаются.
+  _i3.Future<void> deleteMyTeam({required int teamId}) =>
+      caller.callServerEndpoint<void>(
+        'messenger',
+        'deleteMyTeam',
+        {'teamId': teamId},
+      );
+
+  /// Состав команды, в которой я состою. Чужую по номеру не прочитать.
+  _i3.Future<List<_i21.TeamMemberView>> listMyTeamMembers({
+    required int teamId,
+  }) => caller.callServerEndpoint<List<_i21.TeamMemberView>>(
+    'messenger',
+    'listMyTeamMembers',
+    {'teamId': teamId},
+  );
+
+  /// Добавить человека в свою команду.
+  ///
+  /// Отказ `TeamPeerUnknownException` — не сбой, а правило: незнакомого в
+  /// свою команду не положить, иначе ограничение поиска по email
+  /// обходится в один клик.
+  _i3.Future<void> addMyTeamMember({
+    required int teamId,
+    required int messengerUserId,
+  }) => caller.callServerEndpoint<void>(
+    'messenger',
+    'addMyTeamMember',
+    {
+      'teamId': teamId,
+      'messengerUserId': messengerUserId,
+    },
+  );
+
+  /// Убрать человека из своей команды.
+  _i3.Future<void> removeMyTeamMember({
+    required int teamId,
+    required int messengerUserId,
+  }) => caller.callServerEndpoint<void>(
+    'messenger',
+    'removeMyTeamMember',
+    {
+      'teamId': teamId,
+      'messengerUserId': messengerUserId,
+    },
+  );
+
+  /// Выйти из команды.
+  ///
+  /// Разрешения владельца не требует: согласия при добавлении не
+  /// спрашивают, значит и на выход его требовать нечестно.
+  _i3.Future<void> leaveMyTeam({required int teamId}) =>
+      caller.callServerEndpoint<void>(
+        'messenger',
+        'leaveMyTeam',
+        {'teamId': teamId},
       );
 
   /// **TASK52 (§3B.8a)**: заблокировать пользователя.
@@ -3145,8 +3661,8 @@ class EndpointMessenger extends _i2.EndpointRef {
   );
 
   /// **TASK52**: мои входящие заявки (pending) с полями отправителей.
-  _i3.Future<List<_i52.ContactRequestView>> listIncomingContactRequests() =>
-      caller.callServerEndpoint<List<_i52.ContactRequestView>>(
+  _i3.Future<List<_i62.ContactRequestView>> listIncomingContactRequests() =>
+      caller.callServerEndpoint<List<_i62.ContactRequestView>>(
         'messenger',
         'listIncomingContactRequests',
         {},
@@ -3155,8 +3671,8 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// **TASK52**: принять заявку → взаимный ContactLink + direct-чат.
   /// Возврат — RoomDetails созданной комнаты. Заявка не найдена/не моя/
   /// не pending → PeerUnavailable (anti-enumeration).
-  _i3.Future<_i45.RoomDetails> acceptContactRequest({required int requestId}) =>
-      caller.callServerEndpoint<_i45.RoomDetails>(
+  _i3.Future<_i53.RoomDetails> acceptContactRequest({required int requestId}) =>
+      caller.callServerEndpoint<_i53.RoomDetails>(
         'messenger',
         'acceptContactRequest',
         {'requestId': requestId},
@@ -3175,9 +3691,9 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// инвайт-ссылка). Единый механизм — потребитель различается только
   /// [kind]. Токен встраивается в QR/ссылку/BLE; встречный гасит его
   /// через [redeemTrustToken] → взаимный контакт.
-  _i3.Future<_i53.TrustTokenIssued> issueTrustToken({
-    required _i54.TrustTokenKind kind,
-  }) => caller.callServerEndpoint<_i53.TrustTokenIssued>(
+  _i3.Future<_i63.TrustTokenIssued> issueTrustToken({
+    required _i64.TrustTokenKind kind,
+  }) => caller.callServerEndpoint<_i63.TrustTokenIssued>(
     'messenger',
     'issueTrustToken',
     {'kind': kind},
@@ -3188,9 +3704,9 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// direct-чата/интро-карточки), либо null на любой невалидный исход
   /// (нет токена / истёк / исчерпан / свой / чужой tenant — неотличимо,
   /// anti-enumeration).
-  _i3.Future<_i55.TrustRedeemResult?> redeemTrustToken({
+  _i3.Future<_i65.TrustRedeemResult?> redeemTrustToken({
     required String token,
-  }) => caller.callServerEndpoint<_i55.TrustRedeemResult?>(
+  }) => caller.callServerEndpoint<_i65.TrustRedeemResult?>(
     'messenger',
     'redeemTrustToken',
     {'token': token},
@@ -3208,9 +3724,9 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// ВЗАИМНОГО тапа в окне 60с — BLE недоверенное. matched=true →
   /// взаимный контакт (можно открыть чат); matched=false → ждём ответный
   /// тап peer-а.
-  _i3.Future<_i56.NearbyConfirmResult> confirmNearby({
+  _i3.Future<_i66.NearbyConfirmResult> confirmNearby({
     required int peerMessengerUserId,
-  }) => caller.callServerEndpoint<_i56.NearbyConfirmResult>(
+  }) => caller.callServerEndpoint<_i66.NearbyConfirmResult>(
     'messenger',
     'confirmNearby',
     {'peerMessengerUserId': peerMessengerUserId},
@@ -3220,9 +3736,9 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// поля вырезаны, если нет trust-связи (итер.1 — общая комната).
   /// null = визитки нет; несуществующий id / чужой tenant — тоже null
   /// (anti-enumeration). Rate-limit 120/мин на вызывающего.
-  _i3.Future<_i57.ContactCardInfo?> getContactCard({
+  _i3.Future<_i67.ContactCardInfo?> getContactCard({
     required int messengerUserId,
-  }) => caller.callServerEndpoint<_i57.ContactCardInfo?>(
+  }) => caller.callServerEndpoint<_i67.ContactCardInfo?>(
     'messenger',
     'getContactCard',
     {'messengerUserId': messengerUserId},
@@ -3230,8 +3746,8 @@ class EndpointMessenger extends _i2.EndpointRef {
 
   /// **TASK52**: своя визитка целиком (включая contactsOnlyFields) —
   /// для редактора. null = ещё не создана.
-  _i3.Future<_i58.ContactCard?> getMyContactCard() =>
-      caller.callServerEndpoint<_i58.ContactCard?>(
+  _i3.Future<_i68.ContactCard?> getMyContactCard() =>
+      caller.callServerEndpoint<_i68.ContactCard?>(
         'messenger',
         'getMyContactCard',
         {},
@@ -3239,9 +3755,9 @@ class EndpointMessenger extends _i2.EndpointRef {
 
   /// **TASK52**: сохранить свою визитку (upsert). id/messengerUserId
   /// из [card] игнорируются — владелец всегда caller.
-  _i3.Future<_i58.ContactCard> setMyContactCard({
-    required _i58.ContactCard card,
-  }) => caller.callServerEndpoint<_i58.ContactCard>(
+  _i3.Future<_i68.ContactCard> setMyContactCard({
+    required _i68.ContactCard card,
+  }) => caller.callServerEndpoint<_i68.ContactCard>(
     'messenger',
     'setMyContactCard',
     {'card': card},
@@ -3256,9 +3772,9 @@ class EndpointMessenger extends _i2.EndpointRef {
 
   /// **TASK63**: профиль контакта глазами текущего пользователя —
   /// публичные поля + приватные alias/заметка/метки viewer-а.
-  _i3.Future<_i59.ContactProfileView> getContactProfile({
+  _i3.Future<_i69.ContactProfileView> getContactProfile({
     required int contactMessengerUserId,
-  }) => caller.callServerEndpoint<_i59.ContactProfileView>(
+  }) => caller.callServerEndpoint<_i69.ContactProfileView>(
     'messenger',
     'getContactProfile',
     {'contactMessengerUserId': contactMessengerUserId},
@@ -3266,11 +3782,11 @@ class EndpointMessenger extends _i2.EndpointRef {
 
   /// **TASK63**: задать «своё имя» и/или заметку. null = не менять,
   /// пустая строка = очистить.
-  _i3.Future<_i59.ContactProfileView> setContactMeta({
+  _i3.Future<_i69.ContactProfileView> setContactMeta({
     required int contactMessengerUserId,
     String? customName,
     String? note,
-  }) => caller.callServerEndpoint<_i59.ContactProfileView>(
+  }) => caller.callServerEndpoint<_i69.ContactProfileView>(
     'messenger',
     'setContactMeta',
     {
@@ -3281,8 +3797,8 @@ class EndpointMessenger extends _i2.EndpointRef {
   );
 
   /// **TASK63**: метки текущего пользователя.
-  _i3.Future<List<_i60.ContactLabel>> listContactLabels() =>
-      caller.callServerEndpoint<List<_i60.ContactLabel>>(
+  _i3.Future<List<_i70.ContactLabel>> listContactLabels() =>
+      caller.callServerEndpoint<List<_i70.ContactLabel>>(
         'messenger',
         'listContactLabels',
         {},
@@ -3290,18 +3806,18 @@ class EndpointMessenger extends _i2.EndpointRef {
 
   /// **TASK63 итер.3**: все назначения меток текущего пользователя
   /// (для точек/счётчиков/клиентского фильтра на экране «Люди»).
-  _i3.Future<List<_i61.ContactLabelAssignment>> listContactLabelAssignments() =>
-      caller.callServerEndpoint<List<_i61.ContactLabelAssignment>>(
+  _i3.Future<List<_i71.ContactLabelAssignment>> listContactLabelAssignments() =>
+      caller.callServerEndpoint<List<_i71.ContactLabelAssignment>>(
         'messenger',
         'listContactLabelAssignments',
         {},
       );
 
   /// **TASK63**: создать метку (имя 1..32, уникально per user, ≤100).
-  _i3.Future<_i60.ContactLabel> createContactLabel({
+  _i3.Future<_i70.ContactLabel> createContactLabel({
     required String name,
     String? colorHex,
-  }) => caller.callServerEndpoint<_i60.ContactLabel>(
+  }) => caller.callServerEndpoint<_i70.ContactLabel>(
     'messenger',
     'createContactLabel',
     {
@@ -3311,11 +3827,11 @@ class EndpointMessenger extends _i2.EndpointRef {
   );
 
   /// **TASK63**: переименовать/перекрасить метку.
-  _i3.Future<_i60.ContactLabel> renameContactLabel({
+  _i3.Future<_i70.ContactLabel> renameContactLabel({
     required int labelId,
     required String name,
     String? colorHex,
-  }) => caller.callServerEndpoint<_i60.ContactLabel>(
+  }) => caller.callServerEndpoint<_i70.ContactLabel>(
     'messenger',
     'renameContactLabel',
     {
@@ -3349,9 +3865,9 @@ class EndpointMessenger extends _i2.EndpointRef {
   );
 
   /// **TASK63**: контакты с меткой (директория; имена уже с alias-ами).
-  _i3.Future<List<_i37.RoomParticipant>> listContactsByLabel({
+  _i3.Future<List<_i44.RoomParticipant>> listContactsByLabel({
     required int labelId,
-  }) => caller.callServerEndpoint<List<_i37.RoomParticipant>>(
+  }) => caller.callServerEndpoint<List<_i44.RoomParticipant>>(
     'messenger',
     'listContactsByLabel',
     {'labelId': labelId},
@@ -3366,12 +3882,12 @@ class EndpointMessenger extends _i2.EndpointRef {
   ///
   /// Обычно вызывается server-to-server из titan (сессия caller-а), но
   /// сигнатура — обычный аутентифицированный messenger-RPC.
-  _i3.Future<_i45.RoomDetails> getOrCreateObjectRoom({
+  _i3.Future<_i53.RoomDetails> getOrCreateObjectRoom({
     required String productExternalKey,
     required String objectId,
     required String name,
     required List<int> memberMessengerUserIds,
-  }) => caller.callServerEndpoint<_i45.RoomDetails>(
+  }) => caller.callServerEndpoint<_i53.RoomDetails>(
     'messenger',
     'getOrCreateObjectRoom',
     {
@@ -3390,12 +3906,20 @@ class EndpointMessenger extends _i2.EndpointRef {
   ///
   /// Не-участник → [NotSupportTeamMemberException] (anti-enumeration: не
   /// раскрываем ни существование команды, ни её состав).
-  _i3.Future<_i62.SupportTeamView> getSupportTeam({
+  /// [tenantExternalKey] — тенант продукта. Обязателен, когда смотрят
+  /// ЧУЖОЙ тенант (платформенная админка): ключ продукта уникален только
+  /// внутри тенанта, и без него сервер отдавал состав команды другого
+  /// тенанта с тем же ключом (наблюдалось на проде).
+  _i3.Future<_i72.SupportTeamView> getSupportTeam({
     required String productExternalKey,
-  }) => caller.callServerEndpoint<_i62.SupportTeamView>(
+    String? tenantExternalKey,
+  }) => caller.callServerEndpoint<_i72.SupportTeamView>(
     'messenger',
     'getSupportTeam',
-    {'productExternalKey': productExternalKey},
+    {
+      'productExternalKey': productExternalKey,
+      'tenantExternalKey': tenantExternalKey,
+    },
   );
 
   /// **TASK76**: создать команду поддержки продукта self-service —
@@ -3408,9 +3932,9 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// caller-а), [NotSupportTeamMemberException] (команда уже есть и caller
   /// не в ней — anti-enumeration). Идемпотентно для участника существующей
   /// команды (вернёт её view).
-  _i3.Future<_i62.SupportTeamView> createSupportTeam({
+  _i3.Future<_i72.SupportTeamView> createSupportTeam({
     required String productExternalKey,
-  }) => caller.callServerEndpoint<_i62.SupportTeamView>(
+  }) => caller.callServerEndpoint<_i72.SupportTeamView>(
     'messenger',
     'createSupportTeam',
     {'productExternalKey': productExternalKey},
@@ -3420,17 +3944,19 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// только владелец. «Назначение других администраторов»: повышенный
   /// участник тоже управляет составом. Понизить последнего владельца
   /// нельзя ([LastOwnerCannotDemoteException]). Возвращает обновлённый view.
-  _i3.Future<_i62.SupportTeamView> setSupportTeamMemberRole({
+  _i3.Future<_i72.SupportTeamView> setSupportTeamMemberRole({
     required String productExternalKey,
     required int targetMessengerUserId,
-    required _i63.SupportTeamRole role,
-  }) => caller.callServerEndpoint<_i62.SupportTeamView>(
+    required _i73.SupportTeamRole role,
+    String? tenantExternalKey,
+  }) => caller.callServerEndpoint<_i72.SupportTeamView>(
     'messenger',
     'setSupportTeamMemberRole',
     {
       'productExternalKey': productExternalKey,
       'targetMessengerUserId': targetMessengerUserId,
       'role': role,
+      'tenantExternalKey': tenantExternalKey,
     },
   );
 
@@ -3441,17 +3967,19 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// ней), [NotSupportTeamOwnerException] (caller не owner),
   /// [PeerUnavailableException] (email не резолвится — оператор ещё не
   /// входил / нет аккаунта).
-  _i3.Future<_i62.SupportTeamView> addSupportTeamMember({
+  _i3.Future<_i72.SupportTeamView> addSupportTeamMember({
     required String productExternalKey,
     required String email,
     int? tier,
-  }) => caller.callServerEndpoint<_i62.SupportTeamView>(
+    String? tenantExternalKey,
+  }) => caller.callServerEndpoint<_i72.SupportTeamView>(
     'messenger',
     'addSupportTeamMember',
     {
       'productExternalKey': productExternalKey,
       'email': email,
       'tier': tier,
+      'tenantExternalKey': tenantExternalKey,
     },
   );
 
@@ -3463,17 +3991,19 @@ class EndpointMessenger extends _i2.EndpointRef {
   ///
   /// Throws как [addSupportTeamMember]; [PeerUnavailableException] — если
   /// пользователя с таким id нет.
-  _i3.Future<_i62.SupportTeamView> addSupportTeamMemberById({
+  _i3.Future<_i72.SupportTeamView> addSupportTeamMemberById({
     required String productExternalKey,
     required int messengerUserId,
     int? tier,
-  }) => caller.callServerEndpoint<_i62.SupportTeamView>(
+    String? tenantExternalKey,
+  }) => caller.callServerEndpoint<_i72.SupportTeamView>(
     'messenger',
     'addSupportTeamMemberById',
     {
       'productExternalKey': productExternalKey,
       'messengerUserId': messengerUserId,
       'tier': tier,
+      'tenantExternalKey': tenantExternalKey,
     },
   );
 
@@ -3481,47 +4011,53 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// `tier` 1 = фронт-линия, 2 = эскалация. Затрагивает БУДУЩИЕ support-
   /// комнаты и эскалацию; уже открытые не трогаются. Возвращает обновлённый
   /// view. Throws как [addSupportTeamMember] (owner-gated).
-  _i3.Future<_i62.SupportTeamView> setSupportTeamMemberTier({
+  _i3.Future<_i72.SupportTeamView> setSupportTeamMemberTier({
     required String productExternalKey,
     required int targetMessengerUserId,
     required int tier,
-  }) => caller.callServerEndpoint<_i62.SupportTeamView>(
+    String? tenantExternalKey,
+  }) => caller.callServerEndpoint<_i72.SupportTeamView>(
     'messenger',
     'setSupportTeamMemberTier',
     {
       'productExternalKey': productExternalKey,
       'targetMessengerUserId': targetMessengerUserId,
       'tier': tier,
+      'tenantExternalKey': tenantExternalKey,
     },
   );
 
   /// **TASK48 iter2**: порог авто-эскалации команды в минутах — только
   /// owner. Читается sweep-джобом (`SupportEscalationSweepFutureCall`).
   /// Клампится сервером в [1, 10080]. Возвращает обновлённый view.
-  _i3.Future<_i62.SupportTeamView> setSupportTeamTimeout({
+  _i3.Future<_i72.SupportTeamView> setSupportTeamTimeout({
     required String productExternalKey,
     required int minutes,
-  }) => caller.callServerEndpoint<_i62.SupportTeamView>(
+    String? tenantExternalKey,
+  }) => caller.callServerEndpoint<_i72.SupportTeamView>(
     'messenger',
     'setSupportTeamTimeout',
     {
       'productExternalKey': productExternalKey,
       'minutes': minutes,
+      'tenantExternalKey': tenantExternalKey,
     },
   );
 
   /// **TASK43**: убрать оператора из команды по messengerUserId — только
   /// владелец. Нельзя убрать последнего owner-а
   /// ([LastOwnerCannotDemoteException]). Возвращает обновлённый view.
-  _i3.Future<_i62.SupportTeamView> removeSupportTeamMember({
+  _i3.Future<_i72.SupportTeamView> removeSupportTeamMember({
     required String productExternalKey,
     required int targetMessengerUserId,
-  }) => caller.callServerEndpoint<_i62.SupportTeamView>(
+    String? tenantExternalKey,
+  }) => caller.callServerEndpoint<_i72.SupportTeamView>(
     'messenger',
     'removeSupportTeamMember',
     {
       'productExternalKey': productExternalKey,
       'targetMessengerUserId': targetMessengerUserId,
+      'tenantExternalKey': tenantExternalKey,
     },
   );
 
@@ -3538,12 +4074,17 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// ней), [LastOwnerCannotDemoteException] — последний владелец уйти не
   /// может, иначе команда осталась бы неуправляемой; сперва назначьте
   /// другого администратора ([setSupportTeamMemberRole]).
-  _i3.Future<void> leaveSupportTeam({required String productExternalKey}) =>
-      caller.callServerEndpoint<void>(
-        'messenger',
-        'leaveSupportTeam',
-        {'productExternalKey': productExternalKey},
-      );
+  _i3.Future<void> leaveSupportTeam({
+    required String productExternalKey,
+    String? tenantExternalKey,
+  }) => caller.callServerEndpoint<void>(
+    'messenger',
+    'leaveSupportTeam',
+    {
+      'productExternalKey': productExternalKey,
+      'tenantExternalKey': tenantExternalKey,
+    },
+  );
 
   /// **TASK45 фаза 1 п.5**: каталог ВСЕХ объектовых комнат продукта
   /// (entityType='object'), включая те, где caller ещё НЕ участник —
@@ -3554,9 +4095,9 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// Каждая запись несёт флаг [ProductObjectRoom.viewerIsMember] («я уже
   /// вошёл?») — UI по нему решает: открыть сразу или сперва
   /// [joinProductRoom].
-  _i3.Future<List<_i64.ProductObjectRoom>> listProductObjectRooms({
+  _i3.Future<List<_i74.ProductObjectRoom>> listProductObjectRooms({
     required String productExternalKey,
-  }) => caller.callServerEndpoint<List<_i64.ProductObjectRoom>>(
+  }) => caller.callServerEndpoint<List<_i74.ProductObjectRoom>>(
     'messenger',
     'listProductObjectRooms',
     {'productExternalKey': productExternalKey},
@@ -3569,8 +4110,8 @@ class EndpointMessenger extends _i2.EndpointRef {
   ///
   /// Gated: caller — член команды продукта комнаты, [roomId] — объектовая
   /// комната. Иначе [NotSupportTeamMemberException] / [RoomUnavailableException].
-  _i3.Future<_i45.RoomDetails> joinProductRoom({required int roomId}) =>
-      caller.callServerEndpoint<_i45.RoomDetails>(
+  _i3.Future<_i53.RoomDetails> joinProductRoom({required int roomId}) =>
+      caller.callServerEndpoint<_i53.RoomDetails>(
         'messenger',
         'joinProductRoom',
         {'roomId': roomId},
@@ -3597,9 +4138,9 @@ class EndpointMessenger extends _i2.EndpointRef {
   ///   * [RoomUnavailableException] — комната не существует / caller не
   ///     участник (anti-enumeration);
   ///   * [NotObjectRoomException] — комната не объектовая.
-  _i3.Future<_i65.EscalationResult> escalateToSupportTeam({
+  _i3.Future<_i75.EscalationResult> escalateToSupportTeam({
     required int roomId,
-  }) => caller.callServerEndpoint<_i65.EscalationResult>(
+  }) => caller.callServerEndpoint<_i75.EscalationResult>(
     'messenger',
     'escalateToSupportTeam',
     {'roomId': roomId},
@@ -3611,9 +4152,9 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// тира + системное сообщение + push. Конкурентно-безопасно. «Мягкие»
   /// отказы (выше никого / гонка) → no-op [EscalationResult]. Throws
   /// [RoomUnavailableException], если caller не участник комнаты.
-  _i3.Future<_i65.EscalationResult> escalateSupportRoom({
+  _i3.Future<_i75.EscalationResult> escalateSupportRoom({
     required int roomId,
-  }) => caller.callServerEndpoint<_i65.EscalationResult>(
+  }) => caller.callServerEndpoint<_i75.EscalationResult>(
     'messenger',
     'escalateSupportRoom',
     {'roomId': roomId},
@@ -3731,8 +4272,8 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// Используется в SDK ProductFilter dropdown (standalone mode).
   /// Не фильтруется по `archived` — dropdown включает все products
   /// независимо от текущего archive-tab.
-  _i3.Future<List<_i66.Product>> getAvailableProducts() =>
-      caller.callServerEndpoint<List<_i66.Product>>(
+  _i3.Future<List<_i76.Product>> getAvailableProducts() =>
+      caller.callServerEndpoint<List<_i76.Product>>(
         'messenger',
         'getAvailableProducts',
         {},
@@ -3764,8 +4305,8 @@ class EndpointMessenger extends _i2.EndpointRef {
   ///     по разнице ответа `null` (нет) vs typed-exception (есть, но
   ///     в другом tenant) скрейпил бы id-пространство. См. ревью
   ///     7d545ff п.2.
-  _i3.Future<_i67.PresenceState?> getPresence({required int messengerUserId}) =>
-      caller.callServerEndpoint<_i67.PresenceState?>(
+  _i3.Future<_i77.PresenceState?> getPresence({required int messengerUserId}) =>
+      caller.callServerEndpoint<_i77.PresenceState?>(
         'messenger',
         'getPresence',
         {'messengerUserId': messengerUserId},
@@ -3775,8 +4316,8 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// текущего user-а. Используется SDK [NsgMessengerSettings] для
   /// initial load + после `setNotificationSettings` round-trip.
   /// Default-ы из `MessengerUser` schema (`showMessagePreview=true`).
-  _i3.Future<_i68.NotificationSettings> getNotificationSettings() =>
-      caller.callServerEndpoint<_i68.NotificationSettings>(
+  _i3.Future<_i78.NotificationSettings> getNotificationSettings() =>
+      caller.callServerEndpoint<_i78.NotificationSettings>(
         'messenger',
         'getNotificationSettings',
         {},
@@ -3792,8 +4333,8 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// `PushRoutingService`: тест шлём себе же, mute/foreground подавлять не
   /// нужно). Если у пользователя нет push-устройств (нет токена / desktop /
   /// web) — `deviceCount == 0`, FutureCall не планируется.
-  _i3.Future<_i69.PushTestResult> testPush() =>
-      caller.callServerEndpoint<_i69.PushTestResult>(
+  _i3.Future<_i79.PushTestResult> testPush() =>
+      caller.callServerEndpoint<_i79.PushTestResult>(
         'messenger',
         'testPush',
         {},
@@ -3826,8 +4367,8 @@ class EndpointMessenger extends _i2.EndpointRef {
   );
 
   /// **TASK64**: все языковые версии своего профиля (для редактора).
-  _i3.Future<List<_i70.ProfileTranslation>> listMyProfileTranslations() =>
-      caller.callServerEndpoint<List<_i70.ProfileTranslation>>(
+  _i3.Future<List<_i80.ProfileTranslation>> listMyProfileTranslations() =>
+      caller.callServerEndpoint<List<_i80.ProfileTranslation>>(
         'messenger',
         'listMyProfileTranslations',
         {},
@@ -3855,13 +4396,13 @@ class EndpointMessenger extends _i2.EndpointRef {
   /// **TASK64**: записать языковую версию профиля. null = не менять,
   /// пустая строка = очистить; полностью пустая версия удаляется
   /// (возврат null).
-  _i3.Future<_i70.ProfileTranslation?> setProfileTranslation({
+  _i3.Future<_i80.ProfileTranslation?> setProfileTranslation({
     required String locale,
     String? displayName,
     String? about,
     String? jobTitle,
     String? company,
-  }) => caller.callServerEndpoint<_i70.ProfileTranslation?>(
+  }) => caller.callServerEndpoint<_i80.ProfileTranslation?>(
     'messenger',
     'setProfileTranslation',
     {
@@ -3892,6 +4433,19 @@ class EndpointMessenger extends _i2.EndpointRef {
         'setUiLocale',
         {'locale': locale},
       );
+
+  /// **issue #127**: выбранный человеком язык интерфейса. Источник правды —
+  /// сервер: выбор едет за человеком на новое устройство, а не остаётся на
+  /// том, где его сделали.
+  ///
+  /// `null` — выбора нет (новый аккаунт, старый клиент): приложение берёт
+  /// системную локаль. Это НЕ то же самое, что `ru`: «системный» — тоже
+  /// выбор, и подменять его конкретным языком нельзя.
+  _i3.Future<String?> myUiLocale() => caller.callServerEndpoint<String?>(
+    'messenger',
+    'myUiLocale',
+    {},
+  );
 
   /// **Settings (Профиль и Настройки)**: сменить отображаемое имя.
   /// Обновляет `MessengerUser.displayName` (то, что видно в чатах) +
@@ -3956,7 +4510,7 @@ class EndpointMyBots extends _i2.EndpointRef {
   /// Свои боты. `accessToken` зануляется — credential виден один раз, в
   /// ответе [create]/[rotateToken] (то же правило, что в админке: иначе
   /// токены уезжали бы на клиента при каждом открытии списка).
-  _i3.Future<List<_i7.Bot>> list() => caller.callServerEndpoint<List<_i7.Bot>>(
+  _i3.Future<List<_i8.Bot>> list() => caller.callServerEndpoint<List<_i8.Bot>>(
     'myBots',
     'list',
     {},
@@ -3975,12 +4529,12 @@ class EndpointMyBots extends _i2.EndpointRef {
   /// группу, по умолчанию видит только обращения к себе.
   ///
   /// Возвращаемый [Bot] несёт `accessToken` — показать владельцу ОДИН раз.
-  _i3.Future<_i7.Bot> create({
+  _i3.Future<_i8.Bot> create({
     required String name,
     required String capabilities,
     required bool discoverable,
     required String readMode,
-  }) => caller.callServerEndpoint<_i7.Bot>(
+  }) => caller.callServerEndpoint<_i8.Bot>(
     'myBots',
     'create',
     {
@@ -4000,10 +4554,10 @@ class EndpointMyBots extends _i2.EndpointRef {
   /// БЕЗ `botId` покрывают комнаты бота. При `read_addressed` это ровно те
   /// каналы, где privacy mode не сработает; владелец должен узнать об этом
   /// в момент переключения, а не постфактум.
-  _i3.Future<_i8.BotReadModeResult> setReadMode({
+  _i3.Future<_i9.BotReadModeResult> setReadMode({
     required int botId,
     required String readMode,
-  }) => caller.callServerEndpoint<_i8.BotReadModeResult>(
+  }) => caller.callServerEndpoint<_i9.BotReadModeResult>(
     'myBots',
     'setReadMode',
     {
@@ -4015,10 +4569,10 @@ class EndpointMyBots extends _i2.EndpointRef {
   /// **TASK77 итер.3**: описание своего бота — то, что человек читает в
   /// каталоге и в карточке ПЕРЕД тем, как пустить программу в свою группу.
   /// Пустая строка стирает описание. Пишется в аудит.
-  _i3.Future<_i7.Bot> setDescription({
+  _i3.Future<_i8.Bot> setDescription({
     required int botId,
     required String description,
-  }) => caller.callServerEndpoint<_i7.Bot>(
+  }) => caller.callServerEndpoint<_i8.Bot>(
     'myBots',
     'setDescription',
     {
@@ -4029,18 +4583,18 @@ class EndpointMyBots extends _i2.EndpointRef {
 
   /// Ротация credential-а своего бота: новый `accessToken`, прежние
   /// отозваны немедленно. Ответ несёт новый токен — показать ОДИН раз.
-  _i3.Future<_i7.Bot> rotateToken({required int botId}) =>
-      caller.callServerEndpoint<_i7.Bot>(
+  _i3.Future<_i8.Bot> rotateToken({required int botId}) =>
+      caller.callServerEndpoint<_i8.Bot>(
         'myBots',
         'rotateToken',
         {'botId': botId},
       );
 
   /// Kill-switch своего бота.
-  _i3.Future<_i7.Bot> setEnabled({
+  _i3.Future<_i8.Bot> setEnabled({
     required int botId,
     required bool enabled,
-  }) => caller.callServerEndpoint<_i7.Bot>(
+  }) => caller.callServerEndpoint<_i8.Bot>(
     'myBots',
     'setEnabled',
     {
@@ -4052,10 +4606,10 @@ class EndpointMyBots extends _i2.EndpointRef {
   /// Видимость своего бота в поиске (`searchUsers`). Выключено — бота
   /// нельзя найти и позвать в чужую комнату; уже созданные membership-ы
   /// не трогаются (отзыв — [removeFromRoom]).
-  _i3.Future<_i7.Bot> setDiscoverable({
+  _i3.Future<_i8.Bot> setDiscoverable({
     required int botId,
     required bool discoverable,
-  }) => caller.callServerEndpoint<_i7.Bot>(
+  }) => caller.callServerEndpoint<_i8.Bot>(
     'myBots',
     'setDiscoverable',
     {
@@ -4067,8 +4621,8 @@ class EndpointMyBots extends _i2.EndpointRef {
   /// Комнаты своего бота — владелец видит, куда бота позвали (добавление
   /// discoverable-бота свободно, контроль постфактум: этот список +
   /// [removeFromRoom]).
-  _i3.Future<List<_i10.RoomSummary>> listRooms({required int botId}) =>
-      caller.callServerEndpoint<List<_i10.RoomSummary>>(
+  _i3.Future<List<_i11.RoomSummary>> listRooms({required int botId}) =>
+      caller.callServerEndpoint<List<_i11.RoomSummary>>(
         'myBots',
         'listRooms',
         {'botId': botId},
@@ -4092,10 +4646,10 @@ class EndpointMyBots extends _i2.EndpointRef {
   /// видимость, добавления/отзывы из комнат, `capability_denied`. Тот же
   /// формат, что в админке ([BotAdminEndpoint.listAuditEvents]), — SDK
   /// переиспользует один UI аудита.
-  _i3.Future<List<_i9.BotAuditEvent>> listAuditEvents({
+  _i3.Future<List<_i10.BotAuditEvent>> listAuditEvents({
     required int botId,
     required int limit,
-  }) => caller.callServerEndpoint<List<_i9.BotAuditEvent>>(
+  }) => caller.callServerEndpoint<List<_i10.BotAuditEvent>>(
     'myBots',
     'listAuditEvents',
     {
@@ -4138,7 +4692,7 @@ class EndpointProductNotification extends _i2.EndpointRef {
   /// [InvalidNotificationException] `reason=<validation>` — кривой вход
   /// (пустой список, пустой контент, слишком длинно). Валидация — до
   /// любых обращений в БД, продукту отдаём внятную причину (не секрет).
-  _i3.Future<_i71.ProductNotificationSendResult> send({
+  _i3.Future<_i81.ProductNotificationSendResult> send({
     required String tenantExternalKey,
     required String productExternalKey,
     required String serviceSecret,
@@ -4150,7 +4704,8 @@ class EndpointProductNotification extends _i2.EndpointRef {
     String? collapseKey,
     String? priority,
     int? ttlSeconds,
-  }) => caller.callServerEndpoint<_i71.ProductNotificationSendResult>(
+    String? interruptionLevel,
+  }) => caller.callServerEndpoint<_i81.ProductNotificationSendResult>(
     'productNotification',
     'send',
     {
@@ -4165,6 +4720,7 @@ class EndpointProductNotification extends _i2.EndpointRef {
       'collapseKey': collapseKey,
       'priority': priority,
       'ttlSeconds': ttlSeconds,
+      'interruptionLevel': interruptionLevel,
     },
     authenticated: false,
   );
@@ -4197,13 +4753,19 @@ class EndpointPulse extends _i2.EndpointRef {
   /// **TASK79 п.4 — фильтрация по доступу.** Канал остаётся один на тенант
   /// (шина дешевле, чем канал на монитор), но события чужих мониторов
   /// отсекаются ДО сокета: прятать их в UI означало бы отдавать их всем,
-  /// кто откроет devtools. Снапшот доступа берётся на момент подписки —
-  /// изменение членства подхватится переподпиской (UI и так переоткрывает
-  /// стрим при refetch дерева).
-  _i3.Stream<_i72.PulseEvent> statusStream() =>
+  /// кто откроет devtools.
+  ///
+  /// **issue #142: снимок ПЕРЕЧИТЫВАЕТСЯ, а не живёт до переподключения.**
+  /// Раньше он брался один раз при подписке, и расчёт был на переподписку
+  /// («UI и так переоткрывает стрим при refetch дерева»). Расчёт не
+  /// оправдался: refetch никто не запускал — о смене прав клиенту не
+  /// сообщали вовсе. Хуже того, снимок устаревал в ОБЕ стороны, и это уже
+  /// не косметика: после ОТЗЫВА прав человек продолжал получать события по
+  /// чужим мониторам, пока держал соединение, а живут эти стримы минутами.
+  _i3.Stream<_i82.PulseEvent> statusStream() =>
       caller.callStreamingServerEndpoint<
-        _i3.Stream<_i72.PulseEvent>,
-        _i72.PulseEvent
+        _i3.Stream<_i82.PulseEvent>,
+        _i82.PulseEvent
       >(
         'pulse',
         'statusStream',
@@ -4218,8 +4780,8 @@ class EndpointPulse extends _i2.EndpointRef {
   /// папке и просто не отрисовался бы в дереве (клиент кладёт монитор под
   /// `folderId`, которого нет в списке). Такая папка приходит без роли в
   /// `listMyAccess` → UI рисует её как путь, без кнопок управления.
-  _i3.Future<List<_i73.PulseFolder>> listFolders() =>
-      caller.callServerEndpoint<List<_i73.PulseFolder>>(
+  _i3.Future<List<_i83.PulseFolder>> listFolders() =>
+      caller.callServerEndpoint<List<_i83.PulseFolder>>(
         'pulse',
         'listFolders',
         {},
@@ -4227,10 +4789,10 @@ class EndpointPulse extends _i2.EndpointRef {
 
   /// Создать папку. Доступно любому пользователю тенанта (как завести
   /// комнату); создатель становится `owner`.
-  _i3.Future<_i73.PulseFolder> createFolder({
+  _i3.Future<_i83.PulseFolder> createFolder({
     required String name,
     int? parentId,
-  }) => caller.callServerEndpoint<_i73.PulseFolder>(
+  }) => caller.callServerEndpoint<_i83.PulseFolder>(
     'pulse',
     'createFolder',
     {
@@ -4239,10 +4801,10 @@ class EndpointPulse extends _i2.EndpointRef {
     },
   );
 
-  _i3.Future<_i73.PulseFolder> renameFolder({
+  _i3.Future<_i83.PulseFolder> renameFolder({
     required int id,
     required String name,
-  }) => caller.callServerEndpoint<_i73.PulseFolder>(
+  }) => caller.callServerEndpoint<_i83.PulseFolder>(
     'pulse',
     'renameFolder',
     {
@@ -4261,8 +4823,8 @@ class EndpointPulse extends _i2.EndpointRef {
         {'id': id},
       );
 
-  _i3.Future<List<_i74.PulseMonitor>> listMonitors() =>
-      caller.callServerEndpoint<List<_i74.PulseMonitor>>(
+  _i3.Future<List<_i84.PulseMonitor>> listMonitors() =>
+      caller.callServerEndpoint<List<_i84.PulseMonitor>>(
         'pulse',
         'listMonitors',
         {},
@@ -4270,12 +4832,12 @@ class EndpointPulse extends _i2.EndpointRef {
 
   /// Создать монитор → beat-токен + готовый URL (показать один раз).
   /// Доступно любому пользователю тенанта; создатель становится `owner`.
-  _i3.Future<_i75.PulseMonitorCreated> createMonitor({
+  _i3.Future<_i85.PulseMonitorCreated> createMonitor({
     required String name,
     int? folderId,
     required int periodSeconds,
     required int graceSeconds,
-  }) => caller.callServerEndpoint<_i75.PulseMonitorCreated>(
+  }) => caller.callServerEndpoint<_i85.PulseMonitorCreated>(
     'pulse',
     'createMonitor',
     {
@@ -4292,23 +4854,47 @@ class EndpointPulse extends _i2.EndpointRef {
   /// принципе (в БД только hash), поэтому гейтить надо именно пересоздание
   /// и одноразовый показ нового значения: `viewer` не должен уметь
   /// оборвать сигнал чужого прод-сервиса. Ротация пишется в журнал.
-  _i3.Future<_i75.PulseMonitorCreated> rotateToken({required int id}) =>
-      caller.callServerEndpoint<_i75.PulseMonitorCreated>(
+  _i3.Future<_i85.PulseMonitorCreated> rotateToken({required int id}) =>
+      caller.callServerEndpoint<_i85.PulseMonitorCreated>(
         'pulse',
         'rotateToken',
         {'id': id},
       );
 
   /// Пауза (обслуживание/деплой): beat → 403, свипер/алерты пропускают.
-  _i3.Future<_i74.PulseMonitor> setPaused({
+  _i3.Future<_i84.PulseMonitor> setPaused({
     required int id,
     required bool paused,
-  }) => caller.callServerEndpoint<_i74.PulseMonitor>(
+  }) => caller.callServerEndpoint<_i84.PulseMonitor>(
     'pulse',
     'setPaused',
     {
       'id': id,
       'paused': paused,
+    },
+  );
+
+  /// Перенести монитор в другую папку (или в корень при `folderId == null`).
+  ///
+  /// **Права двойные, и это не перестраховка.** Нужен `owner` на самом
+  /// мониторе и `admin` на папке-получателе. Перенос меняет круг видящих:
+  /// роль на папке наследуется вниз, значит переехавший монитор становится
+  /// виден её участникам. Проверяй мы только монитор — любой его владелец
+  /// подкладывал бы свои объекты в чужое дерево (тот же запрет, что при
+  /// создании). Проверяй только папку — можно было бы утащить чужой монитор
+  /// к себе.
+  ///
+  /// Перенос в корень требует лишь прав на монитор: в корне наследовать
+  /// неоткуда, круг видящих не меняется.
+  _i3.Future<_i84.PulseMonitor> moveMonitor({
+    required int id,
+    int? folderId,
+  }) => caller.callServerEndpoint<_i84.PulseMonitor>(
+    'pulse',
+    'moveMonitor',
+    {
+      'id': id,
+      'folderId': folderId,
     },
   );
 
@@ -4325,8 +4911,8 @@ class EndpointPulse extends _i2.EndpointRef {
 
   /// Правила, чей scope каллер вправе читать. Чужие правила не отдаём:
   /// в них видно `roomId` и MUID-ы ответственных.
-  _i3.Future<List<_i76.PulseAlertRule>> listRules() =>
-      caller.callServerEndpoint<List<_i76.PulseAlertRule>>(
+  _i3.Future<List<_i86.PulseAlertRule>> listRules() =>
+      caller.callServerEndpoint<List<_i86.PulseAlertRule>>(
         'pulse',
         'listRules',
         {},
@@ -4349,7 +4935,7 @@ class EndpointPulse extends _i2.EndpointRef {
   ///      тенанта; заодно это оракул на членство в чужой комнате, поэтому
   ///      отказ здесь — общий [MessengerNotAuthenticatedException], а не
   ///      говорящий ArgumentError.
-  _i3.Future<_i76.PulseAlertRule> createRule({
+  _i3.Future<_i86.PulseAlertRule> createRule({
     int? scopeFolderId,
     int? scopeMonitorId,
     required int roomId,
@@ -4358,7 +4944,7 @@ class EndpointPulse extends _i2.EndpointRef {
     String? level1UserIds,
     int? escalate2AfterMinutes,
     String? level2UserIds,
-  }) => caller.callServerEndpoint<_i76.PulseAlertRule>(
+  }) => caller.callServerEndpoint<_i86.PulseAlertRule>(
     'pulse',
     'createRule',
     {
@@ -4381,10 +4967,10 @@ class EndpointPulse extends _i2.EndpointRef {
         {'id': id},
       );
 
-  _i3.Future<List<_i77.PulseIncident>> listIncidents({
+  _i3.Future<List<_i87.PulseIncident>> listIncidents({
     required int monitorId,
     required int limit,
-  }) => caller.callServerEndpoint<List<_i77.PulseIncident>>(
+  }) => caller.callServerEndpoint<List<_i87.PulseIncident>>(
     'pulse',
     'listIncidents',
     {
@@ -4398,8 +4984,8 @@ class EndpointPulse extends _i2.EndpointRef {
   /// Требует `admin+`: ack — это обязательство «я разбираюсь», а роль
   /// наблюдателя обязательств не берёт. Дай её `viewer`-у — и инцидент
   /// можно закрыть мимо дежурного, который об этом даже не узнает.
-  _i3.Future<_i77.PulseIncident> ackIncident({required int incidentId}) =>
-      caller.callServerEndpoint<_i77.PulseIncident>(
+  _i3.Future<_i87.PulseIncident> ackIncident({required int incidentId}) =>
+      caller.callServerEndpoint<_i87.PulseIncident>(
         'pulse',
         'ackIncident',
         {'incidentId': incidentId},
@@ -4408,8 +4994,8 @@ class EndpointPulse extends _i2.EndpointRef {
   /// Эффективные роли каллера на всех доступных ему объектах. По этому
   /// списку SDK прячет кнопки: у `viewer`-а нет «Пересоздать токен», у
   /// не-`owner`-а нет «Удалить» и раздела участников.
-  _i3.Future<List<_i78.PulseAccessEntry>> listMyAccess() =>
-      caller.callServerEndpoint<List<_i78.PulseAccessEntry>>(
+  _i3.Future<List<_i88.PulseAccessEntry>> listMyAccess() =>
+      caller.callServerEndpoint<List<_i88.PulseAccessEntry>>(
         'pulse',
         'listMyAccess',
         {},
@@ -4421,10 +5007,10 @@ class EndpointPulse extends _i2.EndpointRef {
   ///
   /// Видно с `viewer` — как список участников комнаты виден любому её
   /// участнику: знать, с кем ты делишь доступ, важнее, чем скрывать это.
-  _i3.Future<List<_i79.PulseMemberView>> listMembers({
+  _i3.Future<List<_i89.PulseMemberView>> listMembers({
     int? folderId,
     int? monitorId,
-  }) => caller.callServerEndpoint<List<_i79.PulseMemberView>>(
+  }) => caller.callServerEndpoint<List<_i89.PulseMemberView>>(
     'pulse',
     'listMembers',
     {
@@ -4469,11 +5055,11 @@ class EndpointPulse extends _i2.EndpointRef {
 
   /// Журнал доступа объекта (**п.8**): кто кого добавил/убрал/сменил роль,
   /// кто ротировал токен. Виден `owner`-у — тому, кто за состав отвечает.
-  _i3.Future<List<_i80.PulseAccessAuditEvent>> listAccessAudit({
+  _i3.Future<List<_i90.PulseAccessAuditEvent>> listAccessAudit({
     int? folderId,
     int? monitorId,
     required int limit,
-  }) => caller.callServerEndpoint<List<_i80.PulseAccessAuditEvent>>(
+  }) => caller.callServerEndpoint<List<_i90.PulseAccessAuditEvent>>(
     'pulse',
     'listAccessAudit',
     {
@@ -4482,6 +5068,247 @@ class EndpointPulse extends _i2.EndpointRef {
       'limit': limit,
     },
   );
+
+  /// Завести монитор-пробу: сервер сам ходит на `host:port` и проверяет
+  /// сертификат.
+  ///
+  /// **Токена у такого монитора нет вовсе** — в отличие от heartbeat. Пока
+  /// он существует, кто-нибудь однажды пошлёт им beat и зазеленит монитор в
+  /// обход проверки сертификата, то есть замаскирует ровно тот отказ, ради
+  /// которого проба и заводится. Отсутствие секрета надёжнее секрета,
+  /// который мы обещали не принимать (beat-роут отвергает такие мониторы
+  /// вторым рубежом, см. `PulseService.beatGate`).
+  ///
+  /// Цель здесь НЕ проверяется по allowlist: список меняется отдельно и
+  /// супер-админом, а монитор на ещё не разрешённую цель — законное
+  /// промежуточное состояние. Первая же проверка отдаст `notAllowlisted`
+  /// внятным текстом на самом мониторе.
+  _i3.Future<_i91.PulseTlsProbe> createTlsProbeMonitor({
+    required String name,
+    required String connectHost,
+    required int port,
+    required String serverName,
+    int? folderId,
+    required int periodSeconds,
+    required int graceSeconds,
+    required int timeoutSeconds,
+    required String validationMode,
+    String? expectedThumbprint,
+    String? expectedSubject,
+    String? certificateSetKey,
+    required int warnBeforeDays,
+    required int errorBeforeDays,
+    required int failureThreshold,
+    required int recoveryThreshold,
+  }) => caller.callServerEndpoint<_i91.PulseTlsProbe>(
+    'pulse',
+    'createTlsProbeMonitor',
+    {
+      'name': name,
+      'connectHost': connectHost,
+      'port': port,
+      'serverName': serverName,
+      'folderId': folderId,
+      'periodSeconds': periodSeconds,
+      'graceSeconds': graceSeconds,
+      'timeoutSeconds': timeoutSeconds,
+      'validationMode': validationMode,
+      'expectedThumbprint': expectedThumbprint,
+      'expectedSubject': expectedSubject,
+      'certificateSetKey': certificateSetKey,
+      'warnBeforeDays': warnBeforeDays,
+      'errorBeforeDays': errorBeforeDays,
+      'failureThreshold': failureThreshold,
+      'recoveryThreshold': recoveryThreshold,
+    },
+  );
+
+  /// Пробы всех видимых мониторов — одним запросом, для СПИСКА.
+  ///
+  /// Без него список подписывает пробу heartbeat-текстом «сигналов ещё не
+  /// было»: beat-а у неё нет и не будет, и исправный монитор читается как
+  /// неработающий. Ходить за каждой пробой отдельно нельзя — это N+1 на
+  /// отрисовку дерева.
+  _i3.Future<List<_i91.PulseTlsProbe>> listTlsProbes() =>
+      caller.callServerEndpoint<List<_i91.PulseTlsProbe>>(
+        'pulse',
+        'listTlsProbes',
+        {},
+      );
+
+  /// Цель и последние наблюдения пробы — для карточки сертификата.
+  /// `null` — монитор не проба.
+  _i3.Future<_i91.PulseTlsProbe?> getTlsProbe({required int monitorId}) =>
+      caller.callServerEndpoint<_i91.PulseTlsProbe?>(
+        'pulse',
+        'getTlsProbe',
+        {'monitorId': monitorId},
+      );
+
+  /// Проверить прямо сейчас. Требует `admin`: это исходящее обращение с
+  /// нашего сервера, а не чтение.
+  _i3.Future<_i91.PulseTlsProbe> runProbeNow({required int monitorId}) =>
+      caller.callServerEndpoint<_i91.PulseTlsProbe>(
+        'pulse',
+        'runProbeNow',
+        {'monitorId': monitorId},
+      );
+
+  /// Изменить ЦЕЛЬ пробы: адрес, порт, имя в SNI.
+  ///
+  /// **Зачем понадобилось** (issue #108, приёмка 11.08.2026). Endpoint
+  /// переезжает — сегодня остаётся удалить монитор и завести заново, потеряв
+  /// вместе с ним историю инцидентов, состав участников и рубежи
+  /// напоминаний. Проверить переход `error → recovered` тоже было нечем:
+  /// рабочий endpoint ломать нельзя, а изменить наблюдаемое у пробы —
+  /// невозможно.
+  ///
+  /// **Наблюдения сбрасываются, история остаётся.** Сертификат, отпечаток,
+  /// сроки и счётчики подряд идущих удач/неудач принадлежали ПРЕЖНЕЙ цели;
+  /// оставить их — значит выдать новой цели статус, которого она не
+  /// заслуживала (и, например, промолчать про истекающий сертификат, потому
+  /// что рубеж уже «пройден» по старому). Инциденты, участники и сам монитор
+  /// не трогаются — ради этого метод и существует.
+  ///
+  /// **Сразу же проверяем.** Иначе монитор с суточным периодом остался бы
+  /// красным от прежней цели до завтра, и человек решил бы, что правка не
+  /// сработала.
+  ///
+  /// Права — `owner`, как у переноса между папками: сменить цель наблюдения
+  /// не легче, чем сменить круг видящих.
+  _i3.Future<_i91.PulseTlsProbe> updateTlsProbeTarget({
+    required int monitorId,
+    String? connectHost,
+    int? port,
+    String? serverName,
+  }) => caller.callServerEndpoint<_i91.PulseTlsProbe>(
+    'pulse',
+    'updateTlsProbeTarget',
+    {
+      'monitorId': monitorId,
+      'connectHost': connectHost,
+      'port': port,
+      'serverName': serverName,
+    },
+  );
+
+  /// Состояние напоминаний монитора: набор рубежей, известный срок,
+  /// последний пройденный рубеж. `null` — наблюдений ещё не было.
+  _i3.Future<_i92.PulseExpiryReminder?> getExpiryReminder({
+    required int monitorId,
+  }) => caller.callServerEndpoint<_i92.PulseExpiryReminder?>(
+    'pulse',
+    'getExpiryReminder',
+    {'monitorId': monitorId},
+  );
+
+  /// Пороги монитора: `имя значения → границы`.
+  _i3.Future<List<_i93.PulseValueThreshold>> listValueThresholds({
+    required int monitorId,
+  }) => caller.callServerEndpoint<List<_i93.PulseValueThreshold>>(
+    'pulse',
+    'listValueThresholds',
+    {'monitorId': monitorId},
+  );
+
+  /// Задать (или обновить) порог по значению.
+  ///
+  /// **Все четыре границы необязательны, но хоть одна нужна.** Порог без
+  /// единой границы — это правило, которое никогда не сработает: заводить
+  /// его молча значит показать человеку «порог настроен» там, где не
+  /// настроено ничего.
+  ///
+  /// Разумность границ проверяем: `errorBelow` не может быть выше
+  /// `warnBelow` (иначе авария наступала бы раньше предупреждения и монитор
+  /// перескакивал бы через жёлтое), симметрично для верхней стороны.
+  _i3.Future<_i93.PulseValueThreshold> setValueThreshold({
+    required int monitorId,
+    required String name,
+    double? warnBelow,
+    double? errorBelow,
+    double? warnAbove,
+    double? errorAbove,
+  }) => caller.callServerEndpoint<_i93.PulseValueThreshold>(
+    'pulse',
+    'setValueThreshold',
+    {
+      'monitorId': monitorId,
+      'name': name,
+      'warnBelow': warnBelow,
+      'errorBelow': errorBelow,
+      'warnAbove': warnAbove,
+      'errorAbove': errorAbove,
+    },
+  );
+
+  /// Убрать порог. Число продолжит приходить и показываться — молчать
+  /// начнёт только правило.
+  _i3.Future<void> removeValueThreshold({
+    required int monitorId,
+    required String name,
+  }) => caller.callServerEndpoint<void>(
+    'pulse',
+    'removeValueThreshold',
+    {
+      'monitorId': monitorId,
+      'name': name,
+    },
+  );
+
+  /// Набор рубежей монитора: `30,14,7,1` (ACME) или `90,60,30,14,7,1`
+  /// (коммерческие). Пустая строка — не напоминать.
+  ///
+  /// Смена набора сбрасывает пройденный рубеж: 30 из `30,14,7,1` и 30 из
+  /// `90,60,30` — разные места на шкале, и переносить состояние между ними
+  /// значит либо промолчать там, где ждут сигнала, либо повторить уже
+  /// сказанное.
+  _i3.Future<_i92.PulseExpiryReminder> setExpiryThresholds({
+    required int monitorId,
+    required String thresholdDays,
+  }) => caller.callServerEndpoint<_i92.PulseExpiryReminder>(
+    'pulse',
+    'setExpiryThresholds',
+    {
+      'monitorId': monitorId,
+      'thresholdDays': thresholdDays,
+    },
+  );
+
+  /// Действующий список разрешённых целей.
+  _i3.Future<List<_i94.PulseProbeAllowlistEntry>> listProbeAllowlist() =>
+      caller.callServerEndpoint<List<_i94.PulseProbeAllowlistEntry>>(
+        'pulse',
+        'listProbeAllowlist',
+        {},
+      );
+
+  /// Разрешить пробам ходить на `address[/prefix]:port`.
+  ///
+  /// [note] — зачем строка заведена. Не украшение: через полгода решать,
+  /// можно ли её убрать, будет человек, которого сейчас здесь нет.
+  _i3.Future<_i94.PulseProbeAllowlistEntry> addProbeAllowlistEntry({
+    required String address,
+    int? prefixLength,
+    required int port,
+    String? note,
+  }) => caller.callServerEndpoint<_i94.PulseProbeAllowlistEntry>(
+    'pulse',
+    'addProbeAllowlistEntry',
+    {
+      'address': address,
+      'prefixLength': prefixLength,
+      'port': port,
+      'note': note,
+    },
+  );
+
+  /// Убрать строку из списка. Идемпотентно.
+  _i3.Future<void> removeProbeAllowlistEntry({required int id}) =>
+      caller.callServerEndpoint<void>(
+        'pulse',
+        'removeProbeAllowlistEntry',
+        {'id': id},
+      );
 }
 
 /// **TASK38**: admin-only управление per-tenant конфигом интеграции с
@@ -4504,14 +5331,14 @@ class EndpointTaskAdmin extends _i2.EndpointRef {
   /// `url` зависит от типа: webhook — SSRF-гард (`WebhookUrlValidator`);
   /// github — формат `owner/repo`. Секрет генерится если не задан (для github
   /// не используется — токен берётся из env `GITHUB_TOKEN`).
-  _i3.Future<_i81.TaskManagerConfig> setTaskManagerConfig({
+  _i3.Future<_i95.TaskManagerConfig> setTaskManagerConfig({
     required String tenantExternalKey,
     String? productExternalKey,
     required String url,
     String? adapterType,
     String? secret,
     required bool enabled,
-  }) => caller.callServerEndpoint<_i81.TaskManagerConfig>(
+  }) => caller.callServerEndpoint<_i95.TaskManagerConfig>(
     'taskAdmin',
     'setTaskManagerConfig',
     {
@@ -4525,10 +5352,10 @@ class EndpointTaskAdmin extends _i2.EndpointRef {
   );
 
   /// Возвращает конфиг для (tenantId, productId) или `null`.
-  _i3.Future<_i81.TaskManagerConfig?> getTaskManagerConfig({
+  _i3.Future<_i95.TaskManagerConfig?> getTaskManagerConfig({
     required String tenantExternalKey,
     String? productExternalKey,
-  }) => caller.callServerEndpoint<_i81.TaskManagerConfig?>(
+  }) => caller.callServerEndpoint<_i95.TaskManagerConfig?>(
     'taskAdmin',
     'getTaskManagerConfig',
     {
@@ -4548,8 +5375,8 @@ class EndpointGreeting extends _i2.EndpointRef {
   String get name => 'greeting';
 
   /// Returns a personalized greeting message: "Hello {name}".
-  _i3.Future<_i82.Greeting> hello(String name) =>
-      caller.callServerEndpoint<_i82.Greeting>(
+  _i3.Future<_i96.Greeting> hello(String name) =>
+      caller.callServerEndpoint<_i96.Greeting>(
         'greeting',
         'hello',
         {'name': name},
@@ -4587,7 +5414,7 @@ class Client extends _i2.ServerpodClientShared {
     bool? disconnectStreamsOnLostInternetConnection,
   }) : super(
          host,
-         _i83.Protocol(),
+         _i97.Protocol(),
          securityContext: securityContext,
          streamingConnectionTimeout: streamingConnectionTimeout,
          connectionTimeout: connectionTimeout,
@@ -4599,6 +5426,7 @@ class Client extends _i2.ServerpodClientShared {
     emailIdp = EndpointEmailIdp(this);
     jwtRefresh = EndpointJwtRefresh(this);
     adminWebhook = EndpointAdminWebhook(this);
+    announcementAdmin = EndpointAnnouncementAdmin(this);
     botAdmin = EndpointBotAdmin(this);
     botCatalog = EndpointBotCatalog(this);
     botIntegration = EndpointBotIntegration(this);
@@ -4620,6 +5448,8 @@ class Client extends _i2.ServerpodClientShared {
   late final EndpointJwtRefresh jwtRefresh;
 
   late final EndpointAdminWebhook adminWebhook;
+
+  late final EndpointAnnouncementAdmin announcementAdmin;
 
   late final EndpointBotAdmin botAdmin;
 
@@ -4654,6 +5484,7 @@ class Client extends _i2.ServerpodClientShared {
     'emailIdp': emailIdp,
     'jwtRefresh': jwtRefresh,
     'adminWebhook': adminWebhook,
+    'announcementAdmin': announcementAdmin,
     'botAdmin': botAdmin,
     'botCatalog': botCatalog,
     'botIntegration': botIntegration,

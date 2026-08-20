@@ -70,8 +70,7 @@ class SharedPayload {
   int get hashCode => Object.hash(text, Object.hashAll(files));
 
   @override
-  String toString() =>
-      'SharedPayload(text: $text, files: ${files.length})';
+  String toString() => 'SharedPayload(text: $text, files: ${files.length})';
 }
 
 /// **TASK49**: категория одного входящего элемента share из плагина.
@@ -119,11 +118,7 @@ SharedPayload mapInboundToSharedPayload(List<SharedInboundItem> items) {
     } else {
       if (item.value.trim().isEmpty) continue;
       files.add(
-        SharedFile(
-          path: item.value,
-          mimeType: item.mimeType,
-          name: item.name,
-        ),
+        SharedFile(path: item.value, mimeType: item.mimeType, name: item.name),
       );
     }
   }

@@ -28,6 +28,7 @@ class ThreadScreen extends StatefulWidget {
     required this.roomId,
     required this.threadRootEventId,
     this.title,
+    this.taskKey,
     this.statusLabel,
     @visibleForTesting this.controllerOverride,
   });
@@ -37,9 +38,17 @@ class ThreadScreen extends StatefulWidget {
   /// Корень треда — якорное сообщение задачи.
   final String threadRootEventId;
 
-  /// Тема задачи в шапке. `null` → общий заголовок «Обсуждение задачи»
-  /// (у старых тикетов темы может не быть).
+  /// Тема задачи в шапке. `null` → в заголовок идёт номер, а если нет и его —
+  /// общий «Обсуждение задачи» (у задач до TASK90 темы может не быть).
   final String? title;
+
+  /// **Issue #99**: номер задачи (`#99`) подзаголовком, рядом со статусом —
+  /// ровно как в списке задач, где номер стоит под названием.
+  ///
+  /// Запрос владельца: «в комнате-треде обсуждения задачи сверху заголовок
+  /// „Обсуждение задачи“. Давай туда Задача номер и краткое описание —
+  /// название как в списке задач».
+  final String? taskKey;
 
   /// Статус тикета подзаголовком шапки («В работе» / «Принято» / …).
   /// `null` → подзаголовка нет.
@@ -54,6 +63,22 @@ class ThreadScreen extends StatefulWidget {
 }
 
 class _ThreadScreenState extends State<ThreadScreen> {
+  /// Подзаголовок шапки: номер задачи и её статус.
+  ///
+  /// Номер здесь, а не в заголовке, чтобы совпадать со списком задач — там
+  /// название сверху, номер под ним. Если номер уже ушёл в заголовок (темы
+  /// не было), второй раз его не показываем.
+  ///
+  /// `null` — подзаголовка нет вовсе (нет ни номера, ни статуса).
+  String? _subtitle(String? status) {
+    final key = widget.title == null ? null : widget.taskKey;
+    final parts = [
+      if (key != null && key.isNotEmpty) key,
+      if (status != null && status.isNotEmpty) status,
+    ];
+    return parts.isEmpty ? null : parts.join(' · ');
+  }
+
   late final MessagesController _controller;
   late final bool _ownsController;
   final ScrollController _scroll = ScrollController();
@@ -143,7 +168,12 @@ class _ThreadScreenState extends State<ThreadScreen> {
   /// сообщение задачи в общем случае живёт в основной ленте, но может попасть
   /// и сюда — тогда: другой корень треда → открываем ТОТ тред; наш же корень →
   /// no-op (мы уже в нём); нет треда → issue-URL во внешнем браузере.
-  void _openTask(String? threadRootEventId, String? url) {
+  void _openTask(
+    String? threadRootEventId,
+    String? url, {
+    String? taskKey,
+    String? taskTitle,
+  }) {
     if (threadRootEventId != null &&
         threadRootEventId.isNotEmpty &&
         threadRootEventId != widget.threadRootEventId) {
@@ -152,6 +182,10 @@ class _ThreadScreenState extends State<ThreadScreen> {
           builder: (_) => ThreadScreen(
             roomId: widget.roomId,
             threadRootEventId: threadRootEventId,
+            // Issue #99: тред ЧУЖОЙ задачи, открытый из этого треда, тоже
+            // должен быть назван.
+            title: (taskTitle?.isEmpty ?? true) ? null : taskTitle,
+            taskKey: (taskKey?.isEmpty ?? true) ? null : taskKey,
           ),
         ),
       );
@@ -197,13 +231,16 @@ class _ThreadScreenState extends State<ThreadScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              widget.title ?? l.threadScreenTitle,
+              // Порядок падения: тема → номер → общий заголовок. Номер в
+              // заголовке лучше безымянного «Обсуждение задачи»: по нему
+              // задачу хотя бы можно назвать вслух и найти в списке.
+              widget.title ?? widget.taskKey ?? l.threadScreenTitle,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-            if (status != null && status.isNotEmpty)
+            if (_subtitle(status) case final sub? when sub.isNotEmpty)
               Text(
-                status,
+                sub,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -255,7 +292,13 @@ class _ThreadBody extends StatelessWidget {
   final bool Function(ScrollNotification) onScroll;
 
   /// **TASK83**: тап по значку задачи на сообщении треда (корень треда, url).
-  final void Function(String? threadRootEventId, String? url) onOpenTask;
+  final void Function(
+    String? threadRootEventId,
+    String? url, {
+    String? taskKey,
+    String? taskTitle,
+  })
+  onOpenTask;
 
   @override
   Widget build(BuildContext context) {
@@ -302,6 +345,9 @@ class _ThreadBody extends StatelessWidget {
                 return MessageBubble(
                   message: m,
                   isOwn: isOwn,
+                  // **issue #90**: превью ссылок и в треде задачи — там
+                  // ссылками обмениваются чаще, чем в обычной переписке.
+                  linkPreviews: MessengerRuntime.instance.linkPreviews,
                   onRetry: (failed) {
                     final txn = failed.clientTxnId;
                     if (txn != null) unawaited(controller.retry(txn));

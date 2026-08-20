@@ -1,14 +1,16 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nsg_messenger/nsg_messenger.dart';
 
-/// **TASK75** — агрегатная папка «Поддержка» в `buildFolders` /
-/// `buildRootRows`:
-///   * появляется при наличии НЕ-«закрытых» support-комнат, агрегирует
-///     их по всем продуктам;
+/// **TASK75** — операторский support-инбокс в `buildFolders` /
+/// `buildRootRows`. С переходом на **системные папки продуктов** инбокс
+/// перестал быть одной агрегатной папкой «Поддержка» и разложился по
+/// продуктам, но правила TASK75 обязаны сохраниться:
+///   * папка появляется при наличии НЕ-«закрытых» обращений;
 ///   * «закрытые» (dismissed) support-комнаты исключены из всех агрегатов;
-///   * support-комнаты не попадают в продуктовые/личные папки;
-///   * `matches` папки «Поддержка» пропускает только НЕ-«закрытые» support.
+///   * support-чаты не сыпятся в корень плоскими строками;
+///   * `matches` папки не пропускает «закрытые».
 void main() {
+  // Обращение, где смотрящий — ОПЕРАТОР (`supportViewerIsRequester: false`).
   RoomSummary support({
     required int id,
     required int productId,
@@ -17,7 +19,7 @@ void main() {
     DateTime? lastMessageAt,
   }) => RoomSummary(
     id: id,
-    name: 'Поддержка — Заявитель $id',
+    name: 'Заявитель $id',
     unreadCount: unread,
     archived: false,
     muted: false,
@@ -26,6 +28,7 @@ void main() {
     supportRequesterName: 'Заявитель $id',
     productName: 'Проект $productId',
     dismissedUntilMessage: dismissed,
+    supportViewerIsRequester: false,
     lastMessageAt: lastMessageAt,
   );
 
@@ -39,29 +42,35 @@ void main() {
     roomType: RoomType.group,
   );
 
-  ChatFolder? supportFolder(List<ChatFolder> folders) =>
-      folders.where((f) => f.kind == ChatFolderKind.support).firstOrNull;
+  List<ChatFolder> supportFolders(List<ChatFolder> folders) =>
+      folders.where((f) => f.kind == ChatFolderKind.support).toList();
 
-  group('buildFolders — папка «Поддержка»', () {
-    test('появляется и агрегирует support по всем продуктам', () {
+  group('buildFolders — операторский инбокс', () {
+    test('обращения разложены по продуктам, по папке на продукт', () {
       final folders = buildFolders([
         support(id: 1, productId: 10, unread: 2),
         support(id: 2, productId: 20, unread: 3),
         groupRoom(id: 3, productId: 10),
       ]);
-      final sf = supportFolder(folders);
-      expect(sf, isNotNull);
-      expect(sf!.roomCount, 2);
-      expect(sf.unreadCount, 5);
-      // Идёт сразу после агрегата «Все».
-      expect(folders[0].kind, ChatFolderKind.all);
-      expect(folders[1].kind, ChatFolderKind.support);
-      expect(sf.selectionKey, ChatFolder.supportSelectionKey);
+      final sf = supportFolders(folders);
+      expect(sf.map((f) => f.productId), [10, 20]);
+      // Папка продукта 10 несёт и обращение, и обычную группу продукта.
+      expect(sf.first.roomCount, 2);
+      expect(sf.first.unreadCount, 2);
+      expect(sf.last.roomCount, 1);
+      expect(sf.last.unreadCount, 3);
+      // Агрегат «Все» по-прежнему первый.
+      expect(folders.first.kind, ChatFolderKind.all);
+      expect(sf.first.selectionKey, '${ChatFolder.supportSelectionPrefix}10');
     });
 
-    test('нет support-комнат → папки «Поддержка» нет', () {
+    test('нет support-комнат → папка продукта обычная, не инбокс', () {
       final folders = buildFolders([groupRoom(id: 1, productId: 10)]);
-      expect(supportFolder(folders), isNull);
+      expect(supportFolders(folders), isEmpty);
+      expect(
+        folders.where((f) => f.kind == ChatFolderKind.product).single.productId,
+        10,
+      );
     });
 
     test('«закрытые» (dismissed) support исключены из агрегата', () {
@@ -69,82 +78,63 @@ void main() {
         support(id: 1, productId: 10, unread: 2),
         support(id: 2, productId: 10, unread: 9, dismissed: true),
       ]);
-      final sf = supportFolder(folders);
-      expect(sf, isNotNull);
-      expect(sf!.roomCount, 1, reason: 'dismissed не считается');
+      final sf = supportFolders(folders).single;
+      expect(sf.roomCount, 1, reason: 'dismissed не считается');
       expect(sf.unreadCount, 2, reason: 'unread dismissed не суммируется');
     });
 
-    test('все support «закрыты» → папки «Поддержка» нет', () {
+    test('все support «закрыты» → инбокса по продукту нет', () {
       final folders = buildFolders([
         support(id: 1, productId: 10, dismissed: true),
       ]);
-      expect(supportFolder(folders), isNull);
-    });
-
-    test('support-комнаты НЕ попадают в продуктовую папку', () {
-      final folders = buildFolders([
-        support(id: 1, productId: 10),
-        groupRoom(id: 2, productId: 10),
-      ]);
-      final product = folders.firstWhere(
-        (f) => f.kind == ChatFolderKind.product && f.productId == 10,
-      );
-      // Только обычная группа, support ушла в «Поддержку».
-      expect(product.roomCount, 1);
+      expect(supportFolders(folders), isEmpty);
     });
   });
 
-  group('ChatFolder.matches — папка «Поддержка»', () {
-    test('пропускает НЕ-«закрытые» support, режет остальное', () {
+  group('ChatFolder.matches — папка продукта с инбоксом', () {
+    test('пропускает НЕ-«закрытые» обращения своего продукта', () {
       final folders = buildFolders([support(id: 1, productId: 10)]);
-      final sf = supportFolder(folders)!;
+      final sf = supportFolders(folders).single;
       expect(sf.matches(support(id: 1, productId: 10)), isTrue);
       expect(
         sf.matches(support(id: 2, productId: 10, dismissed: true)),
         isFalse,
       );
-      expect(sf.matches(groupRoom(id: 3, productId: 10)), isFalse);
+      expect(sf.matches(support(id: 3, productId: 99)), isFalse);
     });
 
-    test('продуктовая папка НЕ матчит support своего продукта', () {
+    test('обычная комната продукта тоже в папке продукта', () {
       final folders = buildFolders([
         support(id: 1, productId: 10),
         groupRoom(id: 2, productId: 10),
       ]);
-      final product = folders.firstWhere(
-        (f) => f.kind == ChatFolderKind.product && f.productId == 10,
-      );
-      expect(product.matches(support(id: 1, productId: 10)), isFalse);
-      expect(product.matches(groupRoom(id: 2, productId: 10)), isTrue);
+      final sf = supportFolders(folders).single;
+      expect(sf.matches(groupRoom(id: 2, productId: 10)), isTrue);
+      expect(sf.matches(groupRoom(id: 3, productId: 20)), isFalse);
     });
   });
 
-  group('buildRootRows — папка «Поддержка»', () {
-    test('support-папка — закреплённая строка, support-чаты не плоские', () {
+  group('buildRootRows — операторский инбокс', () {
+    test('папки продуктов — строки, обращения не плоские', () {
       final rooms = [
         support(id: 1, productId: 10),
         support(id: 2, productId: 20),
         groupRoom(id: 3, productId: null), // личный
       ];
-      final folders = buildFolders(rooms);
-      final rows = buildRootRows(rooms, folders);
+      final rows = buildRootRows(rooms, buildFolders(rooms));
 
-      // Есть строка-папка «Поддержка».
       final folderRows = rows.whereType<ChatFolderRow>().toList();
       expect(
-        folderRows.any((r) => r.folder.kind == ChatFolderKind.support),
-        isTrue,
+        folderRows.map((r) => r.folder.productId).toSet(),
+        {10, 20},
+        reason: 'по строке-папке на каждый продукт инбокса',
       );
-      // Ни одна плоская строка-чат не является support-комнатой.
+      // Ни одна плоская строка-чат не является чужим обращением.
       final roomRows = rows.whereType<ChatRoomRow>().toList();
-      expect(
-        roomRows.any((r) => r.room.roomType == RoomType.support),
-        isFalse,
-      );
+      expect(roomRows.any((r) => r.room.roomType == RoomType.support), isFalse);
     });
 
-    test('только support-комнаты → одна строка-папка «Поддержка»', () {
+    test('только обращения одного продукта → одна строка-папка', () {
       final rooms = [
         support(id: 1, productId: 10),
         support(id: 2, productId: 10),
@@ -153,6 +143,7 @@ void main() {
       expect(rows.length, 1);
       final only = rows.single as ChatFolderRow;
       expect(only.folder.kind, ChatFolderKind.support);
+      expect(only.folder.productId, 10);
       expect(only.folder.roomCount, 2);
     });
   });

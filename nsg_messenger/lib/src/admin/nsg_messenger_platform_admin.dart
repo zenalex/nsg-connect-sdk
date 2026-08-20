@@ -33,7 +33,9 @@ typedef CreateTenantRpc =
 
 /// Продукты тенанта (второй уровень дерева «тенант → продукт → команда»).
 typedef ListProductsRpc =
-    Future<List<ProductAdminView>> Function({required String tenantExternalKey});
+    Future<List<ProductAdminView>> Function({
+      required String tenantExternalKey,
+    });
 
 /// Завести команду поддержки продукта и назначить владельца по email.
 typedef ProvisionSupportTeamRpc =
@@ -51,7 +53,36 @@ typedef CreateProductRpc =
       required String externalKey,
       required String displayName,
     });
+
+/// Удалить продукт (только пустой — гейт на сервере).
+typedef DeleteProductRpc =
+    Future<void> Function({
+      required String tenantExternalKey,
+      required String productExternalKey,
+    });
+
+/// Список поддержки тенанта — люди, наследуемые в команды всех его
+/// продуктов.
+typedef ListTenantSupportRpc =
+    Future<List<TenantSupportMemberView>> Function({
+      required String tenantExternalKey,
+    });
+typedef AddTenantSupportRpc =
+    Future<void> Function({
+      required String tenantExternalKey,
+      required int messengerUserId,
+      int? tier,
+    });
+typedef RemoveTenantSupportRpc =
+    Future<void> Function({
+      required String tenantExternalKey,
+      required int messengerUserId,
+    });
 typedef ListTenantsRpc = Future<List<ConnectTenantStatus>> Function();
+
+/// **issue #120**: здоровье доставки уведомлений по продуктам.
+typedef ListDeliveryHealthRpc =
+    Future<List<ProductDeliveryHealth>> Function();
 typedef EnableAndGenerateRpc =
     Future<String> Function({required String tenantExternalKey});
 typedef RotateTenantSecretRpc =
@@ -69,12 +100,52 @@ typedef ListTenantAuditEventsRpc =
       required int limit,
     });
 
+// ── оргкоманды тенанта (этап 2 DESIGN_TEAMS_AND_CONTACT_SHARING) ──────
+// Справочник компании: положили новичка в «Компанию» — он видит коллег,
+// не зная ни одного email. Здесь, за платформенным гейтом, потому что
+// право положить человека в команду равно праву раздавать знакомства.
+typedef ListTeamsRpc =
+    Future<List<TeamView>> Function({required String tenantExternalKey});
+typedef CreateTeamRpc =
+    Future<TeamView> Function({
+      required String tenantExternalKey,
+      required String name,
+      String? description,
+    });
+typedef DeleteTeamRpc =
+    Future<void> Function({
+      required String tenantExternalKey,
+      required int teamId,
+    });
+typedef ListTeamMembersRpc =
+    Future<List<TeamMemberView>> Function({
+      required String tenantExternalKey,
+      required int teamId,
+    });
+typedef AddTeamMemberRpc =
+    Future<void> Function({
+      required String tenantExternalKey,
+      required int teamId,
+      required int messengerUserId,
+    });
+typedef RemoveTeamMemberRpc =
+    Future<void> Function({
+      required String tenantExternalKey,
+      required int teamId,
+      required int messengerUserId,
+    });
+
 class NsgMessengerPlatformAdmin {
   NsgMessengerPlatformAdmin._({
     required IsPlatformAdminRpc isPlatformAdminRpc,
     required ListTenantsRpc listTenantsRpc,
+    required ListDeliveryHealthRpc listDeliveryHealthRpc,
     required CreateTenantRpc createTenantRpc,
     required CreateProductRpc createProductRpc,
+    required DeleteProductRpc deleteProductRpc,
+    required ListTenantSupportRpc listTenantSupportRpc,
+    required AddTenantSupportRpc addTenantSupportRpc,
+    required RemoveTenantSupportRpc removeTenantSupportRpc,
     required ListProductsRpc listProductsRpc,
     required ProvisionSupportTeamRpc provisionSupportTeamRpc,
     required EnableAndGenerateRpc enableAndGenerateRpc,
@@ -82,12 +153,29 @@ class NsgMessengerPlatformAdmin {
     required DisableTenantRpc disableRpc,
     required TenantStatusRpc statusRpc,
     required ListTenantAuditEventsRpc listAuditEventsRpc,
+    required ListTeamsRpc listTeamsRpc,
+    required CreateTeamRpc createTeamRpc,
+    required DeleteTeamRpc deleteTeamRpc,
+    required ListTeamMembersRpc listTeamMembersRpc,
+    required AddTeamMemberRpc addTeamMemberRpc,
+    required RemoveTeamMemberRpc removeTeamMemberRpc,
   }) : _listProductsRpc = listProductsRpc,
+       _listTeamsRpc = listTeamsRpc,
+       _createTeamRpc = createTeamRpc,
+       _deleteTeamRpc = deleteTeamRpc,
+       _listTeamMembersRpc = listTeamMembersRpc,
+       _addTeamMemberRpc = addTeamMemberRpc,
+       _removeTeamMemberRpc = removeTeamMemberRpc,
        _provisionSupportTeamRpc = provisionSupportTeamRpc,
        _createTenantRpc = createTenantRpc,
        _createProductRpc = createProductRpc,
+       _deleteProductRpc = deleteProductRpc,
+       _listTenantSupportRpc = listTenantSupportRpc,
+       _addTenantSupportRpc = addTenantSupportRpc,
+       _removeTenantSupportRpc = removeTenantSupportRpc,
        _isPlatformAdminRpc = isPlatformAdminRpc,
        _listTenantsRpc = listTenantsRpc,
+       _listDeliveryHealthRpc = listDeliveryHealthRpc,
        _enableAndGenerateRpc = enableAndGenerateRpc,
        _rotateSecretRpc = rotateSecretRpc,
        _disableRpc = disableRpc,
@@ -96,10 +184,21 @@ class NsgMessengerPlatformAdmin {
 
   final IsPlatformAdminRpc _isPlatformAdminRpc;
   final ListTenantsRpc _listTenantsRpc;
+  final ListDeliveryHealthRpc _listDeliveryHealthRpc;
   final CreateTenantRpc _createTenantRpc;
   final ListProductsRpc _listProductsRpc;
   final ProvisionSupportTeamRpc _provisionSupportTeamRpc;
   final CreateProductRpc _createProductRpc;
+  final DeleteProductRpc _deleteProductRpc;
+  final ListTeamsRpc _listTeamsRpc;
+  final CreateTeamRpc _createTeamRpc;
+  final DeleteTeamRpc _deleteTeamRpc;
+  final ListTeamMembersRpc _listTeamMembersRpc;
+  final AddTeamMemberRpc _addTeamMemberRpc;
+  final RemoveTeamMemberRpc _removeTeamMemberRpc;
+  final ListTenantSupportRpc _listTenantSupportRpc;
+  final AddTenantSupportRpc _addTenantSupportRpc;
+  final RemoveTenantSupportRpc _removeTenantSupportRpc;
   final EnableAndGenerateRpc _enableAndGenerateRpc;
   final RotateTenantSecretRpc _rotateSecretRpc;
   final DisableTenantRpc _disableRpc;
@@ -127,6 +226,10 @@ class NsgMessengerPlatformAdmin {
       ),
       listTenantsRpc: () => withAuthRetry(
         () => client.connectTenantAdmin.listTenants(),
+        session(),
+      ),
+      listDeliveryHealthRpc: () => withAuthRetry(
+        () => client.connectTenantAdmin.listDeliveryHealth(),
         session(),
       ),
       listProductsRpc: ({required String tenantExternalKey}) => withAuthRetry(
@@ -168,6 +271,109 @@ class NsgMessengerPlatformAdmin {
               tenantExternalKey: tenantExternalKey,
               externalKey: externalKey,
               displayName: displayName,
+            ),
+            session(),
+          ),
+      deleteProductRpc:
+          ({
+            required String tenantExternalKey,
+            required String productExternalKey,
+          }) => withAuthRetry(
+            () => client.connectTenantAdmin.deleteProduct(
+              tenantExternalKey: tenantExternalKey,
+              productExternalKey: productExternalKey,
+            ),
+            session(),
+          ),
+      listTenantSupportRpc: ({required String tenantExternalKey}) =>
+          withAuthRetry(
+            () => client.connectTenantAdmin.listTenantSupport(
+              tenantExternalKey: tenantExternalKey,
+            ),
+            session(),
+          ),
+      addTenantSupportRpc:
+          ({
+            required String tenantExternalKey,
+            required int messengerUserId,
+            int? tier,
+          }) => withAuthRetry(
+            () => client.connectTenantAdmin.addTenantSupportMember(
+              tenantExternalKey: tenantExternalKey,
+              messengerUserId: messengerUserId,
+              tier: tier,
+            ),
+            session(),
+          ),
+      removeTenantSupportRpc:
+          ({required String tenantExternalKey, required int messengerUserId}) =>
+              withAuthRetry(
+                () => client.connectTenantAdmin.removeTenantSupportMember(
+                  tenantExternalKey: tenantExternalKey,
+                  messengerUserId: messengerUserId,
+                ),
+                session(),
+              ),
+      listTeamsRpc: ({required String tenantExternalKey}) => withAuthRetry(
+        () => client.connectTenantAdmin.listTeams(
+          tenantExternalKey: tenantExternalKey,
+        ),
+        session(),
+      ),
+      createTeamRpc:
+          ({
+            required String tenantExternalKey,
+            required String name,
+            String? description,
+          }) => withAuthRetry(
+            () => client.connectTenantAdmin.createTeam(
+              tenantExternalKey: tenantExternalKey,
+              name: name,
+              description: description,
+            ),
+            session(),
+          ),
+      deleteTeamRpc:
+          ({required String tenantExternalKey, required int teamId}) =>
+              withAuthRetry(
+                () => client.connectTenantAdmin.deleteTeam(
+                  tenantExternalKey: tenantExternalKey,
+                  teamId: teamId,
+                ),
+                session(),
+              ),
+      listTeamMembersRpc:
+          ({required String tenantExternalKey, required int teamId}) =>
+              withAuthRetry(
+                () => client.connectTenantAdmin.listTeamMembers(
+                  tenantExternalKey: tenantExternalKey,
+                  teamId: teamId,
+                ),
+                session(),
+              ),
+      addTeamMemberRpc:
+          ({
+            required String tenantExternalKey,
+            required int teamId,
+            required int messengerUserId,
+          }) => withAuthRetry(
+            () => client.connectTenantAdmin.addTeamMember(
+              tenantExternalKey: tenantExternalKey,
+              teamId: teamId,
+              messengerUserId: messengerUserId,
+            ),
+            session(),
+          ),
+      removeTeamMemberRpc:
+          ({
+            required String tenantExternalKey,
+            required int teamId,
+            required int messengerUserId,
+          }) => withAuthRetry(
+            () => client.connectTenantAdmin.removeTeamMember(
+              tenantExternalKey: tenantExternalKey,
+              teamId: teamId,
+              messengerUserId: messengerUserId,
             ),
             session(),
           ),
@@ -215,13 +421,24 @@ class NsgMessengerPlatformAdmin {
   static NsgMessengerPlatformAdmin withRpcs({
     required IsPlatformAdminRpc isPlatformAdminRpc,
     required ListTenantsRpc listTenantsRpc,
+    required ListDeliveryHealthRpc listDeliveryHealthRpc,
     // Необязательные: тест, который провижн не трогает, объявлять их не
     // должен, а уже выпущенные наружу вызовы `withRpcs` обязаны
     // компилироваться после обновления SDK.
     CreateTenantRpc? createTenantRpc,
     CreateProductRpc? createProductRpc,
+    DeleteProductRpc? deleteProductRpc,
+    ListTenantSupportRpc? listTenantSupportRpc,
+    AddTenantSupportRpc? addTenantSupportRpc,
+    RemoveTenantSupportRpc? removeTenantSupportRpc,
     ListProductsRpc? listProductsRpc,
     ProvisionSupportTeamRpc? provisionSupportTeamRpc,
+    ListTeamsRpc? listTeamsRpc,
+    CreateTeamRpc? createTeamRpc,
+    DeleteTeamRpc? deleteTeamRpc,
+    ListTeamMembersRpc? listTeamMembersRpc,
+    AddTeamMemberRpc? addTeamMemberRpc,
+    RemoveTeamMemberRpc? removeTeamMemberRpc,
     required EnableAndGenerateRpc enableAndGenerateRpc,
     required RotateTenantSecretRpc rotateSecretRpc,
     required DisableTenantRpc disableRpc,
@@ -230,6 +447,7 @@ class NsgMessengerPlatformAdmin {
   }) => NsgMessengerPlatformAdmin._(
     isPlatformAdminRpc: isPlatformAdminRpc,
     listTenantsRpc: listTenantsRpc,
+    listDeliveryHealthRpc: listDeliveryHealthRpc,
     createTenantRpc:
         createTenantRpc ??
         ({required String externalKey, required String name}) =>
@@ -241,6 +459,27 @@ class NsgMessengerPlatformAdmin {
           required String externalKey,
           required String displayName,
         }) => throw UnimplementedError('createProductRpc не задан'),
+    deleteProductRpc:
+        deleteProductRpc ??
+        ({
+          required String tenantExternalKey,
+          required String productExternalKey,
+        }) => throw UnimplementedError('deleteProductRpc не задан'),
+    listTenantSupportRpc:
+        listTenantSupportRpc ??
+        ({required String tenantExternalKey}) async =>
+            const <TenantSupportMemberView>[],
+    addTenantSupportRpc:
+        addTenantSupportRpc ??
+        ({
+          required String tenantExternalKey,
+          required int messengerUserId,
+          int? tier,
+        }) => throw UnimplementedError('addTenantSupportRpc не задан'),
+    removeTenantSupportRpc:
+        removeTenantSupportRpc ??
+        ({required String tenantExternalKey, required int messengerUserId}) =>
+            throw UnimplementedError('removeTenantSupportRpc не задан'),
     listProductsRpc:
         listProductsRpc ??
         ({required String tenantExternalKey}) async =>
@@ -253,6 +492,38 @@ class NsgMessengerPlatformAdmin {
           String? ownerEmail,
           int? ownerMessengerUserId,
         }) => throw UnimplementedError('provisionSupportTeamRpc не задан'),
+    listTeamsRpc:
+        listTeamsRpc ??
+        ({required String tenantExternalKey}) async => const <TeamView>[],
+    createTeamRpc:
+        createTeamRpc ??
+        ({
+          required String tenantExternalKey,
+          required String name,
+          String? description,
+        }) => throw UnimplementedError('createTeamRpc не задан'),
+    deleteTeamRpc:
+        deleteTeamRpc ??
+        ({required String tenantExternalKey, required int teamId}) =>
+            throw UnimplementedError('deleteTeamRpc не задан'),
+    listTeamMembersRpc:
+        listTeamMembersRpc ??
+        ({required String tenantExternalKey, required int teamId}) async =>
+            const <TeamMemberView>[],
+    addTeamMemberRpc:
+        addTeamMemberRpc ??
+        ({
+          required String tenantExternalKey,
+          required int teamId,
+          required int messengerUserId,
+        }) => throw UnimplementedError('addTeamMemberRpc не задан'),
+    removeTeamMemberRpc:
+        removeTeamMemberRpc ??
+        ({
+          required String tenantExternalKey,
+          required int teamId,
+          required int messengerUserId,
+        }) => throw UnimplementedError('removeTeamMemberRpc не задан'),
     enableAndGenerateRpc: enableAndGenerateRpc,
     rotateSecretRpc: rotateSecretRpc,
     disableRpc: disableRpc,
@@ -289,6 +560,19 @@ class NsgMessengerPlatformAdmin {
     }
   }
 
+  /// **issue #120**: здоровье доставки уведомлений по продуктам.
+  ///
+  /// Деградация та же, что у [listTenants]: старый сервер или сбой — пусто,
+  /// а не исключение. Пустой список экран покажет как «нет данных»; врать
+  /// зелёным на сбое запроса нельзя, признак ради того и заводится.
+  Future<List<ProductDeliveryHealth>> listDeliveryHealth() async {
+    try {
+      return await _listDeliveryHealthRpc();
+    } on Object {
+      return const <ProductDeliveryHealth>[];
+    }
+  }
+
   /// Включить issued-token-режим tenant-а и выдать первый serviceSecret.
   /// Возвращённый плейнтекст `cst_…` — **показать один раз** и забыть:
   /// сервер хранит только sha256, повторно не отдаст. На уже включённом
@@ -314,6 +598,119 @@ class NsgMessengerPlatformAdmin {
     tenantExternalKey: tenantExternalKey,
     externalKey: externalKey,
     displayName: displayName,
+  );
+
+  /// **Удалить продукт.** Бросает `ProductInUseException`, если на продукте
+  /// есть живое (комнаты, обращения, боты, идентичности, устройства,
+  /// вебхуки): ссылки на продукт стоят как `SET NULL`, и молчаливое
+  /// удаление осиротило бы переписку, а не убрало её.
+  Future<void> deleteProduct({
+    required String tenantExternalKey,
+    required String productExternalKey,
+  }) => _deleteProductRpc(
+    tenantExternalKey: tenantExternalKey,
+    productExternalKey: productExternalKey,
+  );
+
+  /// **Поддержка тенанта** — люди, которые числятся в команде каждого его
+  /// продукта. Сбой деградирует в пустой список: экран покажет «никого»,
+  /// а доступ всё равно решает сервер.
+  Future<List<TenantSupportMemberView>> listTenantSupport({
+    required String tenantExternalKey,
+  }) async {
+    try {
+      return await _listTenantSupportRpc(tenantExternalKey: tenantExternalKey);
+    } catch (_) {
+      return const <TenantSupportMemberView>[];
+    }
+  }
+
+  Future<void> addTenantSupportMember({
+    required String tenantExternalKey,
+    required int messengerUserId,
+    int? tier,
+  }) => _addTenantSupportRpc(
+    tenantExternalKey: tenantExternalKey,
+    messengerUserId: messengerUserId,
+    tier: tier,
+  );
+
+  /// Убрать из поддержки тенанта — человек исчезнет из команд ВСЕХ его
+  /// продуктов сразу.
+  Future<void> removeTenantSupportMember({
+    required String tenantExternalKey,
+    required int messengerUserId,
+  }) => _removeTenantSupportRpc(
+    tenantExternalKey: tenantExternalKey,
+    messengerUserId: messengerUserId,
+  );
+
+  // ── оргкоманды тенанта ─────────────────────────────────────────────
+
+  /// Команды тенанта. Сбой деградирует в пустой список — решать доступ
+  /// всё равно серверу, а экрану нужно что-то показать.
+  Future<List<TeamView>> listTeams({required String tenantExternalKey}) async {
+    try {
+      return await _listTeamsRpc(tenantExternalKey: tenantExternalKey);
+    } catch (_) {
+      return const <TeamView>[];
+    }
+  }
+
+  /// Завести оргкоманду. Бросает — тёзка в этом тенанте запрещена, и
+  /// экран обязан сказать об этом, а не проглотить.
+  Future<TeamView> createTeam({
+    required String tenantExternalKey,
+    required String name,
+    String? description,
+  }) => _createTeamRpc(
+    tenantExternalKey: tenantExternalKey,
+    name: name,
+    description: description,
+  );
+
+  /// Распустить команду. Переписку не трогает: пропадает знакомство, а
+  /// комнаты и история остаются.
+  Future<void> deleteTeam({
+    required String tenantExternalKey,
+    required int teamId,
+  }) => _deleteTeamRpc(tenantExternalKey: tenantExternalKey, teamId: teamId);
+
+  Future<List<TeamMemberView>> listTeamMembers({
+    required String tenantExternalKey,
+    required int teamId,
+  }) async {
+    try {
+      return await _listTeamMembersRpc(
+        tenantExternalKey: tenantExternalKey,
+        teamId: teamId,
+      );
+    } catch (_) {
+      return const <TeamMemberView>[];
+    }
+  }
+
+  Future<void> addTeamMember({
+    required String tenantExternalKey,
+    required int teamId,
+    required int messengerUserId,
+  }) => _addTeamMemberRpc(
+    tenantExternalKey: tenantExternalKey,
+    teamId: teamId,
+    messengerUserId: messengerUserId,
+  );
+
+  /// Убрать из команды. Человек исчезнет из списка людей у остальных —
+  /// если не остался знакомым по другой причине (общий чат, ручной
+  /// контакт, другая общая команда).
+  Future<void> removeTeamMember({
+    required String tenantExternalKey,
+    required int teamId,
+    required int messengerUserId,
+  }) => _removeTeamMemberRpc(
+    tenantExternalKey: tenantExternalKey,
+    teamId: teamId,
+    messengerUserId: messengerUserId,
   );
 
   /// Продукты тенанта. Сбой деградирует в пустой список — как listTenants:

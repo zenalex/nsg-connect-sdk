@@ -9,6 +9,9 @@ import 'package:flutter_rustore_push/pigeons/rustore_push.dart' as rustore;
 import 'package:nsg_messenger/nsg_messenger.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import 'notification_channels.dart';
+import 'push_status_resolver.dart';
+
 /// **TASK61**: production [PushTokenProvider] поверх `flutter_rustore_push`
 /// (RuStore Push / VKPNS) — для Android-устройств без Google Play Services.
 ///
@@ -41,7 +44,13 @@ import 'package:package_info_plus/package_info_plus.dart';
 ///   * [getInitialTapData] — cold start из нотификации (аналог
 ///     `getInitialMessage`).
 class RuStorePushTokenProvider implements PushTokenProvider {
-  RuStorePushTokenProvider._({required this.deviceInfo});
+  RuStorePushTokenProvider._({
+    required this.deviceInfo,
+    required bool permissionGranted,
+  }) : _permissionGranted = permissionGranted,
+       _status = permissionGranted
+           ? PushTokenStatus.pending
+           : PushTokenStatus.permissionDenied;
 
   /// Snapshotted DeviceInfo (pushService == rustore).
   final DeviceInfo deviceInfo;
@@ -49,6 +58,31 @@ class RuStorePushTokenProvider implements PushTokenProvider {
   final StreamController<String?> _tokenController =
       StreamController<String?>.broadcast();
   bool _disposed = false;
+
+  /// **Issue #86**: вердикт «дойдут ли пуши». Отсутствие токена здесь
+  /// такое же молчаливое, как было в FCM-пути, поэтому лечим одинаково.
+  ///
+  /// **Прежнее ограничение снято (этап 3).** Раньше провайдер никогда не
+  /// выставлял [PushTokenStatus.permissionDenied]: SDK RuStore о
+  /// POST_NOTIFICATIONS ничего не сообщает, а сами мы разрешение не
+  /// спрашивали — считать его выданным было единственным честным
+  /// вариантом. Теперь разрешение запрашиваем в [create] и знаем ответ,
+  /// поэтому отказ на Android 13+ становится видимым вердиктом, а не
+  /// молчаливым «токен есть, уведомлений нет».
+  final bool _permissionGranted;
+  PushTokenStatus _status;
+  final StreamController<PushTokenStatus> _statusController =
+      StreamController<PushTokenStatus>.broadcast();
+
+  void _publishStatus(String? token) {
+    final next = resolvePushTokenStatus(
+      permissionGranted: _permissionGranted,
+      token: token,
+    );
+    if (_disposed || _status == next) return;
+    _status = next;
+    if (!_statusController.isClosed) _statusController.add(next);
+  }
 
   /// Тапы по нотификациям (data-пейлоады) при живом (свёрнутом) app.
   /// Static broadcast — колбэки RuStore глобальные, host-app подписывается
@@ -70,24 +104,49 @@ class RuStorePushTokenProvider implements PushTokenProvider {
 
   /// **Async factory**:
   ///   1. `WidgetsFlutterBinding.ensureInitialized()` (idempotent).
-  ///   2. Resolve [DeviceInfo].
-  ///   3. `attachCallbacks` — onNewToken → tokenStream, tap-колбэки →
+  ///   2. POST_NOTIFICATIONS (Android 13+) — см. ниже.
+  ///   3. Каналы уведомлений ([NsgNotificationChannels]).
+  ///   4. Resolve [DeviceInfo].
+  ///   5. `attachCallbacks` — onNewToken → tokenStream, tap-колбэки →
   ///      [messageOpenedStream]. Повторный create (reinit при switch
   ///      аккаунта) пере-attach-ит колбэки на новый инстанс — старый
   ///      перестаёт эмитить (его stream больше никто не слушает).
-  ///   4. Initial `getToken()` emit (next-tick, после подписки runtime).
+  ///   6. Initial `getToken()` emit (next-tick, после подписки runtime).
   ///
-  /// Разрешение на нотификации (POST_NOTIFICATIONS, Android 13+)
-  /// запрашивает host-app (как и в FCM-пути — см. `_setupCallPush`).
+  /// **Разрешение теперь спрашиваем сами (этап 3).** Раньше это было
+  /// целиком на host-app: SDK RuStore разрешениями не занимается, а у нас
+  /// в пакете не было, чем спросить. Хост, который об этом не знал,
+  /// получал устройство с токеном и без единого уведомления — отказ,
+  /// который ничем себя не проявляет. На FCM-пути того же добивается
+  /// `FirebaseMessaging.requestPermission()`, поэтому там второй запрос не
+  /// нужен и не делается.
+  ///
+  /// **Хост со своим запросом сломать этим нельзя, но диалог он может
+  /// показать вторым.** Chatista спрашивает через `permission_handler` в
+  /// `_setupCallPush` и перед показом сверяется со статусом: разрешил
+  /// человек нам — второго диалога не будет. Отказал — статус остаётся
+  /// `denied`, и хост спросит ещё раз (Android даёт две попытки). Так уже
+  /// ведёт себя FCM-путь, где разрешение просит `requestPermission()`;
+  /// RuStore-путь теперь просто ведёт себя так же, а не молчит.
   static Future<RuStorePushTokenProvider> create() async {
     WidgetsFlutterBinding.ensureInitialized();
+    final granted = await requestAndroidNotificationsPermission();
+    // Каналы — до первого возможного уведомления и независимо от ответа
+    // на разрешение: категории видны в системных настройках и тому, кто
+    // уведомления запретил, а RuStore-путь идентификатор канала пока не
+    // получает вовсе (этап 6 ТЗ) — заводит их всё равно приложение.
+    await NsgNotificationChannels.ensureCreated();
     final info = await _resolveDeviceInfo();
-    final provider = RuStorePushTokenProvider._(deviceInfo: info);
+    final provider = RuStorePushTokenProvider._(
+      deviceInfo: info,
+      permissionGranted: granted,
+    );
 
     await RustorePushClient.attachCallbacks(
       onNewToken: (dynamic token) {
         if (token is String && !provider._disposed) {
           provider._tokenController.add(token);
+          provider._publishStatus(token);
         }
       },
       onMessageReceived: (dynamic message) {
@@ -113,8 +172,9 @@ class RuStorePushTokenProvider implements PushTokenProvider {
     // успели подписаться.
     scheduleMicrotask(() async {
       if (provider._disposed) return;
+      String? token;
       try {
-        final token = await RustorePushClient.getToken();
+        token = await RustorePushClient.getToken();
         if (token.isNotEmpty && !provider._disposed) {
           provider._tokenController.add(token);
         }
@@ -123,6 +183,9 @@ class RuStorePushTokenProvider implements PushTokenProvider {
           debugPrint('[RuStorePushTokenProvider] initial getToken failed: $e');
         }
       }
+      // **Issue #86**: неудача — состояние, а не запись в отладочной
+      // консоли, которой у пользователя нет.
+      provider._publishStatus(token);
     });
 
     return provider;
@@ -151,10 +214,14 @@ class RuStorePushTokenProvider implements PushTokenProvider {
     try {
       // Hard timeout как у FCM-провайдера — не вешаем UI, tokenStream
       // доэмитит позже через onNewToken.
-      return await RustorePushClient.getToken().timeout(
-        const Duration(seconds: 2),
-        onTimeout: () => '',
-      ).then((t) => t.isEmpty ? null : t);
+      final token = await RustorePushClient.getToken()
+          .timeout(const Duration(seconds: 2), onTimeout: () => '')
+          .then((t) => t.isEmpty ? null : t);
+      // **Issue #86**: успешный токен — тоже вердикт. На таймауте молчим:
+      // 2 секунды ничего не доказывают, вердикт выносит микрозадача
+      // из `create()`.
+      if (token != null) _publishStatus(token);
+      return token;
     } catch (e) {
       if (kDebugMode) {
         debugPrint('[RuStorePushTokenProvider] getCurrentToken failed: $e');
@@ -166,12 +233,21 @@ class RuStorePushTokenProvider implements PushTokenProvider {
   @override
   Stream<String?> tokenStream() => _tokenController.stream;
 
+  @override
+  PushTokenStatus get pushStatus => _status;
+
+  @override
+  Stream<PushTokenStatus> pushStatusStream() => _statusController.stream;
+
   /// Closes token stream. Idempotent.
   Future<void> dispose() async {
     if (_disposed) return;
     _disposed = true;
     if (!_tokenController.isClosed) {
       await _tokenController.close();
+    }
+    if (!_statusController.isClosed) {
+      await _statusController.close();
     }
   }
 

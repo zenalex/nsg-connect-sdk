@@ -1,24 +1,49 @@
-import 'package:flutter/material.dart';
-
-import '../i18n/generated/nsg_l10n.dart';
-
-/// **F2 часть 1** — полноценный emoji-picker для реакций (за пределами
-/// быстрого ряда `kQuickReactionEmojis`). Открывается по кнопке «+» в
-/// action-sheet сообщения; тап по эмодзи возвращает его через `Navigator.pop`,
-/// вызывающая сторона делает `toggleReaction`.
+/// Единственный набор эмодзи приложения — и для реакций на чужое сообщение,
+/// и для вставки в своё (issue #85).
+///
+/// Второй, независимый список эмодзи в одном мессенджере — гарантированный
+/// разъезд: смайлик, которым можно отреагировать, вдруг нельзя написать.
+/// Поэтому набор и панель здесь одни, различается ровно заголовок листа.
 ///
 /// Зависимостей нет намеренно: курированный набор по категориям (как в
 /// reaction-picker-е Telegram/Slack — реакции берут из ходового набора, а не
 /// из всех ~3800 Unicode-эмодзи). Полный Unicode-пикер с поиском по ключевым
 /// словам — возможное расширение (часть 2 / отдельный пакет).
+library;
+
+import 'package:flutter/material.dart';
+
+import '../i18n/generated/nsg_l10n.dart';
+import '../widgets/nsg_modal_sheet.dart';
+
+/// **F2 часть 1** — выбор реакции на существующее сообщение. Открывается по
+/// кнопке «+» в action-sheet сообщения; тап по эмодзи возвращает его через
+/// `Navigator.pop`, вызывающая сторона делает `toggleReaction`.
 ///
 /// Возвращает выбранный emoji или `null`, если лист закрыли.
-Future<String?> showEmojiReactionPicker(BuildContext context) {
-  return showModalBottomSheet<String>(
+Future<String?> showEmojiReactionPicker(BuildContext context) =>
+    _showEmojiSheet(context, (l) => l.emojiPickerTitle);
+
+/// **Issue #85** — выбор эмодзи для ВСТАВКИ В ТЕКСТ своего сообщения
+/// (кнопка в композере). Возвращает выбранный emoji или `null` при закрытии;
+/// куда его подставить, решает композер (позиция каретки, замена выделения).
+///
+/// Отдельная точка входа, а не флаг у [showEmojiReactionPicker], нужна только
+/// ради заголовка: «Выберите реакцию» над панелью, из которой набирают текст,
+/// сбивает с толку.
+Future<String?> showEmojiInsertPicker(BuildContext context) =>
+    _showEmojiSheet(context, (l) => l.emojiInsertPickerTitle);
+
+Future<String?> _showEmojiSheet(
+  BuildContext context,
+  String Function(NsgL10n l) title,
+) {
+  // Issue #105: через помощник — иначе длинный набор эмодзи дорастает до
+  // верха экрана и ручка уходит под вырез.
+  return showNsgModalSheet<String>(
     context: context,
-    isScrollControlled: true,
     showDragHandle: true,
-    builder: (_) => const _EmojiReactionPickerBody(),
+    builder: (_) => _EmojiPickerBody(title: title),
   );
 }
 
@@ -346,8 +371,13 @@ String _categoryLabel(NsgL10n l, String key) => switch (key) {
   _ => key,
 };
 
-class _EmojiReactionPickerBody extends StatelessWidget {
-  const _EmojiReactionPickerBody();
+class _EmojiPickerBody extends StatelessWidget {
+  const _EmojiPickerBody({required this.title});
+
+  /// Заголовок листа. Резолвим из [NsgL10n] уже внутри build-а: на момент
+  /// вызова `showModalBottomSheet` локализации ещё берутся из контекста
+  /// вызывающей стороны, а лист живёт в другом поддереве.
+  final String Function(NsgL10n l) title;
 
   @override
   Widget build(BuildContext context) {
@@ -362,7 +392,7 @@ class _EmojiReactionPickerBody extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
               child: Text(
-                l.emojiPickerTitle,
+                title(l),
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             ),

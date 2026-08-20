@@ -10,6 +10,8 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import 'call_push.dart';
 import 'call_push_presenter.dart';
+import 'notification_channels.dart';
+import 'push_status_resolver.dart';
 
 /// **TASK20-Phase2 Chunk 5**: production [PushTokenProvider] поверх
 /// `firebase_messaging` (variant (a) — Firebase wraps APNs on iOS).
@@ -28,11 +30,27 @@ import 'call_push_presenter.dart';
 ///      (server-side нашему path этот key не нужен).
 ///
 /// **Permission**: на iOS `requestPermission()` показывает system
-/// prompt. На Android (API 33+) — POST_NOTIFICATIONS permission. Мы
-/// запрашиваем automatically в `create()`; customer хочет
-/// gating-by-onboarding-step → провайдер subclass-уется.
+/// prompt. На Android 13+ тот же вызов просит POST_NOTIFICATIONS —
+/// проверено по коду плагина, там ровно `ActivityCompat.requestPermissions`
+/// на `Manifest.permission.POST_NOTIFICATIONS`; до Android 13 разрешение
+/// выдаётся при установке и диалога нет. Мы запрашиваем automatically в
+/// `create()`; customer хочет gating-by-onboarding-step → провайдер
+/// subclass-уется.
+///
+/// **Каналы уведомлений (этап 3 TASK_TITAN_PRODUCT_PUSH01 §4.1)**:
+/// `create()` заводит их на Android — см. [NsgNotificationChannels].
+/// Идентификатор канала приезжает в нагрузке продуктовых уведомлений, но
+/// сам канал обязан существовать на устройстве заранее, иначе Firebase
+/// молча подставит канал из манифеста и тревога станет обычным
+/// уведомлением.
 class FirebasePushTokenProvider implements PushTokenProvider {
-  FirebasePushTokenProvider._({required this.deviceInfo});
+  FirebasePushTokenProvider._({
+    required this.deviceInfo,
+    required bool permissionGranted,
+  }) : _permissionGranted = permissionGranted,
+       _status = permissionGranted
+           ? PushTokenStatus.pending
+           : PushTokenStatus.permissionDenied;
 
   /// Snapshotted DeviceInfo — не меняется в lifecycle session-а
   /// (новая session при app restart).
@@ -43,25 +61,68 @@ class FirebasePushTokenProvider implements PushTokenProvider {
   StreamSubscription<String>? _refreshSub;
   bool _disposed = false;
 
+  /// **Issue #86**: разрешила ли ОС показывать уведомления (ответ на
+  /// `requestPermission` при старте). Хранится, потому что вердикт о
+  /// доставке зависит от него на каждом шаге: токен без разрешения на
+  /// Android «есть», а уведомления не показываются.
+  final bool _permissionGranted;
+  PushTokenStatus _status;
+  final StreamController<PushTokenStatus> _statusController =
+      StreamController<PushTokenStatus>.broadcast();
+
+  /// Единая точка смены состояния: пересчитываем вердикт по разрешению и
+  /// токену, дубли не эмитим.
+  void _publishStatus(String? token) {
+    final next = resolvePushTokenStatus(
+      permissionGranted: _permissionGranted,
+      token: token,
+    );
+    if (_disposed || _status == next) return;
+    _status = next;
+    if (!_statusController.isClosed) _statusController.add(next);
+  }
+
   /// **Async factory**:
   ///   1. `WidgetsFlutterBinding.ensureInitialized()` (idempotent).
-  ///   2. `FirebaseMessaging.requestPermission()` (iOS prompt; Android
-  ///      no-op pre-API-33).
-  ///   3. Resolve [DeviceInfo] (platform/locale/version/model).
-  ///   4. Subscribe to `onTokenRefresh` для emit на rotation.
-  ///   5. Initial `getToken()` emit (next-tick, после listener attach).
+  ///   2. `FirebaseMessaging.requestPermission()` (iOS prompt;
+  ///      POST_NOTIFICATIONS на Android 13+, no-op ниже).
+  ///   3. Каналы уведомлений на Android ([NsgNotificationChannels]).
+  ///   4. Resolve [DeviceInfo] (platform/locale/version/model).
+  ///   5. Subscribe to `onTokenRefresh` для emit на rotation.
+  ///   6. Initial `getToken()` emit (next-tick, после listener attach).
   static Future<FirebasePushTokenProvider> create() async {
     WidgetsFlutterBinding.ensureInitialized();
     final fcm = FirebaseMessaging.instance;
-    // iOS prompt; Android: alert/badge/sound granted by default.
-    await fcm.requestPermission(alert: true, badge: true, sound: true);
+    // iOS prompt; на Android 13+ этот же вызов просит POST_NOTIFICATIONS.
+    final permission = await fcm.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+    // **Issue #86**: ответ ОС больше не выбрасываем — из него берётся
+    // причина «уведомлений нет». `provisional` (тихие уведомления,
+    // iOS 12+) считаем выданным разрешением: доставка работает.
+    final granted =
+        permission.authorizationStatus == AuthorizationStatus.authorized ||
+        permission.authorizationStatus == AuthorizationStatus.provisional;
+    // Каналы заводим ДО того, как устройство сможет получить первое
+    // уведомление: канал, созданный позже, уже не изменит показ того, что
+    // пришло раньше. Разрешения этот шаг не требует — категории видны в
+    // системных настройках и у того, кто уведомления запретил.
+    await NsgNotificationChannels.ensureCreated();
     final info = await _resolveDeviceInfo();
-    final provider = FirebasePushTokenProvider._(deviceInfo: info);
+    final provider = FirebasePushTokenProvider._(
+      deviceInfo: info,
+      permissionGranted: granted,
+    );
 
     // onTokenRefresh — emit на rotation (FCM periodic cycle / reinstall).
     provider._refreshSub = fcm.onTokenRefresh.listen(
       (token) {
-        if (!provider._disposed) provider._tokenController.add(token);
+        if (!provider._disposed) {
+          provider._tokenController.add(token);
+          provider._publishStatus(token);
+        }
       },
       onError: (Object e, StackTrace st) {
         if (kDebugMode) {
@@ -74,16 +135,23 @@ class FirebasePushTokenProvider implements PushTokenProvider {
     // MessengerRuntime.init успели subscribe.
     scheduleMicrotask(() async {
       if (provider._disposed) return;
+      String? token;
       try {
         // iOS race: FCM `getToken()` бросает `apns-token-not-set`, если
         // APNS-токен ещё не доехал. На physical-device первый launch
         // APNS приходит через сотни ms после grant permission. Делаем
         // polling до 10s; на Android — no-op (getAPNSToken возвращает
         // null moментально).
-        if (!kIsWeb && Platform.isIOS) {
+        //
+        // **Issue #86**: без разрешения ждать нечего — iOS APNs-токен не
+        // выдаст в принципе, и 30 секунд опроса лишь оттянули бы вердикт.
+        // `getToken()` при этом зовём всё равно: на Android токен выдаётся
+        // и без POST_NOTIFICATIONS, а регистрация на сервере нужна, чтобы
+        // уведомления заработали сразу, как только человек разрешит их.
+        if (!kIsWeb && Platform.isIOS && granted) {
           await _waitForApnsToken(fcm);
         }
-        final token = await fcm.getToken();
+        token = await fcm.getToken();
         if (token != null && !provider._disposed) {
           provider._tokenController.add(token);
         }
@@ -94,6 +162,12 @@ class FirebasePushTokenProvider implements PushTokenProvider {
           );
         }
       }
+      // **Issue #86** — то самое место, где приложение молчало. Раньше
+      // единственным следом неудачи был `debugPrint` под `kDebugMode`,
+      // которого в релизной сборке нет вовсе: человек две недели не
+      // получал уведомлений и не мог узнать причину. Теперь неудача —
+      // состояние, и оно доезжает до экрана.
+      provider._publishStatus(token);
     });
 
     return provider;
@@ -152,7 +226,7 @@ class FirebasePushTokenProvider implements PushTokenProvider {
       // быстро, чтобы host-app смог поднять UI без push-токена. Background-
       // microtask в create() продолжит ждать APNs + emit-нет token через
       // onTokenRefresh когда APNs реально подъедет.
-      return await FirebaseMessaging.instance.getToken().timeout(
+      final token = await FirebaseMessaging.instance.getToken().timeout(
         const Duration(seconds: 2),
         onTimeout: () {
           if (kDebugMode) {
@@ -164,6 +238,11 @@ class FirebasePushTokenProvider implements PushTokenProvider {
           return null;
         },
       );
+      // **Issue #86**: успешный токен здесь — тоже вердикт. Не публикуем
+      // «нет токена» на таймауте: 2 секунды ничего не доказывают, вердикт
+      // выносит фоновая микрозадача из `create()`.
+      if (token != null) _publishStatus(token);
+      return token;
     } catch (e) {
       if (kDebugMode) {
         debugPrint('[FirebasePushTokenProvider] getCurrentToken failed: $e');
@@ -175,6 +254,12 @@ class FirebasePushTokenProvider implements PushTokenProvider {
   @override
   Stream<String?> tokenStream() => _tokenController.stream;
 
+  @override
+  PushTokenStatus get pushStatus => _status;
+
+  @override
+  Stream<PushTokenStatus> pushStatusStream() => _statusController.stream;
+
   /// Closes subscription + token stream. Idempotent — second call no-op.
   Future<void> dispose() async {
     if (_disposed) return;
@@ -183,6 +268,9 @@ class FirebasePushTokenProvider implements PushTokenProvider {
     _refreshSub = null;
     if (!_tokenController.isClosed) {
       await _tokenController.close();
+    }
+    if (!_statusController.isClosed) {
+      await _statusController.close();
     }
   }
 

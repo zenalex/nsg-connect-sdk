@@ -7,14 +7,18 @@ import 'package:nsg_connect_client/nsg_connect_client.dart'
 import 'package:url_launcher/url_launcher.dart';
 
 import '../i18n/generated/nsg_l10n.dart';
+import '../messenger_runtime.dart';
 import '../theme/highlight_surface.dart';
 import '../theme/nsg_messenger_theme.dart';
 import '../utils/relative_time.dart';
 import 'attachments/attachment_bubble.dart';
+import 'shared_contact_data.dart';
 import 'attachments/mxc_image_provider.dart';
 import '../widgets/nsg_avatar_image.dart';
 import 'chat_message.dart';
 import 'forward_source.dart';
+import 'link_preview_card.dart';
+import 'link_preview_store.dart';
 import 'markdown_spans.dart';
 import 'status_card_data.dart';
 
@@ -63,7 +67,17 @@ class MessageBubble extends StatelessWidget {
     this.threadReplyCount,
     this.onOpenThread,
     this.onOpenTask,
+    this.linkPreviews,
   });
+
+  /// **issue #90**: превью первой ссылки сообщения — карточка с заголовком
+  /// и картинкой с сайта. `null` → ссылки остаются обычным текстом, как
+  /// раньше (так же ведут себя все экраны и тесты, которым превью не нужны).
+  ///
+  /// Данные приносит СЕРВЕР: клиент по ссылке не ходит (см.
+  /// `LinkPreviewService` — иначе ссылка-ловушка собрала бы IP каждого,
+  /// кто открыл переписку).
+  final LinkPreviewStore? linkPreviews;
 
   final ChatMessage message;
   final bool isOwn;
@@ -229,7 +243,17 @@ class MessageBubble extends StatelessWidget {
   /// Значок сам берёт данные из [ChatMessage] (`taskStage`/`taskUrl`/
   /// `taskThreadRootEventId`) — bubble остаётся «глупым», а маршрутизацию
   /// (и её тесты) держит экран.
-  final void Function(String? threadRootEventId, String? url)? onOpenTask;
+  /// **Issue #99**: вместе с маршрутом отдаём и ИМЯ задачи (`taskKey` /
+  /// `taskTitle`) — иначе экран, открывая тред, назвать задачу не может, и
+  /// шапка получается безымянной. Пузырь остаётся «глупым»: он не решает,
+  /// куда вести, только передаёт то, что знает о задаче.
+  final void Function(
+    String? threadRootEventId,
+    String? url, {
+    String? taskKey,
+    String? taskTitle,
+  })?
+  onOpenTask;
 
   /// Ширина левого gutter-а под аватар (avatar + gap). Держим в одном
   /// месте, чтобы avatar и spacer совпадали.
@@ -449,6 +473,8 @@ class MessageBubble extends StatelessWidget {
                             onTap: () => onOpenTask!(
                               message.taskThreadRootEventId,
                               message.taskUrl,
+                              taskKey: message.taskKey,
+                              taskTitle: message.taskTitle,
                             ),
                           ),
                         // **Issue #39**: «кто написал» — самой первой строкой
@@ -499,7 +525,29 @@ class MessageBubble extends StatelessWidget {
                           // заголовок, текст, поля, ссылка). Если карточки нет
                           // (битый content / старый сервер) — падаем в обычный
                           // body-fallback ниже (unknown msgType уже так делает).
-                          if (message.msgType == 'nsg.status_card' &&
+                          // **Поделиться контактом**: карточка человека с
+                          // кнопкой «Добавить». Если карточка не
+                          // распарсилась (битый content / старый сервер) —
+                          // падаем в обычный body-фолбэк «Контакт: Имя».
+                          if (message.sharedContactList != null)
+                            _SharedContactListBubble(
+                              list: message.sharedContactList!,
+                              textColor: textColor,
+                              background: highlightSurface(
+                                bubbleColor,
+                                theme.brightness,
+                              ),
+                            )
+                          else if (message.sharedContact != null)
+                            _SharedContactBubble(
+                              contact: message.sharedContact!,
+                              textColor: textColor,
+                              background: highlightSurface(
+                                bubbleColor,
+                                theme.brightness,
+                              ),
+                            )
+                          else if (message.msgType == 'nsg.status_card' &&
                               message.statusCard != null)
                             _StatusCardBubble(
                               card: message.statusCard!,
@@ -558,7 +606,7 @@ class MessageBubble extends StatelessWidget {
                             // Body fallback — для media часто filename
                             // (server-side `defaultAttachmentBody`); скрываем
                             // если body == filename (уже показан в _FileRow).
-                            if (_shouldRenderBodyText(message))
+                            if (_shouldRenderBodyText(message)) ...[
                               _BodyText(
                                 highlightColor: highlightSurface(
                                   bubbleColor,
@@ -572,6 +620,17 @@ class MessageBubble extends StatelessWidget {
                                 textColor: textColor,
                                 mentionColor: accent,
                               ),
+                              // **issue #90**: карточка ссылки — ПОД текстом.
+                              // Сообщение важнее превью: человек написал
+                              // текст, а карточка к нему приложение.
+                              if (linkPreviews != null)
+                                LinkPreviewSection(
+                                  store: linkPreviews!,
+                                  body: message.body,
+                                  textColor: textColor,
+                                  accentColor: accent,
+                                ),
+                            ],
                           ],
                         ],
                         // **TASK82**: строка-кнопка «Обсуждение (N)» на
@@ -1109,6 +1168,15 @@ Color taskStageColor(String? stage, ThemeData theme) => switch (stage) {
   'in_progress' => Colors.orange,
   'accepted' => Colors.green,
   'rejected' => Colors.redAccent,
+  // **issue #98** «ждёт ответа» — индиго, и он тут единственный, кто зовёт
+  // ДЕЙСТВОВАТЬ: мяч на стороне заявителя. Янтарный (как `in_progress`) сказал
+  // бы «работа идёт» — ровно наоборот; красный (как `rejected`) читался бы как
+  // отказ. Индиго — тот же, что у бейджа «Ждём ответа» в «Моих обращениях»
+  // ([_stageStyle]), чтобы один статус читался одинаково на обоих экранах.
+  'awaiting_user' => Colors.indigo,
+  // **issue #98** «приостановлена» — приглушённый, но отличный от «заведена»:
+  // работа стоит осознанно, кричать не о чем.
+  'on_hold' => Colors.blueGrey,
   // 'new' и всё неизвестное/пустое → нейтральный «заведена».
   _ => theme.colorScheme.onSurfaceVariant,
 };
@@ -1120,6 +1188,11 @@ String taskStageLabel(String? stage, NsgL10n l) => switch (stage) {
   'in_progress' => l.taskStageInProgress,
   'accepted' => l.taskStageAccepted,
   'rejected' => l.taskStageRejected,
+  // **issue #98**: «ждём ответа заявителя» и «отложено» — состояния, в которых
+  // работа стоит. Раньше оба показывались как «В работе» (у задачи есть
+  // исполнитель), и человек ждал нас, пока мы ждали его.
+  'awaiting_user' => l.taskStageAwaitingUser,
+  'on_hold' => l.taskStageOnHold,
   _ => l.taskStageCreated,
 };
 
@@ -1314,6 +1387,81 @@ const int _kBodyMaxLinesCollapsed = 12;
 /// короче.
 const int _kBodyProbeMinChars = 250;
 
+/// **issue #80**: блок кода отдельным виджетом — с горизонтальной
+/// прокруткой и кнопкой «копировать».
+///
+/// Прокрутка, а не перенос: в коде отступы значат смысл, и перенос по
+/// ширине пузыря ломал выравнивание. `softWrap: false` здесь обязателен —
+/// без него `SingleChildScrollView` нечего прокручивать, текст свернётся
+/// по ширине сам.
+///
+/// Кнопка «копировать» вместо прежнего тапа по тексту: тап по коду теперь
+/// нужен для прокрутки, и совмещать их значило бы копировать при каждой
+/// попытке проскроллить.
+class _CodeBlockView extends StatelessWidget {
+  const _CodeBlockView({
+    required this.code,
+    required this.textColor,
+    required this.background,
+    required this.onCopy,
+    this.maxLines,
+  });
+
+  final String code;
+  final Color textColor;
+  final Color background;
+  final VoidCallback onCopy;
+
+  /// Ограничение высоты в свёрнутом виде. `null` — показываем целиком.
+  final int? maxLines;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = NsgL10n.of(context);
+    final style = codeBlockTextStyle(TextStyle(color: textColor));
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Stack(
+        children: [
+          Padding(
+            // Справа больше — под кнопку копирования, чтобы она не легла
+            // поверх кода.
+            padding: const EdgeInsets.fromLTRB(8, 6, 36, 6),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Text(
+                code,
+                softWrap: false,
+                maxLines: maxLines,
+                overflow: maxLines == null
+                    ? TextOverflow.clip
+                    : TextOverflow.fade,
+                style: style,
+              ),
+            ),
+          ),
+          Positioned(
+            top: 0,
+            right: 0,
+            child: IconButton(
+              icon: const Icon(Icons.copy_rounded, size: 16),
+              color: textColor.withValues(alpha: 0.7),
+              tooltip: l.messageActionCopy,
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.all(4),
+              constraints: const BoxConstraints(),
+              onPressed: onCopy,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _BodyText extends StatefulWidget {
   const _BodyText({
     required this.body,
@@ -1362,6 +1510,18 @@ class _BodyTextState extends State<_BodyText> {
 
   @override
   Widget build(BuildContext context) {
+    // **issue #80**: блоки кода рисуем ОТДЕЛЬНЫМИ виджетами — только так у
+    // них может быть горизонтальная прокрутка (в коде отступы значат
+    // смысл, а перенос по ширине пузыря их ломал). Внутри текста это
+    // невозможно: виджет там — `WidgetSpan`, а он ломает `TextPainter`,
+    // которым пузырь мерит длинное сообщение для сворачивания.
+    //
+    // Сообщение БЕЗ ограждений идёт прежним путём, буква в букву: у 99%
+    // сообщений кода нет, и платить за него перестройкой рендера незачем.
+    final chunks = splitBodyIntoChunks(widget.body);
+    if (chunks.any((c) => c is BodyCodeChunk)) {
+      return _buildChunked(context, chunks);
+    }
     final span = _buildSpan(context);
     // Короткие сообщения — render без layout-probe (дёшево по CPU).
     if (widget.body.length < _kBodyProbeMinChars) {
@@ -1413,6 +1573,87 @@ class _BodyTextState extends State<_BodyText> {
     );
   }
 
+  /// Тело с блоками кода: колонка из кусков.
+  ///
+  /// Сворачивание считается ПО ТЕКСТОВЫМ кускам и по числу строк кода:
+  /// мерить колонку целиком нечем (`TextPainter` знает только текст), а
+  /// без ограничения длинный код растянул бы ленту на весь экран — ровно
+  /// то, ради чего сворачивание и вводили.
+  Widget _buildChunked(BuildContext context, List<BodyChunk> chunks) {
+    final l = NsgL10n.of(context);
+    final textLength = chunks.whereType<BodyTextChunk>().fold<int>(
+      0,
+      (sum, c) => sum + c.text.length,
+    );
+    final longCode = chunks.whereType<BodyCodeChunk>().any(
+      (c) => c.code.split('\n').length > _kBodyMaxLinesCollapsed,
+    );
+    final collapsible =
+        !_expanded && (longCode || textLength >= _kBodyProbeMinChars);
+
+    final parts = <Widget>[];
+    for (final chunk in chunks) {
+      switch (chunk) {
+        case BodyTextChunk(:final text):
+          // Пустые куски между блоками не рисуем: они дали бы лишний
+          // отступ там, где человек его не ставил.
+          if (text.trim().isEmpty) continue;
+          parts.add(
+            Text.rich(
+              _spanForText(context, text),
+              maxLines: collapsible ? _kBodyMaxLinesCollapsed : null,
+              overflow: collapsible ? TextOverflow.fade : TextOverflow.clip,
+            ),
+          );
+        case BodyCodeChunk(:final code):
+          parts.add(
+            _CodeBlockView(
+              code: code,
+              textColor: widget.textColor,
+              background: widget.highlightColor,
+              maxLines: collapsible ? _kBodyMaxLinesCollapsed : null,
+              onCopy: () => _copyCode(context, code),
+            ),
+          );
+      }
+    }
+    if (collapsible) {
+      parts.addAll([
+        const SizedBox(height: 4),
+        InkWell(
+          onTap: () => setState(() => _expanded = true),
+          borderRadius: BorderRadius.circular(4),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            child: Text(
+              l.messageShowMore,
+              style: TextStyle(
+                color: widget.mentionColor,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+      ]);
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var i = 0; i < parts.length; i++) ...[
+          if (i > 0) const SizedBox(height: 4),
+          parts[i],
+        ],
+      ],
+    );
+  }
+
+  /// Span для ОДНОГО текстового куска — та же сборка, что у целого тела
+  /// (markdown + mentions), только вход другой.
+  TextSpan _spanForText(BuildContext context, String text) =>
+      _buildSpan(context, override: text);
+
   /// Собрать `TextSpan` с подсветкой mentions. Выделено отдельным
   /// методом потому что зовётся и из `Text.rich`, и из `TextPainter`
   /// при probe-е.
@@ -1423,10 +1664,10 @@ class _BodyTextState extends State<_BodyText> {
   /// подсвечиваем mentions. Code-spans (моноширинные) НЕ парсятся
   /// на mentions — это даёт ожидаемое поведение «внутри `code`
   /// ничего не магическое».
-  TextSpan _buildSpan(BuildContext context) {
+  TextSpan _buildSpan(BuildContext context, {String? override}) {
     final base = TextStyle(color: widget.textColor);
     final mdSpans = parseMarkdownToSpans(
-      widget.body,
+      override ?? widget.body,
       baseStyle: base,
       accentColor: widget.mentionColor,
       codeBackground: widget.highlightColor,
@@ -1580,6 +1821,209 @@ class _BodyTextState extends State<_BodyText> {
 /// Ссылка открывается через url_launcher (SDK уже зависит от него — см.
 /// markdown-link tap). Если запуск не удался — тихий no-op (URL берётся из
 /// внешнего процесса, не гарантированно валиден; краш недопустим).
+/// **Карточка человека, которой поделились** (`nsg.contact_card`).
+///
+/// Смысл — снять боль «людей не найти, не зная email»: получателю
+/// достаточно нажать «Добавить», ничего не переписывая с голоса.
+///
+/// Добавление — односторонний жест: я кладу человека в СВОИ контакты.
+/// Ему это ничего не открывает и разрешения не спрашивает, поэтому
+/// подтверждения здесь нет — оно бы только мешало.
+class _SharedContactBubble extends StatefulWidget {
+  const _SharedContactBubble({
+    required this.contact,
+    required this.textColor,
+    required this.background,
+  });
+
+  final SharedContactData contact;
+  final Color textColor;
+  final Color background;
+
+  @override
+  State<_SharedContactBubble> createState() => _SharedContactBubbleState();
+}
+
+class _SharedContactBubbleState extends State<_SharedContactBubble> {
+  bool _added = false;
+  bool _busy = false;
+
+  Future<void> _add() async {
+    if (_busy || _added) return;
+    setState(() => _busy = true);
+    final l = NsgL10n.of(context);
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    try {
+      await MessengerRuntime.instance.contacts.addContact(
+        widget.contact.messengerUserId,
+      );
+      if (!mounted) return;
+      setState(() => _added = true);
+      messenger?.showSnackBar(
+        SnackBar(content: Text(l.contactAddedToContacts)),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      // Отказ чаще всего означает «человека больше нет / он недоступен» —
+      // общий текст, потому что различать причины здесь нечем.
+      messenger?.showSnackBar(
+        SnackBar(content: Text(l.supportTeamActionFailed)),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = NsgL10n.of(context);
+    final theme = Theme.of(context);
+    final name =
+        widget.contact.displayName ?? '#${widget.contact.messengerUserId}';
+    return Container(
+      margin: const EdgeInsets.only(top: 2, bottom: 2),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: widget.background,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CircleAvatar(
+            radius: 18,
+            child: const Icon(Icons.person_outline, size: 20),
+          ),
+          const SizedBox(width: 10),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  l.sharedContactTitle,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: widget.textColor.withValues(alpha: 0.7),
+                  ),
+                ),
+                Text(
+                  name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: widget.textColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          if (_added)
+            Text(
+              l.sharedContactAlreadyKnown,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: widget.textColor.withValues(alpha: 0.7),
+              ),
+            )
+          else
+            TextButton(
+              onPressed: _busy ? null : _add,
+              child: Text(l.sharedContactAdd),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// **Список людей** (`nsg.contact_list`) — «поделились меткой».
+///
+/// Каждого можно добавить по отдельности, а можно всех разом: список
+/// присылают, когда вводят человека в проект, и добавлять по одному
+/// десяток имён — это та же боль, только мельче.
+class _SharedContactListBubble extends StatelessWidget {
+  const _SharedContactListBubble({
+    required this.list,
+    required this.textColor,
+    required this.background,
+  });
+
+  final SharedContactListData list;
+  final Color textColor;
+  final Color background;
+
+  Future<void> _addAll(BuildContext context) async {
+    final l = NsgL10n.of(context);
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    var added = 0;
+    for (final c in list.contacts) {
+      try {
+        await MessengerRuntime.instance.contacts.addContact(c.messengerUserId);
+        added++;
+      } catch (_) {
+        // Один недоступный человек не должен отменять остальных: список
+        // мог устареть с момента отправки.
+        continue;
+      }
+    }
+    messenger?.showSnackBar(
+      SnackBar(
+        content: Text(
+          added > 0 ? l.contactAddedToContacts : l.supportTeamActionFailed,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = NsgL10n.of(context);
+    final theme = Theme.of(context);
+    return Container(
+      margin: const EdgeInsets.only(top: 2, bottom: 2),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            list.label == null
+                ? l.sharedContactListTitle
+                : '${l.sharedContactListTitle}: ${list.label}',
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: textColor.withValues(alpha: 0.8),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 4),
+          for (final c in list.contacts)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: _SharedContactBubble(
+                contact: c,
+                textColor: textColor,
+                background: Colors.transparent,
+              ),
+            ),
+          if (list.contacts.length > 1)
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: () => _addAll(context),
+                child: Text(l.sharedContactListAddAll),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _StatusCardBubble extends StatelessWidget {
   const _StatusCardBubble({required this.card, required this.baseTextColor});
 

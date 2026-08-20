@@ -6,6 +6,7 @@ import 'package:nsg_connect_client/nsg_connect_client.dart';
 import 'attachments/attachment_mime_types.dart';
 import 'forward_source.dart';
 import 'status_card_data.dart';
+import 'shared_contact_data.dart';
 
 /// UI-side представление сообщения в чате (TASK15).
 ///
@@ -43,6 +44,8 @@ class ChatMessage {
     this.threadId,
     this.threadReplyCount,
     this.taskStage,
+    this.taskKey,
+    this.taskTitle,
     this.taskThreadRootEventId,
     this.taskUrl,
     this.replyToMessageId,
@@ -57,6 +60,8 @@ class ChatMessage {
     this.forwardedFromMessengerUserId,
     this.forwardedSource,
     this.statusCard,
+    this.sharedContact,
+    this.sharedContactList,
     this.localImageBytes,
     this.localMimeType,
   });
@@ -104,6 +109,16 @@ class ChatMessage {
   /// `taskUrl` — ссылка на issue (fallback-переход и признак «задача есть»).
   /// Все три null → задачи нет, значка нет.
   final String? taskStage;
+
+  /// **Issue #99**: как задача НАЗЫВАЕТСЯ — номер (`#99`) и краткое описание.
+  /// Нужны не значку, а шапке треда: без них обсуждение открывалось
+  /// безымянным «Обсуждение задачи», хотя в списке задач та же задача имеет
+  /// и номер, и название.
+  ///
+  /// `taskTitle` пуст у задач, заведённых до TASK90 (заголовок тогда уходил
+  /// в лог, а не в связь) — в шапке остаётся один номер.
+  final String? taskKey;
+  final String? taskTitle;
   final String? taskThreadRootEventId;
   final String? taskUrl;
 
@@ -206,6 +221,18 @@ class ChatMessage {
   /// body; null → обычный fallback на body (в т.ч. если поле не распарсилось).
   final StatusCardData? statusCard;
 
+  /// **Поделиться контактом**: карточка человека, приезжающая в
+  /// custom-поле `nsg.contact_card` (см. [SharedContactData.tryParse]).
+  /// Non-null → пузырь рисует карточку с кнопкой «Добавить» вместо
+  /// текста; null → обычный фолбэк на `body` («Контакт: Имя»), в том
+  /// числе если поле не распарсилось.
+  final SharedContactData? sharedContact;
+
+  /// **Поделиться меткой**: список людей из custom-поля
+  /// `nsg.contact_list`. Non-null → пузырь рисует список с добавлением
+  /// разом или выборочно.
+  final SharedContactListData? sharedContactList;
+
   /// **Оптимистичный альбом**: локальные байты картинки, показанные СРАЗУ
   /// (мозаика видна до аплоада). Заполнено только для собственных pending-
   /// картинок, у которых `attachment` ещё null (аплоад в фоне). После
@@ -268,6 +295,8 @@ class ChatMessage {
       threadId: m.threadId,
       threadReplyCount: m.threadReplyCount,
       taskStage: m.taskStage,
+      taskKey: m.taskKey,
+      taskTitle: m.taskTitle,
       taskThreadRootEventId: m.taskThreadRootEventId,
       taskUrl: m.taskUrl,
       replyToMessageId: m.replyToMessageId,
@@ -286,6 +315,8 @@ class ChatMessage {
       // **TASK58**: статус-карточка автопоста — тот же passthrough из
       // сырого content-а, что album_id/forwarded_from.
       statusCard: StatusCardData.tryParse(content),
+      sharedContact: SharedContactData.tryParse(content),
+      sharedContactList: SharedContactListData.tryParse(content),
       localImageBytes: overrideLocalImageBytes,
     );
   }
@@ -367,6 +398,8 @@ class ChatMessage {
     threadId: threadId,
     threadReplyCount: threadReplyCount,
     taskStage: taskStage,
+    taskKey: taskKey,
+    taskTitle: taskTitle,
     taskThreadRootEventId: taskThreadRootEventId,
     taskUrl: taskUrl,
     replyToMessageId: replyToMessageId,
@@ -382,6 +415,8 @@ class ChatMessage {
     forwardedFromMessengerUserId: forwardedFromMessengerUserId,
     forwardedSource: forwardedSource,
     statusCard: statusCard,
+    sharedContact: sharedContact,
+    sharedContactList: sharedContactList,
     localImageBytes: localImageBytes,
     localMimeType: localMimeType,
   );
@@ -399,6 +434,8 @@ class ChatMessage {
     threadId: threadId,
     threadReplyCount: threadReplyCount,
     taskStage: taskStage,
+    taskKey: taskKey,
+    taskTitle: taskTitle,
     taskThreadRootEventId: taskThreadRootEventId,
     taskUrl: taskUrl,
     replyToMessageId: replyToMessageId,
@@ -413,6 +450,8 @@ class ChatMessage {
     forwardedFromMessengerUserId: forwardedFromMessengerUserId,
     forwardedSource: forwardedSource,
     statusCard: statusCard,
+    sharedContact: sharedContact,
+    sharedContactList: sharedContactList,
     localImageBytes: localImageBytes,
     localMimeType: localMimeType,
   );
@@ -433,6 +472,8 @@ class ChatMessage {
     threadId: threadId,
     threadReplyCount: threadReplyCount,
     taskStage: taskStage,
+    taskKey: taskKey,
+    taskTitle: taskTitle,
     taskThreadRootEventId: taskThreadRootEventId,
     taskUrl: taskUrl,
     replyToMessageId: replyToMessageId,
@@ -460,6 +501,8 @@ class ChatMessage {
     required String? taskStage,
     required String? taskThreadRootEventId,
     required String? taskUrl,
+    String? taskKey,
+    String? taskTitle,
   }) => ChatMessage(
     clientTxnId: clientTxnId,
     matrixEventId: matrixEventId,
@@ -472,6 +515,11 @@ class ChatMessage {
     threadId: threadId,
     threadReplyCount: threadReplyCount,
     taskStage: taskStage,
+    // Не затираем известное: сервер старой версии этих полей не шлёт, и
+    // «пришло событие → задача стала безымянной» было бы регрессом. Значок
+    // — состояние, но ИМЯ задачи событием не отменяется.
+    taskKey: taskKey ?? this.taskKey,
+    taskTitle: taskTitle ?? this.taskTitle,
     taskThreadRootEventId: taskThreadRootEventId,
     taskUrl: taskUrl,
     replyToMessageId: replyToMessageId,
@@ -486,6 +534,8 @@ class ChatMessage {
     forwardedFromMessengerUserId: forwardedFromMessengerUserId,
     forwardedSource: forwardedSource,
     statusCard: statusCard,
+    sharedContact: sharedContact,
+    sharedContactList: sharedContactList,
     localImageBytes: localImageBytes,
     localMimeType: localMimeType,
   );
@@ -508,6 +558,8 @@ class ChatMessage {
     threadId: threadId,
     threadReplyCount: threadReplyCount,
     taskStage: taskStage,
+    taskKey: taskKey,
+    taskTitle: taskTitle,
     taskThreadRootEventId: taskThreadRootEventId,
     taskUrl: taskUrl,
     replyToMessageId: replyToMessageId,
@@ -522,6 +574,8 @@ class ChatMessage {
     forwardedFromMessengerUserId: forwardedFromMessengerUserId,
     forwardedSource: forwardedSource,
     statusCard: statusCard,
+    sharedContact: sharedContact,
+    sharedContactList: sharedContactList,
     localImageBytes: localImageBytes,
     localMimeType: localMimeType,
   );
@@ -541,6 +595,8 @@ class ChatMessage {
     // остаётся (сама переписка задачи никуда не делась).
     threadReplyCount: threadReplyCount,
     taskStage: taskStage,
+    taskKey: taskKey,
+    taskTitle: taskTitle,
     taskThreadRootEventId: taskThreadRootEventId,
     taskUrl: taskUrl,
     replyToMessageId: replyToMessageId,

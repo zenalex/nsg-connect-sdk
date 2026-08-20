@@ -106,9 +106,7 @@ class _BotCardScreenState extends State<BotCardScreen> {
       return;
     }
     messenger?.showSnackBar(
-      SnackBar(
-        content: Text(l.botCardAddedToRoom(room.name ?? '#${room.id}')),
-      ),
+      SnackBar(content: Text(l.botCardAddedToRoom(room.name ?? '#${room.id}'))),
     );
     if (mounted) await _refresh();
   }
@@ -163,9 +161,7 @@ class _BotCardScreenState extends State<BotCardScreen> {
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Text(
-                  snap.hasError
-                      ? l.botCatalogLoadFailed
-                      : l.botCardUnavailable,
+                  snap.hasError ? l.botCatalogLoadFailed : l.botCardUnavailable,
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -240,9 +236,7 @@ class _BotCardBody extends StatelessWidget {
                   Text(
                     l.botCardOwner(bot.ownerDisplayName ?? bot.ownerEmail),
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(
-                        alpha: 0.6,
-                      ),
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                     ),
                   ),
                 ],

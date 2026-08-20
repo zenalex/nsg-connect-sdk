@@ -21,13 +21,15 @@ abstract class ProductNotificationSendResult implements _i1.SerializableModel {
     required this.accepted,
     required this.deduped,
     required this.noDevices,
+    int? unavailable,
     required this.results,
-  });
+  }) : unavailable = unavailable ?? 0;
 
   factory ProductNotificationSendResult({
     required int accepted,
     required int deduped,
     required int noDevices,
+    int? unavailable,
     required List<_i2.ProductNotificationRecipientResult> results,
   }) = _ProductNotificationSendResultImpl;
 
@@ -38,6 +40,7 @@ abstract class ProductNotificationSendResult implements _i1.SerializableModel {
       accepted: jsonSerialization['accepted'] as int,
       deduped: jsonSerialization['deduped'] as int,
       noDevices: jsonSerialization['noDevices'] as int,
+      unavailable: jsonSerialization['unavailable'] as int?,
       results: _i3.Protocol()
           .deserialize<List<_i2.ProductNotificationRecipientResult>>(
             jsonSerialization['results'],
@@ -54,6 +57,17 @@ abstract class ProductNotificationSendResult implements _i1.SerializableModel {
   /// Без единого подходящего устройства.
   int noDevices;
 
+  /// Устройства есть, а кредов для их службы нет — слать нечем.
+  ///
+  /// Отдельным счётчиком, а не внутри `accepted`: продукт, читающий только
+  /// агрегаты, иначе увидел бы одни нули при `accepted=0` и не понял, чей
+  /// это отказ — его (адресат без устройств) или наш (не настроено).
+  /// Значение по умолчанию — на время, пока сервер и вызывающий разной
+  /// сборки: свежий клиент, разбирая ответ сервера БЕЗ этого поля, получит
+  /// ноль, а не исключение. Обратную сторону (старый клиент против нового
+  /// сервера) закрывает сам разбор — незнакомые поля он пропускает.
+  int unavailable;
+
   /// По-адресатная детализация (порядок соответствует входному списку).
   List<_i2.ProductNotificationRecipientResult> results;
 
@@ -64,6 +78,7 @@ abstract class ProductNotificationSendResult implements _i1.SerializableModel {
     int? accepted,
     int? deduped,
     int? noDevices,
+    int? unavailable,
     List<_i2.ProductNotificationRecipientResult>? results,
   });
   @override
@@ -73,6 +88,7 @@ abstract class ProductNotificationSendResult implements _i1.SerializableModel {
       'accepted': accepted,
       'deduped': deduped,
       'noDevices': noDevices,
+      'unavailable': unavailable,
       'results': results.toJson(valueToJson: (v) => v.toJson()),
     };
   }
@@ -88,11 +104,13 @@ class _ProductNotificationSendResultImpl extends ProductNotificationSendResult {
     required int accepted,
     required int deduped,
     required int noDevices,
+    int? unavailable,
     required List<_i2.ProductNotificationRecipientResult> results,
   }) : super._(
          accepted: accepted,
          deduped: deduped,
          noDevices: noDevices,
+         unavailable: unavailable,
          results: results,
        );
 
@@ -104,12 +122,14 @@ class _ProductNotificationSendResultImpl extends ProductNotificationSendResult {
     int? accepted,
     int? deduped,
     int? noDevices,
+    int? unavailable,
     List<_i2.ProductNotificationRecipientResult>? results,
   }) {
     return ProductNotificationSendResult(
       accepted: accepted ?? this.accepted,
       deduped: deduped ?? this.deduped,
       noDevices: noDevices ?? this.noDevices,
+      unavailable: unavailable ?? this.unavailable,
       results: results ?? this.results.map((e0) => e0.copyWith()).toList(),
     );
   }

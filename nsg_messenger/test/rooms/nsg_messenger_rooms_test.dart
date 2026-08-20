@@ -884,4 +884,115 @@ void main() {
     await ctx.upstream.close();
     await ctx.stateCtl.close();
   });
+
+  // ───────── typing: признак «печатает бот» ─────────
+  //
+  // Строка списка чатов не имеет доступа к участникам комнаты, поэтому
+  // «это программа, а не человек» она может узнать только из события.
+  // Бот-агент шлёт признак «печатает» минутами — без этого признака
+  // строка врёт словом.
+  group('typingChanged — кто из печатающих не человек', () {
+    test('боты из события доходят до чатлиста подмножеством', () async {
+      final ctx = buildRooms(
+        initialList: const [],
+        detailsFor: (id) => details(id: id),
+      );
+
+      ctx.upstream.add(
+        MessengerEvent(
+          eventType: MessengerEventType.typingChanged,
+          serverTimestamp: DateTime.now().toUtc(),
+          roomId: 5,
+          matrixRoomId: '!fake:localhost',
+          typingMatrixUserIds: const ['@bot:t', '@masha:t'],
+          typingDisplayNames: const ['Помощник', 'Маша'],
+          typingBotMatrixUserIds: const ['@bot:t'],
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(ctx.rooms.typingMatrixUserIdsFor(5), {'@bot:t', '@masha:t'});
+      expect(
+        ctx.rooms.typingBotMatrixUserIdsFor(5),
+        {'@bot:t'},
+        reason: 'человек в множество ботов попасть не должен',
+      );
+
+      await ctx.rooms.dispose();
+      await ctx.upstream.close();
+      await ctx.stateCtl.close();
+    });
+
+    test('поля нет (старый сервер) → пусто, поведение прежнее', () async {
+      final ctx = buildRooms(
+        initialList: const [],
+        detailsFor: (id) => details(id: id),
+      );
+
+      ctx.upstream.add(
+        MessengerEvent(
+          eventType: MessengerEventType.typingChanged,
+          serverTimestamp: DateTime.now().toUtc(),
+          roomId: 5,
+          matrixRoomId: '!fake:localhost',
+          typingMatrixUserIds: const ['@masha:t'],
+          typingDisplayNames: const ['Маша'],
+          // typingBotMatrixUserIds сознательно не задан.
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(ctx.rooms.typingMatrixUserIdsFor(5), {'@masha:t'});
+      expect(
+        ctx.rooms.typingBotMatrixUserIdsFor(5),
+        isEmpty,
+        reason: 'null не должен ронять стрим — просто «ботов не знаем»',
+      );
+
+      await ctx.rooms.dispose();
+      await ctx.upstream.close();
+      await ctx.stateCtl.close();
+    });
+
+    test('перестали печатать → множество ботов тоже очищается', () async {
+      final ctx = buildRooms(
+        initialList: const [],
+        detailsFor: (id) => details(id: id),
+      );
+
+      ctx.upstream.add(
+        MessengerEvent(
+          eventType: MessengerEventType.typingChanged,
+          serverTimestamp: DateTime.now().toUtc(),
+          roomId: 5,
+          matrixRoomId: '!fake:localhost',
+          typingMatrixUserIds: const ['@bot:t'],
+          typingBotMatrixUserIds: const ['@bot:t'],
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(ctx.rooms.typingBotMatrixUserIdsFor(5), {'@bot:t'});
+
+      ctx.upstream.add(
+        MessengerEvent(
+          eventType: MessengerEventType.typingChanged,
+          serverTimestamp: DateTime.now().toUtc(),
+          roomId: 5,
+          matrixRoomId: '!fake:localhost',
+          typingMatrixUserIds: const [],
+          typingBotMatrixUserIds: const [],
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        ctx.rooms.typingBotMatrixUserIdsFor(5),
+        isEmpty,
+        reason: 'иначе «анализирует…» осталось бы висеть после остановки',
+      );
+
+      await ctx.rooms.dispose();
+      await ctx.upstream.close();
+      await ctx.stateCtl.close();
+    });
+  });
 }

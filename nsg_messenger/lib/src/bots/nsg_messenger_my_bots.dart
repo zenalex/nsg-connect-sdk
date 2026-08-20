@@ -32,6 +32,7 @@ typedef MyBotsCreateRpc =
 typedef MyBotsRotateTokenRpc = Future<Bot> Function({required int botId});
 typedef MyBotsSetEnabledRpc =
     Future<Bot> Function({required int botId, required bool enabled});
+
 /// **TASK77 итер.3**: ответ несёт не только бота, но и число webhook-
 /// подписок БЕЗ `botId`, покрывающих его комнаты — каналы, где privacy mode
 /// не сработает.
@@ -42,6 +43,7 @@ typedef MyBotsSetReadModeRpc =
     });
 typedef MyBotsSetDiscoverableRpc =
     Future<Bot> Function({required int botId, required bool discoverable});
+
 /// **TASK77 итер.3**: описание бота для каталога/карточки.
 typedef MyBotsSetDescriptionRpc =
     Future<Bot> Function({required int botId, required String description});
@@ -131,8 +133,7 @@ class NsgMessengerMyBots {
           ),
       setReadModeRpc: ({required int botId, required String readMode}) =>
           withAuthRetry(
-            () =>
-                client.myBots.setReadMode(botId: botId, readMode: readMode),
+            () => client.myBots.setReadMode(botId: botId, readMode: readMode),
             session(),
           ),
       setDescriptionRpc: ({required int botId, required String description}) =>
@@ -143,10 +144,8 @@ class NsgMessengerMyBots {
             ),
             session(),
           ),
-      listRoomsRpc: ({required int botId}) => withAuthRetry(
-        () => client.myBots.listRooms(botId: botId),
-        session(),
-      ),
+      listRoomsRpc: ({required int botId}) =>
+          withAuthRetry(() => client.myBots.listRooms(botId: botId), session()),
       removeFromRoomRpc: ({required int botId, required int roomId}) =>
           withAuthRetry(
             () => client.myBots.removeFromRoom(botId: botId, roomId: roomId),

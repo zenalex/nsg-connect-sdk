@@ -2,6 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+
+import 'pane_load_queue.dart';
+import 'package:flutter/rendering.dart' show RenderAbstractViewport;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:nsg_connect_client/nsg_connect_client.dart'
     show
@@ -39,10 +42,12 @@ import '../messages/forward_picker_sheet.dart';
 import '../messages/forward_source.dart';
 import '../messages/message_action_sheet.dart';
 import '../messages/message_bubble.dart';
+import '../messages/attachments/attachment_drop_target.dart';
 import '../messages/message_composer.dart';
 import '../messages/messages_controller.dart';
 import '../messages/messages_rpc.dart';
 import '../messages/messages_state.dart';
+import '../messages/typing_label.dart';
 import '../calls/conference_call_controller.dart';
 import '../calls/conference_call_state.dart';
 import '../messenger_runtime.dart';
@@ -64,8 +69,9 @@ import '../theme/messenger_theme_scope.dart';
 import '../theme/nsg_messenger_theme.dart' show NsgMessageBubbleTokens;
 import '../widgets/nsg_avatar_image.dart';
 import 'group_settings_screen.dart';
-import 'participants_hover_card.dart';
+import 'participants_card_anchor.dart';
 import '../widgets/nsg_bot_badge.dart';
+import '../widgets/nsg_modal_sheet.dart';
 
 /// **TASK45 фаза 2**: productEntityType объектовой комнаты. Синхронно с
 /// server-side `RoomService.objectRoomEntityType` ('object'). По нему
@@ -75,6 +81,13 @@ const String _kObjectRoomEntityType = 'object';
 
 /// **TASK45 фаза 2**: пункты overflow-меню чата.
 enum _ChatOverflowAction { escalate, escalateSupport }
+
+/// **Заявка #138**: пункты меню, которое открывает аватар отправителя.
+///
+/// Порядок — по частоте вопроса к аватару: «кто это», «написать лично»,
+/// «упомянуть». Упоминание было здесь единственным пунктом (TASK69 2C) и
+/// оказалось самым редким из трёх.
+enum _SenderAvatarAction { profile, directChat, mention }
 
 /// Экран чата (TASK15 Chunk 2).
 ///
@@ -315,6 +328,11 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen>
     with WidgetsBindingObserver, RouteAware {
+  /// Перетаскивание файлов в чат (просьба пользователей, 2026-08-03). Цель
+  /// броска — всё тело экрана: человек тащит файл в окно, а не целится в
+  /// полоску композера. Композер подписывается на эту связь сам.
+  final AttachmentDropSink _dropSink = AttachmentDropSink();
+
   late final MessagesController _controller;
   late final bool _ownsController;
 
@@ -493,6 +511,24 @@ class _ChatScreenState extends State<ChatScreen>
   /// → silent no-op.
   final ScrollController _scrollController = ScrollController();
 
+  /// Человек уже прокрутил ленту сам. С этого момента его позиция главнее
+  /// нашей: доводить до границы прочитанного больше не пытаемся.
+  bool _userMovedList = false;
+
+  /// К какому сообщению лента уже подведена. Хранится id, а не флаг: лента
+  /// перестраивается дважды (кэш → сервер), и после подмены содержимого
+  /// подводить нужно СНОВА — но к тому же сообщению, поэтому глазами это
+  /// не прыжок.
+  String? _readBoundaryApplied;
+
+  /// Подведение [_readBoundaryApplied] случилось уже на СЕРВЕРНОЙ ленте.
+  ///
+  /// **issue #112**: без этого признака условие «то же сообщение — не
+  /// трогаем» срабатывало на первой же установке, по кэшу, и вторая
+  /// заливка ленты роняла прокрутку в низ. Ровно то, что владелец видел
+  /// как «секунду очень старые сообщения, потом прыжок к текущим».
+  bool _readBoundaryAppliedSettled = false;
+
   /// Контролируем actual itemPositions через ключи на каждом item
   /// (ListView.builder + GlobalKey per matrixEventId). Memory-cap —
   /// keys держатся пока в state.messages. Acceptable для MVP roomы
@@ -571,6 +607,22 @@ class _ChatScreenState extends State<ChatScreen>
   /// сообщения (у них есть `matrixEventId`); `clientTxnId` — резерв.
   static String? _messageKey(ChatMessage m) => m.matrixEventId ?? m.clientTxnId;
 
+  /// **Issue #141**: стартовая загрузка уже запускалась. Панель может
+  /// стать активной и во время своей очереди, и после неё — повторный
+  /// запуск стоил бы второй порции запросов там, где мы их экономим.
+  bool _initialLoadStarted = false;
+
+  /// Ключ панели в [PaneLoadQueue] — САМА панель, а не её комната.
+  ///
+  /// Ключом по комнате казалось экономнее («пересозданная панель той же
+  /// комнаты не встанет в очередь второй раз»), но это оставляло дыру:
+  /// рабочая область может построить новую панель до того, как избавится от
+  /// старой, и тогда постановка новой отсеклась бы как дубль, а `dispose`
+  /// старой снял бы отметку — новая панель осталась бы без истории навсегда.
+  /// Тождество State такого не допускает: грузится ровно та панель, которая
+  /// в дереве есть. От двойной загрузки страхует [_initialLoadStarted].
+  Object get _paneLoadKey => this;
+
   @override
   void initState() {
     super.initState();
@@ -604,27 +656,35 @@ class _ChatScreenState extends State<ChatScreen>
       _onSendError(error, stack);
     };
     _controller.stateListenable.addListener(_onStateChange);
-    _controller.init();
+    // **Issue #141: скрытая панель грузится НЕ сразу, а в свою очередь.**
+    //
+    // Панели держатся в дереве постоянно (см. `_defaultPane` рабочей
+    // области), поэтому `initState` отрабатывает у всех разом — и у
+    // невидимых тоже. Замер на проде 14.08.2026: восемь вызовов от одного
+    // человека в одну секунду, каждый ~2,2 с, причём вызов с двумя
+    // запросами занял почти столько же, сколько вызов с пятнадцатью. Время
+    // определялось не работой вызова, а тем, что всё пришло разом: сервер
+    // однопоточный, и каждый отчитывался о полном времени очереди.
+    //
+    // Активная панель грузится сразу и ни за кем не ждёт; скрытые — по
+    // одной ([PaneLoadQueue]). Работы столько же, но человек ждёт только
+    // свою панель. Переключение на ещё не загруженную панель запускает её
+    // немедленно (`didUpdateWidget` → `promote`).
+    if (widget.active) {
+      unawaited(_startInitialLoad());
+    } else {
+      PaneLoadQueue.enqueue(_paneLoadKey, _startInitialLoad);
+    }
     // **TASK45 фаза 2**: тест кнопки эскалации может задать RoomDetails
     // напрямую (в test-mode `_fetchRoomDetails` skip-ается). Раскладываем
     // их тем же `_applyRoomDetails`, что и боевой путь — вместе с
     // индексами участников (issue #39: имена/бот-признак в подписи).
     final overrideDetails = widget.roomDetailsOverride;
     if (overrideDetails != null) _applyRoomDetails(overrideDetails);
-    _fetchRoomDetails();
     // **TASK77 итер.1**: команды ботов комнаты для «/»-подсказки. Тест
     // задаёт их напрямую (боевой fetch в test-mode skip-ается).
     final overrideCommands = widget.botCommandsOverride;
     if (overrideCommands != null) _botCommands = overrideCommands;
-    unawaited(_fetchBotCommands());
-    // **TASK88**: best-effort загрузка сводки задач комнаты для иконки в
-    // шапке (нет задач → иконки нет). Не блокирует открытие чата.
-    unawaited(_loadRoomTaskStats());
-    // **TASK51 (UI)**: разово освежить знание о живой конференции комнаты
-    // (плашка «идёт групповой звонок»): события шины шлются только на
-    // ИЗМЕНЕНИЯ состава — о конференции, начавшейся до нашего подключения,
-    // события не будет. Best-effort внутри контроллера.
-    unawaited(_conferenceCalls?.refreshRoomConference(widget.roomId));
     // **B10**: авто-retry failed-сообщений при возврате сети. Только
     // production-путь — в инжектированном controller-е (тесты) runtime
     // connectionStateStream пуст/healthy, но runtime трогать не нужно.
@@ -651,9 +711,54 @@ class _ChatScreenState extends State<ChatScreen>
     }
   }
 
+  /// **Issue #141**: стартовая загрузка панели одним куском.
+  ///
+  /// Собрано вместе намеренно: это ровно тот набор, который уходил залпом с
+  /// каждой панели — история, карточка комнаты, команды ботов, сводка задач
+  /// и состояние конференции. Пока вызовы стояли врассыпную по `initState`,
+  /// отложить их для скрытой панели было нечего — не за что взяться.
+  ///
+  /// Идемпотентен: очередь гарантирует один запуск на панель, но метод
+  /// зовётся и напрямую (активная панель), поэтому полагаться только на
+  /// очередь нельзя.
+  /// **Возвращает Future, и это существенно.** Первая редакция была `void` и
+  /// раздавала вызовы, не дожидаясь ни одного, — а очередь по своему
+  /// договору ждёт возвращённый future. Замыкание завершалось за микротаск,
+  /// очередь тут же отпускала следующую панель, и все шесть стартовали в
+  /// одном обороте цикла: сериализовались ЗАПУСКИ, а не работа. Проверка на
+  /// живом приложении (15.08.2026) показала три полных набора стартовой
+  /// загрузки в одну секунду — ровно то, что правка должна была развести.
+  ///
+  /// Внутри панели вызовы идут парадлельно намеренно: человек ждёт свою
+  /// панель целиком, и растягивать ЕЁ незачем. Разводим панели между собой.
+  Future<void> _startInitialLoad() async {
+    if (_initialLoadStarted || !mounted) return;
+    _initialLoadStarted = true;
+    await Future.wait([
+      _controller.init(),
+      _fetchRoomDetails(),
+      _fetchBotCommands(),
+      // **TASK88**: сводка задач комнаты для иконки в шапке (нет задач — нет
+      // иконки). Не блокирует открытие чата.
+      _loadRoomTaskStats(),
+      // **TASK51 (UI)**: разово освежить знание о живой конференции комнаты
+      // (плашка «идёт групповой звонок»): события шины шлются только на
+      // ИЗМЕНЕНИЯ состава — о конференции, начавшейся до нашего
+      // подключения, события не будет. Best-effort внутри контроллера.
+      ?_conferenceCalls?.refreshRoomConference(widget.roomId),
+    ]);
+  }
+
   @override
   void didUpdateWidget(covariant ChatScreen old) {
     super.didUpdateWidget(old);
+    // **Issue #141**: панель показали, а её очередь ещё не дошла — грузим
+    // немедленно. Человек уже смотрит на неё, держать его за чужой
+    // загрузкой незачем. Если загрузка уже шла или прошла — `promote`
+    // молчит.
+    if (widget.active && !old.active) {
+      PaneLoadQueue.promote(_paneLoadKey);
+    }
     // **TASK66**: смена активности вкладки/панели. Стал активным → заявляем
     // presence и метим прочитанным накопившееся; стал фоновым → отпускаем
     // (новый активный чат перезапишет currentRoomId своим).
@@ -672,7 +777,12 @@ class _ChatScreenState extends State<ChatScreen>
       // сразу, без debounce (условие видимости только что выполнилось).
       // При перекрытии (#55) внутренний гейт не пропустит — дожмётся
       // на didPopNext.
-      _flushMarkRead();
+      //
+      // **issue #92**: `force` — потому что накопиться могла реплика
+      // ОБСУЖДЕНИЯ, а она newest event ленты не двигает. Без него
+      // keep-alive панель никогда не снимала бы непрочитанное с такой
+      // комнаты: дедуп считал, что метить нечего.
+      _flushMarkRead(force: true);
     }
     // **Issue #53**: у keep-alive экрана (панель/вкладка рабочего набора)
     // цель перехода может смениться «на лету» — тап по уведомлению УЖЕ
@@ -765,7 +875,10 @@ class _ChatScreenState extends State<ChatScreen>
     if (widget.active && _appResumed) {
       _firePresence(currentRoomId: widget.roomId, foreground: true);
     }
-    _flushMarkRead();
+    // **issue #92**: force — пока экран был перекрыт, могла прийти реплика
+    // обсуждения; newest event ленты она не двигает, и дедуп счёл бы, что
+    // метить нечего.
+    _flushMarkRead(force: true);
   }
 
   @override
@@ -796,7 +909,8 @@ class _ChatScreenState extends State<ChatScreen>
       // `refreshLatest` что-то дотянет, `_onStateChange` сработает сам;
       // но когда новых сообщений нет, а отложенный markRead есть —
       // дожать его должен этот вызов.
-      _flushMarkRead();
+      // **issue #92**: force — накопиться могла и реплика обсуждения.
+      _flushMarkRead(force: true);
     }
   }
 
@@ -968,6 +1082,10 @@ class _ChatScreenState extends State<ChatScreen>
 
   @override
   void dispose() {
+    // **Issue #141**: панель ушла из дерева — снимаем её из очереди, если
+    // не начали. Иначе очередь держала бы работу для того, кого уже нет, и
+    // задерживала бы следующие панели.
+    PaneLoadQueue.cancel(_paneLoadKey);
     _presencePollTimer?.cancel();
     unawaited(_presenceEventsSub?.cancel());
     _markReadTimer?.cancel();
@@ -1042,6 +1160,7 @@ class _ChatScreenState extends State<ChatScreen>
     // него скроллить не к чему. Стоит ДО гейта markRead: тот про «юзер
     // видит новое», а прыжок нужен и в неактивной панели рабочего набора.
     _maybeJumpToInitialTarget();
+    _maybeAnchorAtReadBoundary();
     // **Issue #37**: гейт «юзер это действительно видит». Если не сходится
     // — НЕ метим и не заводим таймер; отложенный markRead дожмётся, как
     // только условия выполнятся (resume / доскролл вниз / активация
@@ -1137,18 +1256,38 @@ class _ChatScreenState extends State<ChatScreen>
   /// и как «дожать отложенное» при resume/доскролле. Гейт [_canMarkRead]
   /// проверяется ЗДЕСЬ: debounce-таймер, заведённый в foreground и
   /// сработавший уже после сворачивания приложения, не пометит ничего.
-  void _flushMarkRead() {
+  /// [force] — послать, даже если newest event id не изменился.
+  ///
+  /// **issue #92 (жалоба 06.08)**: дедуп по [_lastMarkReadEventId] считает,
+  /// что «ничего нового» = «нечего метить». Для реплики ОБСУЖДЕНИЯ это
+  /// неверно: она увеличивает unread комнаты, но в ленту не попадает, и
+  /// newest event ленты не сдвигается. У keep-alive экрана (панель рабочего
+  /// набора, `IndexedStack`) поле переживает переключение панелей — и
+  /// markRead не уходил уже никогда: пользователь смотрит на комнату, а
+  /// счётчик непрочитанного висит. Сброс экрана (телефонный push нового
+  /// маршрута) случайно лечил это новым `State`, поэтому там и не
+  /// воспроизводилось.
+  ///
+  /// Сервер обнуляет `unreadCount` на любой markRead, так что лишний вызов
+  /// стоит одного идемпотентного запроса — дешевле, чем врущий счётчик.
+  void _flushMarkRead({bool force = false}) {
     _markReadTimer?.cancel();
     _markReadTimer = null;
     if (!_canMarkRead) return;
     final eventId = _newestMarkableEventId();
     if (eventId == null) return;
-    if (eventId == _lastMarkReadEventId) return;
+    if (!force && eventId == _lastMarkReadEventId) return;
     _lastMarkReadEventId = eventId;
     unawaited(_controller.markRead(eventId));
   }
 
   bool _onScroll(ScrollNotification n) {
+    // `dragDetails != null` — прокрутка пальцем/мышью, а не наш `jumpTo`.
+    // Различать обязательно: иначе первое же подведение к границе
+    // прочитанного само себя и отменяло бы.
+    if (n is ScrollStartNotification && n.dragDetails != null) {
+      _userMovedList = true;
+    }
     if (n is! ScrollUpdateNotification && n is! ScrollEndNotification) {
       return false;
     }
@@ -1386,7 +1525,16 @@ class _ChatScreenState extends State<ChatScreen>
   /// обсуждение (TASK82); нет треда (старая задача / не-support комната) →
   /// падаем на issue-URL во внешнем браузере. Открывать issue из мобильного —
   /// плохой UX, поэтому это именно fallback.
-  void _openTask(String? threadRootEventId, String? url) {
+  void _openTask(
+    String? threadRootEventId,
+    String? url, {
+    // **Issue #99**: чем назвать задачу в шапке треда. Раньше сюда не
+    // приходило ничего, и обсуждение открывалось безымянным «Обсуждение
+    // задачи» — при том что в списке задач та же задача имеет и номер, и
+    // название.
+    String? taskKey,
+    String? taskTitle,
+  }) {
     if (threadRootEventId != null && threadRootEventId.isNotEmpty) {
       final override = widget.openTaskThreadOverride;
       if (override != null) {
@@ -1398,6 +1546,8 @@ class _ChatScreenState extends State<ChatScreen>
           builder: (_) => ThreadScreen(
             roomId: widget.roomId,
             threadRootEventId: threadRootEventId,
+            title: (taskTitle?.isEmpty ?? true) ? null : taskTitle,
+            taskKey: (taskKey?.isEmpty ?? true) ? null : taskKey,
           ),
         ),
       );
@@ -1768,6 +1918,14 @@ class _ChatScreenState extends State<ChatScreen>
   Future<void> _openDirectChatWithAuthor(ChatMessage m) async {
     final peerId = m.senderMessengerUserId;
     if (peerId == null) return;
+    await _openDirectChatWith(peerId);
+  }
+
+  /// Открыть 1:1 с [peerId]. Общее тело для двух входов — пункта меню
+  /// сообщения (issue #76) и пункта меню аватара (заявка #138): разойдись
+  /// они, отказ «мне нельзя писать» объяснялся бы человеку по-разному в
+  /// зависимости от того, откуда он зашёл.
+  Future<void> _openDirectChatWith(int peerId) async {
     final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.maybeOf(context);
     final l = NsgL10n.of(context);
@@ -1804,11 +1962,21 @@ class _ChatScreenState extends State<ChatScreen>
     _mentionInserts.add(author);
   }
 
-  /// **TASK69 2C**: тап по аватару peer-а в групповом пузыре → мини-шит с
-  /// «Упомянуть». Отдельный шаг (а не мгновенная вставка) — чтобы случайный
-  /// тап по аватару не портил черновик. По подтверждению эмитим участника в
-  /// композер (тот вставит `@имя `).
-  Future<void> _onMentionSenderTap(String senderMatrixUserId) async {
+  /// **TASK69 2C → заявка #138**: тап по аватару peer-а в групповом пузыре
+  /// → меню действий над человеком.
+  ///
+  /// Пункт был один — «Упомянуть», и оператор попросил обратного: с
+  /// аватара чаще хотят понять, КТО это, и написать лично, а упоминание
+  /// оказалось самым редким. Все три действия в коде уже были, но каждое
+  /// со своего места — здесь они собраны в одну точку входа.
+  ///
+  /// **Почему меню осталось на обычном тапе**, а не переехало на
+  /// long-press (вариант А заявки): у телефона и десктопа тогда разошлись
+  /// бы жесты, а «нажать и держать» на аватаре в прокручивающейся ленте —
+  /// жест, который люди находят последним. Заодно сохраняется исходное
+  /// свойство мини-шита: случайный тап по аватару ничего не делает молча,
+  /// он лишь показывает, что можно сделать.
+  Future<void> _onSenderAvatarTap(String senderMatrixUserId) async {
     final p = _participantsByMatrixId?[senderMatrixUserId];
     if (p == null) return;
     final l = NsgL10n.of(context);
@@ -1816,7 +1984,17 @@ class _ChatScreenState extends State<ChatScreen>
         p.displayName ??
         _matrixLocalpartOf(senderMatrixUserId) ??
         senderMatrixUserId;
-    final picked = await showModalBottomSheet<bool>(
+    // **TASK77 итер.3**: у бота профиля контакта нет — метки и заметки про
+    // программу бессмысленны. Ветвимся тем же признаком, что список
+    // участников и заголовок чата, иначе с трёх разных мест открывались бы
+    // разные экраны одного и того же бота.
+    final isBot = NsgBotBadge.isNonHuman(p.participantKind);
+    // Личное сообщение самому себе смысла не имеет. По построению аватар
+    // рисуется только у чужих пузырей, но гард дешевле, чем зависимость от
+    // этого построения. Себя берём у контроллера, а не у рантайма: тот же
+    // источник, что у всей остальной логики экрана.
+    final isSelf = p.messengerUserId == _controller.selfMessengerUserId;
+    final picked = await showModalBottomSheet<_SenderAvatarAction>(
       context: context,
       showDragHandle: true,
       builder: (ctx) => SafeArea(
@@ -1833,15 +2011,50 @@ class _ChatScreenState extends State<ChatScreen>
             ),
             const Divider(height: 1),
             ListTile(
+              leading: Icon(
+                isBot ? Icons.smart_toy_outlined : Icons.person_outline,
+              ),
+              title: Text(isBot ? l.openBotCardAction : l.peopleProfile),
+              onTap: () => Navigator.of(ctx).pop(_SenderAvatarAction.profile),
+            ),
+            if (!isSelf)
+              ListTile(
+                leading: const Icon(Icons.chat_bubble_outline),
+                title: Text(l.messageActionDirectMessage),
+                onTap: () =>
+                    Navigator.of(ctx).pop(_SenderAvatarAction.directChat),
+              ),
+            ListTile(
               leading: const Icon(Icons.alternate_email),
               title: Text(l.mentionParticipantAction),
-              onTap: () => Navigator.of(ctx).pop(true),
+              onTap: () => Navigator.of(ctx).pop(_SenderAvatarAction.mention),
             ),
           ],
         ),
       ),
     );
-    if (picked == true) _mentionInserts.add(p);
+    if (!mounted) return;
+    switch (picked) {
+      case null:
+        return;
+      case _SenderAvatarAction.mention:
+        _mentionInserts.add(p);
+      case _SenderAvatarAction.directChat:
+        await _openDirectChatWith(p.messengerUserId);
+      case _SenderAvatarAction.profile:
+        await Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => isBot
+                ? BotCardScreen(
+                    botMessengerUserId: p.messengerUserId,
+                    roomId: widget.roomId,
+                  )
+                : ContactProfileScreen(
+                    contactMessengerUserId: p.messengerUserId,
+                  ),
+          ),
+        );
+    }
   }
 
   /// Matrix-localpart (`@name:server` → `name`); null если формат неожиданный.
@@ -2023,15 +2236,16 @@ class _ChatScreenState extends State<ChatScreen>
     }
   }
 
+  /// Тап по reply-чипу — прыжок к оригиналу. Контракт прежний (TASK16-A):
+  /// если оригинала нет в загруженной истории — молчаливый no-op, историю
+  /// ради чипа не догружаем.
+  ///
+  /// **Issue #95**: но «нет в истории» и «есть, только `ListView.builder`
+  /// его не построил» — разные вещи. Раньше молчанием отвечали на оба, и
+  /// чип работал лишь к тому, что и так почти на экране.
   void _scrollToOriginal(String matrixEventId) {
-    final key = _itemKeys[matrixEventId];
-    final ctx = key?.currentContext;
-    if (ctx == null) return; // not visible — silent no-op (MVP).
-    Scrollable.ensureVisible(
-      ctx,
-      duration: const Duration(milliseconds: 250),
-      alignment: 0.5,
-    );
+    if (_controller.findByEventId(matrixEventId) == null) return;
+    unawaited(_revealLoadedMessage(matrixEventId));
   }
 
   /// **TASK16-A**: lookup для Reply chip target — wrap controller.
@@ -2107,36 +2321,31 @@ class _ChatScreenState extends State<ChatScreen>
   /// тогда silent-miss-ит.
   ///
   /// Алгоритм:
-  ///   1. Если target уже в state.messages — scroll сразу.
+  ///   1. Если target уже в state.messages — довести до него ленту
+  ///      ([_revealLoadedMessage]) и выйти.
   ///   2. Иначе — циклически `loadMore` страницы (cap 15 страниц = 750
-  ///      сообщений), после каждой проверяя `findByEventId`. На success
-  ///      — wait 1 frame чтобы ListView построил item с GlobalKey,
-  ///      потом scroll.
-  ///   3. Если страницы закончились (`hasMore == false`) или cap
-  ///      исчерпан — snackbar «не удалось перейти».
+  ///      сообщений), после каждой проверяя `findByEventId`.
+  ///   3. Если страницы закончились (`hasMore == false`) — snackbar
+  ///      «слишком далеко в истории»; если исчерпан cap — «не удалось
+  ///      перейти».
+  ///
+  /// **Issue #95**: пункты 1 и 2 раньше были склеены. «Сообщение есть в
+  /// состоянии, но `ListView.builder` не построил его элемент» трактовалось
+  /// как «сообщения нет» — и код уходил догружать историю, которая тут ни
+  /// при чём. При `hasMore == false` это давало ЛОЖНОЕ «слишком далеко в
+  /// истории» ровно для того случая, ради которого переход и нужен: цель
+  /// далеко от текущей позиции. Работал он только к тому, что и так почти
+  /// на экране. Теперь ветки разведены: наличие в состоянии решается ДО
+  /// любых разговоров о догрузке.
   Future<void> _scrollToSearchResult(String matrixEventId) async {
     const maxPages = 15;
     for (var attempt = 0; attempt <= maxPages; attempt++) {
       if (!mounted) return;
-      final found = _controller.findByEventId(matrixEventId);
-      if (found != null) {
-        // Дать ListView собрать item (рендерится при следующем frame
-        // если только что появился в state.messages).
-        await WidgetsBinding.instance.endOfFrame;
-        if (!mounted) return;
-        final key = _itemKeys[matrixEventId];
-        final ctx = key?.currentContext;
-        if (ctx != null && ctx.mounted) {
-          await Scrollable.ensureVisible(
-            ctx,
-            duration: const Duration(milliseconds: 280),
-            alignment: 0.3, // target ближе к верху видимой области
-            curve: Curves.easeOut,
-          );
-          return;
-        }
-        // Item есть в state, но ListView ещё не построил key — даём
-        // следующий frame и пробуем снова (loop через outer iteration).
+      if (_controller.findByEventId(matrixEventId) != null) {
+        if (await _revealLoadedMessage(matrixEventId)) return;
+        // Сообщение загружено, но доехать не смогли — это уже не «далеко в
+        // истории», а сбой позиционирования. Отказ ниже, честной формулировкой.
+        break;
       }
       // Target нет в state — пробуем подгрузить older page.
       final state = _controller.state;
@@ -2163,6 +2372,166 @@ class _ChatScreenState extends State<ChatScreen>
         ),
       );
     }
+  }
+
+  /// **Issue #95**: довести ленту до УЖЕ ЗАГРУЖЕННОГО сообщения.
+  ///
+  /// `Scrollable.ensureVisible` умеет работать только по `BuildContext`, а
+  /// `ListView.builder` строит лишь видимое плюс `cacheExtent` — у далёкой
+  /// цели контекста нет и взяться ему неоткуда. Поэтому сначала прыгаем к
+  /// оценке её позиции ([_jumpTowardsMessage]), а когда элемент построится —
+  /// доводим точно, анимацией.
+  ///
+  /// Цикл ограничен и сходится: каждый прыжок опирается на ТОЧНУЮ геометрию
+  /// ближайшего построенного соседа, поэтому остаётся ошибка только на
+  /// остатке пути. `_jumpTowardsMessage` возвращает false, когда сдвинуться
+  /// больше некуда, — без этого на устройстве получился бы бесконечный поток
+  /// кадров.
+  Future<bool> _revealLoadedMessage(String matrixEventId) async {
+    const maxSteps = 12;
+    for (var step = 0; step < maxSteps; step++) {
+      // Дать ListView собрать items текущей позиции (сообщение могло только
+      // что появиться в state.messages, либо мы только что прыгнули).
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return false;
+      final ctx = _itemKeys[matrixEventId]?.currentContext;
+      if (ctx != null && ctx.mounted) {
+        await Scrollable.ensureVisible(
+          ctx,
+          duration: const Duration(milliseconds: 280),
+          alignment: 0.3, // target ближе к верху видимой области
+          curve: Curves.easeOut,
+        );
+        return true;
+      }
+      if (!_jumpTowardsMessage(matrixEventId)) return false;
+    }
+    return false;
+  }
+
+  /// **Issue #95**: один шаг приближения к непостроенному сообщению.
+  ///
+  /// Возвращает `false`, если шаг сделать нечем или он ничего не меняет
+  /// (нет геометрии, цель уже не в состоянии, упёрлись в край ленты) —
+  /// вызывающий обязан на этом остановиться.
+  ///
+  /// Опорная точка — ближайшее к цели ПОСТРОЕННОЕ сообщение: его смещение в
+  /// ленте известно точно (`getOffsetToReveal`). Остаток пути считаем по
+  /// средней высоте строки. `maxScrollExtent` у ленивого списка — оценка
+  /// (построенное + средняя × непостроенное), и её достаточно: с каждым
+  /// прыжком опора оказывается ближе к цели, а значит остаток — короче.
+  bool _jumpTowardsMessage(String matrixEventId) {
+    if (!_scrollController.hasClients) return false;
+    final position = _scrollController.position;
+    final state = _controller.state;
+    if (state is! MessagesReady) return false;
+    final messages = state.messages;
+    final targetIndex = messages.indexWhere(
+      (m) => m.matrixEventId == matrixEventId,
+    );
+    if (targetIndex < 0) return false;
+
+    // Прокрутка живёт в координатах СТРОК ленты (сообщения + разделители
+    // дат), а не сообщений: именно строки занимают высоту.
+    final rows = buildFeedRows(messages);
+    if (rows.length < 2) return false;
+    final rowOfMessage = <int, int>{};
+    for (var r = 0; r < rows.length; r++) {
+      final row = rows[r];
+      if (row is MessageFeedRow) rowOfMessage[row.messageIndex] = r;
+    }
+    final targetRow = rowOfMessage[targetIndex];
+    if (targetRow == null) return false;
+
+    final contentExtent = position.maxScrollExtent + position.viewportDimension;
+    final avgRow = contentExtent / rows.length;
+    if (!avgRow.isFinite || avgRow <= 0) return false;
+
+    // reverse: true → индекс 0 лежит на нуле прокрутки (низ, самое свежее),
+    // смещение растёт вместе с индексом строки.
+    var targetOffset = targetRow * avgRow;
+    for (var d = 1; d < messages.length; d++) {
+      final anchor =
+          _anchorOffsetAt(messages, rowOfMessage, targetIndex - d) ??
+          _anchorOffsetAt(messages, rowOfMessage, targetIndex + d);
+      if (anchor == null) continue;
+      targetOffset = anchor.offset + (targetRow - anchor.row) * avgRow;
+      break;
+    }
+
+    final clamped = targetOffset.clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
+    if ((clamped - position.pixels).abs() < 1.0) return false;
+    position.jumpTo(clamped);
+    return true;
+  }
+
+  /// Смещение построенного сообщения [index] в координатах прокрутки — или
+  /// `null`, если оно не построено (а значит, опорой служить не может).
+  ({double offset, int row})? _anchorOffsetAt(
+    List<ChatMessage> messages,
+    Map<int, int> rowOfMessage,
+    int index,
+  ) {
+    if (index < 0 || index >= messages.length) return null;
+    final row = rowOfMessage[index];
+    if (row == null) return null;
+    final id = messages[index].matrixEventId;
+    if (id == null) return null;
+    final ctx = _itemKeys[id]?.currentContext;
+    if (ctx == null || !ctx.mounted) return null;
+    final box = ctx.findRenderObject();
+    if (box is! RenderBox || !box.hasSize) return null;
+    final viewport = RenderAbstractViewport.maybeOf(box);
+    if (viewport == null) return null;
+    return (offset: viewport.getOffsetToReveal(box, 0).offset, row: row);
+  }
+
+  /// Открыть чат там, где человек остановился, — на границе прочитанного.
+  ///
+  /// Жалоба владельца: чат открывается на сохранённых сообщениях, потом
+  /// приезжает сеть, и лента проматывается вниз. Прыжок здесь неизбежен по
+  /// построению: содержимое ленты меняется дважды (кэш, потом сервер), а
+  /// низ reverse-списка — это «самое свежее из того, что сейчас есть».
+  ///
+  /// Поэтому позицию задаёт не порядок приезда данных, а граница
+  /// прочитанного: она посчитана по счётчику с диска и от прихода сети не
+  /// меняется. Держим её, пока человек не тронул ленту сам — после этого
+  /// его позиция главнее любой нашей.
+  void _maybeAnchorAtReadBoundary() {
+    if (_userMovedList || _initialJumpStarted) return;
+    // Целевое сообщение из уведомления/поиска важнее: туда шли осознанно.
+    if (widget.initialTargetEventId != null) return;
+    final target = _controller.readBoundaryEventId;
+    if (target == null) return;
+    if (!shouldAnchorAtBoundary(
+      target: target,
+      applied: _readBoundaryApplied,
+      appliedOnSettledFeed: _readBoundaryAppliedSettled,
+    )) {
+      return;
+    }
+    final settled = _controller.initialPageSettled;
+    // Прыжок по кадру позже: элемент нового state ещё не построен, и
+    // прицелиться по нему нельзя.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _userMovedList) return;
+      if (!_scrollController.hasClients) return;
+      final jumped = _jumpTowardsMessage(target);
+      // `false` от прыжка значит либо «цели в ленте нет» (ждём следующую
+      // заливку), либо «мы уже стоим на ней». Второе — тоже применено:
+      // иначе попытка повторялась бы на каждом событии.
+      final state = _controller.state;
+      final present =
+          state is MessagesReady &&
+          state.messages.any((m) => m.matrixEventId == target);
+      if (jumped || present) {
+        _readBoundaryApplied = target;
+        _readBoundaryAppliedSettled = settled;
+      }
+    });
   }
 
   /// **Issue #41**: одноразовый прыжок к [ChatScreen.initialTargetEventId] —
@@ -2263,9 +2632,9 @@ class _ChatScreenState extends State<ChatScreen>
     final details = _roomDetails;
     if (details == null) return;
     final readerMxids = _controller.readByPeerMatrixIds(message);
-    showModalBottomSheet<void>(
+    // Issue #105: список прочитавших растёт с числом участников группы.
+    showNsgModalSheet<void>(
       context: context,
-      isScrollControlled: true,
       showDragHandle: true,
       builder: (_) => _ReadReceiptsSheet(
         details: details,
@@ -2736,314 +3105,320 @@ class _ChatScreenState extends State<ChatScreen>
                   ),
               ],
             ),
-      body: Column(
-        children: [
-          if (_searchResults.isNotEmpty)
-            _SearchNavBar(
-              query: _lastSearchQuery,
-              activeIndex: _searchActiveIdx,
-              totalCount: _searchResults.length,
-              onPrev: _searchActiveIdx > 0 ? _searchPrev : null,
-              onNext: _searchActiveIdx < _searchResults.length - 1
-                  ? _searchNext
-                  : null,
-              onClose: _searchClose,
+      body: AttachmentDropTarget(
+        sink: _dropSink,
+        child: Column(
+          children: [
+            if (_searchResults.isNotEmpty)
+              _SearchNavBar(
+                query: _lastSearchQuery,
+                activeIndex: _searchActiveIdx,
+                totalCount: _searchResults.length,
+                onPrev: _searchActiveIdx > 0 ? _searchPrev : null,
+                onNext: _searchActiveIdx < _searchResults.length - 1
+                    ? _searchNext
+                    : null,
+                onClose: _searchClose,
+              ),
+            // **Issue #35**: плашка закреплённых сообщений над лентой. Тап по
+            // телу — переход к сообщению (+ циклический перебор при нескольких);
+            // кнопка «открепить» — если у viewer-а есть права.
+            ValueListenableBuilder<List<ChatMessage>>(
+              valueListenable: _controller.pinnedListenable,
+              builder: (context, pinned, _) {
+                if (pinned.isEmpty) return const SizedBox.shrink();
+                return _PinnedBanner(
+                  pinned: pinned,
+                  canUnpin: _canPinMessages,
+                  onTapMessage: (m) {
+                    final id = m.matrixEventId;
+                    if (id != null) unawaited(_scrollToSearchResult(id));
+                  },
+                  onUnpin: (m) {
+                    final id = m.matrixEventId;
+                    if (id != null) unawaited(_unpinFromBanner(id));
+                  },
+                );
+              },
             ),
-          // **Issue #35**: плашка закреплённых сообщений над лентой. Тап по
-          // телу — переход к сообщению (+ циклический перебор при нескольких);
-          // кнопка «открепить» — если у viewer-а есть права.
-          ValueListenableBuilder<List<ChatMessage>>(
-            valueListenable: _controller.pinnedListenable,
-            builder: (context, pinned, _) {
-              if (pinned.isEmpty) return const SizedBox.shrink();
-              return _PinnedBanner(
-                pinned: pinned,
-                canUnpin: _canPinMessages,
-                onTapMessage: (m) {
-                  final id = m.matrixEventId;
-                  if (id != null) unawaited(_scrollToSearchResult(id));
-                },
-                onUnpin: (m) {
-                  final id = m.matrixEventId;
-                  if (id != null) unawaited(_unpinFromBanner(id));
-                },
-              );
-            },
-          ),
-          Expanded(
-            // **Issue #59**: Stack — чтобы плавающая кнопка «к последнему
-            // сообщению» жила ПОВЕРХ ленты, но ВНУТРИ Expanded: всё, что
-            // ниже по Column (typing-футер, плашка конференции, композер с
-            // reply/edit-панелью), сжимает ленту — кнопка поднимается
-            // вместе с её низом сама, без ручной подгонки отступов.
-            child: Stack(
-              children: [
-                ValueListenableBuilder<MessagesState>(
-                  valueListenable: _controller.stateListenable,
-                  // **B11**: read-receipt version triggers rebuild когда
-                  // peer прочитал что-то новое. Nested
-                  // ValueListenableBuilder — дёшево, ListView.builder сам
-                  // решает какие items перерисовывать.
-                  builder: (context, state, _) => ValueListenableBuilder<int>(
-                    valueListenable: _controller.readReceiptsVersionListenable,
-                    // **Emoji reactions**: nested version listenable — rebuild
-                    // когда агрегат реакций изменился (add/remove). Дёшево,
-                    // ListView.builder сам решает что перерисовать.
-                    builder: (context, _, _) => ValueListenableBuilder<int>(
-                      valueListenable: _controller.reactionsVersionListenable,
-                      builder: (context, _, _) => _Body(
-                        state: state,
-                        selfMessengerUserId: _controller.selfMessengerUserId,
-                        onScroll: _onScroll,
-                        onRetry: _retry,
-                        onLongPressMessage: _onLongPressMessage,
-                        // **Пересылка (мультивыбор)**: режим выбора + тоггл.
-                        selectionMode: _inSelection,
-                        isSelected: (m) {
-                          final k = _messageKey(m);
-                          return k != null && _selectedKeys.contains(k);
-                        },
-                        onToggleSelect: _toggleSelect,
-                        scrollController: _scrollController,
-                        // **TASK86**: ключ ленты + фабрика ключей
-                        // разделителей — для «липкой» даты (geometry).
-                        listViewportKey: _listViewportKey,
-                        separatorKeyFor: _separatorKeyFor,
-                        itemKeys: _itemKeys,
-                        findReplyTarget: _findReplyTarget,
-                        onReplyChipTap: _scrollToOriginal,
-                        onForwardedHeaderTap: _openForwardSource,
-                        participantsByMessengerId: _participantsByMessengerId,
-                        participantsByMatrixId: _participantsByMatrixId,
-                        readByPeerCountFor: (m) =>
-                            _controller.readByPeerMatrixIds(m).length,
-                        isGroupChat: _roomDetails?.roomType == RoomType.group,
-                        // **Issue #39**: подпись отправителя — шире, чем
-                        // `isGroupChat` (тот заодно рулит read-receipt-ами
-                        // и аватарами, его семантику не трогаем).
-                        showSenderNames: _showsSenderNames,
-                        // **TASK52 итер.2**: интро-карточка в пустом direct-чате.
-                        introCard: _roomDetails?.roomType == RoomType.direct
-                            ? _introCard
-                            : null,
-                        onTapReadStatus: _openReadReceiptsSheet,
-                        reactionsFor: (m) => m.matrixEventId == null
-                            ? const <ReactionGroup>[]
-                            : _controller.reactionsFor(m.matrixEventId!),
-                        onToggleReaction: (m, key) {
-                          final id = m.matrixEventId;
-                          if (id == null) return;
-                          _controller.toggleReaction(id, key);
-                        },
-                        thumbnailRpc:
-                            ({
-                              required String mxcUrl,
-                              int? width,
-                              int? height,
-                            }) => _controller.downloadThumbnail(
-                              mxcUrl: mxcUrl,
-                              width: width,
-                              height: height,
-                            ),
-                        fullSizeRpc: ({required String mxcUrl}) =>
-                            _controller.downloadFullSize(mxcUrl: mxcUrl),
-                        // **TASK69 2C**: тап по аватару peer-а в группе → «Упомянуть».
-                        onMentionSender: _onMentionSenderTap,
-                        // **TASK82**: вход в тред задачи с якорного пузыря.
-                        onOpenThread: _openThread,
-                        // **TASK83**: тап по значку задачи на исходном сообщении.
-                        onOpenTask: _openTask,
-                      ),
-                    ),
-                  ),
-                ),
-                // **Issue #59**: кнопка «к последнему сообщению» — справа
-                // внизу над композером. Свой listenable на state: бейдж
-                // должен пересчитываться на каждое входящее сообщение,
-                // не дожидаясь чужих rebuild-ов.
-                Positioned(
-                  right: 12,
-                  bottom: 12,
-                  child: ValueListenableBuilder<MessagesState>(
+            Expanded(
+              // **Issue #59**: Stack — чтобы плавающая кнопка «к последнему
+              // сообщению» жила ПОВЕРХ ленты, но ВНУТРИ Expanded: всё, что
+              // ниже по Column (typing-футер, плашка конференции, композер с
+              // reply/edit-панелью), сжимает ленту — кнопка поднимается
+              // вместе с её низом сама, без ручной подгонки отступов.
+              child: Stack(
+                children: [
+                  ValueListenableBuilder<MessagesState>(
                     valueListenable: _controller.stateListenable,
-                    builder: (context, _, _) => _JumpToLatestButton(
-                      visible: _showJumpToLatest,
-                      unreadCount: _jumpBadgeCount(),
-                      onTap: _jumpToLatest,
-                    ),
-                  ),
-                ),
-                // **TASK86**: «липкая» дата — плавающая плашка вверху ленты.
-                // Показывает дату верхней видимой группы; появляется при
-                // скролле, гаснет в покое. Тап — no-op (переход к дате —
-                // итерация 2), поэтому IgnorePointer: не перехватываем
-                // жесты по ленте под плашкой.
-                Positioned(
-                  top: 6,
-                  left: 0,
-                  right: 0,
-                  child: IgnorePointer(
-                    child: ValueListenableBuilder<bool>(
-                      valueListenable: _stickyVisible,
-                      builder: (context, visible, child) => AnimatedOpacity(
-                        opacity: visible ? 1 : 0,
-                        duration: const Duration(milliseconds: 180),
-                        curve: Curves.easeOut,
-                        child: child,
-                      ),
-                      child: ValueListenableBuilder<DateTime?>(
-                        valueListenable: _stickyDate,
-                        builder: (context, day, _) => day == null
-                            ? const SizedBox.shrink()
-                            : _DateSeparatorLabel(
-                                key: const Key('chatStickyDate'),
-                                day: day,
-                                margin: EdgeInsets.zero,
+                    // **B11**: read-receipt version triggers rebuild когда
+                    // peer прочитал что-то новое. Nested
+                    // ValueListenableBuilder — дёшево, ListView.builder сам
+                    // решает какие items перерисовывать.
+                    builder: (context, state, _) => ValueListenableBuilder<int>(
+                      valueListenable:
+                          _controller.readReceiptsVersionListenable,
+                      // **Emoji reactions**: nested version listenable — rebuild
+                      // когда агрегат реакций изменился (add/remove). Дёшево,
+                      // ListView.builder сам решает что перерисовать.
+                      builder: (context, _, _) => ValueListenableBuilder<int>(
+                        valueListenable: _controller.reactionsVersionListenable,
+                        builder: (context, _, _) => _Body(
+                          state: state,
+                          selfMessengerUserId: _controller.selfMessengerUserId,
+                          onScroll: _onScroll,
+                          onRetry: _retry,
+                          onLongPressMessage: _onLongPressMessage,
+                          // **Пересылка (мультивыбор)**: режим выбора + тоггл.
+                          selectionMode: _inSelection,
+                          isSelected: (m) {
+                            final k = _messageKey(m);
+                            return k != null && _selectedKeys.contains(k);
+                          },
+                          onToggleSelect: _toggleSelect,
+                          scrollController: _scrollController,
+                          // **TASK86**: ключ ленты + фабрика ключей
+                          // разделителей — для «липкой» даты (geometry).
+                          listViewportKey: _listViewportKey,
+                          separatorKeyFor: _separatorKeyFor,
+                          itemKeys: _itemKeys,
+                          findReplyTarget: _findReplyTarget,
+                          onReplyChipTap: _scrollToOriginal,
+                          onForwardedHeaderTap: _openForwardSource,
+                          participantsByMessengerId: _participantsByMessengerId,
+                          participantsByMatrixId: _participantsByMatrixId,
+                          readByPeerCountFor: (m) =>
+                              _controller.readByPeerMatrixIds(m).length,
+                          isGroupChat: _roomDetails?.roomType == RoomType.group,
+                          // **Issue #39**: подпись отправителя — шире, чем
+                          // `isGroupChat` (тот заодно рулит read-receipt-ами
+                          // и аватарами, его семантику не трогаем).
+                          showSenderNames: _showsSenderNames,
+                          // **TASK52 итер.2**: интро-карточка в пустом direct-чате.
+                          introCard: _roomDetails?.roomType == RoomType.direct
+                              ? _introCard
+                              : null,
+                          onTapReadStatus: _openReadReceiptsSheet,
+                          reactionsFor: (m) => m.matrixEventId == null
+                              ? const <ReactionGroup>[]
+                              : _controller.reactionsFor(m.matrixEventId!),
+                          onToggleReaction: (m, key) {
+                            final id = m.matrixEventId;
+                            if (id == null) return;
+                            _controller.toggleReaction(id, key);
+                          },
+                          thumbnailRpc:
+                              ({
+                                required String mxcUrl,
+                                int? width,
+                                int? height,
+                              }) => _controller.downloadThumbnail(
+                                mxcUrl: mxcUrl,
+                                width: width,
+                                height: height,
                               ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // **TASK51 (UI)**: плашка «идёт групповой звонок» над композером
-          // — если в комнате живая конференция, а мы не в ней. Данные — из
-          // контроллера конференций (ChangeNotifier): карта живых
-          // конференций комнат наполняется событиями `conferenceUpdated` +
-          // разовым refresh при открытии экрана (см. initState).
-          if (_conferenceCalls != null)
-            ListenableBuilder(
-              listenable: _conferenceCalls!,
-              builder: (context, _) {
-                final ctrl = _conferenceCalls;
-                final info = ctrl?.liveConferenceInRoom(widget.roomId);
-                if (ctrl == null || info == null) {
-                  return const SizedBox.shrink();
-                }
-                // Уже в этой конференции (входим/активна) — плашка не
-                // нужна, оверлей и так поверх всего.
-                final s = ctrl.state;
-                final inThisRoom = switch (s) {
-                  ConferenceJoining(:final roomId) => roomId == widget.roomId,
-                  ConferenceActive(:final roomId) => roomId == widget.roomId,
-                  _ => false,
-                };
-                if (inThisRoom) return const SizedBox.shrink();
-                return _ConferenceOngoingBanner(
-                  memberCount: info.memberCount,
-                  onJoin: _startConferenceCall,
-                );
-              },
-            ),
-          // **TASK22-Phase2 Chunk 2**: hide composer entirely in read-
-          // only / demo mode. Without this the demo would crash on
-          // first send (RPC throws UnimplementedError).
-          if (!widget.readOnly) ...[
-            // **B9 typing indicator footer** — ровно над composer-ом.
-            // Hidden когда никто не печатает (Set пуст).
-            ValueListenableBuilder<Set<String>>(
-              valueListenable: _controller.typingPeersListenable,
-              builder: (context, typing, _) {
-                if (typing.isEmpty) return const SizedBox.shrink();
-                return _TypingFooter(
-                  matrixUserIds: typing.toList(),
-                  participantsByMatrixId: _participantsByMatrixId,
-                );
-              },
-            ),
-            ValueListenableBuilder<MessagesState>(
-              valueListenable: _controller.stateListenable,
-              builder: (context, state, _) =>
-                  ValueListenableBuilder<ChatMessage?>(
-                    valueListenable: _controller.replyTargetListenable,
-                    builder: (context, replyTarget, _) =>
-                        ValueListenableBuilder<ChatMessage?>(
-                          valueListenable: _editTarget,
-                          builder: (context, editTarget, _) =>
-                              ValueListenableBuilder<ComposerAlbumEdit?>(
-                                valueListenable: _albumEditTarget,
-                                builder: (context, albumEdit, _) {
-                                  // Album-edit подавляет reply/edit-режимы
-                                  // (взаимоисключающи).
-                                  final inAlbumEdit = albumEdit != null;
-                                  final effectiveEdit = inAlbumEdit
-                                      ? null
-                                      : editTarget;
-                                  final senderName = replyTarget == null
-                                      ? null
-                                      : (_participantsByMatrixId?[replyTarget
-                                                    .senderMatrixUserId]
-                                                ?.displayName ??
-                                            replyTarget.senderMatrixUserId);
-                                  return MessageComposer(
-                                    onSend: _send,
-                                    enabled: state is MessagesReady,
-                                    initialText: widget.initialDraft,
-                                    onSendAttachment: _sendAttachment,
-                                    onSendAlbum: _sendAlbum,
-                                    // Reply hidden когда композер в edit /
-                                    // album-edit режиме — они не сосуществуют.
-                                    replyTarget:
-                                        (effectiveEdit == null && !inAlbumEdit)
-                                        ? replyTarget
-                                        : null,
-                                    onCancelReply: replyTarget == null
-                                        ? null
-                                        : _controller.clearReplyTarget,
-                                    participants: _roomDetails?.participants,
-                                    totalParticipants:
-                                        _roomDetails?.totalParticipants,
-                                    // **TASK77 итер.1**: «/» → команды ботов
-                                    // этой комнаты.
-                                    botCommands: _botCommands,
-                                    replyTargetSenderName: senderName,
-                                    // **B12** edit-mode wiring.
-                                    editTarget: effectiveEdit,
-                                    onEdit: _edit,
-                                    onCancelEdit: effectiveEdit == null
-                                        ? null
-                                        : _cancelEdit,
-                                    onRequestEditLast: _requestEditLast,
-                                    // **TASK68**: в self-чате «печатает»
-                                    // некому — не тратим RPC на каждый
-                                    // debounce-тик композера.
-                                    onTyping: _isSavedRoom
-                                        ? null
-                                        : _controller.sendTyping,
-                                    // **Редактирование альбома** wiring.
-                                    albumEdit: albumEdit,
-                                    onEditAlbum: _editAlbum,
-                                    onCancelAlbumEdit: inAlbumEdit
-                                        ? _cancelAlbumEdit
-                                        : null,
-                                    albumThumbnailRpc:
-                                        ({
-                                          required String mxcUrl,
-                                          int? width,
-                                          int? height,
-                                        }) => _controller.downloadThumbnail(
-                                          mxcUrl: mxcUrl,
-                                          width: width,
-                                          height: height,
-                                        ),
-                                    albumFullSizeRpc:
-                                        ({required String mxcUrl}) =>
-                                            _controller.downloadFullSize(
-                                              mxcUrl: mxcUrl,
-                                            ),
-                                    // **TASK69 2C**: «упоминания из контекста»
-                                    // (Ответить с упоминанием / тап по аватару).
-                                    mentionInsertRequests:
-                                        _mentionInserts.stream,
-                                  );
-                                },
-                              ),
+                          fullSizeRpc: ({required String mxcUrl}) =>
+                              _controller.downloadFullSize(mxcUrl: mxcUrl),
+                          // **TASK69 2C → #138**: тап по аватару peer-а в
+                          // группе → меню профиль/чат/упоминание.
+                          onSenderAvatarTap: _onSenderAvatarTap,
+                          // **TASK82**: вход в тред задачи с якорного пузыря.
+                          onOpenThread: _openThread,
+                          // **TASK83**: тап по значку задачи на исходном сообщении.
+                          onOpenTask: _openTask,
                         ),
+                      ),
+                    ),
                   ),
+                  // **Issue #59**: кнопка «к последнему сообщению» — справа
+                  // внизу над композером. Свой listenable на state: бейдж
+                  // должен пересчитываться на каждое входящее сообщение,
+                  // не дожидаясь чужих rebuild-ов.
+                  Positioned(
+                    right: 12,
+                    bottom: 12,
+                    child: ValueListenableBuilder<MessagesState>(
+                      valueListenable: _controller.stateListenable,
+                      builder: (context, _, _) => _JumpToLatestButton(
+                        visible: _showJumpToLatest,
+                        unreadCount: _jumpBadgeCount(),
+                        onTap: _jumpToLatest,
+                      ),
+                    ),
+                  ),
+                  // **TASK86**: «липкая» дата — плавающая плашка вверху ленты.
+                  // Показывает дату верхней видимой группы; появляется при
+                  // скролле, гаснет в покое. Тап — no-op (переход к дате —
+                  // итерация 2), поэтому IgnorePointer: не перехватываем
+                  // жесты по ленте под плашкой.
+                  Positioned(
+                    top: 6,
+                    left: 0,
+                    right: 0,
+                    child: IgnorePointer(
+                      child: ValueListenableBuilder<bool>(
+                        valueListenable: _stickyVisible,
+                        builder: (context, visible, child) => AnimatedOpacity(
+                          opacity: visible ? 1 : 0,
+                          duration: const Duration(milliseconds: 180),
+                          curve: Curves.easeOut,
+                          child: child,
+                        ),
+                        child: ValueListenableBuilder<DateTime?>(
+                          valueListenable: _stickyDate,
+                          builder: (context, day, _) => day == null
+                              ? const SizedBox.shrink()
+                              : _DateSeparatorLabel(
+                                  key: const Key('chatStickyDate'),
+                                  day: day,
+                                  margin: EdgeInsets.zero,
+                                ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
+            // **TASK51 (UI)**: плашка «идёт групповой звонок» над композером
+            // — если в комнате живая конференция, а мы не в ней. Данные — из
+            // контроллера конференций (ChangeNotifier): карта живых
+            // конференций комнат наполняется событиями `conferenceUpdated` +
+            // разовым refresh при открытии экрана (см. initState).
+            if (_conferenceCalls != null)
+              ListenableBuilder(
+                listenable: _conferenceCalls!,
+                builder: (context, _) {
+                  final ctrl = _conferenceCalls;
+                  final info = ctrl?.liveConferenceInRoom(widget.roomId);
+                  if (ctrl == null || info == null) {
+                    return const SizedBox.shrink();
+                  }
+                  // Уже в этой конференции (входим/активна) — плашка не
+                  // нужна, оверлей и так поверх всего.
+                  final s = ctrl.state;
+                  final inThisRoom = switch (s) {
+                    ConferenceJoining(:final roomId) => roomId == widget.roomId,
+                    ConferenceActive(:final roomId) => roomId == widget.roomId,
+                    _ => false,
+                  };
+                  if (inThisRoom) return const SizedBox.shrink();
+                  return _ConferenceOngoingBanner(
+                    memberCount: info.memberCount,
+                    onJoin: _startConferenceCall,
+                  );
+                },
+              ),
+            // **TASK22-Phase2 Chunk 2**: hide composer entirely in read-
+            // only / demo mode. Without this the demo would crash on
+            // first send (RPC throws UnimplementedError).
+            if (!widget.readOnly) ...[
+              // **B9 typing indicator footer** — ровно над composer-ом.
+              // Hidden когда никто не печатает (Set пуст).
+              ValueListenableBuilder<Set<String>>(
+                valueListenable: _controller.typingPeersListenable,
+                builder: (context, typing, _) {
+                  if (typing.isEmpty) return const SizedBox.shrink();
+                  return ValueListenableBuilder<Set<String>>(
+                    valueListenable: _controller.typingBotPeersListenable,
+                    builder: (context, typingBots, _) => _TypingFooter(
+                      matrixUserIds: typing.toList(),
+                      botMatrixUserIds: typingBots,
+                      participantsByMatrixId: _participantsByMatrixId,
+                    ),
+                  );
+                },
+              ),
+              ValueListenableBuilder<MessagesState>(
+                valueListenable: _controller.stateListenable,
+                builder: (context, state, _) => ValueListenableBuilder<ChatMessage?>(
+                  valueListenable: _controller.replyTargetListenable,
+                  builder: (context, replyTarget, _) =>
+                      ValueListenableBuilder<ChatMessage?>(
+                        valueListenable: _editTarget,
+                        builder: (context, editTarget, _) =>
+                            ValueListenableBuilder<ComposerAlbumEdit?>(
+                              valueListenable: _albumEditTarget,
+                              builder: (context, albumEdit, _) {
+                                // Album-edit подавляет reply/edit-режимы
+                                // (взаимоисключающи).
+                                final inAlbumEdit = albumEdit != null;
+                                final effectiveEdit = inAlbumEdit
+                                    ? null
+                                    : editTarget;
+                                final senderName = replyTarget == null
+                                    ? null
+                                    : (_participantsByMatrixId?[replyTarget
+                                                  .senderMatrixUserId]
+                                              ?.displayName ??
+                                          replyTarget.senderMatrixUserId);
+                                return MessageComposer(
+                                  dropSink: _dropSink,
+                                  onSend: _send,
+                                  enabled: state is MessagesReady,
+                                  initialText: widget.initialDraft,
+                                  onSendAttachment: _sendAttachment,
+                                  onSendAlbum: _sendAlbum,
+                                  // Reply hidden когда композер в edit /
+                                  // album-edit режиме — они не сосуществуют.
+                                  replyTarget:
+                                      (effectiveEdit == null && !inAlbumEdit)
+                                      ? replyTarget
+                                      : null,
+                                  onCancelReply: replyTarget == null
+                                      ? null
+                                      : _controller.clearReplyTarget,
+                                  participants: _roomDetails?.participants,
+                                  totalParticipants:
+                                      _roomDetails?.totalParticipants,
+                                  // **TASK77 итер.1**: «/» → команды ботов
+                                  // этой комнаты.
+                                  botCommands: _botCommands,
+                                  replyTargetSenderName: senderName,
+                                  // **B12** edit-mode wiring.
+                                  editTarget: effectiveEdit,
+                                  onEdit: _edit,
+                                  onCancelEdit: effectiveEdit == null
+                                      ? null
+                                      : _cancelEdit,
+                                  onRequestEditLast: _requestEditLast,
+                                  // **TASK68**: в self-чате «печатает»
+                                  // некому — не тратим RPC на каждый
+                                  // debounce-тик композера.
+                                  onTyping: _isSavedRoom
+                                      ? null
+                                      : _controller.sendTyping,
+                                  // **Редактирование альбома** wiring.
+                                  albumEdit: albumEdit,
+                                  onEditAlbum: _editAlbum,
+                                  onCancelAlbumEdit: inAlbumEdit
+                                      ? _cancelAlbumEdit
+                                      : null,
+                                  albumThumbnailRpc:
+                                      ({
+                                        required String mxcUrl,
+                                        int? width,
+                                        int? height,
+                                      }) => _controller.downloadThumbnail(
+                                        mxcUrl: mxcUrl,
+                                        width: width,
+                                        height: height,
+                                      ),
+                                  albumFullSizeRpc:
+                                      ({required String mxcUrl}) => _controller
+                                          .downloadFullSize(mxcUrl: mxcUrl),
+                                  // **TASK69 2C**: «упоминания из контекста»
+                                  // (Ответить с упоминанием / тап по аватару).
+                                  mentionInsertRequests: _mentionInserts.stream,
+                                );
+                              },
+                            ),
+                      ),
+                ),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -3212,6 +3587,29 @@ class DateSeparatorFeedRow extends ChatFeedRow {
 /// пустых разделителей не бывает (строка появляется только рядом с реальным
 /// сообщением). Дни в ленте — непрерывные блоки (messages отсортированы по
 /// времени), поэтому «граница = смена дня у соседей» не плодит дублей.
+/// Подводить ли ленту к границе прочитанного ещё раз.
+///
+/// **issue #112.** Правило «то же сообщение — больше не трогаем» звучит
+/// разумно, но срабатывало на первой же установке: позицию ставили по
+/// дисковому кэшу, а через долю секунды приезжала серверная страница,
+/// меняла содержимое ленты — и прокрутка уезжала к её низу. Владелец
+/// описал это как «секунду вижу очень старые сообщения, потом прыгает к
+/// текущим»; обе позиции ставились нами, просто вторая — не нарочно.
+///
+/// Поэтому повтор ровно один: когда лента долилась сетью
+/// ([MessagesController.initialPageSettled]). Держать дольше нельзя —
+/// каждое новое сообщение утаскивало бы человека обратно к границе,
+/// прямо посреди чтения.
+@visibleForTesting
+bool shouldAnchorAtBoundary({
+  required String? target,
+  required String? applied,
+  required bool appliedOnSettledFeed,
+}) {
+  if (target == null) return false;
+  return !(target == applied && appliedOnSettledFeed);
+}
+
 @visibleForTesting
 List<ChatFeedRow> buildFeedRows(List<ChatMessage> messages) {
   final rows = <ChatFeedRow>[];
@@ -3307,7 +3705,7 @@ class _Body extends StatelessWidget {
     this.selectionMode = false,
     this.isSelected,
     this.onToggleSelect,
-    this.onMentionSender,
+    this.onSenderAvatarTap,
     this.onOpenThread,
     this.onOpenTask,
   });
@@ -3380,13 +3778,19 @@ class _Body extends StatelessWidget {
 
   /// **TASK69 2C**: тап по аватару отправителя (group peer-bubble) →
   /// `senderMatrixUserId` наверх (ChatScreen предлагает «Упомянуть»).
-  final void Function(String senderMatrixUserId)? onMentionSender;
+  final void Function(String senderMatrixUserId)? onSenderAvatarTap;
 
   /// **TASK82**: тап по строке «Обсуждение (N)» на якоре задачи.
   final void Function(ChatMessage anchor)? onOpenThread;
 
   /// **TASK83**: тап по значку задачи на исходном сообщении (корень треда, url).
-  final void Function(String? threadRootEventId, String? url)? onOpenTask;
+  final void Function(
+    String? threadRootEventId,
+    String? url, {
+    String? taskKey,
+    String? taskTitle,
+  })?
+  onOpenTask;
 
   @override
   Widget build(BuildContext context) {
@@ -3423,7 +3827,7 @@ class _Body extends StatelessWidget {
                 selectionMode: selectionMode,
                 isSelected: isSelected,
                 onToggleSelect: onToggleSelect,
-                onMentionSender: onMentionSender,
+                onSenderAvatarTap: onSenderAvatarTap,
                 onOpenThread: onOpenThread,
                 onOpenTask: onOpenTask,
                 errorBanner: e,
@@ -3455,7 +3859,7 @@ class _Body extends StatelessWidget {
         selectionMode: selectionMode,
         isSelected: isSelected,
         onToggleSelect: onToggleSelect,
-        onMentionSender: onMentionSender,
+        onSenderAvatarTap: onSenderAvatarTap,
         onOpenThread: onOpenThread,
         onOpenTask: onOpenTask,
       ),
@@ -3491,7 +3895,7 @@ class _Loaded extends StatelessWidget {
     this.selectionMode = false,
     this.isSelected,
     this.onToggleSelect,
-    this.onMentionSender,
+    this.onSenderAvatarTap,
     this.onOpenThread,
     this.onOpenTask,
     this.errorBanner,
@@ -3535,13 +3939,19 @@ class _Loaded extends StatelessWidget {
   final void Function(ChatMessage)? onToggleSelect;
 
   /// **TASK69 2C**: тап по аватару отправителя (group peer-bubble).
-  final void Function(String senderMatrixUserId)? onMentionSender;
+  final void Function(String senderMatrixUserId)? onSenderAvatarTap;
 
   /// **TASK82**: тап по строке «Обсуждение (N)» на якоре задачи.
   final void Function(ChatMessage anchor)? onOpenThread;
 
   /// **TASK83**: тап по значку задачи на исходном сообщении (корень треда, url).
-  final void Function(String? threadRootEventId, String? url)? onOpenTask;
+  final void Function(
+    String? threadRootEventId,
+    String? url, {
+    String? taskKey,
+    String? taskTitle,
+  })?
+  onOpenTask;
   final Object? errorBanner;
 
   @override
@@ -3722,6 +4132,11 @@ class _Loaded extends StatelessWidget {
                             message: m,
                             isOwn: isOwn,
                             onRetry: onRetry,
+                            // **issue #90**: карточка превью первой ссылки.
+                            // До init-а (тесты, host без SDK) — null, и
+                            // ссылка остаётся обычным текстом.
+                            linkPreviews:
+                                MessengerRuntime.instance.linkPreviews,
                             thumbnailRpc: thumbnailRpc,
                             fullSizeRpc: fullSizeRpc,
                             albumTiles: albumTiles,
@@ -3755,8 +4170,8 @@ class _Loaded extends StatelessWidget {
                                 : null,
                             showSenderAvatar: showSenderAvatar,
                             showSenderName: showSenderName,
-                            // **TASK69 2C**: тап по аватару → «Упомянуть».
-                            onSenderAvatarTap: onMentionSender,
+                            // **TASK69 2C → #138**: меню с аватара.
+                            onSenderAvatarTap: onSenderAvatarTap,
                             // **TASK82**: сводка треда на якоре задачи —
                             // строка-кнопка «Обсуждение (N)». Вне режима
                             // выбора: там тап по строке значит «выбрать».
@@ -4027,10 +4442,11 @@ class _RoomTitle extends StatelessWidget {
               ],
             ),
             if (details!.totalParticipants > 0)
-              // Наведение мышью на подпись — состав группы прямо здесь
-              // (web/desktop). На тач-платформах MouseRegion не сработает,
-              // и способ прежний: тап по шапке → настройки группы.
-              ParticipantsHoverCard(
+              // **issue #91**: состав группы — по ТАПУ на подпись. Раньше
+              // было по наведению мыши, и карточка выскакивала, когда
+              // курсор просто шёл мимо. Тап по шапке рядом с подписью
+              // по-прежнему открывает настройки группы.
+              ParticipantsCardAnchor(
                 participants: details!.participants,
                 totalParticipants: details!.totalParticipants,
                 child: Text(
@@ -4106,24 +4522,29 @@ class _RenameRoomDialogState extends State<_RenameRoomDialog> {
   }
 }
 
-/// **B9 typing indicator** — footer над composer-ом «X печатает…».
+/// **B9 typing indicator** — footer над composer-ом «X печатает…»
+/// (для бота — «X анализирует…», см. [typingIndicatorLabel]).
 ///
 /// Резолвит displayName для каждого matrixUserId через
 /// `participantsByMatrixId` map (передаётся ChatScreen-ом). Fallback —
 /// matrix localpart (`@bob:home` → `bob`).
 ///
-/// Strategy:
-///   * 1 user  → «{name} печатает…»
-///   * 2 users → «{name1} и {name2} печатают…»
-///   * 3+      → «N участников печатают…» (без имён, чтобы не растягивать)
+/// Формулировку выбирает общий с чатлистом [typingIndicatorLabel] —
+/// чтобы footer и строка списка чатов не расходились в словах.
 class _TypingFooter extends StatelessWidget {
   const _TypingFooter({
     required this.matrixUserIds,
     required this.participantsByMatrixId,
+    this.botMatrixUserIds = const <String>{},
   });
 
   final List<String> matrixUserIds;
   final Map<String, RoomParticipant>? participantsByMatrixId;
+
+  /// Кто из [matrixUserIds] — не человек, по признаку с сервера.
+  /// Не единственный источник: см. [_isBot] — в открытом чате есть ещё
+  /// и загруженные участники комнаты.
+  final Set<String> botMatrixUserIds;
 
   String _resolveName(String mxid) {
     final p = participantsByMatrixId?[mxid];
@@ -4138,18 +4559,27 @@ class _TypingFooter extends StatelessWidget {
     return mxid;
   }
 
+  /// Два источника признака «не человек», и оба нужны:
+  ///   * поле события — единственный источник для чатлиста, здесь
+  ///     работает так же;
+  ///   * `participantKind` уже загруженных участников — страховка на
+  ///     случай СТАРОГО сервера, который поля ещё не шлёт: в открытом
+  ///     чате мы и без него знаем, кто бот (тот же признак, по которому
+  ///     рисуется бейдж «Бот»), и надпись остаётся честной.
+  bool _isBot(String mxid) =>
+      botMatrixUserIds.contains(mxid) ||
+      NsgBotBadge.isNonHuman(participantsByMatrixId?[mxid]?.participantKind);
+
   @override
   Widget build(BuildContext context) {
     final l = NsgL10n.of(context);
     final names = matrixUserIds.map(_resolveName).toList();
-    final String text;
-    if (names.length == 1) {
-      text = l.typingSingle(names.first);
-    } else if (names.length == 2) {
-      text = l.typingPair(names[0], names[1]);
-    } else {
-      text = l.typingManyCount(names.length);
-    }
+    final text = typingIndicatorLabel(
+      l,
+      count: names.length,
+      names: names,
+      botCount: matrixUserIds.where(_isBot).length,
+    );
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     // **Issue #38**: голый текст на фоне чата терялся — на accent-цветных

@@ -380,9 +380,13 @@ class _RealPeerConnection implements RtcPeerConnection {
     final role = sdp.type == SdpType.offer ? 'offer' : 'answer';
     _diag.addSdp('${side}_$role', sdp.sdp);
     if (kDebugMode) {
-      debugPrint('[CallDiag] ${side.toUpperCase()} $role — '
-          '${summarizeSdp(sdp.sdp)}');
-      debugPrint('[CallDiag] ${side.toUpperCase()} $role full SDP:\n${sdp.sdp}');
+      debugPrint(
+        '[CallDiag] ${side.toUpperCase()} $role — '
+        '${summarizeSdp(sdp.sdp)}',
+      );
+      debugPrint(
+        '[CallDiag] ${side.toUpperCase()} $role full SDP:\n${sdp.sdp}',
+      );
     }
   }
 
@@ -588,8 +592,10 @@ class _RealMediaStream implements RtcMediaStream {
   @override
   List<MediaVideoTrack> get videoTracks => [
     for (final t in stream.getVideoTracks())
-      _videoWrappers.putIfAbsent(t.id ?? '${t.hashCode}', () =>
-          _RealVideoTrack(t)),
+      _videoWrappers.putIfAbsent(
+        t.id ?? '${t.hashCode}',
+        () => _RealVideoTrack(t),
+      ),
   ];
 
   @override

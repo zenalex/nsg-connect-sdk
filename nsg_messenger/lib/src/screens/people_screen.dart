@@ -3,12 +3,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:nsg_connect_client/nsg_connect_client.dart';
 
+import '../messages/forward_picker_sheet.dart';
 import '../i18n/generated/nsg_l10n.dart';
 import '../messenger_runtime.dart';
 import '../widgets/nsg_avatar_image.dart';
 import 'chat_screen.dart';
 import 'contact_profile_screen.dart';
 import 'contact_requests_screen.dart';
+import 'my_teams_screen.dart';
+import 'people_filter.dart';
 
 // Chatista Glass токены — сверены с дизайн-проектом CHATista
 // (screen-people.jsx + prod-tokens.jsx) и боевым settings_screen.
@@ -45,6 +48,17 @@ class _PeopleScreenState extends State<PeopleScreen> {
   List<ContactLabel> _labels = const [];
   int? _selectedLabelId;
   List<RoomParticipant>? _contacts;
+
+  /// **§6**: фильтр по командам рядом с фильтром по меткам.
+  List<TeamView> _teams = const [];
+  int? _selectedTeamId;
+
+  /// teamId → состав, подгружается ЛЕНИВО (по тапу на чип).
+  ///
+  /// Тянуть состав всех команд вперёд значило бы платить N запросов на
+  /// каждое открытие экрана ради фильтра, которым пользуются изредка.
+  final Map<int, Set<int>> _teamMembers = {};
+
   /// contactId → labelIds (из batch listLabelAssignments).
   Map<int, Set<int>> _labelsByContact = const {};
   Object? _error;
@@ -83,15 +97,24 @@ class _PeopleScreenState extends State<PeopleScreen> {
       if (!mounted) return;
       final byContact = <int, Set<int>>{};
       for (final a in assignments) {
-        byContact.putIfAbsent(a.contactMessengerUserId, () => {}).add(
-          a.labelId,
-        );
+        byContact
+            .putIfAbsent(a.contactMessengerUserId, () => {})
+            .add(a.labelId);
       }
       setState(() {
         _labels = labels;
         _contacts = contacts;
         _labelsByContact = byContact;
       });
+      // Команды — best-effort и отдельно от основной загрузки: без них
+      // экран полностью рабочий, а падать всем списком из-за чипов было бы
+      // несоразмерно.
+      try {
+        final teams = await rt.teams.list();
+        if (mounted) setState(() => _teams = teams);
+      } catch (_) {
+        // чипов команд не будет — список людей от этого не страдает
+      }
       // **TASK52 итер.2**: подтянуть счётчик входящих заявок для бейджа
       // (best-effort; ValueNotifier обновит бейдж без setState).
       unawaited(rt.contacts.refreshIncomingRequests());
@@ -100,9 +123,135 @@ class _PeopleScreenState extends State<PeopleScreen> {
     }
   }
 
+  /// Отправить людей выбранной метки списком в чат.
+  ///
+  /// Шлём id тех, кто реально виден под меткой ПРЯМО СЕЙЧАС (с учётом
+  /// фильтра), а не всё назначение метки: человек мог уйти из знакомых, и
+  /// отправлять его коллеге было бы враньём. Кого нельзя — отсеет сервер.
+  Future<void> _shareSelectedLabel() async {
+    final labelId = _selectedLabelId;
+    if (labelId == null) return;
+    final people = _filtered;
+    if (people.isEmpty) return;
+    final room = await showForwardPicker(context: context);
+    if (room == null || !mounted) return;
+    final l = NsgL10n.of(context);
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final labelName = _labels
+        .where((x) => x.id == labelId)
+        .map((x) => x.name)
+        .firstOrNull;
+    try {
+      await MessengerRuntime.instance.contacts.shareContactList(
+        roomId: room.id,
+        contactMessengerUserIds: [for (final p in people) p.messengerUserId],
+        label: labelName,
+      );
+      messenger?.showSnackBar(SnackBar(content: Text(l.forwardedSnack)));
+    } catch (_) {
+      messenger?.showSnackBar(
+        SnackBar(content: Text(l.supportTeamActionFailed)),
+      );
+    }
+  }
+
   void _selectLabel(int? labelId) {
-    if (_selectedLabelId == labelId) return;
-    setState(() => _selectedLabelId = labelId);
+    if (_selectedLabelId == labelId && _selectedTeamId == null) return;
+    setState(() {
+      _selectedLabelId = labelId;
+      _selectedTeamId = null;
+    });
+  }
+
+  /// Выбрать команду. Состав подтягиваем один раз и запоминаем: чипом
+  /// щёлкают туда-сюда, и ходить за одним и тем же на каждый тап незачем.
+  Future<void> _selectTeam(int teamId) async {
+    setState(() {
+      _selectedTeamId = teamId;
+      _selectedLabelId = null;
+    });
+    if (_teamMembers.containsKey(teamId)) return;
+    try {
+      final members = await MessengerRuntime.instance.teams.members(teamId);
+      if (!mounted) return;
+      setState(() {
+        _teamMembers[teamId] = {for (final m in members) m.messengerUserId};
+      });
+    } catch (e, st) {
+      MessengerRuntime.instance.reportError(
+        e,
+        st,
+        tags: {'people.action': 'teamMembers'},
+      );
+    }
+  }
+
+  /// **Мост «метка → команда»** (§5): метка личная и разовая, команда —
+  /// общая и живая. Без перехода в один жест люди пересобирали бы один и
+  /// тот же список руками.
+  ///
+  /// Отправляем тех, кто виден под меткой ПРЯМО СЕЙЧАС: человек мог уйти
+  /// из знакомых, и тащить его в команду было бы не по правилу. Кого
+  /// нельзя — отсеет сервер, поэтому добавляем по одному и не роняем всю
+  /// команду из-за одного отказа.
+  Future<void> _teamFromLabel() async {
+    final labelId = _selectedLabelId;
+    if (labelId == null) return;
+    final people = _filtered;
+    if (people.isEmpty) return;
+    final name = _labels
+        .where((x) => x.id == labelId)
+        .map((x) => x.name)
+        .firstOrNull;
+    if (name == null) return;
+    final l = NsgL10n.of(context);
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final teams = MessengerRuntime.instance.teams;
+    try {
+      final team = await teams.create(name: name);
+      var added = 0;
+      for (final p in people) {
+        try {
+          await teams.addMember(
+            teamId: team.id,
+            messengerUserId: p.messengerUserId,
+          );
+          added++;
+        } catch (_) {
+          // Один отказ не отменяет остальных: команда уже создана, и
+          // бросать её полупустой без объяснения хуже, чем сказать,
+          // скольких добавили.
+        }
+      }
+      messenger?.showSnackBar(
+        SnackBar(content: Text(l.peopleTeamFromLabelDone(name, added))),
+      );
+    } catch (e, st) {
+      MessengerRuntime.instance.reportError(
+        e,
+        st,
+        tags: {'people.action': 'teamFromLabel'},
+      );
+      messenger?.showSnackBar(SnackBar(content: Text(l.myTeamsActionFailed)));
+    }
+  }
+
+  /// Счётчик на чипе команды.
+  ///
+  /// Пока состав не загружен, берём серверный размер МИНУС себя: список
+  /// людей себя не показывает, и «Проект · 3» над двумя строками читается
+  /// как потерянный человек. Когда состав пришёл — считаем пересечение:
+  /// участник мог уйти из знакомых (блокировка), и в списке его не будет.
+  int _teamChipCount(TeamView team) {
+    final members = _teamMembers[team.id];
+    if (members == null) {
+      return team.memberCount > 0 ? team.memberCount - 1 : 0;
+    }
+    var n = 0;
+    for (final c in _contacts ?? const <RoomParticipant>[]) {
+      if (members.contains(c.messengerUserId)) n++;
+    }
+    return n;
   }
 
   /// Счётчик контактов с меткой (для чипа). Считаем по пересечению с
@@ -118,25 +267,23 @@ class _PeopleScreenState extends State<PeopleScreen> {
     return n;
   }
 
-  List<RoomParticipant> get _filtered {
-    var all = _contacts ?? const <RoomParticipant>[];
+  PeopleFilter get _filter {
     final labelId = _selectedLabelId;
-    if (labelId != null) {
-      all = [
-        for (final c in all)
-          if (_labelsByContact[c.messengerUserId]?.contains(labelId) ?? false)
-            c,
-      ];
-    }
-    final q = _searchCtl.text.trim().toLowerCase();
-    if (q.isEmpty) return all;
-    return [
-      for (final c in all)
-        if ((c.displayName ?? '').toLowerCase().contains(q) ||
-            (c.username ?? '').toLowerCase().contains(q))
-          c,
-    ];
+    if (labelId != null) return PeopleFilter.label(labelId);
+    final teamId = _selectedTeamId;
+    if (teamId != null) return PeopleFilter.team(teamId);
+    return const PeopleFilter.all();
   }
+
+  List<RoomParticipant> get _filtered => applyPeopleFilter(
+    contacts: _contacts ?? const <RoomParticipant>[],
+    filter: _filter,
+    labelsByContact: _labelsByContact,
+    teamMembers: _selectedTeamId == null
+        ? null
+        : _teamMembers[_selectedTeamId!],
+    query: _searchCtl.text,
+  );
 
   // ─────── итер.3: мульти-выбор ───────
 
@@ -153,9 +300,9 @@ class _PeopleScreenState extends State<PeopleScreen> {
   Future<void> _batchLabelSheet() async {
     final l = NsgL10n.of(context);
     if (_labels.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.peopleEmptyLabel)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l.peopleEmptyLabel)));
       return;
     }
     final selectedIds = Set<int>.of(_selected);
@@ -286,9 +433,7 @@ class _PeopleScreenState extends State<PeopleScreen> {
       );
       if (!mounted) return;
       await Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => ChatScreen(roomId: details.id),
-        ),
+        MaterialPageRoute<void>(builder: (_) => ChatScreen(roomId: details.id)),
       );
     } catch (e, st) {
       MessengerRuntime.instance.reportError(
@@ -467,6 +612,42 @@ class _PeopleScreenState extends State<PeopleScreen> {
         elevation: 0,
         iconTheme: const IconThemeData(color: _fgMuted),
         actions: [
+          // **Поделиться списком**: появляется только когда выбрана метка —
+          // делиться «всеми людьми» бессмысленно, а вот отдать коллеге
+          // список по проекту это ровно та боль, с которой всё началось.
+          if (_selectedLabelId != null) ...[
+            IconButton(
+              key: const Key('peopleShareLabelButton'),
+              tooltip: NsgL10n.of(context).sharedContactShareLabel,
+              icon: const Icon(Icons.ios_share, color: _fgMuted),
+              onPressed: _shareSelectedLabel,
+            ),
+            // **§5, мост к командам**: метка личная и разовая, команда —
+            // общая и живая. Переход обязан быть в один жест, иначе люди
+            // будут пересобирать один и тот же список руками.
+            IconButton(
+              key: const Key('peopleTeamFromLabelButton'),
+              tooltip: l.peopleTeamFromLabel,
+              icon: const Icon(Icons.group_add_outlined, color: _fgMuted),
+              onPressed: _teamFromLabel,
+            ),
+          ],
+          // **Свои команды** (этап 3): вход отсюда, а не отдельным
+          // разделом. Команда — это и есть способ добыть людей в этот
+          // список, и объяснение, откуда они здесь взялись; уводить её в
+          // другое место значило бы разорвать причину и следствие.
+          IconButton(
+            key: const Key('peopleTeamsButton'),
+            tooltip: l.myTeamsTitle,
+            icon: const Icon(Icons.groups_outlined, color: _fgMuted),
+            onPressed: () async {
+              await Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const MyTeamsScreen()),
+              );
+              // Состав команды меняли — список знакомых мог измениться.
+              if (mounted) await _load();
+            },
+          ),
           // **TASK52 итер.2**: входящие карточки-заявки с бейджем-счётчиком.
           ValueListenableBuilder<int>(
             valueListenable:
@@ -491,10 +672,7 @@ class _PeopleScreenState extends State<PeopleScreen> {
             ),
           ),
           IconButton(
-            icon: Icon(
-              Icons.search,
-              color: _showSearch ? accent : _fgMuted,
-            ),
+            icon: Icon(Icons.search, color: _showSearch ? accent : _fgMuted),
             onPressed: () => setState(() {
               _showSearch = !_showSearch;
               _searchCtl.clear();
@@ -527,12 +705,15 @@ class _PeopleScreenState extends State<PeopleScreen> {
                         style: const TextStyle(color: _fg, fontSize: 15),
                         decoration: InputDecoration(
                           hintText: l.peopleSearchHint,
-                          hintStyle:
-                              const TextStyle(color: _fgDim, fontSize: 15),
+                          hintStyle: const TextStyle(
+                            color: _fgDim,
+                            fontSize: 15,
+                          ),
                           border: InputBorder.none,
                           isDense: true,
-                          contentPadding:
-                              const EdgeInsets.symmetric(vertical: 12),
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 12,
+                          ),
                         ),
                         onChanged: (_) => setState(() {}),
                       ),
@@ -555,7 +736,7 @@ class _PeopleScreenState extends State<PeopleScreen> {
                 _filterChip(
                   label: l.peopleAll,
                   count: contacts?.length,
-                  selected: _selectedLabelId == null,
+                  selected: _selectedLabelId == null && _selectedTeamId == null,
                   accent: accent,
                   onTap: () => _selectLabel(null),
                 ),
@@ -568,6 +749,22 @@ class _PeopleScreenState extends State<PeopleScreen> {
                     selected: _selectedLabelId == lb.id,
                     accent: accent,
                     onTap: () => _selectLabel(lb.id),
+                  ),
+                ],
+                // **§6**: чипы команд — рядом с метками, а не отдельным
+                // экраном.
+                for (final t in _teams) ...[
+                  const SizedBox(width: 8),
+                  _filterChip(
+                    key: Key('peopleTeamChip_${t.id}'),
+                    label: t.name,
+                    count: _teamChipCount(t),
+                    icon: t.kind == TeamKind.org
+                        ? Icons.apartment_outlined
+                        : Icons.groups_outlined,
+                    selected: _selectedTeamId == t.id,
+                    accent: accent,
+                    onTap: () => _selectTeam(t.id),
                   ),
                 ],
               ],
@@ -610,18 +807,27 @@ class _PeopleScreenState extends State<PeopleScreen> {
                 : contacts == null
                 ? const Center(child: CircularProgressIndicator())
                 : filtered.isEmpty
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 32),
-                      child: Text(
-                        _selectedLabelId == null
-                            ? l.peopleEmpty
-                            : l.peopleEmptyLabel,
-                        style: const TextStyle(color: _fgDim, fontSize: 13.5),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  )
+                // При активном поиске молчим: «Пока нет контактов» здесь —
+                // враньё (контакты есть, просто ни один не совпал), а про
+                // пустой результат уже сказано в шапке («Ничего не найдено»).
+                // Иначе показывались оба состояния разом.
+                ? showsPeopleEmptyPlaceholder(query: _searchCtl.text)
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 32),
+                            child: Text(
+                              _selectedLabelId == null
+                                  ? l.peopleEmpty
+                                  : l.peopleEmptyLabel,
+                              style: const TextStyle(
+                                color: _fgDim,
+                                fontSize: 13.5,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        )
+                      : const SizedBox.shrink()
                 : RefreshIndicator(
                     onRefresh: _load,
                     child: ListView(
@@ -667,9 +873,7 @@ class _PeopleScreenState extends State<PeopleScreen> {
     ];
     final accent = Theme.of(context).colorScheme.primary;
     return InkWell(
-      onTap: _selectionMode
-          ? () => _toggleSelected(c)
-          : () => _openProfile(c),
+      onTap: _selectionMode ? () => _toggleSelected(c) : () => _openProfile(c),
       onLongPress: () => _toggleSelected(c),
       highlightColor: Colors.white.withValues(alpha: 0.04),
       splashColor: Colors.white.withValues(alpha: 0.06),
@@ -760,10 +964,7 @@ class _PeopleScreenState extends State<PeopleScreen> {
               left: 14 + 44 + 12,
               right: 0,
               bottom: 0,
-              child: SizedBox(
-                height: 0.5,
-                child: ColoredBox(color: _divider),
-              ),
+              child: SizedBox(height: 0.5, child: ColoredBox(color: _divider)),
             ),
         ],
       ),
@@ -777,8 +978,11 @@ class _PeopleScreenState extends State<PeopleScreen> {
     required VoidCallback onTap,
     int? count,
     Color? dotColor,
+    IconData? icon,
+    Key? key,
   }) {
     return GestureDetector(
+      key: key,
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
@@ -800,6 +1004,10 @@ class _PeopleScreenState extends State<PeopleScreen> {
                 ),
               ),
               const SizedBox(width: 6),
+            ],
+            if (icon != null) ...[
+              Icon(icon, size: 13, color: selected ? _onAccent : _fgMuted),
+              const SizedBox(width: 5),
             ],
             Text(
               // Итер.3: счётчик на чипе («Работа · 3»).

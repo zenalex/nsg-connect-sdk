@@ -1648,4 +1648,93 @@ void main() {
     await ctx.upstream.close();
     await ctx.stateCtl.close();
   });
+
+  // ─────────────────────────────────────────────────────────────────
+  // Список не пропадает до перезапуска (жалоба владельца 10.08.2026)
+  //
+  // «Нажал чаты — список пустой. Вообще иногда уже наблюдал, что список
+  // чатов может пропасть до перезагрузки программы».
+  //
+  // Одна сетевая неудача переводила список в ошибку, а повторить его было
+  // НЕЧЕМ: обновление запускали только события шины и смена состояния
+  // сессии. Сеть моргнула, сообщений никто не шлёт — не приходит ни то, ни
+  // другое, и пустой экран остаётся навсегда. В GlitchTip таких неудач
+  // хватало: 76 таймаутов RPC по 20 секунд.
+  // ─────────────────────────────────────────────────────────────────
+
+  test('после неудачи загрузка повторяется сама', () async {
+    final ctx = buildController(initialList: [summary(id: 1)]);
+    ctx.setListError(StateError('network'));
+    ctx.controller.init();
+    await tick();
+
+    expect(ctx.controller.state, isA<ChatsListError>());
+    final afterFail = ctx.listCalls();
+
+    // Сеть вернулась к моменту первой повторной попытки.
+    ctx.setListResult([summary(id: 1)]);
+    await Future<void>.delayed(ChatsListController.retrySchedule.first * 2);
+
+    expect(
+      ctx.listCalls(),
+      greaterThan(afterFail),
+      reason: 'повтора не случилось — экран остался бы пустым навсегда',
+    );
+    expect(ctx.controller.state, isA<ChatsListReady>());
+    await teardown(ctx);
+  });
+
+  test('успешная загрузка повторов не заводит', () async {
+    // Иначе список крутил бы вечный опрос.
+    //
+    // Считаем ОБНОВЛЕНИЯ контроллера, а не вызовы RPC: у `rooms.list` свой
+    // 30-секундный TTL-кэш, и лишнее обновление он бы проглотил — тест
+    // проходил бы при сломанном коде.
+    final ctx = buildController(initialList: [summary(id: 1)]);
+    ctx.controller.init();
+    await tick();
+    expect(ctx.controller.state, isA<ChatsListReady>());
+    final refreshes = ctx.controller.debugRefreshInvocations;
+
+    await Future<void>.delayed(ChatsListController.retrySchedule.first * 2);
+
+    expect(ctx.controller.debugRefreshInvocations, refreshes);
+    await teardown(ctx);
+  });
+
+  test('закрытый контроллер повторов не делает', () async {
+    // Экран ушёл — повтор обязан уйти с ним, иначе мёртвый контроллер
+    // тянет RPC от имени закрытого экрана.
+    //
+    // Заслонов тут три: отмена таймера в `dispose`, проверка закрытости в
+    // самом повторе и такая же в `_runRefresh`. Тест падает, только если
+    // снять ВСЕ три — по отдельности любая из оставшихся держит. Так и
+    // задумано, но знать об этом стоит: одиночная правка тут не ловится.
+    final ctx = buildController(initialList: const []);
+    ctx.setListError(StateError('network'));
+    ctx.controller.init();
+    await tick();
+    final refreshes = ctx.controller.debugRefreshInvocations;
+
+    ctx.controller.dispose();
+    await Future<void>.delayed(ChatsListController.retrySchedule.first * 2);
+
+    expect(ctx.controller.debugRefreshInvocations, refreshes);
+    await ctx.rooms.dispose();
+    await ctx.upstream.close();
+    await ctx.stateCtl.close();
+  });
+
+  test('первая пауза расписания короткая', () async {
+    // Первая попытка должна быть заметно быстрее последней: чаще всего
+    // связь возвращается через секунду-другую, и ждать минуту незачем.
+    expect(
+      ChatsListController.retrySchedule.first,
+      lessThan(ChatsListController.retrySchedule.last),
+    );
+    expect(
+      ChatsListController.retrySchedule.first,
+      lessThanOrEqualTo(const Duration(seconds: 3)),
+    );
+  });
 }

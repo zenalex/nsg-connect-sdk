@@ -33,9 +33,7 @@ class NsgMessengerContactCards {
       return hit.info;
     }
     final fresh = await withAuthRetry(
-      () => _client.messenger.getContactCard(
-        messengerUserId: messengerUserId,
-      ),
+      () => _client.messenger.getContactCard(messengerUserId: messengerUserId),
       _session,
     );
     _cache[messengerUserId] = _CachedCard(fresh, DateTime.now());
@@ -63,10 +61,8 @@ class NsgMessengerContactCards {
   }
 
   /// Своя карточка целиком (включая contactsOnlyFields) — для редактора.
-  Future<ContactCard?> getMy() => withAuthRetry(
-    () => _client.messenger.getMyContactCard(),
-    _session,
-  );
+  Future<ContactCard?> getMy() =>
+      withAuthRetry(() => _client.messenger.getMyContactCard(), _session);
 
   /// Сохранить свою карточку (upsert). Сбрасывает свой кэш — профиль
   /// увидит свежую версию.

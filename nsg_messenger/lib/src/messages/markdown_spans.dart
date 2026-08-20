@@ -83,6 +83,80 @@ final _openFenceRe = RegExp(
   multiLine: true,
 );
 
+/// Кусок тела сообщения: обычный текст или ограждённый блок кода.
+///
+/// **issue #80**: длинная строка кода переносилась по ширине пузыря, а в
+/// коде отступы значат смысл. Прокрутка — это виджет, а виджет внутри
+/// текста (`WidgetSpan`) ломает `TextPainter`-замер сворачивания длинных
+/// сообщений. Поэтому блок кода перестаёт быть частью текста и становится
+/// отдельным куском, который пузырь рисует своим виджетом.
+///
+/// Разбор живёт здесь, рядом с [_fencedBlockRe]/[_openFenceRe] и повторяет
+/// их правило выбора: иначе «где блок» решалось бы в двух местах по-разному
+/// и рендер разъехался бы с разметкой.
+sealed class BodyChunk {
+  const BodyChunk();
+}
+
+/// Обычный текст — идёт через [parseMarkdownToSpans] как раньше.
+class BodyTextChunk extends BodyChunk {
+  const BodyTextChunk(this.text);
+  final String text;
+}
+
+/// Ограждённый блок кода. [language] сохраняем (может пригодиться для
+/// подсветки), но сейчас не рисуем — строка «dart» посреди сообщения
+/// выглядела бы мусором.
+class BodyCodeChunk extends BodyChunk {
+  const BodyCodeChunk(this.code, {this.language});
+  final String code;
+  final String? language;
+}
+
+/// Разбить тело сообщения на куски «текст / блок кода».
+///
+/// Без ограждений возвращает один текстовый кусок — вызывающий по этому
+/// признаку идёт прежним путём (один `Text.rich`), и 99% сообщений
+/// рендерятся ровно как раньше.
+List<BodyChunk> splitBodyIntoChunks(String text) {
+  if (!text.contains('```')) {
+    return [BodyTextChunk(text)];
+  }
+  final chunks = <BodyChunk>[];
+  var cursor = 0;
+  while (cursor < text.length) {
+    final closed = _firstMatch(_fencedBlockRe, text, cursor);
+    final open = _firstMatch(_openFenceRe, text, cursor);
+    final m = (closed != null && (open == null || closed.start <= open.start))
+        ? closed
+        : open;
+    if (m == null) {
+      chunks.add(BodyTextChunk(text.substring(cursor)));
+      break;
+    }
+    if (m.start > cursor) {
+      chunks.add(BodyTextChunk(text.substring(cursor, m.start)));
+    }
+    final lang = m.group(1);
+    chunks.add(
+      BodyCodeChunk(
+        m.group(2) ?? '',
+        language: lang == null || lang.isEmpty ? null : lang,
+      ),
+    );
+    cursor = m.end;
+  }
+  return chunks;
+}
+
+/// Моноширинный стиль блока кода — общий для span-рендера и виджета, чтобы
+/// код не выглядел по-разному в зависимости от пути отрисовки.
+TextStyle codeBlockTextStyle(TextStyle base) => base.copyWith(
+  fontFamily: 'monospace',
+  fontFamilyFallback: const ['Courier New', 'DejaVu Sans Mono', 'Menlo'],
+  letterSpacing: 0,
+);
+
 /// **issue #56/#70**: предпроход по блокам кода ДО инлайновых правил.
 ///
 /// Порядок принципиален: внутри блока ничего не парсится, поэтому

@@ -27,10 +27,7 @@ final RegExp _fenceLine = RegExp(r'^\s*```');
 /// Разбить [text] на части не длиннее [limit].
 ///
 /// Возвращает `[text]`, если разбивать нечего. Пустые части не отдаёт.
-List<String> splitMessageBody(
-  String text, {
-  int limit = kMessageBodyMaxChars,
-}) {
+List<String> splitMessageBody(String text, {int limit = kMessageBodyMaxChars}) {
   if (limit < 16) {
     throw ArgumentError.value(limit, 'limit', 'слишком мал для разбивки');
   }

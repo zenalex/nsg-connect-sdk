@@ -91,10 +91,8 @@ class NsgMessengerContacts {
 
   Future<ContactLabel> createLabel(String name, {String? colorHex}) async {
     final created = await withAuthRetry(
-      () => _client.messenger.createContactLabel(
-        name: name,
-        colorHex: colorHex,
-      ),
+      () =>
+          _client.messenger.createContactLabel(name: name, colorHex: colorHex),
       _session,
     );
     invalidateLabels();
@@ -178,6 +176,66 @@ class NsgMessengerContacts {
     _session,
   );
 
+  /// **Поделиться контактом** — отправить карточку человека в комнату.
+  ///
+  /// Закрывает боль «людей не найти, не зная email»: получателю остаётся
+  /// нажать «Добавить», ничего не переписывая с голоса.
+  ///
+  /// Передаём только id. Имя и аватар в карточку кладёт СЕРВЕР из своих
+  /// данных — иначе клиент мог бы отправить чужое имя с чужим id, а
+  /// карточке знакомства обязано быть можно верить.
+  ///
+  /// Сервер откажет ([PeerUnavailableException]), если делиться человеком
+  /// нельзя: он в другом тенанте, это вы сами, или вы его не знаете —
+  /// последнее не придирка, а защита от перебора id.
+  ///
+  /// Метод живёт здесь, а не в `MessagesRpc`: это разовое действие из
+  /// карточки человека, а не часть композера, и тащить параметр через
+  /// весь интерфейс отправки (и все его фейки) ради него незачем.
+  Future<void> shareContact({
+    required int roomId,
+    required int contactMessengerUserId,
+    String body = '',
+  }) => withAuthRetry(
+    () => _client.messenger.sendMessage(
+      roomId: roomId,
+      body: body,
+      msgType: 'nsg.contact_card',
+      // Метка уникальна: сервер дедуплицирует по clientTxnId, и с
+      // постоянной строкой повторная отправка того же контакта в ту же
+      // комнату молча пропадала бы.
+      clientTxnId:
+          'share-$contactMessengerUserId-$roomId-'
+          '${DateTime.now().microsecondsSinceEpoch}',
+      sharedContactMessengerUserId: contactMessengerUserId,
+    ),
+    _session,
+  );
+
+  /// **Поделиться списком** — люди одной метки одним сообщением.
+  ///
+  /// Метка личная, поэтому её название едет просто подсказкой «откуда
+  /// список». Сервер отсеет тех, кем делиться нельзя, и обрежет по своему
+  /// потолку — клиент не решает за него.
+  Future<void> shareContactList({
+    required int roomId,
+    required List<int> contactMessengerUserIds,
+    String? label,
+    String body = '',
+  }) => withAuthRetry(
+    () => _client.messenger.sendMessage(
+      roomId: roomId,
+      body: body,
+      msgType: 'nsg.contact_list',
+      clientTxnId:
+          'share-list-$roomId-'
+          '${DateTime.now().microsecondsSinceEpoch}',
+      sharedContactListMessengerUserIds: contactMessengerUserIds,
+      sharedContactListLabel: label,
+    ),
+    _session,
+  );
+
   /// Добавить/убрать в контакты (даёт пройти мой гейт «кто может писать»).
   Future<void> addContact(int contactMessengerUserId) => withAuthRetry(
     () => _client.messenger.addContact(
@@ -220,16 +278,14 @@ class NsgMessengerContacts {
   /// Отправить заявку «показать визитку». Молчаливо «успешна» при
   /// блокировке (anti-enumeration); cooldown/лимит → бросает
   /// RateLimitExceededException.
-  Future<void> sendContactRequest(
-    int toMessengerUserId, {
-    String? note,
-  }) => withAuthRetry(
-    () => _client.messenger.sendContactRequest(
-      toMessengerUserId: toMessengerUserId,
-      note: note,
-    ),
-    _session,
-  );
+  Future<void> sendContactRequest(int toMessengerUserId, {String? note}) =>
+      withAuthRetry(
+        () => _client.messenger.sendContactRequest(
+          toMessengerUserId: toMessengerUserId,
+          note: note,
+        ),
+        _session,
+      );
 
   /// Мои входящие заявки (pending) с кэшем (TTL 30с). Обновляет
   /// [incomingRequestCount].
@@ -305,10 +361,8 @@ class NsgMessengerContacts {
   );
 
   /// Отозвать мои инвайт-ссылки (старые перестают работать).
-  Future<void> revokeInviteTokens() => withAuthRetry(
-    () => _client.messenger.revokeInviteTokens(),
-    _session,
-  );
+  Future<void> revokeInviteTokens() =>
+      withAuthRetry(() => _client.messenger.revokeInviteTokens(), _session);
 
   /// **«Рядом»**: подтвердить близость с peer. Требует ВЗАИМНОГО тапа в
   /// окне 60с (BLE недоверенное). `matched=true` → взаимный контакт

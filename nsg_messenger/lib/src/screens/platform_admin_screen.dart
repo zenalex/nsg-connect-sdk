@@ -5,9 +5,13 @@ import '../admin/nsg_messenger_platform_admin.dart';
 import '../i18n/generated/nsg_l10n.dart';
 import '../messenger_runtime.dart';
 import '../utils/relative_time.dart';
+import 'delivery_health_screen.dart';
 import 'integrations_screen.dart' show CopyableField;
 import 'support_team_screen.dart';
+import 'tenant_support_screen.dart';
+import 'tenant_teams_screen.dart';
 import 'user_picker_screen.dart';
+import '../widgets/nsg_modal_sheet.dart';
 
 /// **TASK78 п.3 (админка секретов тенантов)**: экран платформенного
 /// управления issued-token-режимом tenant-ов — то, что раньше делалось
@@ -30,10 +34,7 @@ import 'user_picker_screen.dart';
 /// Секрет живёт только в локальной переменной на время показа диалога —
 /// в состояние экрана и в логи не попадает.
 class PlatformAdminScreen extends StatefulWidget {
-  const PlatformAdminScreen({
-    super.key,
-    @visibleForTesting this.adminOverride,
-  });
+  const PlatformAdminScreen({super.key, @visibleForTesting this.adminOverride});
 
   /// Visible-for-testing — позволяет widget-тестам подменить
   /// `MessengerRuntime.instance.platformAdmin` на in-memory fake.
@@ -248,28 +249,33 @@ class _PlatformAdminScreenState extends State<PlatformAdminScreen> {
     await _refresh();
   }
 
-  Future<void> _createProduct() async {
+  /// Завести продукт. [inTenantKey] задан — тенант уже известен (вызов из
+  /// меню самого тенанта), спрашивать его второй раз незачем.
+  Future<void> _createProduct({String? inTenantKey}) async {
     final l = NsgL10n.of(context);
-    // Продукт живёт ВНУТРИ тенанта, поэтому сначала спрашиваем, в каком.
-    final tenants = await _tenantsFuture;
-    if (!mounted) return;
-    final tenantKey = await showDialog<String>(
-      context: context,
-      builder: (ctx) => SimpleDialog(
-        title: Text(l.platformAdminCreateProduct),
-        children: [
-          for (final t in tenants)
-            if (t.tenantExternalKey != null)
-              SimpleDialogOption(
-                onPressed: () => Navigator.of(ctx).pop(t.tenantExternalKey),
-                child: Text(
-                  '${t.tenantName ?? ''} (${t.tenantExternalKey})'.trim(),
+    var tenantKey = inTenantKey;
+    if (tenantKey == null) {
+      // Продукт живёт ВНУТРИ тенанта, поэтому сначала спрашиваем, в каком.
+      final tenants = await _tenantsFuture;
+      if (!mounted) return;
+      tenantKey = await showDialog<String>(
+        context: context,
+        builder: (ctx) => SimpleDialog(
+          title: Text(l.platformAdminCreateProduct),
+          children: [
+            for (final t in tenants)
+              if (t.tenantExternalKey != null)
+                SimpleDialogOption(
+                  onPressed: () => Navigator.of(ctx).pop(t.tenantExternalKey),
+                  child: Text(
+                    '${t.tenantName ?? ''} (${t.tenantExternalKey})'.trim(),
+                  ),
                 ),
-              ),
-        ],
-      ),
-    );
-    if (tenantKey == null || !mounted) return;
+          ],
+        ),
+      );
+      if (tenantKey == null || !mounted) return;
+    }
     final input = await _askKeyAndName(l.platformAdminCreateProduct);
     if (input == null || !mounted) return;
     final messenger = ScaffoldMessenger.maybeOf(context);
@@ -284,6 +290,11 @@ class _PlatformAdminScreenState extends State<PlatformAdminScreen> {
       return;
     }
     messenger?.showSnackBar(SnackBar(content: Text(l.platformAdminCreated)));
+    // Список продуктов тенанта закэширован — без сброса созданный продукт
+    // не появлялся на экране, и «создалось» выглядело как «не создалось».
+    _products.remove(tenantKey);
+    if (!mounted) return;
+    await _loadProducts(tenantKey);
   }
 
   /// Открыть состав команды поддержки продукта — тот же экран, которым
@@ -292,14 +303,65 @@ class _PlatformAdminScreenState extends State<PlatformAdminScreen> {
   /// Раньше отсюда до него было не добраться: экран искал команду в
   /// тенанте вызывающего, а команда продукта живёт в своём (см. серверный
   /// поиск команды по членству).
-  Future<void> _openSupportTeam(ProductAdminView product) async {
+  Future<void> _openSupportTeam(
+    String tenantKey,
+    ProductAdminView product,
+  ) async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) =>
-            SupportTeamScreen(productExternalKey: product.externalKey),
+        // Тенант передаём обязательно: админка смотрит ЧУЖИЕ тенанты, а
+        // ключ продукта уникален только внутри тенанта. Без него сервер
+        // открывал состав команды другого тенанта с тем же ключом
+        // (наблюдалось на проде: 5 участников вместо 1).
+        builder: (_) => SupportTeamScreen(
+          productExternalKey: product.externalKey,
+          tenantExternalKey: tenantKey,
+        ),
       ),
     );
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    // Перечитываем продукты, а не просто перерисовываем: в строке продукта
+    // показан РАЗМЕР команды, а в открытом экране его как раз и меняли —
+    // добавили оператора и вернулись к старому числу. `setState` тут не
+    // помогал: список закэширован в `_products`.
+    _products.remove(tenantKey);
+    await _loadProducts(tenantKey);
+  }
+
+  /// Открыть поддержку тенанта. После возврата перечитываем продукты: их
+  /// строки показывают размер команды, а он меняется наследованием.
+  Future<void> _openTenantSupport(ConnectTenantStatus t) async {
+    final key = _keyOf(t);
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        // Тот же объект админки, что у дерева: иначе экран полез бы в
+        // рантайм напрямую и в тестах (и при подмене) смотрел бы не туда.
+        builder: (_) => TenantSupportScreen(
+          tenantExternalKey: key,
+          tenantName: t.tenantName ?? key,
+          admin: _admin,
+        ),
+      ),
+    );
+    if (!mounted) return;
+    _products.remove(key);
+    await _loadProducts(key);
+  }
+
+  /// Открыть команды тенанта — справочник компании. Продукты после
+  /// возврата не перечитываем: команды к ним отношения не имеют, а лишний
+  /// запрос на каждый выход из экрана — плата ни за что.
+  Future<void> _openTenantTeams(ConnectTenantStatus t) async {
+    final key = _keyOf(t);
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => TenantTeamsScreen(
+          tenantExternalKey: key,
+          tenantName: t.tenantName ?? key,
+          admin: _admin,
+        ),
+      ),
+    );
   }
 
   /// Строки продуктов тенанта в раскрытом узле.
@@ -352,26 +414,113 @@ class _PlatformAdminScreenState extends State<PlatformAdminScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     TextButton(
-                      onPressed: () => _openSupportTeam(p),
+                      onPressed: () => _openSupportTeam(tenantKey, p),
                       child: Text(l.platformAdminSupportMembers),
                     ),
                     PopupMenuButton<String>(
-                      onSelected: (_) => _provisionSupportTeam(tenantKey, p),
+                      onSelected: (v) => v == 'delete'
+                          ? _deleteProduct(tenantKey, p)
+                          : _provisionSupportTeam(tenantKey, p),
                       itemBuilder: (_) => [
                         PopupMenuItem(
                           value: 'owner',
                           child: Text(l.platformAdminSetOwner),
                         ),
+                        PopupMenuItem(
+                          value: 'delete',
+                          child: Text(l.platformAdminDeleteProduct),
+                        ),
                       ],
                     ),
                   ],
                 )
-              : TextButton(
-                  onPressed: () => _provisionSupportTeam(tenantKey, p),
-                  child: Text(l.platformAdminCreateSupportTeam),
+              // Продукт без команды: завести поддержку — кнопкой, а
+              // удаление — в меню. Удаление у продукта было недоступно
+              // вовсе: ошибочно заведённый жил в админке навсегда.
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextButton(
+                      onPressed: () => _provisionSupportTeam(tenantKey, p),
+                      child: Text(l.platformAdminCreateSupportTeam),
+                    ),
+                    PopupMenuButton<String>(
+                      onSelected: (_) => _deleteProduct(tenantKey, p),
+                      itemBuilder: (_) => [
+                        PopupMenuItem(
+                          value: 'delete',
+                          child: Text(l.platformAdminDeleteProduct),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
         ),
     ];
+  }
+
+  /// Удалить продукт: подтверждение, затем внятный отказ, если занят.
+  ///
+  /// Подтверждение называет ИМЕННО то, что исчезнет вместе с продуктом
+  /// (команда поддержки и выданные ключи): «удалить продукт?» скрывало бы,
+  /// что заодно уходит настроенная поддержка.
+  Future<void> _deleteProduct(String tenantKey, ProductAdminView p) async {
+    final l = NsgL10n.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l.platformAdminDeleteProduct),
+        content: Text(l.platformAdminDeleteProductConfirm(p.displayName)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(l.commonCancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(l.platformAdminDeleteProduct),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    try {
+      await _admin.deleteProduct(
+        tenantExternalKey: tenantKey,
+        productExternalKey: p.externalKey,
+      );
+    } catch (e) {
+      messenger?.showSnackBar(
+        SnackBar(
+          content: Text(
+            e is ProductInUseException
+                ? l.platformAdminDeleteProductBusy(_busyWhat(l, e))
+                : l.platformAdminActionFailed,
+          ),
+        ),
+      );
+      return;
+    }
+    messenger?.showSnackBar(SnackBar(content: Text(l.platformAdminDeleted)));
+    _products.remove(tenantKey);
+    if (!mounted) return;
+    await _loadProducts(tenantKey);
+  }
+
+  /// «4 комнаты, 3 обращения» — перечисление того, что мешает удалению.
+  /// Администратору нужно знать, ЧТО разбирать: «действие не удалось» на
+  /// этот вопрос не отвечает.
+  static String _busyWhat(NsgL10n l, ProductInUseException e) {
+    final parts = <String>[
+      if (e.rooms > 0) l.platformAdminBusyRooms(e.rooms),
+      if (e.tickets > 0) l.platformAdminBusyTickets(e.tickets),
+      if (e.bots > 0) l.platformAdminBusyBots(e.bots),
+      if (e.identities > 0) l.platformAdminBusyIdentities(e.identities),
+      if (e.devices > 0) l.platformAdminBusyDevices(e.devices),
+      if (e.webhooks > 0) l.platformAdminBusyWebhooks(e.webhooks),
+    ];
+    return parts.join(', ');
   }
 
   /// Причина отказа словами: «ключ не годится» и «занято» — разные
@@ -419,9 +568,9 @@ class _PlatformAdminScreenState extends State<PlatformAdminScreen> {
   }
 
   Future<void> _showAudit(ConnectTenantStatus t) {
-    return showModalBottomSheet<void>(
+    // Issue #105: журнал аудита тенанта.
+    return showNsgModalSheet<void>(
       context: context,
-      isScrollControlled: true,
       builder: (ctx) => _TenantAuditSheet(
         tenantName: t.tenantName ?? _keyOf(t),
         loader: () => _admin.listAuditEvents(tenantExternalKey: _keyOf(t)),
@@ -440,11 +589,22 @@ class _PlatformAdminScreenState extends State<PlatformAdminScreen> {
           // SQL-ом на проде, а этот экран умел лишь включать issued-token
           // у уже существующего тенанта — подключить новый продукт без
           // доступа к прод-базе было нечем.
+          // **issue #120**: здоровье доставки уведомлений. Отдельным входом,
+          // а не строкой в списке тенантов: вопрос «почему у клиента не
+          // приходят пуши» задают отдельно от вопросов про секреты.
+          IconButton(
+            tooltip: l.deliveryHealthTitle,
+            icon: const Icon(Icons.notifications_active_outlined),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => DeliveryHealthScreen(admin: _admin),
+              ),
+            ),
+          ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.add),
-            onSelected: (v) => v == 'tenant'
-                ? _createTenant()
-                : _createProduct(),
+            onSelected: (v) =>
+                v == 'tenant' ? _createTenant() : _createProduct(),
             itemBuilder: (_) => [
               PopupMenuItem(
                 value: 'tenant',
@@ -500,6 +660,9 @@ class _PlatformAdminScreenState extends State<PlatformAdminScreen> {
                 final key = _keyOf(tenants[i]);
                 return _TenantTile(
                   status: tenants[i],
+                  onAddProduct: () => _createProduct(inTenantKey: key),
+                  onTenantSupport: () => _openTenantSupport(tenants[i]),
+                  onTenantTeams: () => _openTenantTeams(tenants[i]),
                   onEnableGenerate: () => _enableAndGenerate(tenants[i]),
                   onRotate: () => _rotate(tenants[i]),
                   onDisable: () => _disable(tenants[i]),
@@ -526,6 +689,9 @@ class _PlatformAdminScreenState extends State<PlatformAdminScreen> {
 class _TenantTile extends StatelessWidget {
   const _TenantTile({
     required this.status,
+    required this.onAddProduct,
+    required this.onTenantSupport,
+    required this.onTenantTeams,
     required this.onEnableGenerate,
     required this.onRotate,
     required this.onDisable,
@@ -542,6 +708,13 @@ class _TenantTile extends StatelessWidget {
   final ValueChanged<bool> onExpansionChanged;
 
   final ConnectTenantStatus status;
+
+  /// Завести продукт В ЭТОМ тенанте (тенант не спрашивается).
+  final VoidCallback onAddProduct;
+
+  /// Открыть список поддержки тенанта (наследуется в команды продуктов).
+  final VoidCallback onTenantSupport;
+  final VoidCallback onTenantTeams;
   final VoidCallback onEnableGenerate;
   final VoidCallback onRotate;
   final VoidCallback onDisable;
@@ -566,7 +739,9 @@ class _TenantTile extends StatelessWidget {
 
     final statusLine = [
       enabled ? l.platformAdminStatusEnabled : l.platformAdminStatusDisabled,
-      status.hasSecret ? l.platformAdminSecretSet : l.platformAdminSecretMissing,
+      status.hasSecret
+          ? l.platformAdminSecretSet
+          : l.platformAdminSecretMissing,
     ].join(' · ');
 
     // Дерево «тенант → продукт → команда поддержки»: продукты раньше не
@@ -611,6 +786,12 @@ class _TenantTile extends StatelessWidget {
       trailing: PopupMenuButton<_TenantAction>(
         onSelected: (action) {
           switch (action) {
+            case _TenantAction.addProduct:
+              onAddProduct();
+            case _TenantAction.tenantSupport:
+              onTenantSupport();
+            case _TenantAction.tenantTeams:
+              onTenantTeams();
             case _TenantAction.enableGenerate:
               onEnableGenerate();
             case _TenantAction.rotate:
@@ -622,6 +803,32 @@ class _TenantTile extends StatelessWidget {
           }
         },
         itemBuilder: (ctx) => [
+          // Добавление продукта есть и в «+» сверху, но искать его идут
+          // СЮДА: продукт живёт внутри тенанта, и меню тенанта — то место,
+          // где человек уже стоит, когда решил его завести. Здесь тенант
+          // не спрашивается — он известен из строки.
+          PopupMenuItem(
+            value: _TenantAction.addProduct,
+            child: _menuRow(
+              Icons.add_box_outlined,
+              l.platformAdminCreateProduct,
+            ),
+          ),
+          // Поддержка тенанта — уровнем выше команд продуктов: люди
+          // отсюда попадают в команду каждого продукта.
+          PopupMenuItem(
+            value: _TenantAction.tenantSupport,
+            child: _menuRow(
+              Icons.groups_outlined,
+              l.platformAdminTenantSupport,
+            ),
+          ),
+          // Команды тенанта — справочник компании: положили новичка в
+          // «Компанию», и он видит коллег, не зная ни одного email.
+          PopupMenuItem(
+            value: _TenantAction.tenantTeams,
+            child: _menuRow(Icons.diversity_3_outlined, l.platformAdminTeams),
+          ),
           // Включённому tenant-у с секретом предлагаем ротацию, а не
           // повторное «включить» (сервер и так превратил бы его в
           // ротацию — но меню не должно врать о том, что произойдёт).
@@ -666,7 +873,15 @@ class _TenantTile extends StatelessWidget {
   }
 }
 
-enum _TenantAction { enableGenerate, rotate, disable, audit }
+enum _TenantAction {
+  addProduct,
+  tenantSupport,
+  tenantTeams,
+  enableGenerate,
+  rotate,
+  disable,
+  audit,
+}
 
 /// Диалог ротации: grace-период в минутах (дефолт 5, максимум 1440 —
 /// сервер всё равно обрежет, клиентская проверка только гасит опечатки).
@@ -699,9 +914,7 @@ class _RotateDialogState extends State<_RotateDialog> {
 
   int? get _minutes {
     final v = int.tryParse(_graceCtl.text.trim());
-    if (v == null ||
-        v < 0 ||
-        v > NsgMessengerPlatformAdmin.kMaxGraceMinutes) {
+    if (v == null || v < 0 || v > NsgMessengerPlatformAdmin.kMaxGraceMinutes) {
       return null;
     }
     return v;
@@ -869,7 +1082,6 @@ class _TenantAuditSheetState extends State<_TenantAuditSheet> {
   }
 }
 
-
 /// Диалог «ключ + название» для провижна tenant-а/продукта.
 ///
 /// Отдельный StatefulWidget именно ради владения контроллерами: они живут
@@ -920,14 +1132,12 @@ class _KeyNameDialogState extends State<_KeyNameDialog> {
           child: Text(l.commonCancel),
         ),
         FilledButton(
-          onPressed: () => Navigator.of(context).pop(
-            (key: _key.text.trim(), name: _name.text.trim()),
-          ),
+          onPressed: () => Navigator.of(
+            context,
+          ).pop((key: _key.text.trim(), name: _name.text.trim())),
           child: Text(l.platformAdminCreateAction),
         ),
       ],
     );
   }
 }
-
-

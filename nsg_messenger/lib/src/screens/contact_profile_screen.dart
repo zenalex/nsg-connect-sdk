@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:nsg_connect_client/nsg_connect_client.dart';
 
+import '../messages/forward_picker_sheet.dart';
 import '../contact_card/contact_card_view.dart';
 import '../contact_card/vcard.dart';
 import '../contacts/nsg_messenger_contacts.dart';
@@ -164,15 +165,10 @@ class _ContactProfileScreenState extends State<ContactProfileScreen> {
     setState(() {
       final ids = List<int>.of(profile.labelIds);
       assigned ? ids.add(label.id!) : ids.remove(label.id);
-      _profile = ContactProfileView(
-        contactMessengerUserId: profile.contactMessengerUserId,
-        displayName: profile.displayName,
-        username: profile.username,
-        avatarUrl: profile.avatarUrl,
-        customName: profile.customName,
-        note: profile.note,
-        labelIds: ids,
-      );
+      // `copyWith`, а не сборка заново: ручное перечисление полей молча
+      // теряло всё, что здесь не упомянуто (так уже пропадал email), и
+      // ломалось от каждого нового поля профиля.
+      _profile = profile.copyWith(labelIds: ids);
     });
     try {
       await _contacts.setLabelAssigned(
@@ -338,14 +334,36 @@ class _ContactProfileScreenState extends State<ContactProfileScreen> {
       messenger.showSnackBar(SnackBar(content: Text(l.contactRequestSent)));
     } on RateLimitExceededException {
       if (!mounted) return;
-      messenger.showSnackBar(
-        SnackBar(content: Text(l.contactRequestCooldown)),
-      );
+      messenger.showSnackBar(SnackBar(content: Text(l.contactRequestCooldown)));
     } catch (e, st) {
       _reportActionFailed(e, st, 'sendContactRequest');
       if (!mounted) return;
       messenger.showSnackBar(
         SnackBar(content: Text(l.contactRequestSendFailed)),
+      );
+    }
+  }
+
+  /// **Поделиться контактом**: выбрать чат и отправить туда карточку
+  /// человека. Получателю останется нажать «Добавить» — email диктовать
+  /// никому не придётся (ровно та боль, с которой всё началось).
+  Future<void> _shareContact() async {
+    final room = await showForwardPicker(context: context);
+    if (room == null || !mounted) return;
+    final l = NsgL10n.of(context);
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    try {
+      await MessengerRuntime.instance.contacts.shareContact(
+        roomId: room.id,
+        contactMessengerUserId: widget.contactMessengerUserId,
+      );
+      messenger?.showSnackBar(SnackBar(content: Text(l.forwardedSnack)));
+    } catch (_) {
+      // Сервер отказывает, если делиться этим человеком нельзя (чужой
+      // тенант / вы его не знаете) — общий текст, потому что различать
+      // причины здесь нечем и не нужно.
+      messenger?.showSnackBar(
+        SnackBar(content: Text(l.supportTeamActionFailed)),
       );
     }
   }
@@ -402,7 +420,9 @@ class _ContactProfileScreenState extends State<ContactProfileScreen> {
             ),
             FilledButton(
               onPressed: () => Navigator.of(ctx).pop(true),
-              style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.red.shade700,
+              ),
               child: Text(l.contactBlock),
             ),
           ],
@@ -435,7 +455,9 @@ class _ContactProfileScreenState extends State<ContactProfileScreen> {
       setState(() => _relationBusy = false);
       messenger.showSnackBar(
         SnackBar(
-          content: Text(blocked ? l.contactUnblockFailed : l.contactBlockFailed),
+          content: Text(
+            blocked ? l.contactUnblockFailed : l.contactBlockFailed,
+          ),
         ),
       );
     }
@@ -508,9 +530,7 @@ class _ContactProfileScreenState extends State<ContactProfileScreen> {
         await _load();
       } catch (e, st) {
         _reportActionFailed(e, st, 'renameLabel');
-        messenger.showSnackBar(
-          SnackBar(content: Text(l.contactRenameFailed)),
-        );
+        messenger.showSnackBar(SnackBar(content: Text(l.contactRenameFailed)));
       }
       return;
     }
@@ -554,7 +574,11 @@ class _ContactProfileScreenState extends State<ContactProfileScreen> {
       appBar: AppBar(
         title: Text(
           NsgL10n.of(context).contactTitle,
-          style: TextStyle(color: _fg, fontSize: 17, fontWeight: FontWeight.w600),
+          style: TextStyle(
+            color: _fg,
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -579,10 +603,26 @@ class _ContactProfileScreenState extends State<ContactProfileScreen> {
               onSelected: (v) {
                 if (v == 'block' || v == 'unblock') _toggleBlock();
                 if (v == 'saveVcard') _saveToContacts();
+                if (v == 'share') _shareContact();
               },
               itemBuilder: (ctx) {
                 final l = NsgL10n.of(ctx);
                 return [
+                  // Передать человека коллеге, чтобы тот не выспрашивал
+                  // email: получателю останется нажать «Добавить».
+                  PopupMenuItem<String>(
+                    value: 'share',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.ios_share, size: 20, color: _fgMuted),
+                        const SizedBox(width: 12),
+                        Text(
+                          l.sharedContactShare,
+                          style: const TextStyle(color: _fgMuted),
+                        ),
+                      ],
+                    ),
+                  ),
                   if (_cardInfo != null)
                     PopupMenuItem<String>(
                       value: 'saveVcard',
@@ -714,7 +754,11 @@ class _ContactProfileScreenState extends State<ContactProfileScreen> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.block, size: 15, color: Colors.red.shade300),
+                            Icon(
+                              Icons.block,
+                              size: 15,
+                              color: Colors.red.shade300,
+                            ),
                             const SizedBox(width: 7),
                             Text(
                               NsgL10n.of(context).contactBlocked,
@@ -730,6 +774,13 @@ class _ContactProfileScreenState extends State<ContactProfileScreen> {
                     ],
                   ],
                 ),
+                // **§6 DESIGN_TEAMS_AND_CONTACT_SHARING**: откуда знакомы.
+                //
+                // Не украшение. Убрал человека из команды — а он не
+                // пропал из списка людей, потому что остался общий чат.
+                // Без этой строки правильное поведение читается как
+                // «исключение не сработало».
+                KnownViaLine(profile: profile),
                 // **TASK52**: визитка контакта (визуал) — только если есть.
                 if (_cardInfo != null) ...[
                   const SizedBox(height: 20),
@@ -1017,7 +1068,51 @@ class _ErrorRetry extends StatelessWidget {
             style: TextStyle(color: _fgMuted),
           ),
           const SizedBox(height: 8),
-          FilledButton(onPressed: onRetry, child: Text(NsgL10n.of(context).commonRetry)),
+          FilledButton(
+            onPressed: onRetry,
+            child: Text(NsgL10n.of(context).commonRetry),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// **Откуда человек знаком** (§6 DESIGN_TEAMS_AND_CONTACT_SHARING).
+///
+/// Показываем ВСЕ действующие источники, а не первый попавшийся: смысл
+/// строки — объяснить, почему человек не пропал после исключения из
+/// команды, и одна причина из трёх такого объяснения не даёт.
+///
+/// Источников нет вовсе — строки нет: пустое «Знакомы:» ничего не
+/// сообщает, а место занимает.
+class KnownViaLine extends StatelessWidget {
+  const KnownViaLine({super.key, required this.profile});
+
+  final ContactProfileView profile;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = NsgL10n.of(context);
+    final parts = <String>[
+      for (final name in profile.knownViaTeamNames) l.contactKnownViaTeam(name),
+      if (profile.knownViaSharedRoom) l.contactKnownViaSharedRoom,
+      if (profile.knownViaManualContact) l.contactKnownViaManual,
+    ];
+    if (parts.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.link, size: 15, color: _fgDim),
+          const SizedBox(width: 7),
+          Expanded(
+            child: Text(
+              '${l.contactKnownVia}: ${parts.join(', ')}',
+              style: const TextStyle(color: _fgMuted, fontSize: 12.5),
+            ),
+          ),
         ],
       ),
     );

@@ -95,6 +95,59 @@ void main() {
     await provider.dispose();
   });
 
+  /// **Issue #86**: отсутствие токена — состояние, а не пустота. Даже у
+  /// тестового провайдера оно обязано быть видно наружу, иначе host-app
+  /// и виджеты не на чем проверять.
+  group('issue #86 — статус доставки', () {
+    test('без токена статус pending, с токеном — ready', () async {
+      final empty = InMemoryPushTokenProvider(deviceInfo: info);
+      expect(empty.pushStatus, PushTokenStatus.pending);
+      await empty.dispose();
+
+      final withToken = InMemoryPushTokenProvider(
+        deviceInfo: info,
+        initialToken: 'tok-1',
+      );
+      expect(withToken.pushStatus, PushTokenStatus.ready);
+      await withToken.dispose();
+    });
+
+    test('setStatus эмитит причину в поток (дубли не эмитим)', () async {
+      final provider = InMemoryPushTokenProvider(deviceInfo: info);
+      final seen = <PushTokenStatus>[];
+      final sub = provider.pushStatusStream().listen(seen.add);
+
+      provider.setStatus(PushTokenStatus.permissionDenied);
+      provider.setStatus(PushTokenStatus.permissionDenied);
+      provider.setStatus(PushTokenStatus.tokenUnavailable);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(seen, [
+        PushTokenStatus.permissionDenied,
+        PushTokenStatus.tokenUnavailable,
+      ]);
+      expect(provider.pushStatus, PushTokenStatus.tokenUnavailable);
+
+      await sub.cancel();
+      await provider.dispose();
+    });
+
+    test('приход токена переводит статус в ready', () async {
+      final provider = InMemoryPushTokenProvider(deviceInfo: info);
+      final seen = <PushTokenStatus>[];
+      final sub = provider.pushStatusStream().listen(seen.add);
+
+      provider.setStatus(PushTokenStatus.tokenUnavailable);
+      provider.setToken('tok-late');
+      await Future<void>.delayed(Duration.zero);
+
+      expect(seen.last, PushTokenStatus.ready);
+
+      await sub.cancel();
+      await provider.dispose();
+    });
+  });
+
   test('dispose: stream закрывается, повторный setToken — no-op', () async {
     final provider = InMemoryPushTokenProvider(deviceInfo: info);
     final received = <String?>[];

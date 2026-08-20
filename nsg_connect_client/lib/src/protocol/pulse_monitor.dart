@@ -27,17 +27,21 @@ abstract class PulseMonitor implements _i1.SerializableModel {
     required this.tenantId,
     this.folderId,
     required this.name,
-    required this.tokenHash,
+    String? kind,
+    this.tokenHash,
     required this.periodSeconds,
     required this.graceSeconds,
     String? status,
     this.statusText,
     this.lastBeatAt,
+    this.lastValuesJson,
     this.lastChangeAt,
+    this.lastEvaluatedAt,
     bool? paused,
     required this.createdBy,
     required this.createdAt,
-  }) : status = status ?? 'ok',
+  }) : kind = kind ?? 'heartbeat',
+       status = status ?? 'ok',
        paused = paused ?? false;
 
   factory PulseMonitor({
@@ -45,13 +49,16 @@ abstract class PulseMonitor implements _i1.SerializableModel {
     required int tenantId,
     int? folderId,
     required String name,
-    required String tokenHash,
+    String? kind,
+    String? tokenHash,
     required int periodSeconds,
     required int graceSeconds,
     String? status,
     String? statusText,
     DateTime? lastBeatAt,
+    String? lastValuesJson,
     DateTime? lastChangeAt,
+    DateTime? lastEvaluatedAt,
     bool? paused,
     required int createdBy,
     required DateTime createdAt,
@@ -63,7 +70,8 @@ abstract class PulseMonitor implements _i1.SerializableModel {
       tenantId: jsonSerialization['tenantId'] as int,
       folderId: jsonSerialization['folderId'] as int?,
       name: jsonSerialization['name'] as String,
-      tokenHash: jsonSerialization['tokenHash'] as String,
+      kind: jsonSerialization['kind'] as String?,
+      tokenHash: jsonSerialization['tokenHash'] as String?,
       periodSeconds: jsonSerialization['periodSeconds'] as int,
       graceSeconds: jsonSerialization['graceSeconds'] as int,
       status: jsonSerialization['status'] as String?,
@@ -71,10 +79,16 @@ abstract class PulseMonitor implements _i1.SerializableModel {
       lastBeatAt: jsonSerialization['lastBeatAt'] == null
           ? null
           : _i1.DateTimeJsonExtension.fromJson(jsonSerialization['lastBeatAt']),
+      lastValuesJson: jsonSerialization['lastValuesJson'] as String?,
       lastChangeAt: jsonSerialization['lastChangeAt'] == null
           ? null
           : _i1.DateTimeJsonExtension.fromJson(
               jsonSerialization['lastChangeAt'],
+            ),
+      lastEvaluatedAt: jsonSerialization['lastEvaluatedAt'] == null
+          ? null
+          : _i1.DateTimeJsonExtension.fromJson(
+              jsonSerialization['lastEvaluatedAt'],
             ),
       paused: jsonSerialization['paused'] == null
           ? null
@@ -98,7 +112,21 @@ abstract class PulseMonitor implements _i1.SerializableModel {
 
   String name;
 
-  String tokenHash;
+  /// **TASK94 (#108)**: `heartbeat` — монитор ждёт beat снаружи;
+  /// `tlsProbe` — сервер сам ходит и проверяет сертификат. Дефолт делает
+  /// миграцию существующих записей тождественной: всё, что есть сейчас, —
+  /// heartbeat, и семантика их не меняется.
+  String kind;
+
+  /// **TASK94 (#108)**: стало необязательным. У TLS-пробы токена НЕТ и не
+  /// должно быть: пока он существует, кто-нибудь однажды пошлёт beat и
+  /// замаскирует протухший сертификат — ровно тот отказ, ради которого
+  /// пробы и заводятся. Отсутствие секрета надёжнее, чем секрет, который
+  /// мы обещали не принимать.
+  ///
+  /// Уникальный индекс это переживает: несколько NULL в Postgres не
+  /// конфликтуют.
+  String? tokenHash;
 
   /// Ожидаемый интервал сигналов, сек (напр. 300).
   int periodSeconds;
@@ -114,7 +142,27 @@ abstract class PulseMonitor implements _i1.SerializableModel {
 
   DateTime? lastBeatAt;
 
+  /// **issue #116**: последние ЧИСЛА из beat, JSON-объект `имя → число`.
+  /// Снимок, а не ряд: заводить под него таблицу значило бы притвориться
+  /// хранилищем метрик, которым мы быть не собираемся (см. §7 дизайна
+  /// плагинов-мониторов). Графики за год — другой продукт.
+  String? lastValuesJson;
+
   DateTime? lastChangeAt;
+
+  /// **issue #131**: когда сервер в последний раз ПЕРЕСЧИТЫВАЛ статус
+  /// монитора, который считает сам (`kind` — проба или здоровье каналов).
+  ///
+  /// Нужно, потому что такие мониторы освобождены от дедлайна молчания —
+  /// beat им слать некому. Освобождение честное, но за него платят: встань
+  /// считающий воркер, и монитор замрёт на последнем статусе, оставшись
+  /// зелёным навсегда. Ровно та беда, от которой мониторинг и заводят, —
+  /// сломанное молчит и потому выглядит работающим.
+  ///
+  /// Отличается от `lastChangeAt`: тот отмечает СМЕНУ статуса, а спокойный
+  /// монитор не меняется месяцами, и по нему живость воркера не отличить от
+  /// затянувшегося покоя.
+  DateTime? lastEvaluatedAt;
 
   bool paused;
 
@@ -130,13 +178,16 @@ abstract class PulseMonitor implements _i1.SerializableModel {
     int? tenantId,
     int? folderId,
     String? name,
+    String? kind,
     String? tokenHash,
     int? periodSeconds,
     int? graceSeconds,
     String? status,
     String? statusText,
     DateTime? lastBeatAt,
+    String? lastValuesJson,
     DateTime? lastChangeAt,
+    DateTime? lastEvaluatedAt,
     bool? paused,
     int? createdBy,
     DateTime? createdAt,
@@ -149,13 +200,16 @@ abstract class PulseMonitor implements _i1.SerializableModel {
       'tenantId': tenantId,
       if (folderId != null) 'folderId': folderId,
       'name': name,
-      'tokenHash': tokenHash,
+      'kind': kind,
+      if (tokenHash != null) 'tokenHash': tokenHash,
       'periodSeconds': periodSeconds,
       'graceSeconds': graceSeconds,
       'status': status,
       if (statusText != null) 'statusText': statusText,
       if (lastBeatAt != null) 'lastBeatAt': lastBeatAt?.toJson(),
+      if (lastValuesJson != null) 'lastValuesJson': lastValuesJson,
       if (lastChangeAt != null) 'lastChangeAt': lastChangeAt?.toJson(),
+      if (lastEvaluatedAt != null) 'lastEvaluatedAt': lastEvaluatedAt?.toJson(),
       'paused': paused,
       'createdBy': createdBy,
       'createdAt': createdAt.toJson(),
@@ -176,13 +230,16 @@ class _PulseMonitorImpl extends PulseMonitor {
     required int tenantId,
     int? folderId,
     required String name,
-    required String tokenHash,
+    String? kind,
+    String? tokenHash,
     required int periodSeconds,
     required int graceSeconds,
     String? status,
     String? statusText,
     DateTime? lastBeatAt,
+    String? lastValuesJson,
     DateTime? lastChangeAt,
+    DateTime? lastEvaluatedAt,
     bool? paused,
     required int createdBy,
     required DateTime createdAt,
@@ -191,13 +248,16 @@ class _PulseMonitorImpl extends PulseMonitor {
          tenantId: tenantId,
          folderId: folderId,
          name: name,
+         kind: kind,
          tokenHash: tokenHash,
          periodSeconds: periodSeconds,
          graceSeconds: graceSeconds,
          status: status,
          statusText: statusText,
          lastBeatAt: lastBeatAt,
+         lastValuesJson: lastValuesJson,
          lastChangeAt: lastChangeAt,
+         lastEvaluatedAt: lastEvaluatedAt,
          paused: paused,
          createdBy: createdBy,
          createdAt: createdAt,
@@ -212,13 +272,16 @@ class _PulseMonitorImpl extends PulseMonitor {
     int? tenantId,
     Object? folderId = _Undefined,
     String? name,
-    String? tokenHash,
+    String? kind,
+    Object? tokenHash = _Undefined,
     int? periodSeconds,
     int? graceSeconds,
     String? status,
     Object? statusText = _Undefined,
     Object? lastBeatAt = _Undefined,
+    Object? lastValuesJson = _Undefined,
     Object? lastChangeAt = _Undefined,
+    Object? lastEvaluatedAt = _Undefined,
     bool? paused,
     int? createdBy,
     DateTime? createdAt,
@@ -228,15 +291,22 @@ class _PulseMonitorImpl extends PulseMonitor {
       tenantId: tenantId ?? this.tenantId,
       folderId: folderId is int? ? folderId : this.folderId,
       name: name ?? this.name,
-      tokenHash: tokenHash ?? this.tokenHash,
+      kind: kind ?? this.kind,
+      tokenHash: tokenHash is String? ? tokenHash : this.tokenHash,
       periodSeconds: periodSeconds ?? this.periodSeconds,
       graceSeconds: graceSeconds ?? this.graceSeconds,
       status: status ?? this.status,
       statusText: statusText is String? ? statusText : this.statusText,
       lastBeatAt: lastBeatAt is DateTime? ? lastBeatAt : this.lastBeatAt,
+      lastValuesJson: lastValuesJson is String?
+          ? lastValuesJson
+          : this.lastValuesJson,
       lastChangeAt: lastChangeAt is DateTime?
           ? lastChangeAt
           : this.lastChangeAt,
+      lastEvaluatedAt: lastEvaluatedAt is DateTime?
+          ? lastEvaluatedAt
+          : this.lastEvaluatedAt,
       paused: paused ?? this.paused,
       createdBy: createdBy ?? this.createdBy,
       createdAt: createdAt ?? this.createdAt,

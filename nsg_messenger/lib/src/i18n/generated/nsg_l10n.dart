@@ -235,11 +235,11 @@ abstract class NsgL10n {
   /// **'The edit exceeds the {limit}-character limit — shorten it'**
   String composerEditTooLong(int limit);
 
-  /// issue #70: снекбар после автоформатирования вставленного кода. Обязателен вместе с «Отменить»: молча переоформить чужой текст нельзя.
+  /// issue #83: Ctrl+V с картинкой в буфере не смог её прочитать. Раньше композер выходил молча — пользователь видел пустое поле и решил, что фото нельзя отправить без комментария, хотя картинка просто не прикрепилась. Показывается ТОЛЬКО когда картинка в буфере действительно была; обычная вставка текста идёт тем же кодом и остаётся беззвучной.
   ///
   /// In en, this message translates to:
-  /// **'Formatted as code'**
-  String get composerPastedAsCode;
+  /// **'Could not paste the image from the clipboard. Save it to a file and attach it with the paperclip.'**
+  String get composerPasteImageFailed;
 
   /// Общее действие «отменить» в снекбарах.
   ///
@@ -607,6 +607,18 @@ abstract class NsgL10n {
   /// **'No app to open \"{filename}\"'**
   String fileNoHandler(String filename);
 
+  /// Issue #89: tooltip of the file-preview toggle when lines are NOT wrapped — pressing it turns wrapping on.
+  ///
+  /// In en, this message translates to:
+  /// **'Wrap lines'**
+  String get filePreviewWrapOn;
+
+  /// Issue #89: tooltip of the same toggle when lines ARE wrapped — pressing it switches back to horizontal scrolling (tables, logs, code keep their alignment).
+  ///
+  /// In en, this message translates to:
+  /// **'Do not wrap lines'**
+  String get filePreviewWrapOff;
+
   /// issue #69: не удалось загрузить/открыть вложение (сеть, сервер, права).
   ///
   /// In en, this message translates to:
@@ -763,6 +775,18 @@ abstract class NsgL10n {
   /// **'Choose a reaction'**
   String get emojiPickerTitle;
 
+  /// Issue #85: заголовок того же шита, когда его открыли из композера для вставки эмодзи в текст. Отличается от emojiPickerTitle только словом: «Выберите реакцию» над панелью, из которой набирают сообщение, сбивает с толку.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose an emoji'**
+  String get emojiInsertPickerTitle;
+
+  /// Issue #85: подсказка кнопки эмодзи в композере. Кнопка есть только там, где нет экранной клавиатуры со своими эмодзи (десктоп и веб на десктопе).
+  ///
+  /// In en, this message translates to:
+  /// **'Emoji'**
+  String get emojiInsertTooltip;
+
   /// F2 ч.1: категория эмодзи — смайлы.
   ///
   /// In en, this message translates to:
@@ -894,6 +918,18 @@ abstract class NsgL10n {
   /// In en, this message translates to:
   /// **'{name1} and {name2} are typing…'**
   String typingPair(String name1, String name2);
+
+  /// Тот же индикатор, что typingSingle, но печатающий — бот/агент. Другой глагол, потому что агент думает минутами и всё это время шлёт m.typing: «печатает…» десять минут подряд читается как зависание.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} is thinking…'**
+  String typingSingleBot(String name);
+
+  /// 2+ печатающих, и хотя бы один из них — бот. Глагол нейтральный: «печатают» соврало бы про бота, «анализируют» — про человека. Имена не перечисляем — в строку списка чатов не влезет.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{{count} participant is preparing a reply…} other{{count} participants are preparing a reply…}}'**
+  String typingManyMixed(int count);
 
   /// B15: dialog title for room rename.
   ///
@@ -1344,6 +1380,12 @@ abstract class NsgL10n {
   /// In en, this message translates to:
   /// **'Support team is not available'**
   String get supportTeamUnavailable;
+
+  /// Issue: server AmbiguousProductKeyException — the same product externalKey is registered under two tenants and the caller belongs to both teams. Retrying never helps.
+  ///
+  /// In en, this message translates to:
+  /// **'This product key exists in more than one tenant — the server cannot tell which team you mean. Ask the platform admin to remove the duplicate.'**
+  String get supportTeamAmbiguousProduct;
 
   /// TASK43: generic error snackbar for add/remove failures.
   ///
@@ -2605,6 +2647,114 @@ abstract class NsgL10n {
   /// **'Created'**
   String get platformAdminCreated;
 
+  /// No description provided for @platformAdminDeleteProduct.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete product'**
+  String get platformAdminDeleteProduct;
+
+  /// No description provided for @platformAdminDeleteProductConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete product “{name}”? Its support team and issued access keys go with it. This cannot be undone.'**
+  String platformAdminDeleteProductConfirm(Object name);
+
+  /// No description provided for @platformAdminDeleteProductBusy.
+  ///
+  /// In en, this message translates to:
+  /// **'Product is in use and was not deleted: {what}. Clear that first — otherwise conversations would outlive the product.'**
+  String platformAdminDeleteProductBusy(Object what);
+
+  /// No description provided for @platformAdminDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleted'**
+  String get platformAdminDeleted;
+
+  /// No description provided for @platformAdminBusyRooms.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{{count} room} other{{count} rooms}}'**
+  String platformAdminBusyRooms(num count);
+
+  /// No description provided for @platformAdminBusyTickets.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{{count} ticket} other{{count} tickets}}'**
+  String platformAdminBusyTickets(num count);
+
+  /// No description provided for @platformAdminBusyBots.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{{count} bot} other{{count} bots}}'**
+  String platformAdminBusyBots(num count);
+
+  /// No description provided for @platformAdminBusyIdentities.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{{count} user} other{{count} users}}'**
+  String platformAdminBusyIdentities(num count);
+
+  /// No description provided for @platformAdminBusyDevices.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{{count} device} other{{count} devices}}'**
+  String platformAdminBusyDevices(num count);
+
+  /// No description provided for @platformAdminBusyWebhooks.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{{count} webhook} other{{count} webhooks}}'**
+  String platformAdminBusyWebhooks(num count);
+
+  /// No description provided for @platformAdminTenantSupport.
+  ///
+  /// In en, this message translates to:
+  /// **'Tenant support'**
+  String get platformAdminTenantSupport;
+
+  /// No description provided for @platformAdminTenantSupportHint.
+  ///
+  /// In en, this message translates to:
+  /// **'These people belong to every product team of the tenant. Remove here and they disappear from all of them at once.'**
+  String get platformAdminTenantSupportHint;
+
+  /// No description provided for @platformAdminTenantSupportEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Nobody — operators are listed per product team'**
+  String get platformAdminTenantSupportEmpty;
+
+  /// No description provided for @platformAdminTenantSupportAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add to tenant support'**
+  String get platformAdminTenantSupportAdd;
+
+  /// No description provided for @platformAdminTenantSupportRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from tenant support'**
+  String get platformAdminTenantSupportRemove;
+
+  /// No description provided for @platformAdminTenantSupportRemoveConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove {name} from tenant support? They will disappear from every product team of this tenant.'**
+  String platformAdminTenantSupportRemoveConfirm(Object name);
+
+  /// No description provided for @supportTeamInherited.
+  ///
+  /// In en, this message translates to:
+  /// **'From tenant'**
+  String get supportTeamInherited;
+
+  /// No description provided for @supportTeamRemoveInheritedConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} comes from tenant support. Remove them from this product only? They stay in other products.'**
+  String supportTeamRemoveInheritedConfirm(Object name);
+
   /// Дерево тенант → продукт → команда: у тенанта пока нет продуктов.
   ///
   /// In en, this message translates to:
@@ -2965,6 +3115,12 @@ abstract class NsgL10n {
   /// **'Bot'**
   String get botCardTitle;
 
+  /// Заявка #138: пункт меню аватара для бота — вместо «профиля контакта».
+  ///
+  /// In en, this message translates to:
+  /// **'Bot card'**
+  String get openBotCardAction;
+
   /// TASK77 итер.3: владелец бота в карточке — отображаемое имя либо email.
   ///
   /// In en, this message translates to:
@@ -3072,6 +3228,12 @@ abstract class NsgL10n {
   /// In en, this message translates to:
   /// **'Failed to load monitoring'**
   String get pulseLoadFailed;
+
+  /// issue #135: транспортный отказ (таймаут/сокет) на загрузке мониторинга. Человеку показываем причину словами, а не текст исключения.
+  ///
+  /// In en, this message translates to:
+  /// **'No connection to the server'**
+  String get pulseLoadFailedOffline;
 
   /// TASK60: снекбар неуспеха мутации (create/rename/delete/pause/rotate/ack).
   ///
@@ -3390,6 +3552,12 @@ abstract class NsgL10n {
   /// In en, this message translates to:
   /// **'Minimum severity'**
   String get pulseMinSeverityLabel;
+
+  /// Текущий статус монитора в карточке. Не путать с pulseMinSeverityLabel: тот про ПОРОГ правила оповещения, этот про то, что с монитором сейчас.
+  ///
+  /// In en, this message translates to:
+  /// **'Status'**
+  String get pulseStatusLabel;
 
   /// TASK60: severity warn (человекочитаемо).
   ///
@@ -3714,6 +3882,48 @@ abstract class NsgL10n {
   /// In en, this message translates to:
   /// **'Unblocked'**
   String get contactUnblocked;
+
+  /// No description provided for @sharedContactListTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Contacts'**
+  String get sharedContactListTitle;
+
+  /// No description provided for @sharedContactListAddAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Add all'**
+  String get sharedContactListAddAll;
+
+  /// No description provided for @sharedContactShareLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Share list'**
+  String get sharedContactShareLabel;
+
+  /// No description provided for @sharedContactTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Contact'**
+  String get sharedContactTitle;
+
+  /// No description provided for @sharedContactAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get sharedContactAdd;
+
+  /// No description provided for @sharedContactAlreadyKnown.
+  ///
+  /// In en, this message translates to:
+  /// **'Already in list'**
+  String get sharedContactAlreadyKnown;
+
+  /// No description provided for @sharedContactShare.
+  ///
+  /// In en, this message translates to:
+  /// **'Share contact'**
+  String get sharedContactShare;
 
   /// No description provided for @contactAddedToContacts.
   ///
@@ -4465,6 +4675,18 @@ abstract class NsgL10n {
   /// **'Rejected'**
   String get taskStageRejected;
 
+  /// No description provided for @taskStageAwaitingUser.
+  ///
+  /// In en, this message translates to:
+  /// **'Awaiting your reply'**
+  String get taskStageAwaitingUser;
+
+  /// No description provided for @taskStageOnHold.
+  ///
+  /// In en, this message translates to:
+  /// **'On hold'**
+  String get taskStageOnHold;
+
   /// TASK84: title of the Tasks screen (tasks from all my active rooms).
   ///
   /// In en, this message translates to:
@@ -4513,23 +4735,41 @@ abstract class NsgL10n {
   /// **'Tasks: {room}'**
   String tasksScreenTitleForRoom(String room);
 
-  /// TASK75: caption next to the project filter chip in the support inbox folder header.
+  /// TASK91: button that closes an in-app announcement.
   ///
   /// In en, this message translates to:
-  /// **'Project:'**
-  String get supportInboxProjectFilterLabel;
+  /// **'Got it'**
+  String get announcementDismiss;
 
-  /// TASK75: support inbox project filter — no project selected (reset value).
+  /// TASK91: button that opens the screen an announcement points to.
   ///
   /// In en, this message translates to:
-  /// **'All projects'**
-  String get supportInboxProjectFilterAll;
+  /// **'Open'**
+  String get announcementOpen;
 
-  /// TASK75: title of the bottom sheet that picks a project for the support inbox filter.
+  /// Overlay shown while dragging files over the chat (desktop drag-and-drop).
   ///
   /// In en, this message translates to:
-  /// **'Filter by project'**
-  String get supportInboxProjectFilterTitle;
+  /// **'Drop files to attach'**
+  String get attachmentDropHint;
+
+  /// issue #62: admin-controlled visibility of the group member list.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide member list'**
+  String get participantsHiddenToggle;
+
+  /// issue #62: admin-controlled visibility of the group member list.
+  ///
+  /// In en, this message translates to:
+  /// **'Only admins will see who is in the group'**
+  String get participantsHiddenHint;
+
+  /// issue #62: admin-controlled visibility of the group member list.
+  ///
+  /// In en, this message translates to:
+  /// **'The admin has hidden the member list'**
+  String get participantsHiddenNotice;
 
   /// TASK75: empty state of the support inbox (no open support chats, or none match the project filter).
   ///
@@ -4560,6 +4800,900 @@ abstract class NsgL10n {
   /// In en, this message translates to:
   /// **'Couldn\'t open the chat — try again'**
   String get messageActionDirectMessageFailed;
+
+  /// No description provided for @platformAdminTeams.
+  ///
+  /// In en, this message translates to:
+  /// **'Tenant teams'**
+  String get platformAdminTeams;
+
+  /// No description provided for @platformAdminTeamsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Company directory. People in one team can see each other, so a newcomer needs nobody\'s address. A team does not open private card fields and does not override «who can message me».'**
+  String get platformAdminTeamsHint;
+
+  /// No description provided for @platformAdminTeamsEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No teams yet — a newcomer will see an empty people list'**
+  String get platformAdminTeamsEmpty;
+
+  /// No description provided for @platformAdminTeamCreate.
+  ///
+  /// In en, this message translates to:
+  /// **'New team'**
+  String get platformAdminTeamCreate;
+
+  /// No description provided for @platformAdminTeamName.
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
+  String get platformAdminTeamName;
+
+  /// No description provided for @platformAdminTeamDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Description (optional)'**
+  String get platformAdminTeamDescription;
+
+  /// No description provided for @platformAdminTeamNameTaken.
+  ///
+  /// In en, this message translates to:
+  /// **'A team with this name already exists'**
+  String get platformAdminTeamNameTaken;
+
+  /// No description provided for @platformAdminTeamDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Disband team'**
+  String get platformAdminTeamDelete;
+
+  /// No description provided for @platformAdminTeamDeleteConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Disband «{name}»? Members will stop seeing each other through this team. Chats and history remain.'**
+  String platformAdminTeamDeleteConfirm(String name);
+
+  /// No description provided for @platformAdminTeamMembers.
+  ///
+  /// In en, this message translates to:
+  /// **'Members: {count}'**
+  String platformAdminTeamMembers(int count);
+
+  /// No description provided for @platformAdminTeamMemberAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add to team'**
+  String get platformAdminTeamMemberAdd;
+
+  /// No description provided for @platformAdminTeamMemberRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from team'**
+  String get platformAdminTeamMemberRemove;
+
+  /// No description provided for @platformAdminTeamMemberRemoveConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove {name} from the team? They will disappear from other people\'s lists — unless they are known for another reason (a shared chat, another shared team).'**
+  String platformAdminTeamMemberRemoveConfirm(String name);
+
+  /// No description provided for @platformAdminTeamMemberAddWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'They will see the whole team, and the whole team will see them.'**
+  String get platformAdminTeamMemberAddWarning;
+
+  /// No description provided for @platformAdminTeamFull.
+  ///
+  /// In en, this message translates to:
+  /// **'The team is already at its member limit'**
+  String get platformAdminTeamFull;
+
+  /// No description provided for @platformAdminTeamMembersEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Empty — this team introduces nobody'**
+  String get platformAdminTeamMembersEmpty;
+
+  /// Этап 3 DESIGN_TEAMS_AND_CONTACT_SHARING: свои команды пользователя.
+  ///
+  /// In en, this message translates to:
+  /// **'Teams'**
+  String get myTeamsTitle;
+
+  /// No description provided for @myTeamsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'A team is a list of people without a chat: members see each other. You can only add people you already know. A team does not open private contact card fields and does not override the «who can message me» setting.'**
+  String get myTeamsHint;
+
+  /// No description provided for @myTeamsEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No teams yet. Gather people you already know — they will see each other without starting a group chat.'**
+  String get myTeamsEmpty;
+
+  /// No description provided for @myTeamsOrgBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'Company team'**
+  String get myTeamsOrgBadge;
+
+  /// No description provided for @myTeamsCreate.
+  ///
+  /// In en, this message translates to:
+  /// **'New team'**
+  String get myTeamsCreate;
+
+  /// No description provided for @myTeamsName.
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
+  String get myTeamsName;
+
+  /// No description provided for @myTeamsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Description (optional)'**
+  String get myTeamsDescription;
+
+  /// No description provided for @myTeamsMembers.
+  ///
+  /// In en, this message translates to:
+  /// **'Members: {count}'**
+  String myTeamsMembers(int count);
+
+  /// No description provided for @myTeamsMembersEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Empty — this team introduces nobody'**
+  String get myTeamsMembersEmpty;
+
+  /// No description provided for @myTeamsMemberAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add to team'**
+  String get myTeamsMemberAdd;
+
+  /// No description provided for @myTeamsMemberAddWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'They will see everyone in the team, and everyone will see them.'**
+  String get myTeamsMemberAddWarning;
+
+  /// No description provided for @myTeamsMemberRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from team'**
+  String get myTeamsMemberRemove;
+
+  /// No description provided for @myTeamsMemberRemoveConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove {name} from the team? They will disappear from other members\' people list — unless something else connects them (a shared chat, another shared team).'**
+  String myTeamsMemberRemoveConfirm(String name);
+
+  /// No description provided for @myTeamsDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Disband team'**
+  String get myTeamsDelete;
+
+  /// No description provided for @myTeamsDeleteConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Disband «{name}»? Members will stop seeing each other through this team. Chats and history stay.'**
+  String myTeamsDeleteConfirm(String name);
+
+  /// No description provided for @myTeamsLeave.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave team'**
+  String get myTeamsLeave;
+
+  /// No description provided for @myTeamsLeaveConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave «{name}»? Other members will disappear from your people list — those you are not connected to otherwise.'**
+  String myTeamsLeaveConfirm(String name);
+
+  /// Главное правило этапа 3: в свою команду добавляют только знакомых. Отказ обязан объяснять причину, иначе читается как поломка.
+  ///
+  /// In en, this message translates to:
+  /// **'You do not know this person yet. Get acquainted first: a shared chat, a shared company team, or «Add to contacts».'**
+  String get myTeamsPeerUnknown;
+
+  /// No description provided for @myTeamsFull.
+  ///
+  /// In en, this message translates to:
+  /// **'This team already has the maximum number of members'**
+  String get myTeamsFull;
+
+  /// No description provided for @myTeamsAccessDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Only the team owner manages its members'**
+  String get myTeamsAccessDenied;
+
+  /// No description provided for @myTeamsActionFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not complete the action'**
+  String get myTeamsActionFailed;
+
+  /// §5 «мост к командам»: метка личная и разовая, команда — общая и живая.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a team from this label'**
+  String get peopleTeamFromLabel;
+
+  /// No description provided for @peopleTeamFromLabelDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Team «{name}»: {count} added'**
+  String peopleTeamFromLabelDone(String name, int count);
+
+  /// No description provided for @contactKnownVia.
+  ///
+  /// In en, this message translates to:
+  /// **'Known via'**
+  String get contactKnownVia;
+
+  /// No description provided for @contactKnownViaTeam.
+  ///
+  /// In en, this message translates to:
+  /// **'from team «{name}»'**
+  String contactKnownViaTeam(String name);
+
+  /// No description provided for @contactKnownViaSharedRoom.
+  ///
+  /// In en, this message translates to:
+  /// **'a shared chat'**
+  String get contactKnownViaSharedRoom;
+
+  /// No description provided for @contactKnownViaManual.
+  ///
+  /// In en, this message translates to:
+  /// **'added by you'**
+  String get contactKnownViaManual;
+
+  /// Issue #86: заголовок состояния «пуш-токен не получен» — в настройках уведомлений и в баннере над списком чатов.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications are not connected'**
+  String get pushStatusNotConnectedTitle;
+
+  /// Issue #86: причина — разрешение не выдано; лечится системными настройками.
+  ///
+  /// In en, this message translates to:
+  /// **'This app is not allowed to show notifications. Until you allow it, new messages are only visible while the app is open.'**
+  String get pushStatusPermissionDenied;
+
+  /// Issue #86: причина — разрешение есть, а токена нет; лечится сетью/entitlements, кнопка «разрешить» бесполезна.
+  ///
+  /// In en, this message translates to:
+  /// **'Permission is granted, but the device did not register with the delivery service. Usually the network is at fault: Wi-Fi blocks port 5223 to push.apple.com — try mobile data and restart the app.'**
+  String get pushStatusTokenUnavailable;
+
+  /// No description provided for @pushStatusOpenSystemSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Open settings'**
+  String get pushStatusOpenSystemSettings;
+
+  /// No description provided for @pushStatusBannerText.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications are not connected — nothing will arrive in the background'**
+  String get pushStatusBannerText;
+
+  /// No description provided for @pushStatusBannerDismiss.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide'**
+  String get pushStatusBannerDismiss;
+
+  /// Issue #102: заголовок экрана обрезки аватара.
+  ///
+  /// In en, this message translates to:
+  /// **'Avatar'**
+  String get avatarCropTitle;
+
+  /// Issue #102: подтвердить обрезку и вернуть байты вызывающему.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get avatarCropDone;
+
+  /// Issue #102: поворот на 90° — снимок с телефона часто приезжает лежащим.
+  ///
+  /// In en, this message translates to:
+  /// **'Rotate'**
+  String get avatarCropRotate;
+
+  /// Issue #102: обрезка не удалась (битый файл); экран остаётся открытым.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not crop the image'**
+  String get avatarCropFailed;
+
+  /// Мониторинг: карточка монитора в правой панели широкой раскладки.
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get commonBack;
+
+  /// Issue #103: редактор фото перед отправкой.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get photoEditTitle;
+
+  /// Issue #103: редактор фото перед отправкой.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get photoEditDone;
+
+  /// Issue #103: редактор фото перед отправкой.
+  ///
+  /// In en, this message translates to:
+  /// **'Crop'**
+  String get photoEditCrop;
+
+  /// Issue #103: редактор фото перед отправкой.
+  ///
+  /// In en, this message translates to:
+  /// **'Draw'**
+  String get photoEditDraw;
+
+  /// Issue #103: редактор фото перед отправкой.
+  ///
+  /// In en, this message translates to:
+  /// **'Undo'**
+  String get photoEditUndo;
+
+  /// Issue #103: редактор фото перед отправкой.
+  ///
+  /// In en, this message translates to:
+  /// **'Brush'**
+  String get photoEditToolBrush;
+
+  /// Issue #103: редактор фото перед отправкой.
+  ///
+  /// In en, this message translates to:
+  /// **'Arrow'**
+  String get photoEditToolArrow;
+
+  /// Issue #103: редактор фото перед отправкой.
+  ///
+  /// In en, this message translates to:
+  /// **'Frame'**
+  String get photoEditToolRect;
+
+  /// Issue #103: редактор фото перед отправкой.
+  ///
+  /// In en, this message translates to:
+  /// **'Text'**
+  String get photoEditToolText;
+
+  /// Issue #103: редактор фото перед отправкой.
+  ///
+  /// In en, this message translates to:
+  /// **'Caption'**
+  String get photoEditTextTitle;
+
+  /// Issue #103: редактор фото перед отправкой.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get photoEditTextOk;
+
+  /// Issue #103: редактор фото перед отправкой.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not crop the image'**
+  String get photoEditFailed;
+
+  /// TASK94: выбор рода монитора в диалоге создания.
+  ///
+  /// In en, this message translates to:
+  /// **'Monitor type'**
+  String get pulseKindLabel;
+
+  /// TASK94: род монитора heartbeat.
+  ///
+  /// In en, this message translates to:
+  /// **'Heartbeat — the service signals us'**
+  String get pulseKindHeartbeat;
+
+  /// TASK94: род монитора tlsProbe.
+  ///
+  /// In en, this message translates to:
+  /// **'TLS probe — we check the certificate'**
+  String get pulseKindTlsProbe;
+
+  /// TASK94: адрес подключения пробы.
+  ///
+  /// In en, this message translates to:
+  /// **'Host or IP'**
+  String get pulseProbeHostLabel;
+
+  /// TASK94: порт цели пробы.
+  ///
+  /// In en, this message translates to:
+  /// **'Port'**
+  String get pulseProbePortLabel;
+
+  /// TASK94: имя, передаваемое в SNI и проверяемое в сертификате.
+  ///
+  /// In en, this message translates to:
+  /// **'Server name (SNI)'**
+  String get pulseProbeSniLabel;
+
+  /// TASK94: пояснение, зачем SNI отдельным полем.
+  ///
+  /// In en, this message translates to:
+  /// **'Separate from the address: DNS may point to another server'**
+  String get pulseProbeSniHelp;
+
+  /// TASK94: таймаут одной попытки пробы.
+  ///
+  /// In en, this message translates to:
+  /// **'Timeout, s'**
+  String get pulseProbeTimeoutLabel;
+
+  /// TASK94: режим валидации сертификата.
+  ///
+  /// In en, this message translates to:
+  /// **'Validation'**
+  String get pulseProbeValidationLabel;
+
+  /// TASK94: режим publicPki.
+  ///
+  /// In en, this message translates to:
+  /// **'Public CA'**
+  String get pulseProbeValidationPublic;
+
+  /// TASK94: режим pinnedSelfSigned.
+  ///
+  /// In en, this message translates to:
+  /// **'Pinned thumbprint'**
+  String get pulseProbeValidationPinned;
+
+  /// TASK94: pin для самоподписанных сертификатов.
+  ///
+  /// In en, this message translates to:
+  /// **'Expected thumbprint (SHA-256)'**
+  String get pulseProbeThumbprintLabel;
+
+  /// TASK94: порог предупреждения по остатку срока.
+  ///
+  /// In en, this message translates to:
+  /// **'Warn before, days'**
+  String get pulseProbeWarnDaysLabel;
+
+  /// TASK94: порог ошибки по остатку срока.
+  ///
+  /// In en, this message translates to:
+  /// **'Error before, days'**
+  String get pulseProbeErrorDaysLabel;
+
+  /// TASK94: заголовок карточки сертификата.
+  ///
+  /// In en, this message translates to:
+  /// **'Certificate'**
+  String get pulseCertificateTitle;
+
+  /// TASK94: карточка пуста до первой проверки.
+  ///
+  /// In en, this message translates to:
+  /// **'No checks yet'**
+  String get pulseCertNoData;
+
+  /// TASK94: поле карточки.
+  ///
+  /// In en, this message translates to:
+  /// **'Subject'**
+  String get pulseCertSubject;
+
+  /// TASK94: поле карточки.
+  ///
+  /// In en, this message translates to:
+  /// **'Issuer'**
+  String get pulseCertIssuer;
+
+  /// TASK94: поле карточки.
+  ///
+  /// In en, this message translates to:
+  /// **'Names (SAN)'**
+  String get pulseCertSans;
+
+  /// TASK94: поле карточки.
+  ///
+  /// In en, this message translates to:
+  /// **'Valid until'**
+  String get pulseCertValidUntil;
+
+  /// TASK94: поле карточки.
+  ///
+  /// In en, this message translates to:
+  /// **'Days left'**
+  String get pulseCertDaysLeftLabel;
+
+  /// TASK94: поле карточки.
+  ///
+  /// In en, this message translates to:
+  /// **'Thumbprint'**
+  String get pulseCertThumbprint;
+
+  /// TASK94: время установления TLS-сессии.
+  ///
+  /// In en, this message translates to:
+  /// **'Handshake'**
+  String get pulseCertLatency;
+
+  /// TASK94: адрес, с которым реально соединялись.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected to'**
+  String get pulseCertAddress;
+
+  /// TASK94: время последней попытки проверки.
+  ///
+  /// In en, this message translates to:
+  /// **'Last attempt'**
+  String get pulseCertLastCheck;
+
+  /// TASK94: когда сертификат последний раз был в порядке.
+  ///
+  /// In en, this message translates to:
+  /// **'Last success'**
+  String get pulseCertLastSuccess;
+
+  /// TASK94: причина отказа/замечание по сертификату.
+  ///
+  /// In en, this message translates to:
+  /// **'Problem'**
+  String get pulseCertProblem;
+
+  /// TASK94: ручной запуск проверки.
+  ///
+  /// In en, this message translates to:
+  /// **'Check now'**
+  String get pulseProbeRunNow;
+
+  /// TASK94: строка host:port + SNI в карточке монитора.
+  ///
+  /// In en, this message translates to:
+  /// **'Target'**
+  String get pulseProbeTargetLabel;
+
+  /// TASK94 MR2: набор рубежей напоминаний о сроке (CSV).
+  ///
+  /// In en, this message translates to:
+  /// **'Reminder thresholds, days'**
+  String get pulseReminderThresholdsLabel;
+
+  /// TASK94 MR2: пояснение к полю рубежей.
+  ///
+  /// In en, this message translates to:
+  /// **'One card at each first crossing. Empty — no reminders'**
+  String get pulseReminderThresholdsHelp;
+
+  /// TASK94 MR2: последний пройденный рубеж в карточке.
+  ///
+  /// In en, this message translates to:
+  /// **'Last reminder'**
+  String get pulseReminderLastLabel;
+
+  /// TASK94 MR2: рубежей ещё не проходили.
+  ///
+  /// In en, this message translates to:
+  /// **'none yet'**
+  String get pulseReminderNone;
+
+  /// TASK94 MR3: ключ набора endpoint одного сертификата.
+  ///
+  /// In en, this message translates to:
+  /// **'Certificate set (optional)'**
+  String get pulseProbeSetKeyLabel;
+
+  /// TASK94 MR3: пояснение к полю набора.
+  ///
+  /// In en, this message translates to:
+  /// **'Same key on endpoints that must serve the same certificate'**
+  String get pulseProbeSetKeyHelp;
+
+  /// TASK94: подпись пробы в списке — когда была последняя проверка.
+  ///
+  /// In en, this message translates to:
+  /// **'checked {when}'**
+  String pulseProbeCheckedAgo(String when);
+
+  /// TASK94: проба ни разу не выполнялась.
+  ///
+  /// In en, this message translates to:
+  /// **'no checks yet'**
+  String get pulseProbeNoChecks;
+
+  /// TASK94: подпись пробы в списке — остаток срока и дата истечения.
+  ///
+  /// In en, this message translates to:
+  /// **'{days} d until {date}'**
+  String pulseCertLeftUntil(int days, String date);
+
+  /// TASK94: подпись пробы в списке, если срок уже вышел.
+  ///
+  /// In en, this message translates to:
+  /// **'certificate expired'**
+  String get pulseCertExpiredShort;
+
+  /// TASK94: действие переноса монитора между папками.
+  ///
+  /// In en, this message translates to:
+  /// **'Move to folder'**
+  String get pulseMoveMonitor;
+
+  /// TASK94: заголовок диалога выбора папки.
+  ///
+  /// In en, this message translates to:
+  /// **'Move monitor'**
+  String get pulseMoveMonitorTitle;
+
+  /// TASK94 §2: заголовок экрана allowlist.
+  ///
+  /// In en, this message translates to:
+  /// **'Allowed probe targets'**
+  String get pulseAllowlistTitle;
+
+  /// TASK94 §2: пустой список.
+  ///
+  /// In en, this message translates to:
+  /// **'No allowed targets yet'**
+  String get pulseAllowlistEmpty;
+
+  /// TASK94 §2: кнопка добавления строки.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow target'**
+  String get pulseAllowlistAdd;
+
+  /// TASK94 §2: поле адреса.
+  ///
+  /// In en, this message translates to:
+  /// **'Address or network'**
+  String get pulseAllowlistAddress;
+
+  /// TASK94 §2: длина префикса; пусто — точный адрес.
+  ///
+  /// In en, this message translates to:
+  /// **'Mask, bits'**
+  String get pulseAllowlistPrefix;
+
+  /// TASK94 §2: пояснение к строке.
+  ///
+  /// In en, this message translates to:
+  /// **'Why (visible in a year)'**
+  String get pulseAllowlistNote;
+
+  /// TASK94 §2: удаление строки.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from list'**
+  String get pulseAllowlistRemove;
+
+  /// TASK94 §2: что произойдёт после удаления строки.
+  ///
+  /// In en, this message translates to:
+  /// **'Probes to this target will start failing with «target not allowed». Monitors are not paused.'**
+  String get pulseAllowlistRemoveBody;
+
+  /// issue #116: блок чисел в карточке монитора.
+  ///
+  /// In en, this message translates to:
+  /// **'Values'**
+  String get pulseValues;
+
+  /// issue #116: чисел не присылали.
+  ///
+  /// In en, this message translates to:
+  /// **'No numbers sent yet'**
+  String get pulseValuesEmpty;
+
+  /// issue #116: экран порогов.
+  ///
+  /// In en, this message translates to:
+  /// **'Value thresholds'**
+  String get pulseValueThresholds;
+
+  /// issue #116: кнопка добавления.
+  ///
+  /// In en, this message translates to:
+  /// **'Add threshold'**
+  String get pulseValueThresholdAdd;
+
+  /// issue #116: имя значения (ключ порога).
+  ///
+  /// In en, this message translates to:
+  /// **'Value name'**
+  String get pulseValueName;
+
+  /// issue #116: нижняя жёлтая граница.
+  ///
+  /// In en, this message translates to:
+  /// **'Warn below'**
+  String get pulseValueWarnBelow;
+
+  /// issue #116: нижняя красная граница.
+  ///
+  /// In en, this message translates to:
+  /// **'Error below'**
+  String get pulseValueErrorBelow;
+
+  /// issue #116: верхняя жёлтая граница.
+  ///
+  /// In en, this message translates to:
+  /// **'Warn above'**
+  String get pulseValueWarnAbove;
+
+  /// issue #116: верхняя красная граница.
+  ///
+  /// In en, this message translates to:
+  /// **'Error above'**
+  String get pulseValueErrorAbove;
+
+  /// issue #116: подсказка про стороны.
+  ///
+  /// In en, this message translates to:
+  /// **'At least one bound. Free disk space alarms from below, backup age from above, temperature from both.'**
+  String get pulseValueThresholdHint;
+
+  /// issue #116: у значения нет порога.
+  ///
+  /// In en, this message translates to:
+  /// **'no threshold'**
+  String get pulseValueNoThreshold;
+
+  /// issue #116: удаление порога.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove threshold'**
+  String get pulseValueRemoveThreshold;
+
+  /// issue #120: раздел здоровья доставки.
+  ///
+  /// In en, this message translates to:
+  /// **'Notification delivery'**
+  String get deliveryHealthTitle;
+
+  /// issue #120: пустое состояние.
+  ///
+  /// In en, this message translates to:
+  /// **'No delivery data'**
+  String get deliveryHealthEmpty;
+
+  /// issue #120: счётчики устройств по каналам.
+  ///
+  /// In en, this message translates to:
+  /// **'devices: {fcm} FCM · {rustore} RuStore · {voip} VoIP'**
+  String deliveryHealthDevices(int fcm, int rustore, int voip);
+
+  /// issue #120: сколько регистраций протухло.
+  ///
+  /// In en, this message translates to:
+  /// **'not refreshed: {count}'**
+  String deliveryHealthStale(int count);
+
+  /// issue #120: устройств не было вовсе.
+  ///
+  /// In en, this message translates to:
+  /// **'no registrations yet'**
+  String get deliveryHealthNever;
+
+  /// issue #120: вердикт ok.
+  ///
+  /// In en, this message translates to:
+  /// **'delivery works'**
+  String get deliveryHealthOk;
+
+  /// issue #120: вердикт noDevices.
+  ///
+  /// In en, this message translates to:
+  /// **'no devices — the app does not register tokens'**
+  String get deliveryHealthNoDevices;
+
+  /// issue #120: вердикт noCredentials.
+  ///
+  /// In en, this message translates to:
+  /// **'no sending keys — nothing to deliver with'**
+  String get deliveryHealthNoCredentials;
+
+  /// issue #120: вердикт stale.
+  ///
+  /// In en, this message translates to:
+  /// **'all registrations are stale'**
+  String get deliveryHealthStaleAll;
+
+  /// issue #120: какие ключи настроены.
+  ///
+  /// In en, this message translates to:
+  /// **'keys: {list}'**
+  String deliveryHealthKeys(String list);
+
+  /// issue #120: ключей нет вовсе.
+  ///
+  /// In en, this message translates to:
+  /// **'no keys'**
+  String get deliveryHealthNoKeys;
+
+  /// issue #108: правка адреса/порта/SNI пробы.
+  ///
+  /// In en, this message translates to:
+  /// **'Change target'**
+  String get pulseProbeEditTarget;
+
+  /// issue #108: что произойдёт при смене цели.
+  ///
+  /// In en, this message translates to:
+  /// **'Observations of the previous target are cleared: certificate, thumbprint and dates belonged to it. Incident history and members stay.'**
+  String get pulseProbeEditTargetBody;
+
+  /// issue #108: поле адреса цели.
+  ///
+  /// In en, this message translates to:
+  /// **'Address'**
+  String get pulseProbeHost;
+
+  /// issue #108: поле имени в SNI.
+  ///
+  /// In en, this message translates to:
+  /// **'SNI name'**
+  String get pulseProbeSni;
+
+  /// issue #108: массовое добавление целей текстом.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste a list'**
+  String get pulseAllowlistPaste;
+
+  /// issue #108: формат вставляемого списка.
+  ///
+  /// In en, this message translates to:
+  /// **'One target per line: 78.37.191.63:8896. IPv6 in brackets: [2001:db8::1]:443'**
+  String get pulseAllowlistPasteHint;
+
+  /// issue #108: сколько целей разобрано из вставки.
+  ///
+  /// In en, this message translates to:
+  /// **'Targets parsed: {count}'**
+  String pulseAllowlistPasteCount(int count);
+
+  /// issue #108: сколько строк разобрать не удалось.
+  ///
+  /// In en, this message translates to:
+  /// **'Lines not parsed: {count}'**
+  String pulseAllowlistPasteBad(int count);
+
+  /// issue #108: итог массового добавления.
+  ///
+  /// In en, this message translates to:
+  /// **'Added {added}, already there {existing}, rejected {failed}'**
+  String pulseAllowlistPasteResult(int added, int existing, int failed);
+
+  /// TASK94 §2: отказ на ввод адреса из запрещённого диапазона.
+  ///
+  /// In en, this message translates to:
+  /// **'Address not allowed: {reason}'**
+  String pulseAllowlistRejected(String reason);
+
+  /// TASK94: период проверки — неделя (сертификаты живут месяцами).
+  ///
+  /// In en, this message translates to:
+  /// **'every 7 days'**
+  String get pulsePeriod7d;
 }
 
 class _NsgL10nDelegate extends LocalizationsDelegate<NsgL10n> {

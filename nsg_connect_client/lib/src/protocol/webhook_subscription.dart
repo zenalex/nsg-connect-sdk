@@ -35,10 +35,16 @@ abstract class WebhookSubscription implements _i1.SerializableModel {
     int? failureCount,
     this.lastSuccessAt,
     this.disabledAt,
+    int? probesSinceDisabled,
+    this.lastProbeAt,
+    this.probeGaveUpAt,
+    this.lastReachCheckAt,
+    this.unreachableSince,
     this.description,
     required this.createdAt,
   }) : enabled = enabled ?? true,
-       failureCount = failureCount ?? 0;
+       failureCount = failureCount ?? 0,
+       probesSinceDisabled = probesSinceDisabled ?? 0;
 
   factory WebhookSubscription({
     int? id,
@@ -53,6 +59,11 @@ abstract class WebhookSubscription implements _i1.SerializableModel {
     int? failureCount,
     DateTime? lastSuccessAt,
     DateTime? disabledAt,
+    int? probesSinceDisabled,
+    DateTime? lastProbeAt,
+    DateTime? probeGaveUpAt,
+    DateTime? lastReachCheckAt,
+    DateTime? unreachableSince,
     String? description,
     required DateTime createdAt,
   }) = _WebhookSubscriptionImpl;
@@ -79,6 +90,27 @@ abstract class WebhookSubscription implements _i1.SerializableModel {
       disabledAt: jsonSerialization['disabledAt'] == null
           ? null
           : _i1.DateTimeJsonExtension.fromJson(jsonSerialization['disabledAt']),
+      probesSinceDisabled: jsonSerialization['probesSinceDisabled'] as int?,
+      lastProbeAt: jsonSerialization['lastProbeAt'] == null
+          ? null
+          : _i1.DateTimeJsonExtension.fromJson(
+              jsonSerialization['lastProbeAt'],
+            ),
+      probeGaveUpAt: jsonSerialization['probeGaveUpAt'] == null
+          ? null
+          : _i1.DateTimeJsonExtension.fromJson(
+              jsonSerialization['probeGaveUpAt'],
+            ),
+      lastReachCheckAt: jsonSerialization['lastReachCheckAt'] == null
+          ? null
+          : _i1.DateTimeJsonExtension.fromJson(
+              jsonSerialization['lastReachCheckAt'],
+            ),
+      unreachableSince: jsonSerialization['unreachableSince'] == null
+          ? null
+          : _i1.DateTimeJsonExtension.fromJson(
+              jsonSerialization['unreachableSince'],
+            ),
       description: jsonSerialization['description'] as String?,
       createdAt: _i1.DateTimeJsonExtension.fromJson(
         jsonSerialization['createdAt'],
@@ -132,7 +164,47 @@ abstract class WebhookSubscription implements _i1.SerializableModel {
   DateTime? lastSuccessAt;
 
   /// Выставляется когда circuit-breaker авто-дизейблит подписку.
+  ///
+  /// **issue #128** — это ещё и признак «выключил размыкатель, а не
+  /// человек»: ручной `enabled=false` поля не трогает, а ручной
+  /// `enabled=true` его обнуляет. Только по этому различию свипер проб
+  /// понимает, кого позволено включить обратно: включить подписку,
+  /// выключенную администратором намеренно, было бы хуже, чем не включить
+  /// вовсе.
   DateTime? disabledAt;
+
+  /// **issue #128**: сколько проб сделано с момента отключения. Обнуляется
+  /// вместе с возвратом в строй. Хранится, а не считается на лету: расписание
+  /// проб растущее, и без счётчика после рестарта сервера разгон начинался бы
+  /// заново — мёртвый endpoint снова получал бы пробу раз в минуту.
+  int probesSinceDisabled;
+
+  /// **issue #128**: когда пробовали последний раз. Отдельно от `disabledAt`:
+  /// по первому видно, когда всё сломалось, по второму — жив ли свипер.
+  DateTime? lastProbeAt;
+
+  /// **issue #128**: когда пробовать перестали окончательно (неделя
+  /// недоступности). Не булев флаг: время нужно, чтобы отличить «оборвали
+  /// только что» от «висит мёртвым месяц», и чтобы отчёт здоровья мог
+  /// назвать дату. `null` — либо живём, либо ещё пробуем.
+  DateTime? probeGaveUpAt;
+
+  /// **issue #131**: когда мы последний раз сами проверяли, достижим ли
+  /// endpoint ВКЛЮЧЁННОЙ подписки. Отдельно от `lastProbeAt`: тот про
+  /// возврат выключенной в строй, этот — про молчащую, но включённую.
+  /// Слить их в одно поле значило бы, что одна проверка стирает след другой.
+  DateTime? lastReachCheckAt;
+
+  /// **issue #131**: с какого момента путь до endpoint-а не отвечает.
+  /// `null` — последняя проверка удалась (или проверок ещё не было).
+  ///
+  /// Момент, а не флаг: «не отвечает минуту» и «не отвечает час» — разные
+  /// новости, и монитор обязан их различать. Короткий обрыв прощаем
+  /// (`webhookUnreachableGrace`), иначе мигнувшая сеть будет поднимать
+  /// тревогу; длинный — это ровно тот отказ, который 13.08 висел час и не
+  /// был виден никому: подписка включена, размыкатель молчит (трафика нет,
+  /// значит и неудачных доставок нет), а канала не существует.
+  DateTime? unreachableSince;
 
   String? description;
 
@@ -154,6 +226,11 @@ abstract class WebhookSubscription implements _i1.SerializableModel {
     int? failureCount,
     DateTime? lastSuccessAt,
     DateTime? disabledAt,
+    int? probesSinceDisabled,
+    DateTime? lastProbeAt,
+    DateTime? probeGaveUpAt,
+    DateTime? lastReachCheckAt,
+    DateTime? unreachableSince,
     String? description,
     DateTime? createdAt,
   });
@@ -173,6 +250,13 @@ abstract class WebhookSubscription implements _i1.SerializableModel {
       'failureCount': failureCount,
       if (lastSuccessAt != null) 'lastSuccessAt': lastSuccessAt?.toJson(),
       if (disabledAt != null) 'disabledAt': disabledAt?.toJson(),
+      'probesSinceDisabled': probesSinceDisabled,
+      if (lastProbeAt != null) 'lastProbeAt': lastProbeAt?.toJson(),
+      if (probeGaveUpAt != null) 'probeGaveUpAt': probeGaveUpAt?.toJson(),
+      if (lastReachCheckAt != null)
+        'lastReachCheckAt': lastReachCheckAt?.toJson(),
+      if (unreachableSince != null)
+        'unreachableSince': unreachableSince?.toJson(),
       if (description != null) 'description': description,
       'createdAt': createdAt.toJson(),
     };
@@ -200,6 +284,11 @@ class _WebhookSubscriptionImpl extends WebhookSubscription {
     int? failureCount,
     DateTime? lastSuccessAt,
     DateTime? disabledAt,
+    int? probesSinceDisabled,
+    DateTime? lastProbeAt,
+    DateTime? probeGaveUpAt,
+    DateTime? lastReachCheckAt,
+    DateTime? unreachableSince,
     String? description,
     required DateTime createdAt,
   }) : super._(
@@ -215,6 +304,11 @@ class _WebhookSubscriptionImpl extends WebhookSubscription {
          failureCount: failureCount,
          lastSuccessAt: lastSuccessAt,
          disabledAt: disabledAt,
+         probesSinceDisabled: probesSinceDisabled,
+         lastProbeAt: lastProbeAt,
+         probeGaveUpAt: probeGaveUpAt,
+         lastReachCheckAt: lastReachCheckAt,
+         unreachableSince: unreachableSince,
          description: description,
          createdAt: createdAt,
        );
@@ -236,6 +330,11 @@ class _WebhookSubscriptionImpl extends WebhookSubscription {
     int? failureCount,
     Object? lastSuccessAt = _Undefined,
     Object? disabledAt = _Undefined,
+    int? probesSinceDisabled,
+    Object? lastProbeAt = _Undefined,
+    Object? probeGaveUpAt = _Undefined,
+    Object? lastReachCheckAt = _Undefined,
+    Object? unreachableSince = _Undefined,
     Object? description = _Undefined,
     DateTime? createdAt,
   }) {
@@ -254,6 +353,17 @@ class _WebhookSubscriptionImpl extends WebhookSubscription {
           ? lastSuccessAt
           : this.lastSuccessAt,
       disabledAt: disabledAt is DateTime? ? disabledAt : this.disabledAt,
+      probesSinceDisabled: probesSinceDisabled ?? this.probesSinceDisabled,
+      lastProbeAt: lastProbeAt is DateTime? ? lastProbeAt : this.lastProbeAt,
+      probeGaveUpAt: probeGaveUpAt is DateTime?
+          ? probeGaveUpAt
+          : this.probeGaveUpAt,
+      lastReachCheckAt: lastReachCheckAt is DateTime?
+          ? lastReachCheckAt
+          : this.lastReachCheckAt,
+      unreachableSince: unreachableSince is DateTime?
+          ? unreachableSince
+          : this.unreachableSince,
       description: description is String? ? description : this.description,
       createdAt: createdAt ?? this.createdAt,
     );

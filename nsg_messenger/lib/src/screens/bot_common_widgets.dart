@@ -182,9 +182,7 @@ class BotReadModeLine extends StatelessWidget {
                         ? l.botsAdminReadModeAllHint
                         : l.botsAdminReadModeAddressedHint,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(
-                        alpha: 0.6,
-                      ),
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                     ),
                   ),
                 ),
@@ -245,9 +243,7 @@ Future<void> warnPrivacyPartiallyEffective(
     context: context,
     builder: (ctx) => AlertDialog(
       title: Text(l.botsPrivacyUnboundTitle),
-      content: Text(
-        l.botsPrivacyUnboundBody(result.unboundSubscriptionCount),
-      ),
+      content: Text(l.botsPrivacyUnboundBody(result.unboundSubscriptionCount)),
       actions: [
         FilledButton(
           onPressed: () => Navigator.of(ctx).pop(),
@@ -501,11 +497,7 @@ class _BotCreateDialogState extends State<BotCreateDialog> {
 /// прямой зависимости от админ-обвязки — myBots грузит журнал своим
 /// ownership-gated RPC.
 class BotAuditSheet extends StatefulWidget {
-  const BotAuditSheet({
-    super.key,
-    required this.botName,
-    required this.loader,
-  });
+  const BotAuditSheet({super.key, required this.botName, required this.loader});
 
   final String botName;
   final Future<List<BotAuditEvent>> Function() loader;

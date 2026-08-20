@@ -125,11 +125,10 @@ class _ContactCardEditorScreenState extends State<ContactCardEditorScreen> {
         _translations = translations;
         _profileLocale = profileLocale;
         for (final t in translations) {
-          _fieldDrafts.putIfAbsent(t.locale, () => [
-            t.about ?? '',
-            t.jobTitle ?? '',
-            t.company ?? '',
-          ]);
+          _fieldDrafts.putIfAbsent(
+            t.locale,
+            () => [t.about ?? '', t.jobTitle ?? '', t.company ?? ''],
+          );
         }
         if (card != null) {
           _template = card.template;
@@ -271,13 +270,12 @@ class _ContactCardEditorScreenState extends State<ContactCardEditorScreen> {
       // телефон/email/сайт и видимость — общие, правятся в основном.
       final locale = _fieldsLocale;
       if (locale != null) {
-        await MessengerRuntime.instance.client.messenger
-            .setProfileTranslation(
-              locale: locale,
-              about: _aboutCtl.text,
-              jobTitle: _jobCtl.text,
-              company: _companyCtl.text,
-            );
+        await MessengerRuntime.instance.client.messenger.setProfileTranslation(
+          locale: locale,
+          about: _aboutCtl.text,
+          jobTitle: _jobCtl.text,
+          company: _companyCtl.text,
+        );
         MessengerRuntime.instance.contactCards.invalidate();
         if (!mounted) return;
         setState(() {
@@ -368,7 +366,9 @@ class _ContactCardEditorScreenState extends State<ContactCardEditorScreen> {
       final card = await rt.contactCards.get(myId);
       if (card == null) {
         if (!mounted) return;
-        messenger.showSnackBar(SnackBar(content: Text(l.contactShareCardFailed)));
+        messenger.showSnackBar(
+          SnackBar(content: Text(l.contactShareCardFailed)),
+        );
         return;
       }
       await ContactVCard.share(card, subject: card.displayName);
@@ -481,10 +481,18 @@ class _ContactCardEditorScreenState extends State<ContactCardEditorScreen> {
                 Wrap(
                   spacing: 8,
                   children: [
-                    _chip(l.cardTemplateGradient, _template == 'gradient',
-                        accent, () => setState(() => _template = 'gradient')),
-                    _chip(l.cardTemplateMonogram, _template == 'monogram',
-                        accent, () => setState(() => _template = 'monogram')),
+                    _chip(
+                      l.cardTemplateGradient,
+                      _template == 'gradient',
+                      accent,
+                      () => setState(() => _template = 'gradient'),
+                    ),
+                    _chip(
+                      l.cardTemplateMonogram,
+                      _template == 'monogram',
+                      accent,
+                      () => setState(() => _template = 'monogram'),
+                    ),
                     _chip(
                       l.cardTemplatePhoto,
                       _template == 'photo',
@@ -546,16 +554,20 @@ class _ContactCardEditorScreenState extends State<ContactCardEditorScreen> {
                                 end: Alignment.bottomRight,
                                 colors: [
                                   ContactCardView.parseHex(
-                                      start, Colors.orange),
+                                    start,
+                                    Colors.orange,
+                                  ),
                                   ContactCardView.parseHex(end, Colors.black),
                                 ],
                               ),
                               border: Border.all(
-                                color: _gradientStart == start &&
+                                color:
+                                    _gradientStart == start &&
                                         _gradientEnd == end
                                     ? accent
                                     : const Color(0x1FFFFFFF),
-                                width: _gradientStart == start &&
+                                width:
+                                    _gradientStart == start &&
                                         _gradientEnd == end
                                     ? 2
                                     : 0.5,
@@ -570,14 +582,30 @@ class _ContactCardEditorScreenState extends State<ContactCardEditorScreen> {
                 Wrap(
                   spacing: 8,
                   children: [
-                    _chip(l.cardFontClassic, _fontStyle == 'classic', accent,
-                        () => setState(() => _fontStyle = 'classic')),
-                    _chip(l.cardFontBold, _fontStyle == 'bold', accent,
-                        () => setState(() => _fontStyle = 'bold')),
-                    _chip(l.cardFontAiry, _fontStyle == 'airy', accent,
-                        () => setState(() => _fontStyle = 'airy')),
-                    _chip(l.cardFontMono, _fontStyle == 'mono', accent,
-                        () => setState(() => _fontStyle = 'mono')),
+                    _chip(
+                      l.cardFontClassic,
+                      _fontStyle == 'classic',
+                      accent,
+                      () => setState(() => _fontStyle = 'classic'),
+                    ),
+                    _chip(
+                      l.cardFontBold,
+                      _fontStyle == 'bold',
+                      accent,
+                      () => setState(() => _fontStyle = 'bold'),
+                    ),
+                    _chip(
+                      l.cardFontAiry,
+                      _fontStyle == 'airy',
+                      accent,
+                      () => setState(() => _fontStyle = 'airy'),
+                    ),
+                    _chip(
+                      l.cardFontMono,
+                      _fontStyle == 'mono',
+                      accent,
+                      () => setState(() => _fontStyle = 'mono'),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 14),
@@ -609,9 +637,7 @@ class _ContactCardEditorScreenState extends State<ContactCardEditorScreen> {
                     _chip(
                       _profileLocale == null
                           ? l.profileLangBase
-                          : l.profileLangDefault(
-                              _profileLocale!.toUpperCase(),
-                            ),
+                          : l.profileLangDefault(_profileLocale!.toUpperCase()),
                       _fieldsLocale == null,
                       accent,
                       () => _switchFieldsLocale(null),
@@ -634,16 +660,21 @@ class _ContactCardEditorScreenState extends State<ContactCardEditorScreen> {
                   ),
                 ],
                 const SizedBox(height: 10),
-                _fieldRow('about', _aboutCtl, l.cardAboutLabel, accent,
-                    maxLines: 3, maxLength: 500),
+                _fieldRow(
+                  'about',
+                  _aboutCtl,
+                  l.cardAboutLabel,
+                  accent,
+                  maxLines: 3,
+                  maxLength: 500,
+                ),
                 _fieldRow('jobTitle', _jobCtl, l.cardJobTitleLabel, accent),
                 _fieldRow('company', _companyCtl, l.cardCompanyLabel, accent),
                 // Language-neutral поля и видимость — только в основном.
                 if (_fieldsLocale == null) ...[
                   _fieldRow('phone', _phoneCtl, l.cardPhoneLabel, accent),
                   _fieldRow('email', _emailCtl, l.cardEmailLabel, accent),
-                  _fieldRow(
-                      'website', _websiteCtl, l.cardWebsiteLabel, accent),
+                  _fieldRow('website', _websiteCtl, l.cardWebsiteLabel, accent),
                 ],
                 const SizedBox(height: 12),
                 FilledButton.icon(
@@ -681,35 +712,31 @@ class _ContactCardEditorScreenState extends State<ContactCardEditorScreen> {
     ),
   );
 
-  Widget _chip(
-    String text,
-    bool selected,
-    Color accent,
-    VoidCallback onTap,
-  ) => GestureDetector(
-    onTap: onTap,
-    child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: selected ? accent.withValues(alpha: 0.16) : _card,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: selected
-              ? accent.withValues(alpha: 0.32)
-              : const Color(0x1FFFFFFF),
-          width: 0.5,
+  Widget _chip(String text, bool selected, Color accent, VoidCallback onTap) =>
+      GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: selected ? accent.withValues(alpha: 0.16) : _card,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: selected
+                  ? accent.withValues(alpha: 0.32)
+                  : const Color(0x1FFFFFFF),
+              width: 0.5,
+            ),
+          ),
+          child: Text(
+            text,
+            style: TextStyle(
+              color: selected ? _fg : _fgMuted,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
         ),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: selected ? _fg : _fgMuted,
-          fontSize: 13,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-    ),
-  );
+      );
 
   Widget _colorSwatch(String? hex, Color accent, {String? label}) {
     final selected = _nameColor == hex;
@@ -797,21 +824,21 @@ class _ContactCardEditorScreenState extends State<ContactCardEditorScreen> {
           suffixIcon: _fieldsLocale != null
               ? null
               : IconButton(
-            key: Key('cardVisibilityToggle-$field'),
-            tooltip: contactsOnly
-                ? l.cardVisibilityContacts
-                : l.cardVisibilityEveryone,
-            icon: Icon(
-              contactsOnly ? Icons.lock_outline : Icons.public,
-              size: 18,
-              color: contactsOnly ? accent : _fgDim,
-            ),
-            onPressed: () => setState(() {
-              contactsOnly
-                  ? _contactsOnly.remove(field)
-                  : _contactsOnly.add(field);
-            }),
-          ),
+                  key: Key('cardVisibilityToggle-$field'),
+                  tooltip: contactsOnly
+                      ? l.cardVisibilityContacts
+                      : l.cardVisibilityEveryone,
+                  icon: Icon(
+                    contactsOnly ? Icons.lock_outline : Icons.public,
+                    size: 18,
+                    color: contactsOnly ? accent : _fgDim,
+                  ),
+                  onPressed: () => setState(() {
+                    contactsOnly
+                        ? _contactsOnly.remove(field)
+                        : _contactsOnly.add(field);
+                  }),
+                ),
         ),
       ),
     );

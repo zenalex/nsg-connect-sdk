@@ -24,7 +24,16 @@ import 'package:flutter/foundation.dart';
 ///                      thread-id` снимаемых уведомлений;
 ///   * `matrixRoomId` = Matrix room id (контекст/диагностика);
 ///   * `recipientId`  = messengerUserId адресата (int строкой) — на
-///                      устройстве может быть залогинен другой аккаунт.
+///                      устройстве может быть залогинен другой аккаунт;
+///   * `threadKey`    = ключ стопки ТРЕДА (`thread:<корень>`), если
+///                      прочитан тред — **issue #140**, поле необязательное.
+///
+/// Про `threadKey`. Сообщения внутри треда помечены не `roomId`, а ключом
+/// треда (TASK82), поэтому снятие по одному `roomId` их не задевало вовсе:
+/// прочитал тред — погасла стопка комнаты, а стопка треда осталась висеть
+/// навсегда. Снимаем ОБЕ: прочтение треда обнуляет и счётчик комнаты.
+/// Поля может не быть (старый сервер, либо прочитана основная лента) —
+/// тогда поведение ровно прежнее.
 ///
 /// Чистая логика (без плагинов и isolate-состояния) — юнит-тестируется и
 /// переиспользуется во всех трёх точках приёма: FCM background isolate
@@ -35,6 +44,7 @@ class ReadSyncPushData {
     required this.roomId,
     required this.matrixRoomId,
     required this.recipientId,
+    this.threadKey,
   });
 
   /// Локальный id прочитанной комнаты (уже распарсен в int).
@@ -47,6 +57,17 @@ class ReadSyncPushData {
   /// Клиент сверяет его с активной сессией: пуш мог прийти для другого
   /// аккаунта, залогиненного на этом устройстве раньше.
   final int? recipientId;
+
+  /// **Issue #140**: ключ стопки треда (`thread:<корень>`) — снимать
+  /// ДОПОЛНИТЕЛЬНО к стопке комнаты. `null` — прочитана основная лента
+  /// (или сервер старый); тогда снимается только комната, как раньше.
+  ///
+  /// Готовым ключом, а не голым id корня: строит его сервер
+  /// (`PushPayloadBuilder.threadStackKey`), он же им и помечает
+  /// уведомление. Собирать ключ ещё и на клиенте значило бы завести третье
+  /// место, где формат может разъехаться, — а разъехавшиеся ключи и есть
+  /// причина этой заявки.
+  final String? threadKey;
 
   /// Разобрать data-map входящего пуша. Возвращает `null`, если это не
   /// read-sync (`type != 'read_sync'`) или payload битый.
@@ -65,6 +86,7 @@ class ReadSyncPushData {
       roomId: roomId,
       matrixRoomId: _asNonEmptyString(data['matrixRoomId']) ?? '',
       recipientId: _asInt(data['recipientId']),
+      threadKey: _asNonEmptyString(data['threadKey']),
     );
   }
 
@@ -85,7 +107,7 @@ class ReadSyncPushData {
   @override
   String toString() =>
       'ReadSyncPushData(roomId: $roomId, matrixRoomId: $matrixRoomId, '
-      'recipientId: $recipientId)';
+      'recipientId: $recipientId, threadKey: $threadKey)';
 }
 
 /// Значение `data['type']` тихого read-sync-пуша. Зеркалит серверную

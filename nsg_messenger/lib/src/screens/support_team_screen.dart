@@ -22,11 +22,19 @@ class SupportTeamScreen extends StatefulWidget {
   const SupportTeamScreen({
     super.key,
     required this.productExternalKey,
+    this.tenantExternalKey,
     @visibleForTesting this.rpcOverride,
     @visibleForTesting this.selfMessengerUserIdOverride,
   });
 
   final String productExternalKey;
+
+  /// Тенант продукта. Нужен, когда команда живёт в ЧУЖОМ тенанте
+  /// (платформенная админка открывает продукт заказчика): ключ продукта
+  /// уникален только внутри тенанта, и без тенанта сервер отдавал состав
+  /// команды другого тенанта с тем же ключом. `null` — продукт в тенанте
+  /// смотрящего (обычный операторский путь).
+  final String? tenantExternalKey;
 
   /// Visible-for-testing — подмена RPC без Serverpod-клиента.
   final SupportTeamRpc? rpcOverride;
@@ -54,7 +62,10 @@ class _SupportTeamScreenState extends State<SupportTeamScreen> {
     _controller = SupportTeamController(
       rpc:
           widget.rpcOverride ??
-          ClientSupportTeamRpc(MessengerRuntime.instance.client),
+          ClientSupportTeamRpc(
+            MessengerRuntime.instance.client,
+            tenantExternalKey: widget.tenantExternalKey,
+          ),
       productExternalKey: widget.productExternalKey,
     );
     unawaited(_controller.init());
@@ -67,6 +78,35 @@ class _SupportTeamScreenState extends State<SupportTeamScreen> {
     super.dispose();
   }
 
+  /// Текст отказа последнего действия — по СУТИ ошибки, а не одним
+  /// «попробуйте ещё раз».
+  ///
+  /// «Попробуйте ещё раз» честно только для временного сбоя (сеть, 5xx). Всё
+  /// остальное, что сюда приходит, повтором не лечится, и такой совет гоняет
+  /// человека жать кнопку по кругу:
+  ///
+  ///   * **TASK73** — email не резолвится: человек должен сперва войти в
+  ///     приложение;
+  ///   * ключ продукта заведён в двух тенантах: сервер отказывается выбирать
+  ///     команду за вызывающего (иначе оператор уехал бы в чужой тенант) —
+  ///     чинится только снятием дубля. Поймано в АРМ оператора 06.08.2026:
+  ///     по снекбару понять было нельзя ничего, причину нашли в логах прода.
+  String _failureText(NsgL10n l) {
+    final e = _controller.lastActionError;
+    if (e is AmbiguousProductKeyException) return l.supportTeamAmbiguousProduct;
+    if (e is PeerUnavailableException) return l.supportTeamAddNotFound;
+    return l.supportTeamActionFailed;
+  }
+
+  void _showFailure(ScaffoldMessengerState? messenger, NsgL10n l) {
+    messenger?.showSnackBar(
+      SnackBar(
+        content: Text(_failureText(l)),
+        duration: const Duration(seconds: 6),
+      ),
+    );
+  }
+
   Future<void> _add(NsgL10n l) async {
     final messenger = ScaffoldMessenger.maybeOf(context);
     final ok = await _controller.addMember(_emailCtl.text);
@@ -74,18 +114,7 @@ class _SupportTeamScreenState extends State<SupportTeamScreen> {
     if (ok) {
       _emailCtl.clear();
     } else if (_emailCtl.text.trim().isNotEmpty) {
-      // **TASK73**: «такого пользователя нет» ≠ «попробуйте ещё раз».
-      // Повтор при нерезолвимом email не поможет никогда — говорим, что
-      // человек должен сперва войти в приложение.
-      messenger?.showSnackBar(
-        SnackBar(
-          content: Text(
-            _controller.lastAddNotFound
-                ? l.supportTeamAddNotFound
-                : l.supportTeamActionFailed,
-          ),
-        ),
-      );
+      _showFailure(messenger, l);
     }
   }
 
@@ -95,13 +124,19 @@ class _SupportTeamScreenState extends State<SupportTeamScreen> {
   /// только повторным добавлением по email.
   Future<void> _remove(NsgL10n l, SupportTeamMemberView m) async {
     final name = m.displayName ?? '#${m.messengerUserId}';
+    // У унаследованного удаление означает другое: он остаётся в поддержке
+    // тенанта и в других продуктах. Обещать «убрали» без этого значит
+    // соврать — человек «вернётся» в соседнем продукте.
+    final body = m.inherited
+        ? l.supportTeamRemoveInheritedConfirm(name)
+        : l.supportTeamRemoveConfirmBody(name);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) {
         final ml = MaterialLocalizations.of(ctx);
         return AlertDialog(
           title: Text(l.supportTeamRemoveConfirmTitle),
-          content: Text(l.supportTeamRemoveConfirmBody(name)),
+          content: Text(body),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(false),
@@ -122,9 +157,7 @@ class _SupportTeamScreenState extends State<SupportTeamScreen> {
     final ok = await _controller.removeMember(m.messengerUserId);
     if (!mounted) return;
     if (!ok) {
-      messenger?.showSnackBar(
-        SnackBar(content: Text(l.supportTeamActionFailed)),
-      );
+      _showFailure(messenger, l);
     }
   }
 
@@ -134,9 +167,7 @@ class _SupportTeamScreenState extends State<SupportTeamScreen> {
     final ok = await _controller.setMemberTier(m.messengerUserId, tier);
     if (!mounted) return;
     if (!ok) {
-      messenger?.showSnackBar(
-        SnackBar(content: Text(l.supportTeamActionFailed)),
-      );
+      _showFailure(messenger, l);
     }
   }
 
@@ -151,9 +182,7 @@ class _SupportTeamScreenState extends State<SupportTeamScreen> {
     final ok = await _controller.setMemberRole(m.messengerUserId, role);
     if (!mounted) return;
     if (!ok) {
-      messenger?.showSnackBar(
-        SnackBar(content: Text(l.supportTeamActionFailed)),
-      );
+      _showFailure(messenger, l);
     }
   }
 
@@ -206,9 +235,7 @@ class _SupportTeamScreenState extends State<SupportTeamScreen> {
           SnackBar(content: Text(l.supportTeamLeaveLastOwner)),
         );
       case SupportTeamLeaveResult.failed:
-        messenger?.showSnackBar(
-          SnackBar(content: Text(l.supportTeamActionFailed)),
-        );
+        _showFailure(messenger, l);
     }
   }
 
@@ -235,10 +262,7 @@ class _SupportTeamScreenState extends State<SupportTeamScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      l.supportTeamUnavailable,
-                      textAlign: TextAlign.center,
-                    ),
+                    Text(l.supportTeamUnavailable, textAlign: TextAlign.center),
                     if (!unavailable) ...[
                       const SizedBox(height: 16),
                       FilledButton(
@@ -338,9 +362,7 @@ class _SupportTeamScreenState extends State<SupportTeamScreen> {
     final messenger = ScaffoldMessenger.maybeOf(context);
     final ok = await _controller.addMemberById(picked.messengerUserId);
     if (!mounted || ok) return;
-    messenger?.showSnackBar(
-      SnackBar(content: Text(l.supportTeamActionFailed)),
-    );
+    _showFailure(messenger, l);
   }
 
   /// Запасной путь: человек ещё не заходил в мессенджер, из списка его не
@@ -407,9 +429,7 @@ class _SupportTeamScreenState extends State<SupportTeamScreen> {
     final ok = await _controller.setTimeout(minutes);
     if (!mounted) return;
     if (!ok) {
-      messenger?.showSnackBar(
-        SnackBar(content: Text(l.supportTeamActionFailed)),
-      );
+      _showFailure(messenger, l);
     }
   }
 
@@ -443,6 +463,10 @@ class _SupportTeamScreenState extends State<SupportTeamScreen> {
       if (m.isBot) l.supportTeamBotBadge,
       // TASK48: помечаем старших (тир ≥ 2); фронт-линия (тир 1) без бейджа.
       if (isHuman && m.tier >= 2) l.supportTeamTierEscalation,
+      // Унаследованный от тенанта: у него другое удаление (исключить в
+      // этом продукте), и без пометки владелец не понял бы, почему
+      // «убранный» человек остаётся в других продуктах.
+      if (m.inherited) l.supportTeamInherited,
       // **Приватность (#25)**: персональный email оператора виден ТОЛЬКО
       // владельцу команды (как audit), а не всем её членам. Полная
       // переработка работы с командами поддержки — отдельный таск.
@@ -528,7 +552,6 @@ enum _MemberAction {
   revokeOwner,
   remove,
 }
-
 
 /// Ввод email — запасной путь добавления оператора.
 ///

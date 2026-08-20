@@ -26,12 +26,14 @@ abstract class TicketView implements _i1.SerializableModel {
     this.externalTaskKey,
     this.resolution,
     this.title,
+    this.taskTitle,
     this.threadRootEventId,
+    int? unreadCount,
     required this.createdAt,
     required this.updatedAt,
     this.lastEventPreview,
     this.lastEventAt,
-  });
+  }) : unreadCount = unreadCount ?? 0;
 
   factory TicketView({
     required int id,
@@ -43,7 +45,9 @@ abstract class TicketView implements _i1.SerializableModel {
     String? externalTaskKey,
     String? resolution,
     String? title,
+    String? taskTitle,
     String? threadRootEventId,
+    int? unreadCount,
     required DateTime createdAt,
     required DateTime updatedAt,
     String? lastEventPreview,
@@ -61,7 +65,9 @@ abstract class TicketView implements _i1.SerializableModel {
       externalTaskKey: jsonSerialization['externalTaskKey'] as String?,
       resolution: jsonSerialization['resolution'] as String?,
       title: jsonSerialization['title'] as String?,
+      taskTitle: jsonSerialization['taskTitle'] as String?,
       threadRootEventId: jsonSerialization['threadRootEventId'] as String?,
+      unreadCount: jsonSerialization['unreadCount'] as int?,
       createdAt: _i1.DateTimeJsonExtension.fromJson(
         jsonSerialization['createdAt'],
       ),
@@ -98,11 +104,28 @@ abstract class TicketView implements _i1.SerializableModel {
 
   String? title;
 
+  /// **issue #94**: заголовок САМОЙ задачи (из `TaskLink.title`), а не имя
+  /// комнаты, которое лежит в [title].
+  ///
+  /// Запрос пользователя: «в списке задач задача пишется в виде #89, нужно
+  /// краткое описание по каждой задаче писать, чтоб понимать что за задача».
+  /// Ключ `#89` отвечает на вопрос «которая по счёту», но не на вопрос «о
+  /// чём» — а список для того и открывают.
+  ///
+  /// Nullable: у задач, заведённых до появления `TaskLink.title`, заголовка
+  /// взять неоткуда. Придумывать его задним числом нечего — такие строки
+  /// показывают ключ, ровно как раньше.
+  String? taskTitle;
+
   /// **TASK82**: корень треда обсуждения задачи. Не null → строка «Мои
   /// обращения» открывает СРАЗУ тред (заявитель попадает в контекст своей
   /// задачи), null → тикет без треда (нет задачи / старый, якорь появится
   /// лениво при первом событии из GitHub) → открываем комнату как раньше.
   String? threadRootEventId;
+
+  /// **issue #113**: непрочитанных ответов в треде обращения. Ноль, если
+  /// треда нет (`threadRootEventId == null`) — считать нечего.
+  int unreadCount;
 
   DateTime createdAt;
 
@@ -125,7 +148,9 @@ abstract class TicketView implements _i1.SerializableModel {
     String? externalTaskKey,
     String? resolution,
     String? title,
+    String? taskTitle,
     String? threadRootEventId,
+    int? unreadCount,
     DateTime? createdAt,
     DateTime? updatedAt,
     String? lastEventPreview,
@@ -144,7 +169,9 @@ abstract class TicketView implements _i1.SerializableModel {
       if (externalTaskKey != null) 'externalTaskKey': externalTaskKey,
       if (resolution != null) 'resolution': resolution,
       if (title != null) 'title': title,
+      if (taskTitle != null) 'taskTitle': taskTitle,
       if (threadRootEventId != null) 'threadRootEventId': threadRootEventId,
+      'unreadCount': unreadCount,
       'createdAt': createdAt.toJson(),
       'updatedAt': updatedAt.toJson(),
       if (lastEventPreview != null) 'lastEventPreview': lastEventPreview,
@@ -171,7 +198,9 @@ class _TicketViewImpl extends TicketView {
     String? externalTaskKey,
     String? resolution,
     String? title,
+    String? taskTitle,
     String? threadRootEventId,
+    int? unreadCount,
     required DateTime createdAt,
     required DateTime updatedAt,
     String? lastEventPreview,
@@ -186,7 +215,9 @@ class _TicketViewImpl extends TicketView {
          externalTaskKey: externalTaskKey,
          resolution: resolution,
          title: title,
+         taskTitle: taskTitle,
          threadRootEventId: threadRootEventId,
+         unreadCount: unreadCount,
          createdAt: createdAt,
          updatedAt: updatedAt,
          lastEventPreview: lastEventPreview,
@@ -207,7 +238,9 @@ class _TicketViewImpl extends TicketView {
     Object? externalTaskKey = _Undefined,
     Object? resolution = _Undefined,
     Object? title = _Undefined,
+    Object? taskTitle = _Undefined,
     Object? threadRootEventId = _Undefined,
+    int? unreadCount,
     DateTime? createdAt,
     DateTime? updatedAt,
     Object? lastEventPreview = _Undefined,
@@ -227,9 +260,11 @@ class _TicketViewImpl extends TicketView {
           : this.externalTaskKey,
       resolution: resolution is String? ? resolution : this.resolution,
       title: title is String? ? title : this.title,
+      taskTitle: taskTitle is String? ? taskTitle : this.taskTitle,
       threadRootEventId: threadRootEventId is String?
           ? threadRootEventId
           : this.threadRootEventId,
+      unreadCount: unreadCount ?? this.unreadCount,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       lastEventPreview: lastEventPreview is String?

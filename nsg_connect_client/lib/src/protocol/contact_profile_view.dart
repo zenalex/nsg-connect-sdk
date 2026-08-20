@@ -26,6 +26,9 @@ abstract class ContactProfileView implements _i1.SerializableModel {
     this.customName,
     this.note,
     required this.labelIds,
+    required this.knownViaTeamNames,
+    required this.knownViaSharedRoom,
+    required this.knownViaManualContact,
   });
 
   factory ContactProfileView({
@@ -37,6 +40,9 @@ abstract class ContactProfileView implements _i1.SerializableModel {
     String? customName,
     String? note,
     required List<int> labelIds,
+    required List<String> knownViaTeamNames,
+    required bool knownViaSharedRoom,
+    required bool knownViaManualContact,
   }) = _ContactProfileViewImpl;
 
   factory ContactProfileView.fromJson(Map<String, dynamic> jsonSerialization) {
@@ -51,6 +57,15 @@ abstract class ContactProfileView implements _i1.SerializableModel {
       note: jsonSerialization['note'] as String?,
       labelIds: _i2.Protocol().deserialize<List<int>>(
         jsonSerialization['labelIds'],
+      ),
+      knownViaTeamNames: _i2.Protocol().deserialize<List<String>>(
+        jsonSerialization['knownViaTeamNames'],
+      ),
+      knownViaSharedRoom: _i1.BoolJsonExtension.fromJson(
+        jsonSerialization['knownViaSharedRoom'],
+      ),
+      knownViaManualContact: _i1.BoolJsonExtension.fromJson(
+        jsonSerialization['knownViaManualContact'],
       ),
     );
   }
@@ -81,6 +96,30 @@ abstract class ContactProfileView implements _i1.SerializableModel {
   /// Метки viewer-а, назначенные этому контакту.
   List<int> labelIds;
 
+  /// **Откуда человек знаком** (§6 DESIGN_TEAMS_AND_CONTACT_SHARING).
+  ///
+  /// Нужно не для украшения карточки, а чтобы правильное поведение не
+  /// выглядело багом. Убрал человека из команды — а он не пропал из
+  /// списка людей, потому что остался общий чат. Без объяснения это
+  /// читается как «исключение не сработало», и админ идёт искать ошибку
+  /// там, где её нет.
+  ///
+  /// Источников может быть сразу несколько — поэтому не одно поле, а
+  /// три: показать надо ВСЕ действующие, иначе объяснение снова
+  /// окажется неполным.
+  ///
+  /// Утечки нет: имена команд видит только тот, кто сам в них состоит, а
+  /// про общую комнату смотрящий и так знает — он в ней участник.
+  List<String> knownViaTeamNames;
+
+  /// Есть хотя бы одна общая комната.
+  bool knownViaSharedRoom;
+
+  /// Смотрящий добавил этого человека к себе сам (ручной контакт, QR,
+  /// заявка и т.п. — любой ЯВНЫЙ жест, в отличие от автоматического
+  /// «мы оказались в одной комнате»).
+  bool knownViaManualContact;
+
   /// Returns a shallow copy of this [ContactProfileView]
   /// with some or all fields replaced by the given arguments.
   @_i1.useResult
@@ -93,6 +132,9 @@ abstract class ContactProfileView implements _i1.SerializableModel {
     String? customName,
     String? note,
     List<int>? labelIds,
+    List<String>? knownViaTeamNames,
+    bool? knownViaSharedRoom,
+    bool? knownViaManualContact,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -106,6 +148,9 @@ abstract class ContactProfileView implements _i1.SerializableModel {
       if (customName != null) 'customName': customName,
       if (note != null) 'note': note,
       'labelIds': labelIds.toJson(),
+      'knownViaTeamNames': knownViaTeamNames.toJson(),
+      'knownViaSharedRoom': knownViaSharedRoom,
+      'knownViaManualContact': knownViaManualContact,
     };
   }
 
@@ -127,6 +172,9 @@ class _ContactProfileViewImpl extends ContactProfileView {
     String? customName,
     String? note,
     required List<int> labelIds,
+    required List<String> knownViaTeamNames,
+    required bool knownViaSharedRoom,
+    required bool knownViaManualContact,
   }) : super._(
          contactMessengerUserId: contactMessengerUserId,
          displayName: displayName,
@@ -136,6 +184,9 @@ class _ContactProfileViewImpl extends ContactProfileView {
          customName: customName,
          note: note,
          labelIds: labelIds,
+         knownViaTeamNames: knownViaTeamNames,
+         knownViaSharedRoom: knownViaSharedRoom,
+         knownViaManualContact: knownViaManualContact,
        );
 
   /// Returns a shallow copy of this [ContactProfileView]
@@ -151,6 +202,9 @@ class _ContactProfileViewImpl extends ContactProfileView {
     Object? customName = _Undefined,
     Object? note = _Undefined,
     List<int>? labelIds,
+    List<String>? knownViaTeamNames,
+    bool? knownViaSharedRoom,
+    bool? knownViaManualContact,
   }) {
     return ContactProfileView(
       contactMessengerUserId:
@@ -162,6 +216,11 @@ class _ContactProfileViewImpl extends ContactProfileView {
       customName: customName is String? ? customName : this.customName,
       note: note is String? ? note : this.note,
       labelIds: labelIds ?? this.labelIds.map((e0) => e0).toList(),
+      knownViaTeamNames:
+          knownViaTeamNames ?? this.knownViaTeamNames.map((e0) => e0).toList(),
+      knownViaSharedRoom: knownViaSharedRoom ?? this.knownViaSharedRoom,
+      knownViaManualContact:
+          knownViaManualContact ?? this.knownViaManualContact,
     );
   }
 }

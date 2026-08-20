@@ -70,7 +70,8 @@ class ConferenceRoomInfo {
       other.initiatorMessengerUserId == initiatorMessengerUserId;
 
   @override
-  int get hashCode => Object.hash(confId, memberCount, initiatorMessengerUserId);
+  int get hashCode =>
+      Object.hash(confId, memberCount, initiatorMessengerUserId);
 }
 
 /// Разобранный callId pairwise-сессии конференции. Конвенция:
@@ -803,10 +804,8 @@ class ConferenceCallController extends ChangeNotifier {
     } catch (_) {
       // Сессии нет (окно teardown/reinit) — конференцию не поднять.
       _joiningInviteBuffer.clear();
-    _joiningRosterEvent = null;
-      _setState(
-        const ConferenceCallEnded(reason: ConferenceEndReason.failed),
-      );
+      _joiningRosterEvent = null;
+      _setState(const ConferenceCallEnded(reason: ConferenceEndReason.failed));
       return;
     }
     final ConferenceState resp;
@@ -814,7 +813,7 @@ class ConferenceCallController extends ChangeNotifier {
       resp = await _rpc.joinConference(roomId: roomId, partyId: _selfPartyId);
     } on ConferenceFullException catch (e) {
       _joiningInviteBuffer.clear();
-    _joiningRosterEvent = null;
+      _joiningRosterEvent = null;
       _setState(
         ConferenceCallEnded(
           reason: ConferenceEndReason.conferenceFull,
@@ -826,7 +825,7 @@ class ConferenceCallController extends ChangeNotifier {
     } catch (e, st) {
       if (kDebugMode) debugPrint('[ConferenceCall] join failed: $e\n$st');
       _joiningInviteBuffer.clear();
-    _joiningRosterEvent = null;
+      _joiningRosterEvent = null;
       _setState(
         ConferenceCallEnded(reason: ConferenceEndReason.failed, roomId: roomId),
       );
@@ -848,7 +847,7 @@ class ConferenceCallController extends ChangeNotifier {
       stream = await _webrtc.getUserMediaAudio();
     } on MicPermissionDeniedException {
       _joiningInviteBuffer.clear();
-    _joiningRosterEvent = null;
+      _joiningRosterEvent = null;
       unawaited(_rpc.leaveConference(roomId: roomId).catchError((_) {}));
       _setState(
         ConferenceCallEnded(
@@ -861,7 +860,7 @@ class ConferenceCallController extends ChangeNotifier {
     } catch (e, st) {
       if (kDebugMode) debugPrint('[ConferenceCall] mic failed: $e\n$st');
       _joiningInviteBuffer.clear();
-    _joiningRosterEvent = null;
+      _joiningRosterEvent = null;
       unawaited(_rpc.leaveConference(roomId: roomId).catchError((_) {}));
       _setState(
         ConferenceCallEnded(
@@ -1015,8 +1014,7 @@ class ConferenceCallController extends ChangeNotifier {
         if (members.isEmpty) return; // смерть какой-то прежней — не нашей.
         final iAmMember = members.any(
           (m) =>
-              m.messengerUserId == conf.selfUserId &&
-              m.partyId == _selfPartyId,
+              m.messengerUserId == conf.selfUserId && m.partyId == _selfPartyId,
         );
         if (iAmMember) {
           // Конференция умерла и возродилась «под нами» (наш же heartbeat
@@ -1177,9 +1175,7 @@ class ConferenceCallController extends ChangeNotifier {
     // состава дозаполнит conferenceUpdated).
     _incoming = _IncomingConference(roomId: roomId, confId: parsed.confId)
       ..bufferedInvites.add(event);
-    _setState(
-      ConferenceIncomingRinging(roomId: roomId, confId: parsed.confId),
-    );
+    _setState(ConferenceIncomingRinging(roomId: roomId, confId: parsed.confId));
   }
 
   void _onPairAnswer(MessengerEvent event) {

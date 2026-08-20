@@ -57,6 +57,7 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
   /// **B16-ext (group avatar)**: pending-флаг для прогресса в Stack-FAB
   /// поверх аватара. Сбрасывается после success / error.
   bool _avatarUploading = false;
+  bool _togglingParticipants = false;
 
   @override
   void initState() {
@@ -71,6 +72,27 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
       _detailsFuture = _rooms.get(widget.roomId);
     });
     await _detailsFuture;
+  }
+
+  /// **issue #62**: переключить видимость состава. Право проверяет СЕРВЕР;
+  /// здесь только прячем переключатель у тех, кому он не положен, и
+  /// перечитываем комнату — новое состояние приходит с сервера, а не
+  /// угадывается локально: иначе при отказе UI показал бы то, чего нет.
+  Future<void> _setParticipantsHidden(RoomDetails details, bool hidden) async {
+    if (_togglingParticipants) return;
+    setState(() => _togglingParticipants = true);
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    // Текст берём ДО await: после него `context` может быть уже мёртв, и
+    // сообщение об ошибке само стало бы ошибкой.
+    final failedText = NsgL10n.of(context).roomActionFailedSnack;
+    try {
+      await _rooms.setParticipantsHidden(roomId: widget.roomId, hidden: hidden);
+      await _refresh();
+    } catch (_) {
+      messenger?.showSnackBar(SnackBar(content: Text(failedText)));
+    } finally {
+      if (mounted) setState(() => _togglingParticipants = false);
+    }
   }
 
   Future<void> _openRename(RoomDetails details) async {
@@ -460,6 +482,21 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
                       ),
                     ),
                     onTap: () => _editAutoCleanup(details),
+                  ),
+                // **issue #62**: админ решает, видят ли рядовые участники
+                // состав. Переключатель — только админу/владельцу и только в
+                // группе: в direct прятать не от кого, сервер такой вызов и
+                // не примет.
+                if (isAdmin && isGroup)
+                  SwitchListTile(
+                    key: const Key('participantsHiddenSwitch'),
+                    secondary: const Icon(Icons.visibility_off_outlined),
+                    title: Text(NsgL10n.of(context).participantsHiddenToggle),
+                    subtitle: Text(NsgL10n.of(context).participantsHiddenHint),
+                    value: details.participantsHidden,
+                    onChanged: _togglingParticipants
+                        ? null
+                        : (v) => _setParticipantsHidden(details, v),
                   ),
                 // Участники: у self-чата их ровно один (сам), строка
                 // бессмысленна.

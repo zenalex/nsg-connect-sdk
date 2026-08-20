@@ -23,10 +23,12 @@ abstract class Product implements _i1.SerializableModel {
     required this.displayName,
     this.pushBrandingJson,
     this.authAdapterConfigJson,
+    String? deliveryTransport,
     String? defaultLocale,
     required this.createdAt,
     required this.updatedAt,
-  }) : defaultLocale = defaultLocale ?? 'ru';
+  }) : deliveryTransport = deliveryTransport ?? 'platformPush',
+       defaultLocale = defaultLocale ?? 'ru';
 
   factory Product({
     int? id,
@@ -35,6 +37,7 @@ abstract class Product implements _i1.SerializableModel {
     required String displayName,
     String? pushBrandingJson,
     String? authAdapterConfigJson,
+    String? deliveryTransport,
     String? defaultLocale,
     required DateTime createdAt,
     required DateTime updatedAt,
@@ -49,6 +52,7 @@ abstract class Product implements _i1.SerializableModel {
       pushBrandingJson: jsonSerialization['pushBrandingJson'] as String?,
       authAdapterConfigJson:
           jsonSerialization['authAdapterConfigJson'] as String?,
+      deliveryTransport: jsonSerialization['deliveryTransport'] as String?,
       defaultLocale: jsonSerialization['defaultLocale'] as String?,
       createdAt: _i1.DateTimeJsonExtension.fromJson(
         jsonSerialization['createdAt'],
@@ -79,6 +83,22 @@ abstract class Product implements _i1.SerializableModel {
 
   String? authAdapterConfigJson;
 
+  /// **Модуль доставки (#121)**: чем везётся ПОСЛЕДНЯЯ МИЛЯ побудки.
+  /// Решение «будить ли этого человека» остаётся у платформы всегда —
+  /// оно требует знания о членстве, заглушении, упоминании, архиве и
+  /// факте показа на другом устройстве, и отдавать его наружу значит
+  /// получить кривую копию правил (см. DESIGN_CONNECT_DELIVERY_MODULE §2).
+  ///
+  /// `platformPush` — сами дёргаем FCM/RuStore ключами продукта (как
+  /// было всегда). `webhook` — шлём готовую инструкцию их серверу
+  /// существующей машиной подписок; годится продукту со СВОИМ реестром
+  /// устройств. Дефолт делает миграцию тождественной.
+  ///
+  /// Звонки этим полем не управляются: VoIP-побудка обязана дойти за
+  /// секунды (CallKit ждёт ограниченное время), и лишний прыжок через
+  /// чужой сервер — это и задержка, и точка отказа.
+  String deliveryTransport;
+
   String defaultLocale;
 
   DateTime createdAt;
@@ -95,6 +115,7 @@ abstract class Product implements _i1.SerializableModel {
     String? displayName,
     String? pushBrandingJson,
     String? authAdapterConfigJson,
+    String? deliveryTransport,
     String? defaultLocale,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -110,6 +131,7 @@ abstract class Product implements _i1.SerializableModel {
       if (pushBrandingJson != null) 'pushBrandingJson': pushBrandingJson,
       if (authAdapterConfigJson != null)
         'authAdapterConfigJson': authAdapterConfigJson,
+      'deliveryTransport': deliveryTransport,
       'defaultLocale': defaultLocale,
       'createdAt': createdAt.toJson(),
       'updatedAt': updatedAt.toJson(),
@@ -132,6 +154,7 @@ class _ProductImpl extends Product {
     required String displayName,
     String? pushBrandingJson,
     String? authAdapterConfigJson,
+    String? deliveryTransport,
     String? defaultLocale,
     required DateTime createdAt,
     required DateTime updatedAt,
@@ -142,6 +165,7 @@ class _ProductImpl extends Product {
          displayName: displayName,
          pushBrandingJson: pushBrandingJson,
          authAdapterConfigJson: authAdapterConfigJson,
+         deliveryTransport: deliveryTransport,
          defaultLocale: defaultLocale,
          createdAt: createdAt,
          updatedAt: updatedAt,
@@ -158,6 +182,7 @@ class _ProductImpl extends Product {
     String? displayName,
     Object? pushBrandingJson = _Undefined,
     Object? authAdapterConfigJson = _Undefined,
+    String? deliveryTransport,
     String? defaultLocale,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -173,6 +198,7 @@ class _ProductImpl extends Product {
       authAdapterConfigJson: authAdapterConfigJson is String?
           ? authAdapterConfigJson
           : this.authAdapterConfigJson,
+      deliveryTransport: deliveryTransport ?? this.deliveryTransport,
       defaultLocale: defaultLocale ?? this.defaultLocale,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

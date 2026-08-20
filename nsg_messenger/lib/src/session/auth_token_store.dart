@@ -66,6 +66,34 @@ abstract class AuthTokenStore {
 class SecureAuthTokenStore implements AuthTokenStore {
   static const _storageKey = 'nsg_messenger.session.v1';
 
+  /// **TASK56 итер.1 (быстрый ответ с Apple Watch)**: сессия должна читаться
+  /// из фона при ЗАБЛОКИРОВАННОМ телефоне.
+  ///
+  /// Дефолт плагина — `KeychainAccessibility.unlocked`
+  /// (`kSecAttrAccessibleWhenUnlocked`): Keychain отдаёт item только пока
+  /// телефон разблокирован. Ровно наш сценарий — часы на запястье, телефон
+  /// заблокирован в кармане — упирается в `errSecInteractionNotAllowed`, и
+  /// ответить нечем.
+  ///
+  /// `first_unlock` (`kSecAttrAccessibleAfterFirstUnlock`) — минимальное
+  /// послабление, которое это чинит: item доступен после первой разблокировки
+  /// с момента загрузки, в том числе пока телефон заблокирован.
+  ///
+  /// **Размен принят осознанно**: при краже включённого телефона токен
+  /// теоретически доступен эксплойту без разблокировки. Без этого фоновая
+  /// отправка невозможна в принципе, а сам токен и так лежит в БД
+  /// plaintext-ом (хеширование at rest — TASK24).
+  ///
+  /// Только iOS: у macOS/Windows/Linux такого сценария нет — им дефолты.
+  ///
+  /// **Миграция уже залогиненных** случится при следующей записи токена
+  /// (refresh/re-login), а не сразу: `SecItemUpdate` менять accessibility не
+  /// умеет, а вот [write] ниже делает `delete`+`write` → `SecItemAdd`, и он
+  /// accessibility проставляет.
+  static const _iosOptions = IOSOptions(
+    accessibility: KeychainAccessibility.first_unlock,
+  );
+
   final FlutterSecureStorage _storage;
 
   /// Резервный in-memory кеш на случай, если secure_storage падает на
@@ -74,7 +102,7 @@ class SecureAuthTokenStore implements AuthTokenStore {
   StoredMessengerSession? _memoryFallback;
 
   SecureAuthTokenStore({FlutterSecureStorage? storage})
-    : _storage = storage ?? const FlutterSecureStorage();
+    : _storage = storage ?? const FlutterSecureStorage(iOptions: _iosOptions);
 
   @override
   Future<StoredMessengerSession?> read() async {

@@ -34,10 +34,19 @@ class FilePreviewScreen extends StatefulWidget {
 class _FilePreviewScreenState extends State<FilePreviewScreen> {
   late Future<String> _text;
 
+  /// **Issue #89**: переносить ли строки. Дефолт — по формату
+  /// ([wrapsLinesByDefault]), дальше решает человек кнопкой в шапке.
+  ///
+  /// Догадаться о боковой прокрутке неоткуда: обрезанная по краю строка
+  /// выглядит как потерянная, а не как «прокрути». Поэтому переключатель
+  /// виден всегда, а не прячется в меню.
+  late bool _wrap;
+
   @override
   void initState() {
     super.initState();
     _text = widget.actions.loadTextPreview(widget.attachment);
+    _wrap = wrapsLinesByDefault(widget.attachment.originalFilename);
   }
 
   @override
@@ -50,6 +59,13 @@ class _FilePreviewScreenState extends State<FilePreviewScreen> {
       appBar: AppBar(
         title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
         actions: [
+          IconButton(
+            key: const Key('filePreviewWrapToggle'),
+            tooltip: _wrap ? l.filePreviewWrapOff : l.filePreviewWrapOn,
+            isSelected: _wrap,
+            icon: const Icon(Icons.wrap_text),
+            onPressed: () => setState(() => _wrap = !_wrap),
+          ),
           IconButton(
             tooltip: l.fileActionOpenExternal,
             icon: const Icon(Icons.open_in_new),
@@ -83,15 +99,19 @@ class _FilePreviewScreenState extends State<FilePreviewScreen> {
               ),
             );
           }
+          const style = TextStyle(fontFamily: 'monospace', fontSize: 13);
+          final text = SelectableText(snap.data ?? '', style: style);
           return SingleChildScrollView(
             padding: const EdgeInsets.all(12),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: SelectableText(
-                snap.data ?? '',
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
-              ),
-            ),
+            // С переносом горизонтальной прокрутки быть не должно: она
+            // отдала бы `SelectableText` бесконечную ширину, и переносить
+            // стало бы нечего.
+            child: _wrap
+                ? SizedBox(width: double.infinity, child: text)
+                : SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: text,
+                  ),
           );
         },
       ),

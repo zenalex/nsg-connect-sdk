@@ -123,6 +123,15 @@ class _FakePushProvider implements PushTokenProvider {
   @override
   Stream<String?> tokenStream() => const Stream<String?>.empty();
 
+  // Issue #86: токен есть, значит доставка настроена — офлайн ломает
+  // только регистрацию на сервере, а не выдачу токена платформой.
+  @override
+  PushTokenStatus get pushStatus => PushTokenStatus.ready;
+
+  @override
+  Stream<PushTokenStatus> pushStatusStream() =>
+      const Stream<PushTokenStatus>.empty();
+
   @override
   Future<DeviceInfo?> getDeviceInfo() async => const DeviceInfo(
     platform: DevicePlatform.android,

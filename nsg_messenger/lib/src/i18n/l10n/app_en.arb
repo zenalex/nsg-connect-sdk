@@ -1,72 +1,58 @@
 {
   "@@locale": "en",
   "@@context": "TASK22 Chunk 1 — template ARB. Любые keys без RU перевода в `app_ru.arb` fallback на этот файл. Все non-EN locales (de/fr/etc) тоже fallback здесь.",
-
   "commonRetry": "Retry",
   "@commonRetry": {
     "description": "Кнопка/tooltip для повторной попытки в error states (chats list, message bubble после failed send)."
   },
-
   "commonNewChat": "New chat",
   "@commonNewChat": {
     "description": "Title `CreateChatScreen` + tooltip add-button в `ChatsListScreen` AppBar. Use case: открыть UI создания нового чата (direct по messengerUserId / в будущем поиск по имени)."
   },
-
   "commonConnectionLost": "Connection lost — showing cache",
   "@commonConnectionLost": {
     "description": "Banner показывается когда `state == Error` но есть `lastKnown` cache; UI рендерит кэш + это сообщение наверху. См. `ConnectionLostBanner`."
   },
-
   "chatsListTitle": "Chats",
   "@chatsListTitle": {
     "description": "AppBar title для `ChatsListScreen` — главного экрана со списком всех чатов пользователя."
   },
-
   "chatsListEmpty": "No chats yet",
   "@chatsListEmpty": {
     "description": "Empty-state в `ChatsListScreen` когда listRooms() вернул пустой массив (новый юзер без single чата)."
   },
-
   "chatsListLoadFailed": "Failed to load chats",
   "@chatsListLoadFailed": {
     "description": "Заголовок error-empty экрана в `ChatsListScreen` когда listRooms() упал И нет lastKnown cache. Сопровождается raw error text + Retry button."
   },
-
   "createChatInvalidId": "Enter numeric messengerUserId",
   "@createChatInvalidId": {
     "description": "Валидация формы в `CreateChatScreen` когда юзер ввёл не-числовой messengerUserId. Локально показывается под полем ввода."
   },
-
   "createChatPeerUnavailable": "User unavailable",
   "@createChatPeerUnavailable": {
     "description": "Anti-enumeration error из `RoomService.createDirect` (TASK13): peer не существует / в другом tenant / == caller. Показывается без uid-leak."
   },
-
   "createChatHelp": "Direct chat by messengerUserId. Name search — TASK42.",
   "@createChatHelp": {
     "description": "Help-text в `CreateChatScreen` объясняющий MVP scope (только direct по числовому id; имя/handle search в TASK42)."
   },
-
   "createChatSubmit": "Create direct chat",
   "@createChatSubmit": {
     "description": "Submit-button в `CreateChatScreen` форме."
   },
-
   "chatScreenEmpty": "No messages yet — write the first one",
   "@chatScreenEmpty": {
     "description": "Empty-state в `ChatScreen` когда room новая, history-pagination вернула 0 messages."
   },
-
   "chatScreenLoadFailed": "Failed to load messages",
   "@chatScreenLoadFailed": {
     "description": "Заголовок error-empty в `ChatScreen` когда listMessages() упал на init без lastKnown."
   },
-
   "chatJumpToLatestTooltip": "To the latest message",
   "@chatJumpToLatestTooltip": {
     "description": "Tooltip плавающей кнопки-стрелки в `ChatScreen` (issue #59): появляется, когда пользователь ушёл вверх по истории; тап возвращает к самому свежему сообщению."
   },
-
   "chatDateSeparatorToday": "Today",
   "@chatDateSeparatorToday": {
     "description": "TASK86: плашка-разделитель даты в ленте (и «липкая» дата при скролле) для сообщений сегодняшнего локального дня."
@@ -75,27 +61,22 @@
   "@chatDateSeparatorYesterday": {
     "description": "TASK86: плашка-разделитель даты в ленте (и «липкая» дата при скролле) для сообщений вчерашнего локального дня."
   },
-
   "chatScreenSendHint": "Message…",
   "@chatScreenSendHint": {
     "description": "Placeholder в `MessageComposer` TextField — подсказка пользователю что писать."
   },
-
   "chatScreenSendTooltip": "Send",
   "@chatScreenSendTooltip": {
     "description": "Tooltip send-button (paper-plane icon) в `MessageComposer`. Активен только при non-empty composer + state==Ready."
   },
-
   "roomSummaryNoName": "(no name)",
   "@roomSummaryNoName": {
     "description": "Fallback name в `RoomSummaryTile` когда `RoomSummary.name == null` (group без явного имени, direct без participants info)."
   },
-
   "roomSummaryNoMessages": "No messages",
   "@roomSummaryNoMessages": {
     "description": "Fallback subtitle в `RoomSummaryTile` когда `lastMessagePreview == null` (комната создана но никто не написал)."
   },
-
   "composerSplitTitle": "Long text",
   "@composerSplitTitle": {
     "description": "issue #57: заголовок подтверждения перед отправкой текста, который не влезает в одно сообщение."
@@ -103,7 +84,11 @@
   "composerSplitBody": "{count, plural, one{Will be sent as {count} message} other{Will be sent as {count} messages}}",
   "@composerSplitBody": {
     "description": "issue #57: спрашиваем ТОЛЬКО когда частей больше трёх — до трёх шлём молча, иначе диалог мешает обычной работе.",
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "composerSplitConfirm": "Send",
   "@composerSplitConfirm": {
@@ -112,11 +97,15 @@
   "composerEditTooLong": "The edit exceeds the {limit}-character limit — shorten it",
   "@composerEditTooLong": {
     "description": "issue #57: правка — это ОДНО событие, разбить её нельзя. Раньше хвост молча отсекался; теперь правка не применяется, а текст остаётся в поле.",
-    "placeholders": { "limit": { "type": "int" } }
+    "placeholders": {
+      "limit": {
+        "type": "int"
+      }
+    }
   },
-  "composerPastedAsCode": "Formatted as code",
-  "@composerPastedAsCode": {
-    "description": "issue #70: снекбар после автоформатирования вставленного кода. Обязателен вместе с «Отменить»: молча переоформить чужой текст нельзя."
+  "composerPasteImageFailed": "Could not paste the image from the clipboard. Save it to a file and attach it with the paperclip.",
+  "@composerPasteImageFailed": {
+    "description": "issue #83: Ctrl+V с картинкой в буфере не смог её прочитать. Раньше композер выходил молча — пользователь видел пустое поле и решил, что фото нельзя отправить без комментария, хотя картинка просто не прикрепилась. Показывается ТОЛЬКО когда картинка в буфере действительно была; обычная вставка текста идёт тем же кодом и остаётся беззвучной."
   },
   "commonUndo": "Undo",
   "@commonUndo": {
@@ -126,147 +115,118 @@
   "@commonCancel": {
     "description": "Cancel-button в confirm-диалогах. TASK42: leave-confirm + future destructive actions."
   },
-
   "roomActionSheetTitle": "Chat actions",
   "@roomActionSheetTitle": {
     "description": "TASK42 Chunk 2: header в bottom-sheet который открывается на long-press `RoomSummaryTile`. Показывает available actions (mute/archive/leave)."
   },
-
   "roomActionMute": "Mute",
   "@roomActionMute": {
     "description": "TASK42: action в room-action-sheet. Открывает submenu с durations (1h/8h/1d/1w/forever)."
   },
-
   "roomActionUnmute": "Unmute",
   "@roomActionUnmute": {
     "description": "TASK42: action в room-action-sheet, видна когда `room.muted == true`. Сразу делает unmute (без submenu)."
   },
-
   "roomActionMuteFor1Hour": "1 hour",
   "@roomActionMuteFor1Hour": {
     "description": "TASK42: mute-duration option (1 час)."
   },
-
   "roomActionMuteFor8Hours": "8 hours",
   "@roomActionMuteFor8Hours": {
     "description": "TASK42: mute-duration option (8 часов, типичная workday/sleep)."
   },
-
   "roomActionMuteFor1Day": "1 day",
   "@roomActionMuteFor1Day": {
     "description": "TASK42: mute-duration option (24 часа)."
   },
-
   "roomActionMuteFor1Week": "1 week",
   "@roomActionMuteFor1Week": {
     "description": "TASK42: mute-duration option (7 дней, типичный отпуск short)."
   },
-
   "roomActionMuteForever": "Forever",
   "@roomActionMuteForever": {
     "description": "TASK42: mute-duration option, использует `kMuteForever` sentinel (`DateTime.utc(9999, 1, 1)`). Без timer-а unmute, юзер должен явно нажать Unmute."
   },
-
   "roomActionMuteUntilTitle": "Mute until",
   "@roomActionMuteUntilTitle": {
     "description": "TASK42: title secondary bottom-sheet с mute-durations (когда юзер выбрал Mute из главного sheet-а)."
   },
-
   "roomActionArchive": "Archive",
   "@roomActionArchive": {
     "description": "TASK42: action в room-action-sheet. Скрывает чат с active-tab. Restore через unarchive в archived-tab."
   },
-
   "roomActionUnarchive": "Unarchive",
   "@roomActionUnarchive": {
     "description": "TASK42: action в room-action-sheet, видна когда `room.archived == true`. Restore back to active list."
   },
-
   "roomActionDismissSupport": "Close (until reply)",
   "@roomActionDismissSupport": {
     "description": "TASK75: action в room-action-sheet для support-комнат. Оператор скрывает чат у себя до следующего сообщения заявителя (тикет не закрывается)."
   },
-
   "roomActionLeave": "Leave chat",
   "@roomActionLeave": {
     "description": "TASK42: destructive action в room-action-sheet. Покидает Matrix room + удаляет local membership. Открывает confirm-dialog."
   },
-
   "roomActionLeaveConfirmTitle": "Leave chat?",
   "@roomActionLeaveConfirmTitle": {
     "description": "TASK42: title confirm-dialog для leaveRoom. Destructive action, требует явного OK."
   },
-
   "roomActionLeaveConfirmBody": "You will be removed from the conversation. Other participants will see that you left.",
   "@roomActionLeaveConfirmBody": {
     "description": "TASK42: body leave-confirm-dialog. Объясняет что other participants получат membershipLeft event."
   },
-
   "roomActionFailedSnack": "Action failed — try again",
   "@roomActionFailedSnack": {
     "description": "TASK42: snackbar когда mute/archive/leave RPC упал. Optimistic-update reverted, юзеру предлагается retry."
   },
-
   "chatsListFilterMenuTooltip": "Filter",
   "@chatsListFilterMenuTooltip": {
     "description": "TASK42: tooltip overflow-menu button в `ChatsListScreen` AppBar (3 dots → Active/Archived/All)."
   },
-
   "chatsListFilterActive": "Active",
   "@chatsListFilterActive": {
     "description": "TASK42: PopupMenuItem `ChatsListFilter.active` (default — server-side filter `includeArchived=false`)."
   },
-
   "chatsListFilterArchived": "Archived",
   "@chatsListFilterArchived": {
     "description": "TASK42: PopupMenuItem `ChatsListFilter.archived` (server возвращает все, SDK post-filter `r.archived`)."
   },
-
   "chatsListFilterAll": "All",
   "@chatsListFilterAll": {
     "description": "TASK42: PopupMenuItem `ChatsListFilter.all` (debug / power-user — без post-filter, видны и active и archived вместе)."
   },
-
   "chatsListSearchTooltip": "Search",
   "@chatsListSearchTooltip": {
     "description": "TASK42 Chunk 3: tooltip search-icon в `ChatsListScreen` AppBar. На tap activates inline TextField mode."
   },
-
   "chatsListSearchHint": "Search chats…",
   "@chatsListSearchHint": {
     "description": "TASK42 Chunk 3: placeholder в search TextField. ILIKE на Room.name, server-side; 300ms debounce."
   },
-
   "chatsListSearchClearTooltip": "Clear",
   "@chatsListSearchClearTooltip": {
     "description": "TASK42 Chunk 3: tooltip clear-button (X icon) в search TextField. На tap reset query → refresh без search-параметра."
   },
-
   "chatsListSearchEmpty": "No matches",
   "@chatsListSearchEmpty": {
     "description": "TASK42 Chunk 3: empty-state в `ChatsListScreen` когда search вернул 0 results (отдельно от `chatsListEmpty` который для no-search empty)."
   },
-
   "chatsListProductFilterTooltip": "Product",
   "@chatsListProductFilterTooltip": {
     "description": "TASK42 Chunk 3: tooltip product-filter dropdown в `ChatsListScreen` AppBar. Виден только в standalone-mode когда `availableProducts.length > 1`."
   },
-
   "chatsListProductFilterAll": "All products",
   "@chatsListProductFilterAll": {
     "description": "TASK42 Chunk 3: PopupMenuItem `productFilter == null` — снимает product filter, показывает rooms из всех products."
   },
-
   "chatsListFolderAll": "All",
   "@chatsListFolderAll": {
     "description": "TASK44 фаза 1: подпись папки-таба «Все» (плоский список) в полосе авто-папок над списком чатов (Telegram-style)."
   },
-
   "chatsListFolderPersonal": "Personal",
   "@chatsListFolderPersonal": {
     "description": "TASK44 фаза 1: подпись папки-таба «Личные» — комнаты без привязки к продукту (direct / обычные группы)."
   },
-
   "chatsListFolderProductFallback": "Product {productId}",
   "@chatsListFolderProductFallback": {
     "description": "TASK44 фаза 1: fallback-подпись продуктовой папки, когда `Product.displayName`/`externalKey` недоступны (getAvailableProducts ещё не загружен или продукт не вернулся). Подставляется `productId`.",
@@ -276,7 +236,6 @@
       }
     }
   },
-
   "chatsListFolderRoomCount": "{count, plural, one{{count} chat} other{{count} chats}}",
   "@chatsListFolderRoomCount": {
     "description": "TASK44 фаза 1.5: subtitle строки-папки, когда у самого свежего чата папки нет превью — показываем число чатов в папке.",
@@ -286,47 +245,38 @@
       }
     }
   },
-
   "chatsListFolderSupportSection": "Support",
   "@chatsListFolderSupportSection": {
     "description": "TASK44 фаза 1: заголовок секции support-комнат (`RoomType.support`) внутри продуктовой папки. Support-чаты выносятся вверх отдельной секцией."
   },
-
   "chatsListFolderOtherSection": "Chats",
   "@chatsListFolderOtherSection": {
     "description": "TASK44 фаза 1: заголовок секции остальных (не-support) комнат внутри продуктовой папки, когда над ними есть секция Support."
   },
-
   "chatsListFolderSupport": "Support",
   "@chatsListFolderSupport": {
     "description": "TASK75: имя агрегатной папки-строки «Поддержка» в корне списка чатов (операторский инбокс). Раньше FolderRow рисовал её как «Product 0» — у агрегатной папки нет productId."
   },
-
   "chatsListFolderCustom": "Folder",
   "@chatsListFolderCustom": {
     "description": "TASK62: fallback-имя пользовательской папки, если `customName` почему-то пуст."
   },
-
   "savedChatsTitle": "Saved",
   "@savedChatsTitle": {
     "description": "TASK68: название раздела «Избранное» — набор self-чатов (комнат с единственным участником, аналог Telegram Saved Messages). Заголовок папки-строки и drill-in экрана."
   },
-
   "savedChatsCreateAction": "New section",
   "@savedChatsCreateAction": {
     "description": "TASK68: кнопка создания нового именованного раздела «Избранного» («заметки», «файлообмен», ...)."
   },
-
   "savedChatsCreateHint": "Section name",
   "@savedChatsCreateHint": {
     "description": "TASK68: подсказка в поле ввода имени нового раздела «Избранного»."
   },
-
   "savedChatsEmpty": "Send yourself notes, files and links — they sync across all your devices.",
   "@savedChatsEmpty": {
     "description": "TASK68: пустое состояние раздела «Избранное» — объясняет главный сценарий (передать что-то на другое устройство)."
   },
-
   "savedChatsLimitReached": "Section limit reached ({limit}). Delete an unused one first.",
   "@savedChatsLimitReached": {
     "description": "TASK68: сервер отказал по потолку числа self-чатов (код saved_chat_limit).",
@@ -336,27 +286,22 @@
       }
     }
   },
-
   "savedChatsNameTaken": "A section with this name already exists.",
   "@savedChatsNameTaken": {
     "description": "TASK68: сервер отказал из-за дубля имени раздела (код saved_chat_name_taken)."
   },
-
   "autoCleanupTitle": "Auto-delete messages",
   "@autoCleanupTitle": {
     "description": "TASK68: строка настроек комнаты — TTL автоочистки сообщений раздела «Избранного»."
   },
-
   "autoCleanupHint": "Pinned messages are never deleted",
   "@autoCleanupHint": {
     "description": "TASK68: подпись под настройкой автоочистки. Ключевая гарантия §5 ТЗ: закреплённое переживает свип, это и есть способ защитить важное."
   },
-
   "autoCleanupOff": "Never",
   "@autoCleanupOff": {
     "description": "TASK68: вариант «не удалять» в выборе TTL автоочистки (autoCleanupTtlSeconds == null)."
   },
-
   "autoCleanupAfterDays": "{days, plural, one{After {days} day} other{After {days} days}}",
   "@autoCleanupAfterDays": {
     "description": "TASK68: пресет TTL автоочистки в днях (1 / 7 / 30).",
@@ -366,32 +311,26 @@
       }
     }
   },
-
   "attachActionSheetTitle": "Attach",
   "@attachActionSheetTitle": {
     "description": "TASK19 Chunk 3: header в bottom-sheet который открывается на tap-on-paperclip-icon в `MessageComposer`. Показывает доступные source-ы attachment (camera/gallery). file_picker — Phase2."
   },
-
   "attachActionCamera": "Camera",
   "@attachActionCamera": {
     "description": "TASK19 Chunk 3: action в attach bottom-sheet — открывает camera через image_picker."
   },
-
   "attachActionGallery": "Gallery",
   "@attachActionGallery": {
     "description": "TASK19 Chunk 3: action в attach bottom-sheet — открывает photo gallery через image_picker."
   },
-
   "attachActionImage": "Image",
   "@attachActionImage": {
     "description": "Issue #54 п.2: тот же action что attachActionGallery, но на desktop/web — там нет «галереи», есть обычный диалог выбора файла с фильтром по картинкам."
   },
-
   "attachActionFile": "File",
   "@attachActionFile": {
     "description": "Issue #54 п.2: action в attach bottom-sheet — выбор ПРОИЗВОЛЬНОГО файла (документ/архив/видео) через file_picker."
   },
-
   "attachFileTooLarge": "Too large (limit 50 MB), not attached: {names}",
   "@attachFileTooLarge": {
     "description": "Issue #54 п.2: snackbar о файлах, отвергнутых клиентским лимитом kMaxAttachmentBytes. Показывается вместо молчаливого отброса — иначе пользователю кажется, что файл потерялся.",
@@ -402,12 +341,10 @@
       }
     }
   },
-
   "attachUploadFailed": "Upload failed — try again",
   "@attachUploadFailed": {
     "description": "TASK19 Chunk 3: snackbar когда upload через `messenger.uploadAttachment` упал (network / server reject mime). UI revert composer state."
   },
-
   "attachRejectedType": "Can't send “{filename}” — this file type isn't supported",
   "@attachRejectedType": {
     "description": "Issue #54: server rejected the attachment (AttachmentRejectReason.unsupportedType). Раньше такой реджект был НЕВИДИМ — сообщение просто получало красный «!» без объяснения.",
@@ -418,7 +355,6 @@
       }
     }
   },
-
   "attachRejectedExecutable": "Can't send “{filename}” — executable files aren't allowed",
   "@attachRejectedExecutable": {
     "description": "Issue #54: реджект по extension-blacklist (AttachmentRejectReason.blockedExtension) — .exe/.apk/.msi и т.п.",
@@ -429,7 +365,6 @@
       }
     }
   },
-
   "attachRejectedTooLarge": "Can't send “{filename}” — the file is larger than {maxMb} MB",
   "@attachRejectedTooLarge": {
     "description": "Issue #54: реджект по size cap (AttachmentRejectReason.tooLarge). `maxMb` — лимит, который нарушен (50 для image/file, 100 для video).",
@@ -444,7 +379,6 @@
       }
     }
   },
-
   "fileActionPreview": "Preview",
   "@fileActionPreview": {
     "description": "issue #69: пункт листа действий по файловому вложению — показать текст внутри приложения (.md/.txt/.json и пр.)."
@@ -460,12 +394,28 @@
   "fileSavedTo": "Saved: {path}",
   "@fileSavedTo": {
     "description": "issue #69: snackbar после сохранения на десктопе — показываем полный путь, иначе файл «исчезает».",
-    "placeholders": { "path": { "type": "String" } }
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
   },
   "fileNoHandler": "No app to open \"{filename}\"",
   "@fileNoHandler": {
     "description": "issue #69: ОС отказалась открывать файл (нет ассоциации с расширением) — это не сбой загрузки.",
-    "placeholders": { "filename": { "type": "String" } }
+    "placeholders": {
+      "filename": {
+        "type": "String"
+      }
+    }
+  },
+  "filePreviewWrapOn": "Wrap lines",
+  "@filePreviewWrapOn": {
+    "description": "Issue #89: tooltip of the file-preview toggle when lines are NOT wrapped — pressing it turns wrapping on."
+  },
+  "filePreviewWrapOff": "Do not wrap lines",
+  "@filePreviewWrapOff": {
+    "description": "Issue #89: tooltip of the same toggle when lines ARE wrapped — pressing it switches back to horizontal scrolling (tables, logs, code keep their alignment)."
   },
   "fileOpenFailed": "Could not open the file",
   "@fileOpenFailed": {
@@ -475,177 +425,172 @@
   "@attachUnnamedFallback": {
     "description": "TASK19 Chunk 3: fallback в `_FileRow` когда `AttachmentRef.originalFilename == ''` (defensive — server обычно non-empty)."
   },
-
   "attachTooltip": "Attach file",
   "@attachTooltip": {
     "description": "TASK19 Chunk 3: tooltip paperclip-icon в `MessageComposer`. Tap открывает `showAttachmentPicker` bottom-sheet."
   },
-
   "voiceRecordTooltip": "Hold to record",
   "@voiceRecordTooltip": {
     "description": "B-voice: tooltip microphone-кнопки в `MessageComposer`. Showed когда text field empty + onSendAttachment != null."
   },
-
   "voiceRecordingHint": "Recording…",
   "@voiceRecordingHint": {
     "description": "B-voice: indicator в composer-е во время записи (заменяет text field). Сопровождается mm:ss таймером."
   },
-
   "voiceRecordTooShort": "Recording too short",
   "@voiceRecordTooShort": {
     "description": "B-voice: snackbar text когда юзер отпустил mic-button раньше 1 секунды. Запись отменяется."
   },
-
   "voiceRecordPermissionDenied": "Microphone permission denied",
   "@voiceRecordPermissionDenied": {
     "description": "B-voice: snackbar text когда AudioRecorder.hasPermission() вернул false. Юзер должен дать доступ через OS settings."
   },
-
   "voiceRecordError": "Recording failed",
   "@voiceRecordError": {
     "description": "B-voice: generic snackbar text при ошибке start/stop record (нет mic, codec не поддержан, etc.)."
   },
-
   "messageActionSheetTitle": "Message",
   "@messageActionSheetTitle": {
     "description": "TASK37 Chunk 2: header bottom-sheet который открывается на long-press `MessageBubble`. Items: Edit / Delete / Copy."
   },
-
   "messageActionEdit": "Edit",
   "@messageActionEdit": {
     "description": "TASK37: edit action в message bottom-sheet. Visible только для own + non-deleted messages."
   },
-
   "messageActionDelete": "Delete",
   "@messageActionDelete": {
     "description": "TASK37: delete action. Visible только для own + non-deleted messages. Destructive — confirm dialog."
   },
-
   "messageActionCopy": "Copy",
   "@messageActionCopy": {
     "description": "TASK37: copy text action. Always-enabled (Q4 sign-off). Использует Clipboard.setData."
   },
-
   "messageActionEditDialogTitle": "Edit message",
   "@messageActionEditDialogTitle": {
     "description": "TASK37: title input dialog для edit. Open после Edit action в bottom-sheet."
   },
-
   "messageActionEditSave": "Save",
   "@messageActionEditSave": {
     "description": "TASK37: save-button в edit dialog. Disabled когда `body.trim().isEmpty` (Q5 client-side validation)."
   },
-
   "messageActionDeleteConfirmTitle": "Delete message?",
   "@messageActionDeleteConfirmTitle": {
     "description": "TASK37: title destructive confirm dialog для delete."
   },
-
   "messageActionDeleteConfirmBody": "This action cannot be undone. The message will be removed for everyone in the chat.",
   "@messageActionDeleteConfirmBody": {
     "description": "TASK37: body confirm dialog. Объясняет что delete = visible to all participants (Telegram «delete for everyone» semantics)."
   },
-
   "messageEditFailed": "Edit failed — try again",
   "@messageEditFailed": {
     "description": "TASK37: snackbar когда editMessage RPC упал (network / server reject). Optimistic-update reverted."
   },
-
   "messageDeleteFailed": "Delete failed — try again",
   "@messageDeleteFailed": {
     "description": "TASK37: snackbar когда deleteMessage RPC упал. Optimistic-tombstone reverted."
   },
-
   "messageDeletedPlaceholder": "Message deleted",
   "@messageDeletedPlaceholder": {
     "description": "TASK37: italic tombstone placeholder в bubble когда `deletedAt != null`. Telegram-style soft-delete UX."
   },
-
   "messageEditedBadge": "edited",
   "@messageEditedBadge": {
     "description": "TASK37: small label рядом с timestamp в bubble когда `editedAt != null`. Не показывает diff/history (Phase2)."
   },
-
   "messageShowMore": "Show more",
   "@messageShowMore": {
     "description": "Кнопка под обрезанным длинным сообщением — раскрывает полный текст inline."
   },
-
   "messageCopiedSnack": "Copied",
   "@messageCopiedSnack": {
     "description": "TASK37: snackbar после Copy action — feedback что text put в clipboard."
   },
-
   "messageActionReply": "Reply",
   "@messageActionReply": {
     "description": "TASK16-A: action sheet item для reply на сообщение. Hidden для tombstone."
   },
-
   "messageActionReplyWithMention": "Reply with mention",
   "@messageActionReplyWithMention": {
     "description": "TASK69 2C: action sheet item — reply на сообщение + @упоминание автора в композере. Visible только в группах для чужих сообщений."
   },
-
   "mentionParticipantAction": "Mention",
   "@mentionParticipantAction": {
     "description": "TASK69 2C: пункт «Упомянуть» в шите по тапу на аватар участника (group peer-bubble). Вставляет @имя в композер."
   },
-
   "emojiPickerTitle": "Choose a reaction",
   "@emojiPickerTitle": {
     "description": "F2 ч.1: заголовок шита полного emoji-picker-а для реакций."
   },
+  "emojiInsertPickerTitle": "Choose an emoji",
+  "@emojiInsertPickerTitle": {
+    "description": "Issue #85: заголовок того же шита, когда его открыли из композера для вставки эмодзи в текст. Отличается от emojiPickerTitle только словом: «Выберите реакцию» над панелью, из которой набирают сообщение, сбивает с толку."
+  },
+  "emojiInsertTooltip": "Emoji",
+  "@emojiInsertTooltip": {
+    "description": "Issue #85: подсказка кнопки эмодзи в композере. Кнопка есть только там, где нет экранной клавиатуры со своими эмодзи (десктоп и веб на десктопе)."
+  },
   "emojiCategorySmileys": "Smileys & emotion",
-  "@emojiCategorySmileys": {"description": "F2 ч.1: категория эмодзи — смайлы."},
+  "@emojiCategorySmileys": {
+    "description": "F2 ч.1: категория эмодзи — смайлы."
+  },
   "emojiCategoryGestures": "Gestures & people",
-  "@emojiCategoryGestures": {"description": "F2 ч.1: категория эмодзи — жесты."},
+  "@emojiCategoryGestures": {
+    "description": "F2 ч.1: категория эмодзи — жесты."
+  },
   "emojiCategoryHearts": "Hearts & symbols",
-  "@emojiCategoryHearts": {"description": "F2 ч.1: категория эмодзи — сердца."},
+  "@emojiCategoryHearts": {
+    "description": "F2 ч.1: категория эмодзи — сердца."
+  },
   "emojiCategoryAnimals": "Animals & nature",
-  "@emojiCategoryAnimals": {"description": "F2 ч.1: категория эмодзи — животные."},
+  "@emojiCategoryAnimals": {
+    "description": "F2 ч.1: категория эмодзи — животные."
+  },
   "emojiCategoryFood": "Food & drink",
-  "@emojiCategoryFood": {"description": "F2 ч.1: категория эмодзи — еда."},
+  "@emojiCategoryFood": {
+    "description": "F2 ч.1: категория эмодзи — еда."
+  },
   "emojiCategoryActivity": "Activity & objects",
-  "@emojiCategoryActivity": {"description": "F2 ч.1: категория эмодзи — активности."},
+  "@emojiCategoryActivity": {
+    "description": "F2 ч.1: категория эмодзи — активности."
+  },
   "emojiCategorySymbols": "Symbols",
-  "@emojiCategorySymbols": {"description": "F2 ч.1: категория эмодзи — символы."},
-
+  "@emojiCategorySymbols": {
+    "description": "F2 ч.1: категория эмодзи — символы."
+  },
   "messageActionCreateTask": "Create task",
   "@messageActionCreateTask": {
     "description": "TASK38: action sheet item — создать задачу во внешнем трекере из сообщения. Visible только если taskIntegrationEnabled."
   },
-
   "taskCreatedSnack": "Task {taskKey} created",
   "@taskCreatedSnack": {
     "description": "TASK38: snackbar после успешного createTaskFromMessage. taskKey = externalTaskKey ?? externalTaskId.",
     "placeholders": {
-      "taskKey": { "type": "String" }
+      "taskKey": {
+        "type": "String"
+      }
     }
   },
-
   "taskCreateFailed": "Couldn't create task",
   "@taskCreateFailed": {
     "description": "TASK38: snackbar когда createTaskFromMessage RPC упал (network / server reject)."
   },
-
   "taskIntegrationDisabled": "Task integration is not configured",
   "@taskIntegrationDisabled": {
     "description": "TASK38: snackbar при TaskIntegrationNotConfiguredException — интеграция выключена для tenant-а."
   },
-
   "composerReplyingTo": "Replying to {name}",
   "@composerReplyingTo": {
     "description": "TASK16-A: header reply quote chip над composer-ом. {name} — displayName того, кому отвечаем (либо matrixUserId fallback).",
     "placeholders": {
-      "name": {"type": "String"}
+      "name": {
+        "type": "String"
+      }
     }
   },
-
   "composerCancelReply": "Cancel reply",
   "@composerCancelReply": {
     "description": "TASK16-A: tooltip close-X кнопки в reply quote chip composer-а."
   },
-
   "composerEditing": "Editing",
   "@composerEditing": {
     "description": "B12: header edit-mode indicator chip над composer-ом (вместо reply-chip когда композер в edit-mode)."
@@ -666,107 +611,180 @@
   "@composerFormatItalic": {
     "description": "B19: text-selection context-menu action — wrap selection in _italic_ markdown."
   },
-
   "composerCancelEdit": "Cancel edit",
   "@composerCancelEdit": {
     "description": "B12: tooltip close-X кнопки в edit-indicator chip композер-а."
   },
-
   "messageComposerSaveTooltip": "Save",
   "@messageComposerSaveTooltip": {
     "description": "B12: tooltip send-button когда композер в edit-mode (иконка Icons.check вместо Icons.send)."
   },
-
   "typingSingle": "{name} is typing…",
   "@typingSingle": {
     "description": "B9 typing indicator footer над composer-ом: 1 peer печатает. {name} — displayName.",
     "placeholders": {
-      "name": {"type": "String"}
+      "name": {
+        "type": "String"
+      }
     }
   },
-
   "typingPair": "{name1} and {name2} are typing…",
   "@typingPair": {
     "description": "B9: 2 peers печатают.",
     "placeholders": {
-      "name1": {"type": "String"},
-      "name2": {"type": "String"}
+      "name1": {
+        "type": "String"
+      },
+      "name2": {
+        "type": "String"
+      }
     }
   },
-
+  "typingSingleBot": "{name} is thinking…",
+  "@typingSingleBot": {
+    "description": "Тот же индикатор, что typingSingle, но печатающий — бот/агент. Другой глагол, потому что агент думает минутами и всё это время шлёт m.typing: «печатает…» десять минут подряд читается как зависание.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "typingManyMixed": "{count, plural, one{{count} participant is preparing a reply…} other{{count} participants are preparing a reply…}}",
+  "@typingManyMixed": {
+    "description": "2+ печатающих, и хотя бы один из них — бот. Глагол нейтральный: «печатают» соврало бы про бота, «анализируют» — про человека. Имена не перечисляем — в строку списка чатов не влезет.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "roomRenameTitle": "Rename chat",
-  "@roomRenameTitle": {"description": "B15: dialog title for room rename."},
-
+  "@roomRenameTitle": {
+    "description": "B15: dialog title for room rename."
+  },
   "roomRenameHint": "New chat name",
-  "@roomRenameHint": {"description": "B15: TextField hint inside rename dialog."},
-
+  "@roomRenameHint": {
+    "description": "B15: TextField hint inside rename dialog."
+  },
   "roomRenameSave": "Save",
-  "@roomRenameSave": {"description": "B15: confirm button in rename dialog."},
-
+  "@roomRenameSave": {
+    "description": "B15: confirm button in rename dialog."
+  },
   "roomRenameCancel": "Cancel",
-  "@roomRenameCancel": {"description": "B15: cancel button in rename dialog."},
-
+  "@roomRenameCancel": {
+    "description": "B15: cancel button in rename dialog."
+  },
   "roomRenameFailed": "Couldn't rename the chat — try again or check your role",
-  "@roomRenameFailed": {"description": "B15: snackbar после server reject (InsufficientPowerException / network)."},
-
+  "@roomRenameFailed": {
+    "description": "B15: snackbar после server reject (InsufficientPowerException / network)."
+  },
   "readReceiptsSheetTitle": "Seen by",
-  "@readReceiptsSheetTitle": {"description": "Group read-receipts bottom-sheet title."},
+  "@readReceiptsSheetTitle": {
+    "description": "Group read-receipts bottom-sheet title."
+  },
   "readReceiptsSectionRead": "Read",
-  "@readReceiptsSectionRead": {"description": "Section header listing peers who have read."},
+  "@readReceiptsSectionRead": {
+    "description": "Section header listing peers who have read."
+  },
   "readReceiptsSectionUnread": "Not read",
-  "@readReceiptsSectionUnread": {"description": "Section header listing peers who haven't read yet."},
+  "@readReceiptsSectionUnread": {
+    "description": "Section header listing peers who haven't read yet."
+  },
   "readReceiptsLargeGroupHint": "Detailed read list is only available for groups of up to 25 members. {count} of {total} have read.",
-  "@readReceiptsLargeGroupHint": {"description": "Shown in the sheet for groups > 25 participants — only count, no per-user breakdown.", "placeholders": {"count": {"type": "int"}, "total": {"type": "int"}}},
+  "@readReceiptsLargeGroupHint": {
+    "description": "Shown in the sheet for groups > 25 participants — only count, no per-user breakdown.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "readReceiptsNobodyRead": "No one has read yet",
-  "@readReceiptsNobodyRead": {"description": "Sheet placeholder when peer read count is zero."},
+  "@readReceiptsNobodyRead": {
+    "description": "Sheet placeholder when peer read count is zero."
+  },
   "readReceiptsCountLabel": "{count}",
-  "@readReceiptsCountLabel": {"description": "Compact label on bubble for group read count next to eye icon.", "placeholders": {"count": {"type": "int"}}},
-
+  "@readReceiptsCountLabel": {
+    "description": "Compact label on bubble for group read count next to eye icon.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "groupDissolveAction": "Delete group",
-  "@groupDissolveAction": {"description": "Destructive button label in GroupSettingsScreen — owner kicks everyone and leaves."},
+  "@groupDissolveAction": {
+    "description": "Destructive button label in GroupSettingsScreen — owner kicks everyone and leaves."
+  },
   "groupDissolveConfirmTitle": "Delete group «{name}»?",
-  "@groupDissolveConfirmTitle": {"description": "Confirm dialog title for group dissolve.", "placeholders": {"name": {"type": "String"}}},
+  "@groupDissolveConfirmTitle": {
+    "description": "Confirm dialog title for group dissolve.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "groupDissolveConfirmBody": "All members will be removed and the chat will close. This cannot be undone.",
-  "@groupDissolveConfirmBody": {"description": "Confirm dialog body for group dissolve."},
+  "@groupDissolveConfirmBody": {
+    "description": "Confirm dialog body for group dissolve."
+  },
   "groupDissolveProgress": "Deleting group…",
-  "@groupDissolveProgress": {"description": "Progress snackbar while loop of kickUser+leaveRoom is running."},
+  "@groupDissolveProgress": {
+    "description": "Progress snackbar while loop of kickUser+leaveRoom is running."
+  },
   "groupDissolveFailed": "Couldn't fully delete — try again. Members removed: {kicked} of {total}.",
-  "@groupDissolveFailed": {"description": "Snackbar when one or more kick calls failed; some members may remain.", "placeholders": {"kicked": {"type": "int"}, "total": {"type": "int"}}},
+  "@groupDissolveFailed": {
+    "description": "Snackbar when one or more kick calls failed; some members may remain.",
+    "placeholders": {
+      "kicked": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "groupDissolveSuccess": "Group deleted",
-  "@groupDissolveSuccess": {"description": "Snackbar after successful dissolve."},
-
+  "@groupDissolveSuccess": {
+    "description": "Snackbar after successful dissolve."
+  },
   "typingManyCount": "{count} people are typing…",
   "@typingManyCount": {
     "description": "B9: 3+ peers печатают — заменяем именами на счётчик чтобы не растягивать footer.",
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
-
   "replyChipUnavailable": "Original message unavailable",
   "@replyChipUnavailable": {
     "description": "TASK16-A: placeholder в bubble reply chip когда target lookup в state.messages дал cache miss (pre-paginated либо not-yet-loaded)."
   },
-
   "mentionTypeaheadEmpty": "No matches",
   "@mentionTypeaheadEmpty": {
     "description": "TASK16-A: empty-state в @-typeahead overlay когда query фильтрует все participants."
   },
-
   "mentionTypeaheadShowingHeader": "Showing {shown} of {total}",
   "@mentionTypeaheadShowingHeader": {
     "description": "TASK16-A: header в @-typeahead когда total participants > 30 (TASK13 cap). Сейчас участников много, видно top 30; Phase2 RPC search.",
     "placeholders": {
-      "shown": {"type": "int"},
-      "total": {"type": "int"}
+      "shown": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
     }
   },
-
   "botCommandsTypeaheadHeader": "Bot commands",
   "@botCommandsTypeaheadHeader": {
     "description": "TASK77 итер.1: header в /-typeahead композера — объясняет, что это объявленные ботами комнаты slash-команды, а не автодополнение текста."
   },
-
   "roleBadgeOwner": "Owner",
   "@roleBadgeOwner": {
     "description": "TASK29 Chunk 2: tooltip для crown-badge у owner-роли в participant tile."
@@ -775,7 +793,6 @@
   "@roleBadgeAdmin": {
     "description": "TASK29 Chunk 2: tooltip для shield-badge у admin-роли."
   },
-
   "roomAdminKickAction": "Kick from room",
   "@roomAdminKickAction": {
     "description": "TASK29 Chunk 2: action sheet item для kick — admin/owner caller, target = member of room."
@@ -796,28 +813,42 @@
   "@roomAdminDemoteAction": {
     "description": "TASK29 Chunk 2: action sheet item для demote admin/owner → member."
   },
-
   "roomAdminKickConfirmTitle": "Kick {name}?",
   "@roomAdminKickConfirmTitle": {
     "description": "TASK29 Chunk 2: confirm-dialog title для kick.",
-    "placeholders": {"name": {"type": "String"}}
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "roomAdminKickConfirmBody": "{name} can be re-invited later.",
   "@roomAdminKickConfirmBody": {
     "description": "TASK29 Chunk 2: confirm-dialog body для kick — explains revocability.",
-    "placeholders": {"name": {"type": "String"}}
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "roomAdminBanConfirmTitle": "Ban {name}?",
   "@roomAdminBanConfirmTitle": {
     "description": "TASK29 Chunk 2: confirm-dialog title для ban.",
-    "placeholders": {"name": {"type": "String"}}
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "roomAdminBanConfirmBody": "{name} cannot rejoin until unbanned.",
   "@roomAdminBanConfirmBody": {
     "description": "TASK29 Chunk 2: confirm-dialog body для ban.",
-    "placeholders": {"name": {"type": "String"}}
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
-
   "roomAdminLastOwnerError": "Cannot demote the last owner. Promote another member first.",
   "@roomAdminLastOwnerError": {
     "description": "TASK29 Chunk 2: snackbar mapping для LastOwnerCannotDemoteException."
@@ -830,7 +861,6 @@
   "@roomAdminGenericError": {
     "description": "TASK29 Chunk 2: snackbar fallback для network / generic errors."
   },
-
   "bannedUsersTitle": "Banned users",
   "@bannedUsersTitle": {
     "description": "TASK29 Chunk 2: AppBar title для BannedUsersScreen."
@@ -855,16 +885,23 @@
   "@bannedUsersReinviteSuccess": {
     "description": "B25: toast after a successful re-invite from the banned-users screen."
   },
-
   "roomParticipantsCount": "{count, plural, one{{count} participant} other{{count} participants}}",
   "@roomParticipantsCount": {
     "description": "issue #63: подпись под названием ГРУППЫ в шапке чата — сколько участников (у 1:1 на этом месте «был(а) в сети…»).",
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "participantsHoverMore": "{count, plural, one{{count} more} other{{count} more}}",
   "@participantsHoverMore": {
     "description": "issue #63: в hover-карточке состава — сколько участников НЕ влезло: сервер отдаёт превью (participantsPreviewSize=30), а totalParticipants настоящий. Молча показать 30 из 200 нельзя.",
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "participantsTitle": "Participants",
   "@participantsTitle": {
@@ -874,7 +911,6 @@
   "@participantsBannedMenuItem": {
     "description": "TASK29 Chunk 2: AppBar overflow menu item navigating to BannedUsersScreen (admin-only)."
   },
-
   "notificationSettingsTitle": "Notifications",
   "@notificationSettingsTitle": {
     "description": "TASK20-Phase2 Chunk 4: AppBar title для NotificationSettingsScreen."
@@ -911,7 +947,6 @@
   "@notificationSettingsDiscoverableSubtitle": {
     "description": "Settings: SwitchListTile subtitle — explains the discoverable privacy trade-off."
   },
-
   "connectionStateHealthy": "Connected",
   "@connectionStateHealthy": {
     "description": "TASK20 followup (a): tooltip над ConnectionStateIndicator widget-ом когда transport WS живой."
@@ -924,7 +959,6 @@
   "@connectionStateDisconnected": {
     "description": "TASK20 followup (a): tooltip когда bus в disconnected state (3+ failed reconnects, still retrying)."
   },
-
   "supportTeamTitle": "Support team",
   "@supportTeamTitle": {
     "description": "TASK43: AppBar title for the support team management screen."
@@ -934,7 +968,9 @@
     "description": "TASK43: empty state when the support team has no members."
   },
   "supportTeamAddByEmail": "By email",
-  "@supportTeamAddByEmail": { "description": "Запасной путь добавления оператора: человека ещё нет в мессенджере, из списка его не выбрать. Основной путь — выбор из контактов." },
+  "@supportTeamAddByEmail": {
+    "description": "Запасной путь добавления оператора: человека ещё нет в мессенджере, из списка его не выбрать. Основной путь — выбор из контактов."
+  },
   "supportTeamAddHint": "Add operator by email",
   "@supportTeamAddHint": {
     "description": "TASK43: hint text of the add-member email input."
@@ -991,36 +1027,34 @@
   "@supportTeamUnavailable": {
     "description": "TASK43: shown when the caller is not a team member (getSupportTeam threw)."
   },
+  "supportTeamAmbiguousProduct": "This product key exists in more than one tenant — the server cannot tell which team you mean. Ask the platform admin to remove the duplicate.",
+  "@supportTeamAmbiguousProduct": {
+    "description": "Issue: server AmbiguousProductKeyException — the same product externalKey is registered under two tenants and the caller belongs to both teams. Retrying never helps."
+  },
   "supportTeamActionFailed": "Action failed — please try again",
   "@supportTeamActionFailed": {
     "description": "TASK43: generic error snackbar for add/remove failures."
   },
-
   "supportTeamLeaveAction": "Leave team",
   "@supportTeamLeaveAction": {
     "description": "TASK73: action that removes the current user from the support team."
   },
-
   "supportTeamLeaveConfirmTitle": "Leave the support team?",
   "@supportTeamLeaveConfirmTitle": {
     "description": "TASK73: title of the confirmation dialog for leaving the support team."
   },
-
   "supportTeamLeaveConfirmBody": "You will stop receiving requests for this product and will be removed from its support chats. The team owner can add you back.",
   "@supportTeamLeaveConfirmBody": {
     "description": "TASK73: body of the confirmation dialog for leaving the support team."
   },
-
   "supportTeamLeaveLastOwner": "You are the only owner of this team. Make someone else an administrator first — otherwise nobody could manage the team.",
   "@supportTeamLeaveLastOwner": {
     "description": "TASK73: refusal shown when the last owner tries to leave the team (server LastOwnerCannotDemoteException)."
   },
-
   "supportTeamRemoveConfirmTitle": "Remove from the team?",
   "@supportTeamRemoveConfirmTitle": {
     "description": "TASK73: title of the confirmation dialog shown before the owner removes an operator."
   },
-
   "supportTeamRemoveConfirmBody": "{name} will stop receiving requests for this product and will be removed from its support chats.",
   "@supportTeamRemoveConfirmBody": {
     "description": "TASK73: body of the confirmation dialog shown before the owner removes an operator.",
@@ -1030,17 +1064,14 @@
       }
     }
   },
-
   "supportTeamAddNotFound": "No user with that email. They must sign in to the app at least once first.",
   "@supportTeamAddNotFound": {
     "description": "TASK73: shown when addSupportTeamMember cannot resolve the email (server PeerUnavailableException) — retrying will not help."
   },
-
   "supportTeamRetry": "Retry",
   "@supportTeamRetry": {
     "description": "TASK73: retry button shown when the team failed to load for a transient reason (not the membership gate)."
   },
-
   "escalateToDevelopersAction": "Contact developers",
   "@escalateToDevelopersAction": {
     "description": "TASK45 phase 2: app-bar / overflow action in an object room that connects the whole NSG support team. Visible to every participant of the object chat."
@@ -1069,7 +1100,6 @@
   "@escalateSupportNoop": {
     "description": "TASK48 / review fix #5: snackbar when escalateSupportRoom is a no-op (lost race / no higher tier / already present)."
   },
-
   "objectRoomsCatalogTitle": "Object chats — {product}",
   "@objectRoomsCatalogTitle": {
     "description": "TASK45 phase 1: title of the catalog screen listing a product's object rooms for a support-team member.",
@@ -1107,7 +1137,6 @@
   "@objectRoomsCatalogEntry": {
     "description": "TASK45 phase 1: menu entry (in the support team screen) opening the object rooms catalog."
   },
-
   "callStartTooltip": "Call",
   "@callStartTooltip": {
     "description": "TASK46 (UI): tooltip on the phone IconButton in the direct 1:1 chat app-bar that starts a voice call."
@@ -1120,14 +1149,20 @@
   "@callOutgoingTitle": {
     "description": "TASK46 (UI): outgoing-call overlay heading while ringing. {peer} is the callee display name.",
     "placeholders": {
-      "peer": { "type": "String", "example": "Alice" }
+      "peer": {
+        "type": "String",
+        "example": "Alice"
+      }
     }
   },
   "callIncomingTitle": "{caller} is calling",
   "@callIncomingTitle": {
     "description": "TASK46 (UI): incoming-call overlay heading. {caller} is the caller display name.",
     "placeholders": {
-      "caller": { "type": "String", "example": "Bob" }
+      "caller": {
+        "type": "String",
+        "example": "Bob"
+      }
     }
   },
   "callIncomingSubtitle": "Incoming call",
@@ -1186,7 +1221,6 @@
   "@callEndedFailed": {
     "description": "TASK46 (UI): toast/status when the call failed (ICE/DTLS failure or setup error)."
   },
-
   "conferenceStartTooltip": "Group call",
   "@conferenceStartTooltip": {
     "description": "TASK51 (UI): tooltip on the group-call IconButton in the group chat app-bar that starts/joins a mesh conference (call everyone)."
@@ -1199,21 +1233,30 @@
   "@conferenceIncomingTitle": {
     "description": "TASK51 (UI): incoming group-call overlay heading. {room} is the room display name.",
     "placeholders": {
-      "room": { "type": "String", "example": "Team chat" }
+      "room": {
+        "type": "String",
+        "example": "Team chat"
+      }
     }
   },
   "conferenceIncomingCaller": "{caller} is inviting you",
   "@conferenceIncomingCaller": {
     "description": "TASK51 (UI): incoming group-call overlay subtitle naming the de-facto initiator (earliest participant).",
     "placeholders": {
-      "caller": { "type": "String", "example": "Bob" }
+      "caller": {
+        "type": "String",
+        "example": "Bob"
+      }
     }
   },
   "conferenceMemberCount": "{count, plural, one{{count} participant} other{{count} participants}}",
   "@conferenceMemberCount": {
     "description": "TASK51 (UI): participant counter shown on the incoming overlay and the ongoing-conference banner.",
     "placeholders": {
-      "count": { "type": "int", "example": "3" }
+      "count": {
+        "type": "int",
+        "example": "3"
+      }
     }
   },
   "conferenceOngoingBannerTitle": "Group call in progress",
@@ -1228,7 +1271,10 @@
   "@conferenceEndedFull": {
     "description": "TASK51 (UI): toast when the server rejected the join because the mesh participant limit is reached. {max} is the server limit.",
     "placeholders": {
-      "max": { "type": "int", "example": "4" }
+      "max": {
+        "type": "int",
+        "example": "4"
+      }
     }
   },
   "conferenceYou": "You",
@@ -1239,7 +1285,6 @@
   "@conferencePairFailed": {
     "description": "TASK51 (UI): status on a participant tile whose pairwise link failed permanently (conference continues without audio from them)."
   },
-
   "conferenceShareScreen": "Share screen",
   "@conferenceShareScreen": {
     "description": "TASK80 (UI): button that starts screen sharing in a conference. Shown only on platforms that can capture (desktop/web)."
@@ -1256,14 +1301,20 @@
   "@conferencePresenting": {
     "description": "TASK80 (UI): header above the presenter's screen for everyone else.",
     "placeholders": {
-      "name": { "type": "String", "example": "Alice" }
+      "name": {
+        "type": "String",
+        "example": "Alice"
+      }
     }
   },
   "conferenceShareBusy": "{name} is sharing right now",
   "@conferenceShareBusy": {
     "description": "TASK80 (UI): explicit refusal for a second would-be presenter (one presenter at a time, arbitrated by the server).",
     "placeholders": {
-      "name": { "type": "String", "example": "Alice" }
+      "name": {
+        "type": "String",
+        "example": "Alice"
+      }
     }
   },
   "conferenceShowParticipants": "Participants",
@@ -1290,7 +1341,6 @@
   "@conferenceSourceWindow": {
     "description": "TASK80 (UI): label for a single-window capture source in the picker."
   },
-
   "messageActionForward": "Forward",
   "@messageActionForward": {
     "description": "Forward: action-sheet item — переслать сообщение/альбом в другой чат (внутренний пикер)."
@@ -1363,12 +1413,20 @@
   "forwardMultiButton": "Forward ({count})",
   "@forwardMultiButton": {
     "description": "F1: кнопка подтверждения в мультивыборе целевых чатов; count — число выбранных.",
-    "placeholders": {"count": {"type": "int"}}
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "forwardedToChatsSnack": "{count, plural, one{Forwarded to {count} chat} other{Forwarded to {count} chats}}",
   "@forwardedToChatsSnack": {
     "description": "F1: snackbar после пересылки в несколько чатов; count — число целевых чатов.",
-    "placeholders": {"count": {"type": "int"}}
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "forwardOpenChat": "Open",
   "@forwardOpenChat": {
@@ -1402,7 +1460,6 @@
   "@imageCopyFailed": {
     "description": "Snackbar когда копирование картинки в буфер упало (скачивание / запись в буфер)."
   },
-
   "sharePickerTitle": "Send to…",
   "@sharePickerTitle": {
     "description": "TASK49 (share-in): title of the chat picker bottom-sheet when content is shared INTO the app from another app (reuses the forward-picker core)."
@@ -1411,14 +1468,18 @@
   "@shareConfirmTitle": {
     "description": "TASK49 (share-in): confirm dialog title — {name} is the target chat name.",
     "placeholders": {
-      "name": {"type": "String"}
+      "name": {
+        "type": "String"
+      }
     }
   },
   "shareConfirmFiles": "{count, plural, one{{count} file} other{{count} files}}",
   "@shareConfirmFiles": {
     "description": "TASK49 (share-in): confirm dialog line showing how many files are being shared in.",
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "shareSend": "Send",
@@ -1429,8 +1490,12 @@
   "@shareProgress": {
     "description": "TASK49 (share-in): progress modal text while sending shared items sequentially.",
     "placeholders": {
-      "current": {"type": "int"},
-      "total": {"type": "int"}
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
     }
   },
   "shareSent": "Sent",
@@ -1449,7 +1514,9 @@
   "@shareFileTooLarge": {
     "description": "TASK49 (share-in): snackbar naming files that exceeded the size limit and were skipped.",
     "placeholders": {
-      "names": {"type": "String"}
+      "names": {
+        "type": "String"
+      }
     }
   },
   "shareBusy": "Sending is still in progress",
@@ -1465,127 +1532,102 @@
       }
     }
   },
-
   "forwardSourceUnavailable": "Source chat is unavailable",
   "@forwardSourceUnavailable": {
     "description": "Issue #41: snackbar when tapping the «Forwarded from X» header cannot open the original chat (not a member / room gone)."
   },
-
   "commonOk": "OK",
   "@commonOk": {
     "description": "Универсальная кнопка подтверждения в диалогах (dismiss / accept). TASK58: закрыть диалог с webhook-URL."
   },
-
   "statusCardOpenLink": "Open",
   "@statusCardOpenLink": {
     "description": "TASK58: подпись ссылки в статус-карточке автопоста, когда `link.label` не задан. Открывает `link.url` во внешнем браузере."
   },
-
   "integrationsTitle": "Integrations",
   "@integrationsTitle": {
     "description": "TASK58: заголовок экрана интеграций (`IntegrationsScreen`) + ListTile «Интеграции» в настройках группы (виден только owner/admin)."
   },
-
   "integrationsAutopostsSection": "Autoposts",
   "@integrationsAutopostsSection": {
     "description": "TASK58: заголовок секции автопостов (входящих webhook-ов) на экране интеграций."
   },
-
   "integrationsBotsSection": "Bots",
   "@integrationsBotsSection": {
     "description": "TASK58/TASK59: заголовок секции ботов (self-service бот-интеграций) на экране интеграций."
   },
-
   "integrationsAddAutopost": "Add autopost",
   "@integrationsAddAutopost": {
     "description": "TASK58: кнопка «+ добавить автопост» — открывает диалог ввода имени и создаёт webhook."
   },
-
   "integrationsEmpty": "No autoposts yet",
   "@integrationsEmpty": {
     "description": "TASK58: empty-state на экране интеграций, когда у комнаты нет webhook-ов."
   },
-
   "integrationsLoadFailed": "Failed to load integrations",
   "@integrationsLoadFailed": {
     "description": "TASK58: заголовок error-state на экране интеграций, когда listWebhooks() упал."
   },
-
   "integrationsNameLabel": "Name",
   "@integrationsNameLabel": {
     "description": "TASK58: label поля ввода имени автопоста в диалоге создания (напр. «CI · Deploy»)."
   },
-
   "integrationsNameHint": "e.g. CI · Deploy",
   "@integrationsNameHint": {
     "description": "TASK58: hint-подсказка в поле ввода имени автопоста."
   },
-
   "integrationsCreate": "Create",
   "@integrationsCreate": {
     "description": "TASK58: кнопка подтверждения создания автопоста в диалоге."
   },
-
   "integrationsWebhookUrlLabel": "Webhook URL",
   "@integrationsWebhookUrlLabel": {
     "description": "TASK58: label над webhook-URL (показывается один раз после создания/ротации — содержит секретный токен)."
   },
-
   "integrationsWebhookUrlOnce": "Copy this URL now — the token is shown only once.",
   "@integrationsWebhookUrlOnce": {
     "description": "TASK58: предупреждение под webhook-URL, что токен показывается один раз."
   },
-
   "integrationsCopied": "URL copied",
   "@integrationsCopied": {
     "description": "TASK58: snackbar-подтверждение после копирования webhook-URL в буфер обмена."
   },
-
   "integrationsCopy": "Copy",
   "@integrationsCopy": {
     "description": "TASK58: tooltip/подпись кнопки копирования webhook-URL (CopyableField)."
   },
-
   "integrationsTestPost": "Test post",
   "@integrationsTestPost": {
     "description": "TASK58: пункт ⋯-меню — платформа шлёт пример статус-карточки в комнату для проверки рендера."
   },
-
   "integrationsRotateToken": "Regenerate token",
   "@integrationsRotateToken": {
     "description": "TASK58: пункт ⋯-меню — ротация токена webhook-а (старый перестаёт работать, показывается новый URL)."
   },
-
   "integrationsEnable": "Enable",
   "@integrationsEnable": {
     "description": "TASK58: пункт ⋯-меню — включить выключенный webhook."
   },
-
   "integrationsDisable": "Disable",
   "@integrationsDisable": {
     "description": "TASK58: пункт ⋯-меню — выключить webhook без удаления."
   },
-
   "integrationsDelete": "Delete",
   "@integrationsDelete": {
     "description": "TASK58: пункт ⋯-меню — удалить webhook (с confirm-диалогом)."
   },
-
   "integrationsDeleteConfirmTitle": "Delete autopost?",
   "@integrationsDeleteConfirmTitle": {
     "description": "TASK58: заголовок confirm-диалога удаления webhook-а."
   },
-
   "integrationsDeleteConfirmBody": "The webhook will stop working and its URL will be revoked.",
   "@integrationsDeleteConfirmBody": {
     "description": "TASK58: тело confirm-диалога удаления webhook-а."
   },
-
   "integrationsDisabledBadge": "disabled",
   "@integrationsDisabledBadge": {
     "description": "TASK58: бейдж рядом с именем выключенного webhook-а в списке."
   },
-
   "integrationsLastPost": "last post {when}",
   "@integrationsLastPost": {
     "description": "TASK58: подстрока в списке — когда webhook постил в последний раз (relative time), напр. «last post 5 min ago».",
@@ -1595,392 +1637,321 @@
       }
     }
   },
-
   "integrationsNeverPosted": "no posts yet",
   "@integrationsNeverPosted": {
     "description": "TASK58: подстрока в списке, когда `lastPostedAt == null` (webhook ещё ни разу не постил)."
   },
-
   "integrationsTestPostSent": "Test post sent",
   "@integrationsTestPostSent": {
     "description": "TASK58: snackbar после успешного testPost()."
   },
-
   "integrationsActionFailed": "Action failed — try again",
   "@integrationsActionFailed": {
     "description": "TASK58: snackbar при ошибке любого действия над webhook-ом (rotate/enable/disable/delete/test)."
   },
-
   "integrationsCopiedGeneric": "Copied",
   "@integrationsCopiedGeneric": {
     "description": "TASK59: snackbar после копирования произвольного значения (токен/секрет/id) в буфер — используется в диалоге учётных данных бота, в отличие от `integrationsCopied` («URL copied»)."
   },
-
   "integrationsAddBot": "Add bot",
   "@integrationsAddBot": {
     "description": "TASK59: кнопка «＋ добавить бота» + заголовок диалога создания бот-интеграции (спрашивает имя + webhook URL)."
   },
-
   "integrationsBotsEmpty": "No bots yet",
   "@integrationsBotsEmpty": {
     "description": "TASK59: empty-state секции «Боты», когда у комнаты нет бот-интеграций."
   },
-
   "integrationsBotNameHint": "e.g. Deploy Bot",
   "@integrationsBotNameHint": {
     "description": "TASK59: hint-подсказка в поле ввода имени бота в диалоге создания."
   },
-
   "integrationsBotWebhookUrlLabel": "Webhook URL",
   "@integrationsBotWebhookUrlLabel": {
     "description": "TASK59: label поля ввода webhook-URL разработчика (куда платформа доставляет события комнаты) в диалоге создания бота."
   },
-
   "integrationsBotWebhookUrlHint": "https://example.com/webhook",
   "@integrationsBotWebhookUrlHint": {
     "description": "TASK59: hint-подсказка в поле ввода webhook-URL бота."
   },
-
   "integrationsBotWebhookUrlInvalid": "Enter a valid https:// URL",
   "@integrationsBotWebhookUrlInvalid": {
     "description": "TASK59: ошибка валидации поля webhook-URL, когда значение пустое или не начинается с https://."
   },
-
   "integrationsBotCredentialsTitle": "Bot credentials",
   "@integrationsBotCredentialsTitle": {
     "description": "TASK59: заголовок one-time диалога с учётными данными бота (токен/секрет/apiBase/…), показываемого после создания или ротации секрета."
   },
-
   "integrationsBotCredentialsOnce": "These secrets are shown only once — copy them now.",
   "@integrationsBotCredentialsOnce": {
     "description": "TASK59: предупреждение в диалоге учётных данных бота, что токен и секрет показываются один раз."
   },
-
   "integrationsBotTokenLabel": "Bot token",
   "@integrationsBotTokenLabel": {
     "description": "TASK59: label над bearer-токеном бота (`bot.accessToken`) в диалоге учётных данных."
   },
-
   "integrationsBotSecretLabel": "Webhook secret",
   "@integrationsBotSecretLabel": {
     "description": "TASK59: label над HMAC-секретом webhook-а (`subscription.secret`) в диалоге учётных данных."
   },
-
   "integrationsApiBaseLabel": "API base",
   "@integrationsApiBaseLabel": {
     "description": "TASK59: label над базовым URL API (`apiBase`, напр. https://api.chatista.me) в диалоге учётных данных бота."
   },
-
   "integrationsRoomIdLabel": "Room ID",
   "@integrationsRoomIdLabel": {
     "description": "TASK59: label над идентификатором комнаты в диалоге учётных данных бота."
   },
-
   "integrationsBotUserIdLabel": "Bot user id",
   "@integrationsBotUserIdLabel": {
     "description": "TASK59: label над messenger-user-id бота (`bot.messengerUserId`) в диалоге учётных данных."
   },
-
   "integrationsBotUserIdCaption": "Use it to filter out the bot's own echoed messages.",
   "@integrationsBotUserIdCaption": {
     "description": "TASK59: пояснение под полем «Bot user id» — зачем нужен messengerUserId (фильтрация собственных эхо-сообщений бота)."
   },
-
   "integrationsEventsLabel": "Events",
   "@integrationsEventsLabel": {
     "description": "TASK59: label над CSV подписанных webhook-событий (`subscription.eventTypes`) в диалоге учётных данных бота."
   },
-
   "integrationsBotHandoffHint": "Hand these credentials to your developer together with a link to the documentation.",
   "@integrationsBotHandoffHint": {
     "description": "TASK59: подсказка copy-paste в диалоге учётных данных бота — отдать данные разработчику вместе со ссылкой на документацию."
   },
-
   "integrationsRotateSecret": "Regenerate secret",
   "@integrationsRotateSecret": {
     "description": "TASK59: пункт ⋯-меню — ротация webhook-секрета бот-интеграции (старая подпись перестаёт совпадать, показывается новый секрет)."
   },
-
   "integrationsBotDeleteConfirmTitle": "Delete bot?",
   "@integrationsBotDeleteConfirmTitle": {
     "description": "TASK59: заголовок confirm-диалога удаления бот-интеграции."
   },
-
   "integrationsBotDeleteConfirmBody": "The bot will be removed from the room and its webhook subscription deleted.",
   "@integrationsBotDeleteConfirmBody": {
     "description": "TASK59: тело confirm-диалога удаления бот-интеграции."
   },
-
   "botsAdminTitle": "Bots",
   "@botsAdminTitle": {
     "description": "TASK36: заголовок админки ботов + пункт входа в настройках (виден только админам из BOT_ADMIN_EMAILS)."
   },
-
   "botsAdminEmpty": "No bots yet. A bot is a program that posts to chats with its own token.",
   "@botsAdminEmpty": {
     "description": "TASK36: пустое состояние списка ботов в админке."
   },
-
   "botsAdminLoadFailed": "Failed to load bots",
   "@botsAdminLoadFailed": {
     "description": "TASK36: ошибка загрузки списка ботов / журнала аудита."
   },
-
   "botsAdminActionFailed": "Action failed — try again",
   "@botsAdminActionFailed": {
     "description": "TASK36: snackbar о неудавшемся действии админки ботов (создание/ротация/вкл-выкл/добавление в чат)."
   },
-
   "botsAdminCreate": "Add bot",
   "@botsAdminCreate": {
     "description": "TASK36: кнопка/заголовок диалога создания бота."
   },
-
   "botsAdminNameLabel": "Name",
   "@botsAdminNameLabel": {
     "description": "TASK36: label поля имени бота (оно же displayName в чатах)."
   },
-
   "botsAdminNameHint": "Deploy notifier",
   "@botsAdminNameHint": {
     "description": "TASK36: пример имени бота."
   },
-
   "botsAdminOwnerEmailLabel": "Owner email",
   "@botsAdminOwnerEmailLabel": {
     "description": "TASK36: label поля email владельца бота — кто отвечает за бота (идёт в аудит)."
   },
-
   "botsAdminOwnerEmailHint": "owner@company.com",
   "@botsAdminOwnerEmailHint": {
     "description": "TASK36: пример email владельца бота."
   },
-
   "botsAdminCapabilitiesLabel": "What the bot is allowed to do",
   "@botsAdminCapabilitiesLabel": {
     "description": "TASK36: заголовок группы чекбоксов capabilities в диалоге создания бота."
   },
-
   "botsAdminCapReadOnly": "Read only",
   "@botsAdminCapReadOnly": {
     "description": "TASK36: человекочитаемое название capability read_only."
   },
-
   "botsAdminCapSendMessages": "Send messages",
   "@botsAdminCapSendMessages": {
     "description": "TASK36: человекочитаемое название capability send_messages."
   },
-
   "botsAdminCapManageRoom": "Manage chats",
   "@botsAdminCapManageRoom": {
     "description": "TASK36: человекочитаемое название capability manage_room (создание комнат, участники, роли, архив)."
   },
-
   "botsAdminCapWebhookTarget": "Receive webhooks",
   "@botsAdminCapWebhookTarget": {
     "description": "TASK36: человекочитаемое название capability webhook_target."
   },
-
   "botsAdminNoCapabilities": "no capabilities",
   "@botsAdminNoCapabilities": {
     "description": "TASK36: подзаголовок бота без единого гранта (может только слушать)."
   },
-
   "botsAdminNoCommands": "no commands declared",
   "@botsAdminNoCommands": {
     "description": "TASK77 итер.1: подзаголовок бота, который не объявил ни одной slash-команды через setMyCommands — пользователи не увидят его в подсказке по «/»."
   },
-
   "botsAdminCommandsLabel": "Commands: {commands}",
   "@botsAdminCommandsLabel": {
     "description": "TASK77 итер.1: строка admin-тайла со списком объявленных ботом команд («/deploy, /status»).",
     "placeholders": {
-      "commands": {"type": "String"}
+      "commands": {
+        "type": "String"
+      }
     }
   },
-
   "botsAdminReadModeLabel": "What the bot reads",
   "@botsAdminReadModeLabel": {
     "description": "TASK77 итер.2: заголовок секции выбора режима чтения в диалоге создания бота."
   },
-
   "botsAdminReadModeAll": "Reads ALL messages",
   "@botsAdminReadModeAll": {
     "description": "TASK77 итер.2: режим read_all — trust-сигнал, формулировка должна настораживать (бот видит всю переписку своих чатов)."
   },
-
   "botsAdminReadModeAllHint": "The bot sees every message in the chats it belongs to — including messages not addressed to it",
   "@botsAdminReadModeAllHint": {
     "description": "TASK77 итер.2: пояснение к режиму read_all (подзаголовок в диалоге создания и в тайле бота)."
   },
-
   "botsAdminReadModeAddressed": "Reads only messages addressed to it",
   "@botsAdminReadModeAddressed": {
     "description": "TASK77 итер.2: режим read_addressed — дефолт для новых ботов (privacy by default)."
   },
-
   "botsAdminReadModeAddressedHint": "Mentions, «/» commands, replies to its messages, discussions it takes part in and 1:1 chats. The rest of the conversation is never delivered to the bot",
   "@botsAdminReadModeAddressedHint": {
     "description": "TASK77 итер.2: пояснение к режиму read_addressed — перечисление того, что считается обращением к боту."
   },
-
   "botsAdminReadModeAllowAll": "Allow reading all messages",
   "@botsAdminReadModeAllowAll": {
     "description": "TASK77 итер.2: пункт ⋯-меню — переключить бота в read_all."
   },
-
   "botsAdminReadModeRestrict": "Limit reading to messages addressed to it",
   "@botsAdminReadModeRestrict": {
     "description": "TASK77 итер.2: пункт ⋯-меню — переключить бота в read_addressed."
   },
-
   "botsAdminReadModeConfirmTitle": "Let the bot read everything?",
   "@botsAdminReadModeConfirmTitle": {
     "description": "TASK77 итер.2: заголовок confirm-диалога перед включением read_all."
   },
-
   "botsAdminReadModeConfirmBody": "The bot will see every message in the chats it belongs to — including messages not addressed to it. Enable this only for bots you trust.",
   "@botsAdminReadModeConfirmBody": {
     "description": "TASK77 итер.2: тело confirm-диалога включения read_all — включение всевидящего чтения должно быть осознанным."
   },
-
   "botsAdminTokenTitle": "Bot access token",
   "@botsAdminTokenTitle": {
     "description": "TASK36: заголовок диалога с access-токеном бота (после создания или ротации)."
   },
-
   "botsAdminTokenOnce": "Shown once. Save it now — if lost, the only way back is to rotate the token.",
   "@botsAdminTokenOnce": {
     "description": "TASK36: предупреждение под токеном — показывается один раз, восстановить нельзя, только ротация."
   },
-
   "botsAdminRotateToken": "Rotate token",
   "@botsAdminRotateToken": {
     "description": "TASK36: пункт ⋯-меню — выдать боту новый токен, отозвав прежние (ответ на утечку credential-а)."
   },
-
   "botsAdminRotateConfirmTitle": "Rotate token?",
   "@botsAdminRotateConfirmTitle": {
     "description": "TASK36: заголовок confirm-диалога ротации токена бота."
   },
-
   "botsAdminRotateConfirmBody": "The current token stops working immediately. The bot will go silent until its program is updated with the new token. The bot itself, its chats and its history are kept.",
   "@botsAdminRotateConfirmBody": {
     "description": "TASK36: тело confirm-диалога ротации — предупреждение о простое бота до подстановки нового токена в его программу."
   },
-
   "botsAdminEnable": "Enable",
   "@botsAdminEnable": {
     "description": "TASK36: пункт ⋯-меню — включить бота."
   },
-
   "botsAdminDisable": "Disable",
   "@botsAdminDisable": {
     "description": "TASK36: пункт ⋯-меню — выключить бота (kill-switch: любое gated-действие отклоняется)."
   },
-
   "botsAdminDisabledBadge": "disabled",
   "@botsAdminDisabledBadge": {
     "description": "TASK36: бейдж рядом с именем выключенного бота."
   },
-
   "botsAdminAddToRoom": "Add to chat",
   "@botsAdminAddToRoom": {
     "description": "TASK36: пункт ⋯-меню — добавить бота в чат (без членства бот не может постить)."
   },
-
   "botsAdminAddToRoomTitle": "Choose a chat",
   "@botsAdminAddToRoomTitle": {
     "description": "TASK36: заголовок диалога выбора чата для добавления бота."
   },
-
   "botsAdminAddedToRoom": "Bot added to the chat",
   "botsAdminAlreadyInRoom": "Already added",
   "@botsAdminAddedToRoom": {
     "description": "TASK36: snackbar об успешном добавлении бота в чат."
   },
-
   "botsAdminNoRooms": "No chats available",
   "@botsAdminNoRooms": {
     "description": "TASK36: пустое состояние списка чатов в диалоге выбора."
   },
-
   "botsAdminAudit": "Audit log",
   "@botsAdminAudit": {
     "description": "TASK36: пункт ⋯-меню — журнал событий бота."
   },
-
   "botsAdminAuditTitle": "Audit log — {name}",
   "@botsAdminAuditTitle": {
     "description": "TASK36: заголовок листа журнала аудита с именем бота.",
-    "placeholders": {"name": {"type": "String"}}
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
-
   "botsAdminAuditEmpty": "No events yet",
   "@botsAdminAuditEmpty": {
     "description": "TASK36: пустой журнал аудита бота."
   },
-
   "botsAdminAuditActorBot": "the bot itself",
   "@botsAdminAuditActorBot": {
     "description": "TASK36: инициатор события в журнале, когда действие исходило от самого бота (capability_denied), а не от админа."
   },
-
   "botsAdminAuditActorSystem": "system",
   "@botsAdminAuditActorSystem": {
     "description": "TASK36: инициатор события в журнале, когда за действием нет человека — бота завела платформа (боты-подпорки Pulse / входящих webhook-ов)."
   },
-
   "botsAdminAuditCreated": "Bot created",
   "@botsAdminAuditCreated": {
     "description": "TASK36: журнал — действие 'created'."
   },
-
   "botsAdminAuditTokenRotated": "Token rotated",
   "@botsAdminAuditTokenRotated": {
     "description": "TASK36: журнал — действие 'token_rotated'."
   },
-
   "botsAdminAuditEnabled": "Enabled",
   "@botsAdminAuditEnabled": {
     "description": "TASK36: журнал — действие 'enabled'."
   },
-
   "botsAdminAuditDisabled": "Disabled",
   "@botsAdminAuditDisabled": {
     "description": "TASK36: журнал — действие 'disabled'."
   },
-
   "botsAdminAuditAddedToRoom": "Added to a chat",
   "@botsAdminAuditAddedToRoom": {
     "description": "TASK36: журнал — действие 'added_to_room'."
   },
-
   "botsAdminAuditCapabilityDenied": "Action denied",
   "@botsAdminAuditCapabilityDenied": {
     "description": "TASK36: журнал — действие 'capability_denied': бот попытался сделать то, на что у него нет гранта (сигнал абьюза или неверных грантов)."
   },
-
   "botsAdminAuditRemovedFromRoom": "Removed from a chat",
   "@botsAdminAuditRemovedFromRoom": {
     "description": "Issue #49: журнал — действие 'removed_from_room' (владелец отозвал бота из комнаты)."
   },
-
   "botsAdminAuditDiscoverableOn": "Made visible in search",
   "@botsAdminAuditDiscoverableOn": {
     "description": "Issue #49: журнал — действие 'discoverable_enabled'."
   },
-
   "botsAdminAuditDiscoverableOff": "Hidden from search",
   "@botsAdminAuditDiscoverableOff": {
     "description": "Issue #49: журнал — действие 'discoverable_disabled'."
   },
-
   "botsAdminAuditReadModeSet": "Reading mode changed",
   "@botsAdminAuditReadModeSet": {
     "description": "TASK77 итер.2: журнал — действие 'read_mode_set' (сменён режим чтения бота; сам режим — в деталях записи, mode=read_all|read_addressed)."
   },
-
   "platformAdminCreateTenant": "New tenant",
   "@platformAdminCreateTenant": {
     "description": "Провижн tenant-а из UI: раньше tenant и продукт заводились только SQL-ом на проде, а экран «Платформа» умел лишь включать issued-token у уже существующего."
@@ -1994,202 +1965,232 @@
     "description": "Ключ попадает в URL-ы, конфиги интеграторов и в localpart matrix-пользователей — отсюда ограничения."
   },
   "platformAdminNameLabel": "Name",
-  "@platformAdminNameLabel": { "description": "Человекочитаемое имя тенанта/продукта." },
+  "@platformAdminNameLabel": {
+    "description": "Человекочитаемое имя тенанта/продукта."
+  },
   "platformAdminCreateAction": "Create",
-  "@platformAdminCreateAction": { "description": "Подтверждение создания." },
+  "@platformAdminCreateAction": {
+    "description": "Подтверждение создания."
+  },
   "platformAdminKeyInvalid": "Invalid key: lowercase latin, digits, _ and -, at least 2 characters",
-  "@platformAdminKeyInvalid": { "description": "Отказ сервера InvalidExternalKeyException." },
+  "@platformAdminKeyInvalid": {
+    "description": "Отказ сервера InvalidExternalKeyException."
+  },
   "platformAdminAlreadyExists": "That key is already taken",
-  "@platformAdminAlreadyExists": { "description": "Дубль tenant-а/продукта: молча вернуть существующий нельзя — вызывающий решил бы, что завёл новый." },
+  "@platformAdminAlreadyExists": {
+    "description": "Дубль tenant-а/продукта: молча вернуть существующий нельзя — вызывающий решил бы, что завёл новый."
+  },
   "platformAdminCreated": "Created",
-  "@platformAdminCreated": { "description": "Снекбар об успешном создании." },
+  "@platformAdminCreated": {
+    "description": "Снекбар об успешном создании."
+  },
+  "platformAdminDeleteProduct": "Delete product",
+  "platformAdminDeleteProductConfirm": "Delete product “{name}”? Its support team and issued access keys go with it. This cannot be undone.",
+  "platformAdminDeleteProductBusy": "Product is in use and was not deleted: {what}. Clear that first — otherwise conversations would outlive the product.",
+  "platformAdminDeleted": "Deleted",
+  "platformAdminBusyRooms": "{count, plural, one{{count} room} other{{count} rooms}}",
+  "platformAdminBusyTickets": "{count, plural, one{{count} ticket} other{{count} tickets}}",
+  "platformAdminBusyBots": "{count, plural, one{{count} bot} other{{count} bots}}",
+  "platformAdminBusyIdentities": "{count, plural, one{{count} user} other{{count} users}}",
+  "platformAdminBusyDevices": "{count, plural, one{{count} device} other{{count} devices}}",
+  "platformAdminBusyWebhooks": "{count, plural, one{{count} webhook} other{{count} webhooks}}",
+  "platformAdminTenantSupport": "Tenant support",
+  "platformAdminTenantSupportHint": "These people belong to every product team of the tenant. Remove here and they disappear from all of them at once.",
+  "platformAdminTenantSupportEmpty": "Nobody — operators are listed per product team",
+  "platformAdminTenantSupportAdd": "Add to tenant support",
+  "platformAdminTenantSupportRemove": "Remove from tenant support",
+  "platformAdminTenantSupportRemoveConfirm": "Remove {name} from tenant support? They will disappear from every product team of this tenant.",
+  "supportTeamInherited": "From tenant",
+  "supportTeamRemoveInheritedConfirm": "{name} comes from tenant support. Remove them from this product only? They stay in other products.",
   "platformAdminNoProducts": "No products",
-  "@platformAdminNoProducts": { "description": "Дерево тенант → продукт → команда: у тенанта пока нет продуктов." },
+  "@platformAdminNoProducts": {
+    "description": "Дерево тенант → продукт → команда: у тенанта пока нет продуктов."
+  },
   "platformAdminNoSupportTeam": "No support team",
-  "@platformAdminNoSupportTeam": { "description": "У продукта команда поддержки не заведена — обращения принимать некому." },
+  "@platformAdminNoSupportTeam": {
+    "description": "У продукта команда поддержки не заведена — обращения принимать некому."
+  },
   "platformAdminSupportTeamSize": "{count, plural, one{Support: {count} member} other{Support: {count} members}}",
-  "@platformAdminSupportTeamSize": { "description": "Размер команды поддержки продукта.", "placeholders": { "count": { "type": "int" } } },
+  "@platformAdminSupportTeamSize": {
+    "description": "Размер команды поддержки продукта.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "platformAdminCreateSupportTeam": "Set up support",
-  "@platformAdminCreateSupportTeam": { "description": "Провижн команды поддержки для продукта в ЧУЖОМ тенанте: обычный createSupportTeam ищет продукт в тенанте вызывающего и для нового тенанта упирается в курицу и яйцо." },
+  "@platformAdminCreateSupportTeam": {
+    "description": "Провижн команды поддержки для продукта в ЧУЖОМ тенанте: обычный createSupportTeam ищет продукт в тенанте вызывающего и для нового тенанта упирается в курицу и яйцо."
+  },
   "platformAdminSetOwner": "Change owner",
-  "@platformAdminSetOwner": { "description": "Команда уже есть — назначаем владельца (путь восстановления, когда единственный владелец ушёл)." },
+  "@platformAdminSetOwner": {
+    "description": "Команда уже есть — назначаем владельца (путь восстановления, когда единственный владелец ушёл)."
+  },
   "platformAdminOwnerEmailLabel": "Owner email",
-  "@platformAdminOwnerEmailLabel": { "description": "Email будущего владельца команды поддержки." },
+  "@platformAdminOwnerEmailLabel": {
+    "description": "Email будущего владельца команды поддержки."
+  },
   "platformAdminOwnerEmailHint": "The person must have signed in already: the email is matched against existing users, no account is created",
-  "@platformAdminOwnerEmailHint": { "description": "Резолв идёт EmailAccount → IdentityMapping → MessengerUser с фолбэком в тенант операторов." },
+  "@platformAdminOwnerEmailHint": {
+    "description": "Резолв идёт EmailAccount → IdentityMapping → MessengerUser с фолбэком в тенант операторов."
+  },
   "platformAdminOwnerNotFound": "User {email} not found — they have never signed in",
-  "@platformAdminOwnerNotFound": { "description": "Отдельный текст: это не опечатка в форме, а «человек ещё не заходил», и действие другое.", "placeholders": { "email": { "type": "String" } } },
+  "@platformAdminOwnerNotFound": {
+    "description": "Отдельный текст: это не опечатка в форме, а «человек ещё не заходил», и действие другое.",
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
   "platformAdminSupportMembers": "Members",
-  "@platformAdminSupportMembers": { "description": "Главное действие у продукта с командой: состав. Операторов добавляют постоянно, владельца меняют раз в жизни — поэтому состав кнопкой, а смена владельца в меню." },
+  "@platformAdminSupportMembers": {
+    "description": "Главное действие у продукта с командой: состав. Операторов добавляют постоянно, владельца меняют раз в жизни — поэтому состав кнопкой, а смена владельца в меню."
+  },
   "platformAdminTitle": "Platform",
   "@platformAdminTitle": {
     "description": "TASK78 п.3: заголовок платформенной админки секретов тенантов + пункт входа в настройках (виден только админам из PLATFORM_ADMIN_EMAILS)."
   },
-
   "platformAdminEmpty": "No tenants — or no access. The list is served only to platform admins.",
   "@platformAdminEmpty": {
     "description": "TASK78 п.3: пустое состояние списка тенантов (обвязка деградирует отказ/старый сервер в пустой список)."
   },
-
   "platformAdminActionFailed": "Action failed — try again",
   "@platformAdminActionFailed": {
     "description": "TASK78 п.3: snackbar о неудавшемся действии (включение/ротация/отзыв)."
   },
-
   "platformAdminStatusEnabled": "enabled",
   "@platformAdminStatusEnabled": {
     "description": "TASK78 п.3: статус tenant-а — issued-token-режим включён."
   },
-
   "platformAdminStatusDisabled": "disabled",
   "@platformAdminStatusDisabled": {
     "description": "TASK78 п.3: статус tenant-а — режим выключен."
   },
-
   "platformAdminSecretSet": "secret set",
   "@platformAdminSecretSet": {
     "description": "TASK78 п.3: подпись «текущий serviceSecret задан» (сам секрет сервер не отдаёт)."
   },
-
   "platformAdminSecretMissing": "no secret",
   "@platformAdminSecretMissing": {
     "description": "TASK78 п.3: подпись «секрет не задан»."
   },
-
   "platformAdminGraceUntil": "previous secret valid until {until}",
   "@platformAdminGraceUntil": {
     "description": "TASK78 п.3: grace-окно ротации — до какого момента ещё принимается прежний секрет.",
     "placeholders": {
-      "until": {"type": "String"}
+      "until": {
+        "type": "String"
+      }
     }
   },
-
   "platformAdminEnableGenerate": "Enable & generate secret",
   "@platformAdminEnableGenerate": {
     "description": "TASK78 п.3: действие — включить issued-token-режим и выдать первый serviceSecret."
   },
-
   "platformAdminRotate": "Rotate secret",
   "@platformAdminRotate": {
     "description": "TASK78 п.3: действие — ротировать serviceSecret (старый живёт grace-окно)."
   },
-
   "platformAdminRotateTitle": "Rotate secret?",
   "@platformAdminRotateTitle": {
     "description": "TASK78 п.3: заголовок диалога ротации."
   },
-
   "platformAdminRotateBody": "A new secret will be issued. The old one keeps working for the grace period below, then dies.",
   "@platformAdminRotateBody": {
     "description": "TASK78 п.3: тело диалога ротации — объяснение grace-окна."
   },
-
   "platformAdminGraceLabel": "Grace, minutes (max {max})",
   "@platformAdminGraceLabel": {
     "description": "TASK78 п.3: label поля grace-периода в минутах в диалоге ротации.",
     "placeholders": {
-      "max": {"type": "int"}
+      "max": {
+        "type": "int"
+      }
     }
   },
-
   "platformAdminSecretTitle": "Tenant service secret",
   "@platformAdminSecretTitle": {
     "description": "TASK78 п.3: заголовок диалога одноразового показа serviceSecret."
   },
-
   "platformAdminSecretOnce": "The secret is shown ONCE. The server stores only its hash — if lost, the only way back is rotation.",
   "@platformAdminSecretOnce": {
     "description": "TASK78 п.3: предупреждение под секретом — показ один раз, в БД только sha256."
   },
-
   "platformAdminDisable": "Disable",
   "@platformAdminDisable": {
     "description": "TASK78 п.3: действие — отозвать режим (kill-switch)."
   },
-
   "platformAdminDisableConfirmTitle": "Disable issued-token mode?",
   "@platformAdminDisableConfirmTitle": {
     "description": "TASK78 п.3: заголовок confirm-диалога отзыва."
   },
-
   "platformAdminDisableConfirmBody": "Kill-switch: both secret hashes are wiped and the product loses access immediately. Re-enabling issues a brand-new secret.",
   "@platformAdminDisableConfirmBody": {
     "description": "TASK78 п.3: тело confirm-диалога отзыва — обнуляются оба хэша, продукт сразу теряет доступ."
   },
-
   "platformAdminAudit": "Audit log",
   "@platformAdminAudit": {
     "description": "TASK78 п.3: действие — журнал операций с ключами tenant-а."
   },
-
   "platformAdminAuditTitle": "Audit — {name}",
   "@platformAdminAuditTitle": {
     "description": "TASK78 п.3: заголовок листа аудита tenant-а.",
     "placeholders": {
-      "name": {"type": "String"}
+      "name": {
+        "type": "String"
+      }
     }
   },
-
   "platformAdminAuditEmpty": "No events yet",
   "@platformAdminAuditEmpty": {
     "description": "TASK78 п.3: пустой журнал аудита."
   },
-
   "platformAdminAuditEnabledGenerated": "Enabled, secret generated",
   "@platformAdminAuditEnabledGenerated": {
     "description": "TASK78 п.3: журнал — действие 'enabled_and_generated'."
   },
-
   "platformAdminAuditRotated": "Secret rotated",
   "@platformAdminAuditRotated": {
     "description": "TASK78 п.3: журнал — действие 'secret_rotated'."
   },
-
   "platformAdminAuditDisabled": "Disabled",
   "@platformAdminAuditDisabled": {
     "description": "TASK78 п.3: журнал — действие 'disabled'."
   },
-
   "myBotsTitle": "My bots",
   "@myBotsTitle": {
     "description": "Issue #49: заголовок экрана «Мои боты» + пункт входа в настройках."
   },
-
   "myBotsEmpty": "No bots yet. A bot is a program that posts to chats under its own account using an access token: deploy notifications, reminders, integrations. Create one, add it to your chats — or make it public so others can find it in search.",
   "@myBotsEmpty": {
     "description": "Issue #49: пустое состояние «Моих ботов» — объясняет, что такое бот (экран виден всем, не только тем, кто уже знает про ботов)."
   },
-
   "myBotsDiscoverable": "Visible in search",
   "@myBotsDiscoverable": {
     "description": "Issue #49: переключатель видимости бота в поиске (диалог создания)."
   },
-
   "myBotsDiscoverableSubtitle": "Anyone can find the bot and add it to their chats",
   "@myBotsDiscoverableSubtitle": {
     "description": "Issue #49: пояснение к переключателю видимости."
   },
-
   "myBotsPublicBadge": "in search",
   "@myBotsPublicBadge": {
     "description": "Issue #49: бейдж discoverable-бота в списке «Моих ботов»."
   },
-
   "myBotsMakeDiscoverable": "Show in search",
   "@myBotsMakeDiscoverable": {
     "description": "Issue #49: пункт меню — включить видимость бота."
   },
-
   "myBotsMakeHidden": "Hide from search",
   "@myBotsMakeHidden": {
     "description": "Issue #49: пункт меню — выключить видимость бота."
   },
-
   "myBotsRooms": "Bot's chats",
   "@myBotsRooms": {
     "description": "Issue #49: пункт меню — список комнат бота."
   },
-
   "myBotsRoomsTitle": "Chats — {name}",
   "@myBotsRoomsTitle": {
     "description": "Issue #49: заголовок шторки с комнатами бота.",
@@ -2199,32 +2200,26 @@
       }
     }
   },
-
   "myBotsRoomsEmpty": "The bot is not in any chats yet",
   "@myBotsRoomsEmpty": {
     "description": "Issue #49: пустое состояние списка комнат бота."
   },
-
   "myBotsRevoke": "Remove",
   "@myBotsRevoke": {
     "description": "Issue #49: кнопка отзыва бота из комнаты."
   },
-
   "myBotsRevokeConfirmTitle": "Remove bot from this chat?",
   "@myBotsRevokeConfirmTitle": {
     "description": "Issue #49: заголовок confirm-диалога отзыва."
   },
-
   "myBotsRevokeConfirmBody": "The bot will leave the chat. Its messages stay; the bot can be added back later.",
   "@myBotsRevokeConfirmBody": {
     "description": "Issue #49: тело confirm-диалога отзыва — что именно произойдёт."
   },
-
   "myBotsRevoked": "Bot removed from the chat",
   "@myBotsRevoked": {
     "description": "Issue #49: снекбар после успешного отзыва."
   },
-
   "myBotsLimitReached": "Bot limit reached ({limit}). Rotate a token or reuse an existing bot instead of creating a new one.",
   "@myBotsLimitReached": {
     "description": "Issue #49: человекочитаемая ошибка лимита ботов (BotLimitExceededException).",
@@ -2234,7 +2229,6 @@
       }
     }
   },
-
   "myBotsDescription": "Description",
   "@myBotsDescription": {
     "description": "TASK77 итер.3: заголовок поля описания бота в «Моих ботах» — текст, который читают в каталоге."
@@ -2251,7 +2245,6 @@
   "@myBotsDescriptionHint": {
     "description": "TASK77 итер.3: placeholder текстового поля описания бота."
   },
-
   "botCatalogTitle": "Add a bot",
   "@botCatalogTitle": {
     "description": "TASK77 итер.3: заголовок мини-каталога ботов, открываемого из настроек чата (гейт — админ чата)."
@@ -2285,10 +2278,13 @@
   "@botCatalogNoDescription": {
     "description": "TASK77 итер.3: заглушка вместо описания бота в каталоге/карточке."
   },
-
   "botCardTitle": "Bot",
   "@botCardTitle": {
     "description": "TASK77 итер.3: заголовок карточки бота (тап по боту в участниках / шапке 1:1)."
+  },
+  "openBotCardAction": "Bot card",
+  "@openBotCardAction": {
+    "description": "Заявка #138: пункт меню аватара для бота — вместо «профиля контакта»."
   },
   "botCardOwner": "Owner: {owner}",
   "@botCardOwner": {
@@ -2353,7 +2349,6 @@
   "@botCardNoAdminRooms": {
     "description": "TASK77 итер.3: пустой пикер чатов — caller нигде не админ, подключать некуда."
   },
-
   "botsPrivacyUnboundTitle": "Privacy will not apply everywhere",
   "@botsPrivacyUnboundTitle": {
     "description": "TASK77 итер.3: заголовок предупреждения о webhook-подписках без botId, которые режим чтения не фильтрует."
@@ -2367,127 +2362,106 @@
       }
     }
   },
-
   "pulseTitle": "Monitoring",
   "@pulseTitle": {
     "description": "TASK60: заголовок дашборда мониторинга Connect Pulse + пункт входа в настройках."
   },
-
   "pulseNoAccess": "You don't have access to monitoring.",
   "@pulseNoAccess": {
     "description": "TASK60: state «нет доступа» — сервер отдал MessengerNotAuthenticatedException (email не в PULSE_ADMIN_EMAILS)."
   },
-
   "pulseEmpty": "No monitors yet",
   "@pulseEmpty": {
     "description": "TASK60: empty-state дашборда — ни папок, ни мониторов."
   },
-
   "pulseLoadFailed": "Failed to load monitoring",
   "@pulseLoadFailed": {
     "description": "TASK60: ошибка загрузки списка папок/мониторов."
   },
-
+  "pulseLoadFailedOffline": "No connection to the server",
+  "@pulseLoadFailedOffline": {
+    "description": "issue #135: транспортный отказ (таймаут/сокет) на загрузке мониторинга. Человеку показываем причину словами, а не текст исключения."
+  },
   "pulseActionFailed": "Action failed — try again",
   "@pulseActionFailed": {
     "description": "TASK60: снекбар неуспеха мутации (create/rename/delete/pause/rotate/ack)."
   },
-
   "pulseAddFolder": "Folder",
   "@pulseAddFolder": {
     "description": "TASK60: пункт «＋»-меню — создать папку."
   },
-
   "pulseAddMonitor": "Monitor",
   "@pulseAddMonitor": {
     "description": "TASK60: пункт «＋»-меню — создать монитор."
   },
-
   "pulseNewFolder": "New folder",
   "@pulseNewFolder": {
     "description": "TASK60: заголовок диалога создания папки."
   },
-
   "pulseNewMonitor": "New monitor",
   "@pulseNewMonitor": {
     "description": "TASK60: заголовок диалога создания монитора."
   },
-
   "pulseNameLabel": "Name",
   "@pulseNameLabel": {
     "description": "TASK60: label поля имени папки/монитора."
   },
-
   "pulseFolderNameHint": "e.g. Production",
   "@pulseFolderNameHint": {
     "description": "TASK60: подсказка поля имени папки."
   },
-
   "pulseMonitorNameHint": "e.g. Nightly backup",
   "@pulseMonitorNameHint": {
     "description": "TASK60: подсказка поля имени монитора."
   },
-
   "pulseCreate": "Create",
   "@pulseCreate": {
     "description": "TASK60: кнопка подтверждения создания папки/монитора/правила."
   },
-
   "pulseRename": "Rename",
   "@pulseRename": {
     "description": "TASK60: пункт меню / кнопка переименования папки."
   },
-
   "pulseParentFolderLabel": "Folder",
   "@pulseParentFolderLabel": {
     "description": "TASK60: label выбора родительской папки при создании папки/монитора."
   },
-
   "pulseFolderRoot": "Root",
   "@pulseFolderRoot": {
     "description": "TASK60: пункт «корень дерева» в выборе папки (folderId/parentId = null)."
   },
-
   "pulsePeriodLabel": "Period",
   "@pulsePeriodLabel": {
     "description": "TASK60: label выбора ожидаемого интервала сигналов монитора."
   },
-
   "pulseGraceLabel": "Grace period (sec)",
   "@pulseGraceLabel": {
     "description": "TASK60: label поля допуска (graceSeconds) сверх периода до перехода в down."
   },
-
   "pulsePeriod60s": "60 sec",
   "@pulsePeriod60s": {
     "description": "TASK60: вариант периода — 60 секунд."
   },
-
   "pulsePeriod5m": "5 min",
   "@pulsePeriod5m": {
     "description": "TASK60: вариант периода — 5 минут."
   },
-
   "pulsePeriod15m": "15 min",
   "@pulsePeriod15m": {
     "description": "TASK60: вариант периода — 15 минут."
   },
-
   "pulsePeriod30m": "30 min",
   "@pulsePeriod30m": {
     "description": "Вариант периода — 30 минут (шаг планировщиков «раз в полчаса»)."
   },
-
   "pulsePeriod1h": "1 hour",
   "@pulsePeriod1h": {
     "description": "TASK60: вариант периода — 1 час."
   },
-
   "pulsePeriod24h": "24 hours",
   "@pulsePeriod24h": {
     "description": "TASK60: вариант периода — 24 часа."
   },
-
   "pulseLastSignal": "signal {when}",
   "@pulseLastSignal": {
     "description": "TASK60: подзаголовок строки монитора — относительное время последнего сигнала.",
@@ -2498,27 +2472,22 @@
       }
     }
   },
-
   "pulseNoSignal": "no signal yet",
   "@pulseNoSignal": {
     "description": "TASK60: подзаголовок монитора, который ещё ни разу не стучался (lastBeatAt == null)."
   },
-
   "pulseBadgeLate": "late",
   "@pulseBadgeLate": {
     "description": "TASK60: бейдж статуса late (просрочка в пределах grace)."
   },
-
   "pulseBadgeDown": "down",
   "@pulseBadgeDown": {
     "description": "TASK60: бейдж статуса down (сигнал не пришёл за period+grace)."
   },
-
   "pulsePaused": "paused",
   "@pulsePaused": {
     "description": "TASK60: бейдж/подпись приостановленного монитора."
   },
-
   "pulseDetailPeriodGrace": "Period {period} · grace {grace}s",
   "@pulseDetailPeriodGrace": {
     "description": "TASK60: строка периода/допуска в detail-листе монитора.",
@@ -2533,177 +2502,146 @@
       }
     }
   },
-
   "pulseLastSignalLabel": "Last signal",
   "@pulseLastSignalLabel": {
     "description": "TASK60: label строки последнего сигнала в detail-листе монитора."
   },
-
   "pulseIncidents": "Incidents",
   "@pulseIncidents": {
     "description": "TASK60: заголовок секции инцидентов в detail-листе монитора."
   },
-
   "pulseNoIncidents": "No incidents",
   "@pulseNoIncidents": {
     "description": "TASK60: empty-state секции инцидентов."
   },
-
   "pulseAck": "Take",
   "@pulseAck": {
     "description": "TASK60: кнопка «Взять в работу» на непринятом открытом инциденте."
   },
-
   "pulseIncidentOpen": "open",
   "@pulseIncidentOpen": {
     "description": "TASK60: пометка открытого (неразрешённого) инцидента."
   },
-
   "pulseIncidentResolved": "resolved",
   "@pulseIncidentResolved": {
     "description": "TASK60: пометка разрешённого инцидента."
   },
-
   "pulseIncidentAcked": "in progress",
   "@pulseIncidentAcked": {
     "description": "TASK60: пометка инцидента, принятого в работу (ackedAt задан)."
   },
-
   "pulsePause": "Pause",
   "@pulsePause": {
     "description": "TASK60: действие «Пауза» монитора."
   },
-
   "pulseResume": "Resume",
   "@pulseResume": {
     "description": "TASK60: действие «Возобновить» монитора."
   },
-
   "pulseRotateToken": "Regenerate token",
   "@pulseRotateToken": {
     "description": "TASK60: действие ротации beat-токена монитора."
   },
-
   "pulseDelete": "Delete",
   "@pulseDelete": {
     "description": "TASK60: действие удаления монитора/папки/правила."
   },
-
   "pulseDeleteMonitorConfirmTitle": "Delete monitor?",
   "@pulseDeleteMonitorConfirmTitle": {
     "description": "TASK60: заголовок confirm-диалога удаления монитора."
   },
-
   "pulseDeleteMonitorConfirmBody": "The monitor and its beat token will stop working and its history will be removed.",
   "@pulseDeleteMonitorConfirmBody": {
     "description": "TASK60: тело confirm-диалога удаления монитора."
   },
-
   "pulseDeleteFolderConfirmTitle": "Delete folder?",
   "@pulseDeleteFolderConfirmTitle": {
     "description": "TASK60: заголовок confirm-диалога удаления папки."
   },
-
   "pulseDeleteFolderConfirmBody": "Only empty folders can be deleted.",
   "@pulseDeleteFolderConfirmBody": {
     "description": "TASK60: тело confirm-диалога удаления папки (удаляется только пустая)."
   },
-
   "pulseFolderNotEmpty": "Folder is not empty",
   "@pulseFolderNotEmpty": {
     "description": "TASK60: снекбар — сервер отказал в удалении непустой папки."
   },
-
   "pulseBeatUrlLabel": "Beat URL",
   "@pulseBeatUrlLabel": {
     "description": "TASK60: заголовок one-time диалога с URL для heartbeat."
   },
-
   "pulseBeatUrlOnce": "Copy this now — the token is shown only once.",
   "@pulseBeatUrlOnce": {
     "description": "TASK60: предупреждение, что beat-токен показывается один раз."
   },
-
   "pulseCurlHint": "Ready-to-use snippet:",
   "@pulseCurlHint": {
     "description": "TASK60: подпись над готовым curl-сниппетом в one-time диалоге."
   },
-
   "pulseCopy": "Copy",
   "@pulseCopy": {
     "description": "TASK60: tooltip кнопки копирования в буфер."
   },
-
   "pulseCopied": "Copied",
   "@pulseCopied": {
     "description": "TASK60: снекбар после копирования beatUrl/curl в буфер."
   },
-
   "pulseAlerts": "Alerts",
   "@pulseAlerts": {
     "description": "TASK60: заголовок экрана/кнопки правил оповещения для scope (папка/монитор)."
   },
-
   "pulseAddRule": "Add rule",
   "@pulseAddRule": {
     "description": "TASK60: кнопка добавления правила оповещения."
   },
-
   "pulseNoRules": "No alert rules",
   "@pulseNoRules": {
     "description": "TASK60: empty-state списка правил для scope."
   },
-
   "pulseRoomLabel": "Room",
   "@pulseRoomLabel": {
     "description": "TASK60: label выбора комнаты-получателя карточек алерта."
   },
-
   "pulsePickRoom": "Pick a room",
   "@pulsePickRoom": {
     "description": "TASK60: плейсхолдер выбора комнаты в диалоге правила."
   },
-
   "pulseMinSeverityLabel": "Minimum severity",
   "@pulseMinSeverityLabel": {
     "description": "TASK60: label выбора минимальной severity правила."
   },
-
+  "pulseStatusLabel": "Status",
+  "@pulseStatusLabel": {
+    "description": "Текущий статус монитора в карточке. Не путать с pulseMinSeverityLabel: тот про ПОРОГ правила оповещения, этот про то, что с монитором сейчас."
+  },
   "pulseSeverityWarn": "Warning",
   "@pulseSeverityWarn": {
     "description": "TASK60: severity warn (человекочитаемо)."
   },
-
   "pulseSeverityError": "Error",
   "@pulseSeverityError": {
     "description": "TASK60: severity error (человекочитаемо)."
   },
-
   "pulseSeverityDown": "Down",
   "@pulseSeverityDown": {
     "description": "TASK60: severity down (человекочитаемо)."
   },
-
   "pulseEscalateAfterLabel": "Escalate after (min)",
   "@pulseEscalateAfterLabel": {
     "description": "TASK60: label необязательного поля escalateAfterMinutes."
   },
-
   "pulseLevel1Label": "Responsible (MUID)",
   "@pulseLevel1Label": {
     "description": "TASK60: label поля CSV MUID-ов уровня 1 эскалации."
   },
-
   "pulseLevel1Helper": "Comma-separated messenger user ids to DM on escalation.",
   "@pulseLevel1Helper": {
     "description": "TASK60: подсказка под полем level1UserIds (CSV MUID)."
   },
-
   "pulseMembers": "Members",
   "@pulseMembers": {
     "description": "TASK79: кнопка/заголовок раздела участников папки или монитора."
   },
-
   "pulseMembersOf": "Members · {name}",
   "@pulseMembersOf": {
     "description": "TASK79: заголовок экрана участников с именем объекта.",
@@ -2713,77 +2651,62 @@
       }
     }
   },
-
   "pulseAddMember": "Add member",
   "@pulseAddMember": {
     "description": "TASK79: кнопка добавления участника к папке/монитору."
   },
-
   "pulseRemoveMember": "Revoke access",
   "@pulseRemoveMember": {
     "description": "TASK79: действие «убрать участника» в списке участников."
   },
-
   "pulseNoMembers": "No members yet",
   "@pulseNoMembers": {
     "description": "TASK79: пустой список участников."
   },
-
   "pulseRoleOwner": "Owner",
   "@pulseRoleOwner": {
     "description": "TASK79: роль владельца объекта мониторинга."
   },
-
   "pulseRoleAdmin": "Admin",
   "@pulseRoleAdmin": {
     "description": "TASK79: роль администратора объекта мониторинга."
   },
-
   "pulseRoleViewer": "Viewer",
   "@pulseRoleViewer": {
     "description": "TASK79: роль наблюдателя — видит статусы и инциденты, ничего не меняет."
   },
-
   "pulseRoleLabel": "Role",
   "@pulseRoleLabel": {
     "description": "TASK79: подпись выпадашки выбора роли."
   },
-
   "pulseRoleInherited": "Inherited from folder",
   "@pulseRoleInherited": {
     "description": "TASK79: пометка унаследованного членства — убирать участника надо в папке-предке."
   },
-
   "pulseMemberInheritedHint": "Access comes from a parent folder. Change it there.",
   "@pulseMemberInheritedHint": {
     "description": "TASK79: подсказка при попытке изменить унаследованное членство."
   },
-
   "pulseLastOwnerError": "The last owner cannot be removed or demoted.",
   "@pulseLastOwnerError": {
     "description": "TASK79: сервер отклонил снятие последнего владельца (LastOwnerCannotDemoteException)."
   },
-
   "pulsePickMember": "Pick a person",
   "@pulsePickMember": {
     "description": "TASK79: заголовок выбора пользователя при добавлении участника."
   },
-
   "pulseMemberSearchHint": "Email or nickname",
   "@pulseMemberSearchHint": {
     "description": "TASK79: подсказка в поле поиска пользователя."
   },
-
   "pulseMemberSearchEmpty": "Nobody found",
   "@pulseMemberSearchEmpty": {
     "description": "TASK79: поиск пользователей ничего не нашёл."
   },
-
   "pulseReadOnlyHint": "You have view-only access",
   "@pulseReadOnlyHint": {
     "description": "TASK79: подпись в карточке монитора для роли viewer — управление скрыто."
   },
-
   "pulseRuleSummary": "≥ {severity} → room {room}",
   "@pulseRuleSummary": {
     "description": "TASK60: строка правила в списке — минимальная severity и комната.",
@@ -2798,12 +2721,10 @@
       }
     }
   },
-
   "pulseDeleteRule": "Delete rule",
   "@pulseDeleteRule": {
     "description": "TASK60: действие удаления правила (long-press / ⋯)."
   },
-
   "contactTitle": "Contact",
   "contactCustomNameLabel": "Custom name",
   "contactCustomNameHelper": "Only you see it — in the chat list and participants",
@@ -2818,11 +2739,19 @@
   "contactCreate": "Create",
   "contactCreateLabelFailed": "Failed to create label",
   "contactRenameLabelMenu": "Rename “{name}”",
-  "@contactRenameLabelMenu": {"placeholders": {"name": {}}},
+  "@contactRenameLabelMenu": {
+    "placeholders": {
+      "name": {}
+    }
+  },
   "contactRenameLabelTitle": "Rename label",
   "contactDeleteLabel": "Delete label",
   "contactDeleteLabelConfirm": "Delete label “{name}”?",
-  "@contactDeleteLabelConfirm": {"placeholders": {"name": {}}},
+  "@contactDeleteLabelConfirm": {
+    "placeholders": {
+      "name": {}
+    }
+  },
   "contactDeleteLabelBody": "The label will be removed from all contacts.",
   "contactDelete": "Delete",
   "contactRenameFailed": "Failed to rename",
@@ -2832,15 +2761,30 @@
   "contactUnblock": "Unblock",
   "contactBlocked": "Blocked",
   "contactBlockConfirm": "Block {name}?",
-  "@contactBlockConfirm": {"placeholders": {"name": {}}},
+  "@contactBlockConfirm": {
+    "placeholders": {
+      "name": {}
+    }
+  },
   "contactBlockBody": "They won't be able to message you, and you both stop getting notifications from each other. You can undo this later.",
   "contactBlockFailed": "Failed to block",
   "contactUnblockFailed": "Failed to unblock",
   "contactUnblocked": "Unblocked",
+  "sharedContactListTitle": "Contacts",
+  "sharedContactListAddAll": "Add all",
+  "sharedContactShareLabel": "Share list",
+  "sharedContactTitle": "Contact",
+  "sharedContactAdd": "Add",
+  "sharedContactAlreadyKnown": "Already in list",
+  "sharedContactShare": "Share contact",
   "contactAddedToContacts": "Added to contacts",
   "contactRequestOfferTitle": "Can't message directly",
   "contactRequestOfferBody": "{name} limited who can message them. Send a request with your card — they decide whether to reply.",
-  "@contactRequestOfferBody": {"placeholders": {"name": {}}},
+  "@contactRequestOfferBody": {
+    "placeholders": {
+      "name": {}
+    }
+  },
   "contactRequestSend": "Send request",
   "contactRequestSent": "Request sent",
   "contactRequestSendFailed": "Couldn't send the request",
@@ -2864,50 +2808,84 @@
   "peopleEmptyLabel": "No one with this label yet — assign labels from a contact's profile",
   "peopleLoadFailed": "Failed to load",
   "folderPickerTitle": "Folders for “{name}”",
-  "@folderPickerTitle": {"placeholders": {"name": {}}},
+  "@folderPickerTitle": {
+    "placeholders": {
+      "name": {}
+    }
+  },
   "folderPickerEmpty": "No folders yet — create the first one and this chat will be added to it. One chat can be in several folders.",
   "folderNewRow": "New folder…",
   "folderNewTitle": "New folder",
   "folderNameHint": "Folder name",
   "folderCreateFailed": "Failed to create folder",
   "folderRenameMenu": "Rename “{name}”",
-  "@folderRenameMenu": {"placeholders": {"name": {}}},
+  "@folderRenameMenu": {
+    "placeholders": {
+      "name": {}
+    }
+  },
   "folderRenameTitle": "Rename folder",
   "folderDelete": "Delete folder",
   "folderDeleteConfirm": "Delete folder “{name}”?",
-  "@folderDeleteConfirm": {"placeholders": {"name": {}}},
+  "@folderDeleteConfirm": {
+    "placeholders": {
+      "name": {}
+    }
+  },
   "folderDeleteBody": "Chats will remain — only the folder is deleted.",
   "folderChangeFailed": "Failed to update folder",
   "folderDeleteFailed": "Failed to delete folder",
-
   "peopleSearchHint": "Search by name or @username",
   "peopleCount": "Contacts · {count}",
-  "@peopleCount": {"placeholders": {"count": {}}},
+  "@peopleCount": {
+    "placeholders": {
+      "count": {}
+    }
+  },
   "peopleNotFound": "Nothing found",
   "peopleWrite": "Message",
   "peopleProfile": "Contact profile",
-
   "folderChatCount": "{count, plural, =0{empty} one{{count} chat} other{{count} chats}}",
-  "@folderChatCount": {"placeholders": {"count": {}}},
+  "@folderChatCount": {
+    "placeholders": {
+      "count": {}
+    }
+  },
   "folderDone": "Done",
   "folderDoneN": "Done · {count}",
-  "@folderDoneN": {"placeholders": {"count": {}}},
+  "@folderDoneN": {
+    "placeholders": {
+      "count": {}
+    }
+  },
   "folderOk": "OK",
-
   "folderPickerHeader": "Add to folder",
-
   "lastSeenJustNow": "last seen just now",
   "lastSeenMinutes": "last seen {count} min ago",
-  "@lastSeenMinutes": {"placeholders": {"count": {}}},
+  "@lastSeenMinutes": {
+    "placeholders": {
+      "count": {}
+    }
+  },
   "lastSeenToday": "last seen today at {time}",
-  "@lastSeenToday": {"placeholders": {"time": {}}},
+  "@lastSeenToday": {
+    "placeholders": {
+      "time": {}
+    }
+  },
   "lastSeenYesterday": "last seen yesterday at {time}",
-  "@lastSeenYesterday": {"placeholders": {"time": {}}},
+  "@lastSeenYesterday": {
+    "placeholders": {
+      "time": {}
+    }
+  },
   "lastSeenDate": "last seen {date}",
-  "@lastSeenDate": {"placeholders": {"date": {}}},
-
+  "@lastSeenDate": {
+    "placeholders": {
+      "date": {}
+    }
+  },
   "lastSeenOnline": "online",
-
   "cardEditorTitle": "My card",
   "cardSectionStyle": "Style",
   "cardSectionFields": "About you",
@@ -2940,16 +2918,25 @@
   "settingsWhoCanMessageSubtitle": "Only people you already share a chat with can start a new chat with you",
   "settingsShowCardsOnCallTitle": "Cards on call screen",
   "settingsShowCardsOnCallSubtitle": "Show the caller's card full-screen on incoming calls",
-
   "settingsPresenceVisibleTitle": "Show when I'm online",
   "settingsPresenceVisibleSubtitle": "Peers can see “online” and “last seen…”. If you turn this off, you won't see others' status either",
-
   "peopleSelectedCount": "Selected: {count}",
-  "@peopleSelectedCount": {"placeholders": {"count": {"type": "int"}}},
+  "@peopleSelectedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "peopleAssignLabelAction": "Label",
   "peopleBatchLabelTitle": "Assign label · {count}",
-  "@peopleBatchLabelTitle": {"placeholders": {"count": {"type": "int"}}},
-
+  "@peopleBatchLabelTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "profileLangBase": "Primary",
   "@profileLangBase": {
     "description": "TASK64. Chip for the base profile when its language is unknown (profileLocale is null). When it is known, profileLangDefault is used instead."
@@ -2957,7 +2944,12 @@
   "profileLangDefault": "Default · {locale}",
   "@profileLangDefault": {
     "description": "TASK64. Chip for the base profile: it is what everyone falls back to, and the locale tells the owner which language it is written in.",
-    "placeholders": {"locale": {"type": "String", "example": "EN"}}
+    "placeholders": {
+      "locale": {
+        "type": "String",
+        "example": "EN"
+      }
+    }
   },
   "profileLangMakeDefault": "Make the default profile",
   "@profileLangMakeDefault": {
@@ -2970,12 +2962,22 @@
   "profileLangDelete": "Delete the {locale} version",
   "@profileLangDelete": {
     "description": "TASK64. Long-press action on a language chip: drop this translation entirely.",
-    "placeholders": {"locale": {"type": "String", "example": "DE"}}
+    "placeholders": {
+      "locale": {
+        "type": "String",
+        "example": "DE"
+      }
+    }
   },
   "profileLangDeleted": "{locale} version deleted",
   "@profileLangDeleted": {
     "description": "TASK64. Snack bar shown after a translation was removed.",
-    "placeholders": {"locale": {"type": "String", "example": "DE"}}
+    "placeholders": {
+      "locale": {
+        "type": "String",
+        "example": "DE"
+      }
+    }
   },
   "profileLangDefaultUpdated": "Default profile updated",
   "@profileLangDefaultUpdated": {
@@ -2994,10 +2996,21 @@
     "description": "TASK64. Title of the language picker dialog."
   },
   "profileLangHelper": "People using {locale} will see these fields. Empty fields fall back to the English or primary version.",
-  "@profileLangHelper": {"placeholders": {"locale": {"type": "String"}}},
+  "@profileLangHelper": {
+    "placeholders": {
+      "locale": {
+        "type": "String"
+      }
+    }
+  },
   "profileLangSaved": "{locale} version saved",
-  "@profileLangSaved": {"placeholders": {"locale": {"type": "String"}}},
-
+  "@profileLangSaved": {
+    "placeholders": {
+      "locale": {
+        "type": "String"
+      }
+    }
+  },
   "roomCustomNameAction": "Custom chat name",
   "roomCustomNameHint": "Visible only to you — others see the regular name",
   "roomCustomNameReset": "Reset",
@@ -3009,70 +3022,669 @@
   "roomAdminWriteBanWeek": "7 days",
   "roomAdminWriteBanForever": "Forever",
   "roomAdminWriteBannedUntil": "Forbidden until {until}",
-  "@roomAdminWriteBannedUntil": {"placeholders": {"until": {"type": "String"}}},
+  "@roomAdminWriteBannedUntil": {
+    "placeholders": {
+      "until": {
+        "type": "String"
+      }
+    }
+  },
   "writeBannedForeverSnack": "An admin has forbidden you from writing in this chat",
   "writeBannedUntilSnack": "You cannot write in this chat until {until}",
-  "@writeBannedUntilSnack": {"placeholders": {"until": {"type": "String"}}},
-
+  "@writeBannedUntilSnack": {
+    "placeholders": {
+      "until": {
+        "type": "String"
+      }
+    }
+  },
   "threadOpenDiscussion": "Discussion ({count})",
   "@threadOpenDiscussion": {
     "description": "TASK82: row-button on the task anchor bubble — opens the task discussion thread; {count} is the number of replies.",
-    "placeholders": {"count": {"type": "int", "example": "3"}}
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "3"
+      }
+    }
   },
   "threadScreenTitle": "Task discussion",
-  "@threadScreenTitle": {"description": "TASK82: fallback title of the thread screen when the task subject is unknown."},
+  "@threadScreenTitle": {
+    "description": "TASK82: fallback title of the thread screen when the task subject is unknown."
+  },
   "threadScreenEmpty": "No replies yet. Ask a question about the task here.",
-  "@threadScreenEmpty": {"description": "TASK82: empty state of the task thread feed."},
+  "@threadScreenEmpty": {
+    "description": "TASK82: empty state of the task thread feed."
+  },
   "taskBadgeTooltip": "Task: {status}",
   "@taskBadgeTooltip": {
     "description": "TASK83: tooltip on the task badge shown on the source message; {status} is the localized stage label.",
-    "placeholders": {"status": {"type": "String", "example": "In progress"}}
+    "placeholders": {
+      "status": {
+        "type": "String",
+        "example": "In progress"
+      }
+    }
   },
   "taskStageCreated": "Filed",
-  "@taskStageCreated": {"description": "TASK83: task stage when a TaskLink exists but no ticket (task filed externally, work not started)."},
+  "@taskStageCreated": {
+    "description": "TASK83: task stage when a TaskLink exists but no ticket (task filed externally, work not started)."
+  },
   "taskStageNew": "New",
-  "@taskStageNew": {"description": "TASK83: task stage 'new' (filed, not yet triaged)."},
+  "@taskStageNew": {
+    "description": "TASK83: task stage 'new' (filed, not yet triaged)."
+  },
   "taskStageInProgress": "In progress",
-  "@taskStageInProgress": {"description": "TASK83: task stage 'in_progress'."},
+  "@taskStageInProgress": {
+    "description": "TASK83: task stage 'in_progress'."
+  },
   "taskStageAccepted": "Accepted",
-  "@taskStageAccepted": {"description": "TASK83: task stage 'accepted' (done / accepted)."},
+  "@taskStageAccepted": {
+    "description": "TASK83: task stage 'accepted' (done / accepted)."
+  },
   "taskStageRejected": "Rejected",
-  "@taskStageRejected": {"description": "TASK83: task stage 'rejected' (closed without completion)."},
+  "taskStageAwaitingUser": "Awaiting your reply",
+  "taskStageOnHold": "On hold",
+  "@taskStageRejected": {
+    "description": "TASK83: task stage 'rejected' (closed without completion)."
+  },
   "tasksScreenTitle": "Tasks",
-  "@tasksScreenTitle": {"description": "TASK84: title of the Tasks screen (tasks from all my active rooms)."},
+  "@tasksScreenTitle": {
+    "description": "TASK84: title of the Tasks screen (tasks from all my active rooms)."
+  },
   "tasksTabAll": "All",
-  "@tasksTabAll": {"description": "TASK84: tab showing tasks from all my active rooms."},
+  "@tasksTabAll": {
+    "description": "TASK84: tab showing tasks from all my active rooms."
+  },
   "tasksTabInitiator": "Initiated by me",
-  "@tasksTabInitiator": {"description": "TASK84: tab showing only tasks I filed (createdBy == me)."},
+  "@tasksTabInitiator": {
+    "description": "TASK84: tab showing only tasks I filed (createdBy == me)."
+  },
   "tasksEmptyAll": "No tasks in your rooms yet.",
-  "@tasksEmptyAll": {"description": "TASK84: empty state of the All tab."},
+  "@tasksEmptyAll": {
+    "description": "TASK84: empty state of the All tab."
+  },
   "tasksEmptyInitiator": "You haven't filed any tasks yet.",
-  "@tasksEmptyInitiator": {"description": "TASK84: empty state of the Initiated-by-me tab."},
+  "@tasksEmptyInitiator": {
+    "description": "TASK84: empty state of the Initiated-by-me tab."
+  },
   "tasksLoadError": "Failed to load tasks",
-  "@tasksLoadError": {"description": "TASK84: error shown when the tasks list fails to load."},
+  "@tasksLoadError": {
+    "description": "TASK84: error shown when the tasks list fails to load."
+  },
   "taskLabel": "Task",
-  "@taskLabel": {"description": "TASK88: short label shown next to the task badge on a source message (in the stage color)."},
+  "@taskLabel": {
+    "description": "TASK88: short label shown next to the task badge on a source message (in the stage color)."
+  },
   "tasksScreenTitleForRoom": "Tasks: {room}",
   "@tasksScreenTitleForRoom": {
     "description": "TASK88: title of the Tasks screen scoped to one room (tap on the header task icon); {room} is the room name.",
-    "placeholders": {"room": {"type": "String", "example": "Support"}}
+    "placeholders": {
+      "room": {
+        "type": "String",
+        "example": "Support"
+      }
+    }
   },
-  "supportInboxProjectFilterLabel": "Project:",
-  "@supportInboxProjectFilterLabel": {"description": "TASK75: caption next to the project filter chip in the support inbox folder header."},
-  "supportInboxProjectFilterAll": "All projects",
-  "@supportInboxProjectFilterAll": {"description": "TASK75: support inbox project filter — no project selected (reset value)."},
-  "supportInboxProjectFilterTitle": "Filter by project",
-  "@supportInboxProjectFilterTitle": {"description": "TASK75: title of the bottom sheet that picks a project for the support inbox filter."},
+  "announcementDismiss": "Got it",
+  "@announcementDismiss": {
+    "description": "TASK91: button that closes an in-app announcement."
+  },
+  "announcementOpen": "Open",
+  "@announcementOpen": {
+    "description": "TASK91: button that opens the screen an announcement points to."
+  },
+  "attachmentDropHint": "Drop files to attach",
+  "@attachmentDropHint": {
+    "description": "Overlay shown while dragging files over the chat (desktop drag-and-drop)."
+  },
+  "participantsHiddenToggle": "Hide member list",
+  "@participantsHiddenToggle": {
+    "description": "issue #62: admin-controlled visibility of the group member list."
+  },
+  "participantsHiddenHint": "Only admins will see who is in the group",
+  "@participantsHiddenHint": {
+    "description": "issue #62: admin-controlled visibility of the group member list."
+  },
+  "participantsHiddenNotice": "The admin has hidden the member list",
+  "@participantsHiddenNotice": {
+    "description": "issue #62: admin-controlled visibility of the group member list."
+  },
   "supportInboxEmpty": "No requests",
-  "@supportInboxEmpty": {"description": "TASK75: empty state of the support inbox (no open support chats, or none match the project filter)."},
-
+  "@supportInboxEmpty": {
+    "description": "TASK75: empty state of the support inbox (no open support chats, or none match the project filter)."
+  },
   "inAppBannerNewMessage": "New message",
-  "@inAppBannerNewMessage": {"description": "Issue #79: in-app banner text when message preview is off, and title fallback when neither room name nor sender name is known."},
+  "@inAppBannerNewMessage": {
+    "description": "Issue #79: in-app banner text when message preview is off, and title fallback when neither room name nor sender name is known."
+  },
   "inAppBannerAttachment": "Attachment",
-  "@inAppBannerAttachment": {"description": "Issue #79: in-app banner body for a message with no text (image, file, voice)."},
-
+  "@inAppBannerAttachment": {
+    "description": "Issue #79: in-app banner body for a message with no text (image, file, voice)."
+  },
   "messageActionDirectMessage": "Direct message",
-  "@messageActionDirectMessage": {"description": "Issue #76: message action in a group chat — open (or create) a one-to-one chat with the author of this message."},
+  "@messageActionDirectMessage": {
+    "description": "Issue #76: message action in a group chat — open (or create) a one-to-one chat with the author of this message."
+  },
   "messageActionDirectMessageFailed": "Couldn't open the chat — try again",
-  "@messageActionDirectMessageFailed": {"description": "Issue #76: opening the one-to-one chat with the message author failed (network / server)."}
+  "@messageActionDirectMessageFailed": {
+    "description": "Issue #76: opening the one-to-one chat with the message author failed (network / server)."
+  },
+  "platformAdminTeams": "Tenant teams",
+  "platformAdminTeamsHint": "Company directory. People in one team can see each other, so a newcomer needs nobody's address. A team does not open private card fields and does not override «who can message me».",
+  "platformAdminTeamsEmpty": "No teams yet — a newcomer will see an empty people list",
+  "platformAdminTeamCreate": "New team",
+  "platformAdminTeamName": "Name",
+  "platformAdminTeamDescription": "Description (optional)",
+  "platformAdminTeamNameTaken": "A team with this name already exists",
+  "platformAdminTeamDelete": "Disband team",
+  "platformAdminTeamDeleteConfirm": "Disband «{name}»? Members will stop seeing each other through this team. Chats and history remain.",
+  "@platformAdminTeamDeleteConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "platformAdminTeamMembers": "Members: {count}",
+  "@platformAdminTeamMembers": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "platformAdminTeamMemberAdd": "Add to team",
+  "platformAdminTeamMemberRemove": "Remove from team",
+  "platformAdminTeamMemberRemoveConfirm": "Remove {name} from the team? They will disappear from other people's lists — unless they are known for another reason (a shared chat, another shared team).",
+  "@platformAdminTeamMemberRemoveConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "platformAdminTeamMemberAddWarning": "They will see the whole team, and the whole team will see them.",
+  "platformAdminTeamFull": "The team is already at its member limit",
+  "platformAdminTeamMembersEmpty": "Empty — this team introduces nobody",
+  "myTeamsTitle": "Teams",
+  "@myTeamsTitle": {
+    "description": "Этап 3 DESIGN_TEAMS_AND_CONTACT_SHARING: свои команды пользователя."
+  },
+  "myTeamsHint": "A team is a list of people without a chat: members see each other. You can only add people you already know. A team does not open private contact card fields and does not override the «who can message me» setting.",
+  "myTeamsEmpty": "No teams yet. Gather people you already know — they will see each other without starting a group chat.",
+  "myTeamsOrgBadge": "Company team",
+  "myTeamsCreate": "New team",
+  "myTeamsName": "Name",
+  "myTeamsDescription": "Description (optional)",
+  "myTeamsMembers": "Members: {count}",
+  "@myTeamsMembers": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "myTeamsMembersEmpty": "Empty — this team introduces nobody",
+  "myTeamsMemberAdd": "Add to team",
+  "myTeamsMemberAddWarning": "They will see everyone in the team, and everyone will see them.",
+  "myTeamsMemberRemove": "Remove from team",
+  "myTeamsMemberRemoveConfirm": "Remove {name} from the team? They will disappear from other members' people list — unless something else connects them (a shared chat, another shared team).",
+  "@myTeamsMemberRemoveConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "myTeamsDelete": "Disband team",
+  "myTeamsDeleteConfirm": "Disband «{name}»? Members will stop seeing each other through this team. Chats and history stay.",
+  "@myTeamsDeleteConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "myTeamsLeave": "Leave team",
+  "myTeamsLeaveConfirm": "Leave «{name}»? Other members will disappear from your people list — those you are not connected to otherwise.",
+  "@myTeamsLeaveConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "myTeamsPeerUnknown": "You do not know this person yet. Get acquainted first: a shared chat, a shared company team, or «Add to contacts».",
+  "@myTeamsPeerUnknown": {
+    "description": "Главное правило этапа 3: в свою команду добавляют только знакомых. Отказ обязан объяснять причину, иначе читается как поломка."
+  },
+  "myTeamsFull": "This team already has the maximum number of members",
+  "myTeamsAccessDenied": "Only the team owner manages its members",
+  "myTeamsActionFailed": "Could not complete the action",
+  "peopleTeamFromLabel": "Create a team from this label",
+  "@peopleTeamFromLabel": {
+    "description": "§5 «мост к командам»: метка личная и разовая, команда — общая и живая."
+  },
+  "peopleTeamFromLabelDone": "Team «{name}»: {count} added",
+  "@peopleTeamFromLabelDone": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "contactKnownVia": "Known via",
+  "contactKnownViaTeam": "from team «{name}»",
+  "@contactKnownViaTeam": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "contactKnownViaSharedRoom": "a shared chat",
+  "contactKnownViaManual": "added by you",
+  "pushStatusNotConnectedTitle": "Notifications are not connected",
+  "@pushStatusNotConnectedTitle": {
+    "description": "Issue #86: заголовок состояния «пуш-токен не получен» — в настройках уведомлений и в баннере над списком чатов."
+  },
+  "pushStatusPermissionDenied": "This app is not allowed to show notifications. Until you allow it, new messages are only visible while the app is open.",
+  "@pushStatusPermissionDenied": {
+    "description": "Issue #86: причина — разрешение не выдано; лечится системными настройками."
+  },
+  "pushStatusTokenUnavailable": "Permission is granted, but the device did not register with the delivery service. Usually the network is at fault: Wi-Fi blocks port 5223 to push.apple.com — try mobile data and restart the app.",
+  "@pushStatusTokenUnavailable": {
+    "description": "Issue #86: причина — разрешение есть, а токена нет; лечится сетью/entitlements, кнопка «разрешить» бесполезна."
+  },
+  "pushStatusOpenSystemSettings": "Open settings",
+  "pushStatusBannerText": "Notifications are not connected — nothing will arrive in the background",
+  "pushStatusBannerDismiss": "Hide",
+  "avatarCropTitle": "Avatar",
+  "@avatarCropTitle": {
+    "description": "Issue #102: заголовок экрана обрезки аватара."
+  },
+  "avatarCropDone": "Done",
+  "@avatarCropDone": {
+    "description": "Issue #102: подтвердить обрезку и вернуть байты вызывающему."
+  },
+  "avatarCropRotate": "Rotate",
+  "@avatarCropRotate": {
+    "description": "Issue #102: поворот на 90° — снимок с телефона часто приезжает лежащим."
+  },
+  "avatarCropFailed": "Could not crop the image",
+  "@avatarCropFailed": {
+    "description": "Issue #102: обрезка не удалась (битый файл); экран остаётся открытым."
+  },
+  "commonBack": "Back",
+  "@commonBack": {
+    "description": "Мониторинг: карточка монитора в правой панели широкой раскладки."
+  },
+  "photoEditTitle": "Edit",
+  "@photoEditTitle": {
+    "description": "Issue #103: редактор фото перед отправкой."
+  },
+  "photoEditDone": "Done",
+  "@photoEditDone": {
+    "description": "Issue #103: редактор фото перед отправкой."
+  },
+  "photoEditCrop": "Crop",
+  "@photoEditCrop": {
+    "description": "Issue #103: редактор фото перед отправкой."
+  },
+  "photoEditDraw": "Draw",
+  "@photoEditDraw": {
+    "description": "Issue #103: редактор фото перед отправкой."
+  },
+  "photoEditUndo": "Undo",
+  "@photoEditUndo": {
+    "description": "Issue #103: редактор фото перед отправкой."
+  },
+  "photoEditToolBrush": "Brush",
+  "@photoEditToolBrush": {
+    "description": "Issue #103: редактор фото перед отправкой."
+  },
+  "photoEditToolArrow": "Arrow",
+  "@photoEditToolArrow": {
+    "description": "Issue #103: редактор фото перед отправкой."
+  },
+  "photoEditToolRect": "Frame",
+  "@photoEditToolRect": {
+    "description": "Issue #103: редактор фото перед отправкой."
+  },
+  "photoEditToolText": "Text",
+  "@photoEditToolText": {
+    "description": "Issue #103: редактор фото перед отправкой."
+  },
+  "photoEditTextTitle": "Caption",
+  "@photoEditTextTitle": {
+    "description": "Issue #103: редактор фото перед отправкой."
+  },
+  "photoEditTextOk": "Add",
+  "@photoEditTextOk": {
+    "description": "Issue #103: редактор фото перед отправкой."
+  },
+  "photoEditFailed": "Could not crop the image",
+  "@photoEditFailed": {
+    "description": "Issue #103: редактор фото перед отправкой."
+  },
+  "pulseKindLabel": "Monitor type",
+  "@pulseKindLabel": {
+    "description": "TASK94: выбор рода монитора в диалоге создания."
+  },
+  "pulseKindHeartbeat": "Heartbeat — the service signals us",
+  "@pulseKindHeartbeat": {
+    "description": "TASK94: род монитора heartbeat."
+  },
+  "pulseKindTlsProbe": "TLS probe — we check the certificate",
+  "@pulseKindTlsProbe": {
+    "description": "TASK94: род монитора tlsProbe."
+  },
+  "pulseProbeHostLabel": "Host or IP",
+  "@pulseProbeHostLabel": {
+    "description": "TASK94: адрес подключения пробы."
+  },
+  "pulseProbePortLabel": "Port",
+  "@pulseProbePortLabel": {
+    "description": "TASK94: порт цели пробы."
+  },
+  "pulseProbeSniLabel": "Server name (SNI)",
+  "@pulseProbeSniLabel": {
+    "description": "TASK94: имя, передаваемое в SNI и проверяемое в сертификате."
+  },
+  "pulseProbeSniHelp": "Separate from the address: DNS may point to another server",
+  "@pulseProbeSniHelp": {
+    "description": "TASK94: пояснение, зачем SNI отдельным полем."
+  },
+  "pulseProbeTimeoutLabel": "Timeout, s",
+  "@pulseProbeTimeoutLabel": {
+    "description": "TASK94: таймаут одной попытки пробы."
+  },
+  "pulseProbeValidationLabel": "Validation",
+  "@pulseProbeValidationLabel": {
+    "description": "TASK94: режим валидации сертификата."
+  },
+  "pulseProbeValidationPublic": "Public CA",
+  "@pulseProbeValidationPublic": {
+    "description": "TASK94: режим publicPki."
+  },
+  "pulseProbeValidationPinned": "Pinned thumbprint",
+  "@pulseProbeValidationPinned": {
+    "description": "TASK94: режим pinnedSelfSigned."
+  },
+  "pulseProbeThumbprintLabel": "Expected thumbprint (SHA-256)",
+  "@pulseProbeThumbprintLabel": {
+    "description": "TASK94: pin для самоподписанных сертификатов."
+  },
+  "pulseProbeWarnDaysLabel": "Warn before, days",
+  "@pulseProbeWarnDaysLabel": {
+    "description": "TASK94: порог предупреждения по остатку срока."
+  },
+  "pulseProbeErrorDaysLabel": "Error before, days",
+  "@pulseProbeErrorDaysLabel": {
+    "description": "TASK94: порог ошибки по остатку срока."
+  },
+  "pulseCertificateTitle": "Certificate",
+  "@pulseCertificateTitle": {
+    "description": "TASK94: заголовок карточки сертификата."
+  },
+  "pulseCertNoData": "No checks yet",
+  "@pulseCertNoData": {
+    "description": "TASK94: карточка пуста до первой проверки."
+  },
+  "pulseCertSubject": "Subject",
+  "@pulseCertSubject": {
+    "description": "TASK94: поле карточки."
+  },
+  "pulseCertIssuer": "Issuer",
+  "@pulseCertIssuer": {
+    "description": "TASK94: поле карточки."
+  },
+  "pulseCertSans": "Names (SAN)",
+  "@pulseCertSans": {
+    "description": "TASK94: поле карточки."
+  },
+  "pulseCertValidUntil": "Valid until",
+  "@pulseCertValidUntil": {
+    "description": "TASK94: поле карточки."
+  },
+  "pulseCertDaysLeftLabel": "Days left",
+  "@pulseCertDaysLeftLabel": {
+    "description": "TASK94: поле карточки."
+  },
+  "pulseCertThumbprint": "Thumbprint",
+  "@pulseCertThumbprint": {
+    "description": "TASK94: поле карточки."
+  },
+  "pulseCertLatency": "Handshake",
+  "@pulseCertLatency": {
+    "description": "TASK94: время установления TLS-сессии."
+  },
+  "pulseCertAddress": "Connected to",
+  "@pulseCertAddress": {
+    "description": "TASK94: адрес, с которым реально соединялись."
+  },
+  "pulseCertLastCheck": "Last attempt",
+  "@pulseCertLastCheck": {
+    "description": "TASK94: время последней попытки проверки."
+  },
+  "pulseCertLastSuccess": "Last success",
+  "@pulseCertLastSuccess": {
+    "description": "TASK94: когда сертификат последний раз был в порядке."
+  },
+  "pulseCertProblem": "Problem",
+  "@pulseCertProblem": {
+    "description": "TASK94: причина отказа/замечание по сертификату."
+  },
+  "pulseProbeRunNow": "Check now",
+  "@pulseProbeRunNow": {
+    "description": "TASK94: ручной запуск проверки."
+  },
+  "pulseProbeTargetLabel": "Target",
+  "@pulseProbeTargetLabel": {
+    "description": "TASK94: строка host:port + SNI в карточке монитора."
+  },
+  "pulseReminderThresholdsLabel": "Reminder thresholds, days",
+  "@pulseReminderThresholdsLabel": {
+    "description": "TASK94 MR2: набор рубежей напоминаний о сроке (CSV)."
+  },
+  "pulseReminderThresholdsHelp": "One card at each first crossing. Empty — no reminders",
+  "@pulseReminderThresholdsHelp": {
+    "description": "TASK94 MR2: пояснение к полю рубежей."
+  },
+  "pulseReminderLastLabel": "Last reminder",
+  "@pulseReminderLastLabel": {
+    "description": "TASK94 MR2: последний пройденный рубеж в карточке."
+  },
+  "pulseReminderNone": "none yet",
+  "@pulseReminderNone": {
+    "description": "TASK94 MR2: рубежей ещё не проходили."
+  },
+  "pulseProbeSetKeyLabel": "Certificate set (optional)",
+  "@pulseProbeSetKeyLabel": {
+    "description": "TASK94 MR3: ключ набора endpoint одного сертификата."
+  },
+  "pulseProbeSetKeyHelp": "Same key on endpoints that must serve the same certificate",
+  "@pulseProbeSetKeyHelp": {
+    "description": "TASK94 MR3: пояснение к полю набора."
+  },
+  "pulseProbeCheckedAgo": "checked {when}",
+  "@pulseProbeCheckedAgo": {
+    "description": "TASK94: подпись пробы в списке — когда была последняя проверка.",
+    "placeholders": {
+      "when": {
+        "type": "String"
+      }
+    }
+  },
+  "pulseProbeNoChecks": "no checks yet",
+  "@pulseProbeNoChecks": {
+    "description": "TASK94: проба ни разу не выполнялась."
+  },
+  "pulseCertLeftUntil": "{days} d until {date}",
+  "@pulseCertLeftUntil": {
+    "description": "TASK94: подпись пробы в списке — остаток срока и дата истечения.",
+    "placeholders": {
+      "days": {
+        "type": "int"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "pulseCertExpiredShort": "certificate expired",
+  "@pulseCertExpiredShort": {
+    "description": "TASK94: подпись пробы в списке, если срок уже вышел."
+  },
+  "pulseMoveMonitor": "Move to folder",
+  "@pulseMoveMonitor": {
+    "description": "TASK94: действие переноса монитора между папками."
+  },
+  "pulseMoveMonitorTitle": "Move monitor",
+  "@pulseMoveMonitorTitle": {
+    "description": "TASK94: заголовок диалога выбора папки."
+  },
+  "pulseAllowlistTitle": "Allowed probe targets",
+  "@pulseAllowlistTitle": {
+    "description": "TASK94 §2: заголовок экрана allowlist."
+  },
+  "pulseAllowlistEmpty": "No allowed targets yet",
+  "@pulseAllowlistEmpty": {
+    "description": "TASK94 §2: пустой список."
+  },
+  "pulseAllowlistAdd": "Allow target",
+  "@pulseAllowlistAdd": {
+    "description": "TASK94 §2: кнопка добавления строки."
+  },
+  "pulseAllowlistAddress": "Address or network",
+  "@pulseAllowlistAddress": {
+    "description": "TASK94 §2: поле адреса."
+  },
+  "pulseAllowlistPrefix": "Mask, bits",
+  "@pulseAllowlistPrefix": {
+    "description": "TASK94 §2: длина префикса; пусто — точный адрес."
+  },
+  "pulseAllowlistNote": "Why (visible in a year)",
+  "@pulseAllowlistNote": {
+    "description": "TASK94 §2: пояснение к строке."
+  },
+  "pulseAllowlistRemove": "Remove from list",
+  "@pulseAllowlistRemove": {
+    "description": "TASK94 §2: удаление строки."
+  },
+  "pulseAllowlistRemoveBody": "Probes to this target will start failing with «target not allowed». Monitors are not paused.",
+  "@pulseAllowlistRemoveBody": {
+    "description": "TASK94 §2: что произойдёт после удаления строки."
+  },
+  "pulseValues": "Values",
+  "@pulseValues": { "description": "issue #116: блок чисел в карточке монитора." },
+  "pulseValuesEmpty": "No numbers sent yet",
+  "@pulseValuesEmpty": { "description": "issue #116: чисел не присылали." },
+  "pulseValueThresholds": "Value thresholds",
+  "@pulseValueThresholds": { "description": "issue #116: экран порогов." },
+  "pulseValueThresholdAdd": "Add threshold",
+  "@pulseValueThresholdAdd": { "description": "issue #116: кнопка добавления." },
+  "pulseValueName": "Value name",
+  "@pulseValueName": { "description": "issue #116: имя значения (ключ порога)." },
+  "pulseValueWarnBelow": "Warn below",
+  "@pulseValueWarnBelow": { "description": "issue #116: нижняя жёлтая граница." },
+  "pulseValueErrorBelow": "Error below",
+  "@pulseValueErrorBelow": { "description": "issue #116: нижняя красная граница." },
+  "pulseValueWarnAbove": "Warn above",
+  "@pulseValueWarnAbove": { "description": "issue #116: верхняя жёлтая граница." },
+  "pulseValueErrorAbove": "Error above",
+  "@pulseValueErrorAbove": { "description": "issue #116: верхняя красная граница." },
+  "pulseValueThresholdHint": "At least one bound. Free disk space alarms from below, backup age from above, temperature from both.",
+  "@pulseValueThresholdHint": { "description": "issue #116: подсказка про стороны." },
+  "pulseValueNoThreshold": "no threshold",
+  "@pulseValueNoThreshold": { "description": "issue #116: у значения нет порога." },
+  "pulseValueRemoveThreshold": "Remove threshold",
+  "@pulseValueRemoveThreshold": { "description": "issue #116: удаление порога." },
+  "deliveryHealthTitle": "Notification delivery",
+  "@deliveryHealthTitle": { "description": "issue #120: раздел здоровья доставки." },
+  "deliveryHealthEmpty": "No delivery data",
+  "@deliveryHealthEmpty": { "description": "issue #120: пустое состояние." },
+  "deliveryHealthDevices": "devices: {fcm} FCM · {rustore} RuStore · {voip} VoIP",
+  "@deliveryHealthDevices": {
+    "description": "issue #120: счётчики устройств по каналам.",
+    "placeholders": { "fcm": { "type": "int" }, "rustore": { "type": "int" }, "voip": { "type": "int" } }
+  },
+  "deliveryHealthStale": "not refreshed: {count}",
+  "@deliveryHealthStale": {
+    "description": "issue #120: сколько регистраций протухло.",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "deliveryHealthNever": "no registrations yet",
+  "@deliveryHealthNever": { "description": "issue #120: устройств не было вовсе." },
+  "deliveryHealthOk": "delivery works",
+  "@deliveryHealthOk": { "description": "issue #120: вердикт ok." },
+  "deliveryHealthNoDevices": "no devices — the app does not register tokens",
+  "@deliveryHealthNoDevices": { "description": "issue #120: вердикт noDevices." },
+  "deliveryHealthNoCredentials": "no sending keys — nothing to deliver with",
+  "@deliveryHealthNoCredentials": { "description": "issue #120: вердикт noCredentials." },
+  "deliveryHealthStaleAll": "all registrations are stale",
+  "@deliveryHealthStaleAll": { "description": "issue #120: вердикт stale." },
+  "deliveryHealthKeys": "keys: {list}",
+  "@deliveryHealthKeys": {
+    "description": "issue #120: какие ключи настроены.",
+    "placeholders": { "list": { "type": "String" } }
+  },
+  "deliveryHealthNoKeys": "no keys",
+  "@deliveryHealthNoKeys": { "description": "issue #120: ключей нет вовсе." },
+  "pulseProbeEditTarget": "Change target",
+  "@pulseProbeEditTarget": {
+    "description": "issue #108: правка адреса/порта/SNI пробы."
+  },
+  "pulseProbeEditTargetBody": "Observations of the previous target are cleared: certificate, thumbprint and dates belonged to it. Incident history and members stay.",
+  "@pulseProbeEditTargetBody": {
+    "description": "issue #108: что произойдёт при смене цели."
+  },
+  "pulseProbeHost": "Address",
+  "@pulseProbeHost": {
+    "description": "issue #108: поле адреса цели."
+  },
+  "pulseProbeSni": "SNI name",
+  "@pulseProbeSni": {
+    "description": "issue #108: поле имени в SNI."
+  },
+  "pulseAllowlistPaste": "Paste a list",
+  "@pulseAllowlistPaste": {
+    "description": "issue #108: массовое добавление целей текстом."
+  },
+  "pulseAllowlistPasteHint": "One target per line: 78.37.191.63:8896. IPv6 in brackets: [2001:db8::1]:443",
+  "@pulseAllowlistPasteHint": {
+    "description": "issue #108: формат вставляемого списка."
+  },
+  "pulseAllowlistPasteCount": "Targets parsed: {count}",
+  "@pulseAllowlistPasteCount": {
+    "description": "issue #108: сколько целей разобрано из вставки.",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "pulseAllowlistPasteBad": "Lines not parsed: {count}",
+  "@pulseAllowlistPasteBad": {
+    "description": "issue #108: сколько строк разобрать не удалось.",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "pulseAllowlistPasteResult": "Added {added}, already there {existing}, rejected {failed}",
+  "@pulseAllowlistPasteResult": {
+    "description": "issue #108: итог массового добавления.",
+    "placeholders": { "added": { "type": "int" }, "existing": { "type": "int" }, "failed": { "type": "int" } }
+  },
+  "pulseAllowlistRejected": "Address not allowed: {reason}",
+  "@pulseAllowlistRejected": {
+    "description": "TASK94 §2: отказ на ввод адреса из запрещённого диапазона.",
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "pulsePeriod7d": "every 7 days",
+  "@pulsePeriod7d": {
+    "description": "TASK94: период проверки — неделя (сертификаты живут месяцами)."
+  }
 }

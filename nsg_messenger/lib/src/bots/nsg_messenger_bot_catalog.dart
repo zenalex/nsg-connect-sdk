@@ -62,8 +62,7 @@ class NsgMessengerBotCatalog {
   /// [AvailableBot.readMode] уже РАЗРЕШЁННЫЙ режим (grandfathered `NULL`
   /// превращён в `read_all` там же), поэтому здесь простое сравнение —
   /// правило «NULL = read_all» на клиенте не повторяется.
-  static bool readsAllMessages(AvailableBot bot) =>
-      bot.readMode == readModeAll;
+  static bool readsAllMessages(AvailableBot bot) => bot.readMode == readModeAll;
 
   /// Production-фабрика: привязка к `client.botCatalog.*` под
   /// [withAuthRetry].
@@ -89,10 +88,8 @@ class NsgMessengerBotCatalog {
       ),
       addBotToMyRoomRpc: ({required int botId, required int roomId}) =>
           withAuthRetry(
-            () => client.botCatalog.addBotToMyRoom(
-              botId: botId,
-              roomId: roomId,
-            ),
+            () =>
+                client.botCatalog.addBotToMyRoom(botId: botId, roomId: roomId),
             session(),
           ),
       removeBotFromMyRoomRpc: ({required int botId, required int roomId}) =>
@@ -150,8 +147,6 @@ class NsgMessengerBotCatalog {
       _addBotToMyRoomRpc(botId: botId, roomId: roomId);
 
   /// Отключить бота от своей комнаты. Идемпотентно.
-  Future<void> removeBotFromMyRoom({
-    required int botId,
-    required int roomId,
-  }) => _removeBotFromMyRoomRpc(botId: botId, roomId: roomId);
+  Future<void> removeBotFromMyRoom({required int botId, required int roomId}) =>
+      _removeBotFromMyRoomRpc(botId: botId, roomId: roomId);
 }

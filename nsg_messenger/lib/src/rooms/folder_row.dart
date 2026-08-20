@@ -26,9 +26,13 @@ class FolderRow extends StatelessWidget {
     // Имя зависит от вида папки: у продуктовой — имя/ключ продукта, у
     // агрегатных и пользовательских продуктовых полей нет вовсе (раньше
     // они отрисовывались как «Продукт 0»).
+    //
+    // **Системные папки продуктов**: `support` сюда НЕ попадает — это папка
+    // продукта, и подписана она именем продукта («Чатиста»), а не словом
+    // «Поддержка». Оператор различает свои очереди по продукту; слово
+    // «Поддержка» на трёх папках подряд не различает ничего.
     final name = switch (folder.kind) {
       ChatFolderKind.saved => l.savedChatsTitle,
-      ChatFolderKind.support => l.chatsListFolderSupport,
       ChatFolderKind.custom => folder.customName ?? l.chatsListFolderCustom,
       _ =>
         folder.productDisplayName ??

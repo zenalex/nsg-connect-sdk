@@ -11,8 +11,11 @@ import 'my_tasks_state.dart';
 /// и тестируемо: fake-RPC видит, с каким [filter] пришли). `ChangeNotifier` +
 /// sealed state — как `MyTicketsController`.
 class MyTasksController extends ChangeNotifier {
-  MyTasksController({required MyTasksRpc rpc, required this.filter, this.roomId})
-    : _rpc = rpc;
+  MyTasksController({
+    required MyTasksRpc rpc,
+    required this.filter,
+    this.roomId,
+  }) : _rpc = rpc;
 
   final MyTasksRpc _rpc;
 

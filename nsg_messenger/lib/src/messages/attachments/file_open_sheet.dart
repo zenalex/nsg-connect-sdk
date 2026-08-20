@@ -40,11 +40,7 @@ Future<void> openAttachment(
     );
     return;
   }
-  await showFileActionsSheet(
-    context,
-    attachment: attachment,
-    actions: actions,
-  );
+  await showFileActionsSheet(context, attachment: attachment, actions: actions);
 }
 
 /// Лист действий по файлу (без просмотра — формат нетекстовый).
@@ -77,10 +73,7 @@ Future<void> showFileActionsSheet(
             title: Text(l.fileActionOpenExternal),
             onTap: () {
               Navigator.of(sheetContext).pop();
-              runFileAction(
-                context,
-                () => actions.openExternally(attachment),
-              );
+              runFileAction(context, () => actions.openExternally(attachment));
             },
           ),
           ListTile(
@@ -121,7 +114,9 @@ Future<void> runFileAction(
       messenger.showSnackBar(SnackBar(content: Text(l.fileSavedTo(result))));
     }
   } on NoHandlerForFileException catch (e) {
-    messenger.showSnackBar(SnackBar(content: Text(l.fileNoHandler(e.filename))));
+    messenger.showSnackBar(
+      SnackBar(content: Text(l.fileNoHandler(e.filename))),
+    );
   } catch (_) {
     messenger.showSnackBar(SnackBar(content: Text(l.fileOpenFailed)));
   }

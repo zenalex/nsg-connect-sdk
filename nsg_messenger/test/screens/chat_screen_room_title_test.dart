@@ -4,16 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nsg_connect_client/nsg_connect_client.dart';
-import 'package:nsg_messenger/src/calls/call_rpc.dart';
-import 'package:nsg_messenger/src/calls/conference_call_controller.dart';
-import 'package:nsg_messenger/src/calls/conference_call_state.dart';
-import 'package:nsg_messenger/src/calls/conference_rpc.dart';
-import 'package:nsg_messenger/src/calls/webrtc_adapter.dart';
 import 'package:nsg_messenger/src/i18n/generated/nsg_l10n.dart';
 import 'package:nsg_messenger/src/messages/messages_controller.dart';
 import 'package:nsg_messenger/src/messages/messages_rpc.dart';
-import 'package:nsg_messenger/src/rooms/room_summary_tile.dart'
-    show registerTimeagoLocales;
 import 'package:nsg_messenger/src/screens/chat_screen.dart';
 
 /// **TASK51 (UI)**: widget-тесты кнопки «Групповой звонок» и плашки

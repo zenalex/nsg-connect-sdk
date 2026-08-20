@@ -31,10 +31,30 @@ export 'src/call_push.dart' show CallPushData;
 export 'src/call_push_presenter.dart' show CallPushPresenter;
 export 'src/firebase_push_token_provider.dart'
     show FirebasePushTokenProvider, nsgMessengerBackgroundHandler;
+// **Этап 3 TASK_TITAN_PRODUCT_PUSH01 §4.1**: каналы уведомлений Android.
+// Заводятся при инициализации обоих провайдеров; наружу отданы, чтобы
+// host-app мог переименовать категории под свой язык и провести
+// отрицательное свидетельство §6.8.
+export 'src/notification_channels.dart'
+    show NsgNotificationChannels, requestAndroidNotificationsPermission;
+// Разрешение на уведомления как наблюдаемое состояние — рядом с каналами
+// намеренно: канал отвечает, КАК уведомление показано, разрешение —
+// покажут ли его вообще. Без второго первое ничего не гарантирует:
+// запрещённые уведомления не спасёт и самый громкий канал, а токен при
+// этом выдан и регистрация на сервере валидна.
+export 'src/notification_permission.dart'
+    show
+        NsgNotificationPermission,
+        NsgNotificationPermissionStep,
+        nextNotificationPermissionStep,
+        readAndroidNotificationsPermission;
 // TASK61: RuStore Push (Android без Google Play Services) + выбор
 // провайдера на старте (GMS → fcm, иначе RuStore).
 export 'src/push_provider_resolver.dart'
     show ResolvedPushService, resolvePushService;
+// **Issue #86**: общий для провайдеров перевод «что удалось получить» в
+// «почему уведомление не придёт».
+export 'src/push_status_resolver.dart' show resolvePushTokenStatus;
 // Issue #33 (TASK67 часть B): тихий read-sync-пуш — снятие уведомлений
 // прочитанной комнаты на устройствах вне realtime-стрима.
 export 'src/read_sync_push.dart' show ReadSyncPushData, readSyncPushType;

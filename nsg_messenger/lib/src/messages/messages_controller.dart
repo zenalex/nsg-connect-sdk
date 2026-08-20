@@ -7,10 +7,12 @@ import 'package:nsg_connect_client/nsg_connect_client.dart';
 import 'package:path/path.dart' as p;
 
 import '../cache/messenger_cache_store.dart';
+import '../diagnostics/nsg_messenger_diagnostics.dart';
 import '../outbox/outbox_item.dart';
 import '../outbox/outbox_sender.dart';
 import '../share/share_limits.dart';
 import 'attachments/attachment_mime_types.dart';
+import 'attachments/attachment_transport.dart';
 import 'attachments/attachment_picker.dart';
 import 'chat_message.dart';
 import 'composer_album_edit.dart';
@@ -80,6 +82,28 @@ const int kDefaultInitialPageSize = 50;
 /// `initState`, `dispose()` в `dispose`. Глобального cache нет
 /// (см. TASK15 план — closing chat = clear messages; persistent
 /// pre-fetch появится в TASK20 push routing).
+/// Граница прочитанного: самое старое из непрочитанных сообщений.
+///
+/// [messages] в порядке ленты — index 0 самое свежее. Непрочитанные лежат
+/// сверху этого порядка, поэтому граница на индексе `unreadCount - 1`.
+///
+/// Чистая функция, потому что ошибка тут не падает и не видна в коде: чат
+/// просто открывается не там, и заметно это только глазами.
+String? readBoundaryOf({
+  required List<ChatMessage> messages,
+  required int? unreadCount,
+}) {
+  // Счётчик неизвестен — не выдумываем позицию. «Не знаем» и «нечего
+  // читать» обязаны вести к разному поведению, иначе первый же заход в
+  // чат без кэша уводил бы ленту вверх ни на чём.
+  if (unreadCount == null || unreadCount <= 0) return null;
+  if (messages.isEmpty) return null;
+  // Непрочитанных больше, чем загружено: граница за пределами страницы —
+  // становимся на самое старое, что есть, остальное догрузит пагинация.
+  final index = math.min(unreadCount, messages.length) - 1;
+  return messages[index].matrixEventId;
+}
+
 class MessagesController {
   MessagesController({
     required int roomId,
@@ -96,7 +120,9 @@ class MessagesController {
     MessengerCacheStore? cache,
     OutboxSender? outbox,
     String? threadRootEventId,
+    @visibleForTesting int? unreadOnOpenOverride,
   }) : _threadRootEventId = threadRootEventId,
+       _unreadOnOpen = unreadOnOpenOverride,
        _sendRetrySchedule = sendRetrySchedule ?? kDefaultSendRetrySchedule,
        _cache = cache,
        _outbox = outbox,
@@ -144,6 +170,37 @@ class MessagesController {
 
   /// `true` — контроллер обслуживает тред задачи, а не всю комнату.
   bool get isThreadMode => _threadRootEventId != null;
+
+  int? _unreadOnOpen;
+
+  bool _initialPageSettled = false;
+
+  /// Первая СЕРВЕРНАЯ страница уже применена (или сеть отказала).
+  ///
+  /// **issue #112**: лента наполняется дважды — кэшем, потом сетью, — и
+  /// вторая заливка сбрасывает прокрутку. Экран по этому признаку понимает,
+  /// что позицию надо поставить ещё раз, а не бросать человека там, куда
+  /// его уронила смена содержимого.
+  bool get initialPageSettled => _initialPageSettled;
+
+  /// Сообщение, на котором открывать чат: САМОЕ СТАРОЕ непрочитанное.
+  ///
+  /// Жалоба владельца 09.08.2026: «открываю чат — он открывается на первых
+  /// сохранённых сообщениях, а потом сообщения догружаются и он
+  /// проматывается вниз, визуальные артефакты бесят». Прыжок неизбежен,
+  /// пока позицию выбирает то, что успело приехать: сперва кэш, потом
+  /// сеть. Позицию должно выбирать то, что известно СРАЗУ, — граница
+  /// прочитанного, посчитанная по счётчику с диска.
+  ///
+  /// `null` — открываемся внизу, как раньше: непрочитанного нет, счётчик
+  /// неизвестен (комнаты нет в кэше) или лента ещё пуста.
+  String? get readBoundaryEventId => readBoundaryOf(
+    messages: switch (_state.value) {
+      MessagesReady(:final messages) => messages,
+      _ => const [],
+    },
+    unreadCount: _unreadOnOpen,
+  );
 
   /// Корень треда (см. [isThreadMode]); `null` в обычном режиме.
   String? get threadRootEventId => _threadRootEventId;
@@ -199,6 +256,22 @@ class MessagesController {
   );
   ValueListenable<Set<String>> get typingPeersListenable => _typingPeers;
   Set<String> get typingPeers => _typingPeers.value;
+
+  /// Подмножество [_typingPeers]: печатающие, которые НЕ люди (бот /
+  /// интеграция / ИИ-агент) — по признаку с сервера.
+  ///
+  /// Нужно, чтобы бот-агент не подписывался «печатает…»: он думает
+  /// минутами и всё это время шлёт `m.typing`, а такая надпись читается
+  /// как зависание. Отдельный notifier, а не поле в [_typingPeers],
+  /// чтобы не менять тип публичного listenable (его слушают host-app-ы).
+  ///
+  /// Пусто = ботов среди печатающих нет ЛИБО сервер старше этого поля —
+  /// в обоих случаях UI ведёт себя ровно как раньше.
+  final ValueNotifier<Set<String>> _typingBotPeers = ValueNotifier(
+    const <String>{},
+  );
+  ValueListenable<Set<String>> get typingBotPeersListenable => _typingBotPeers;
+  Set<String> get typingBotPeers => _typingBotPeers.value;
 
   /// **B11 read receipts**: per-peer last-read marker —
   /// `matrixUserId → DateTime serverTimestamp`. Когда reader X прочитал
@@ -461,19 +534,32 @@ class MessagesController {
   /// **TASK19 Chunk 3**: thumbnail RPC pass-through для `MessageBubble`
   /// → `MxcImageProvider`. Bubble не знает про `MessagesRpc`, получает
   /// closure напрямую из controller-а — clean separation.
+  /// **TASK92**: путь выбирает [AttachmentTransport] — вложения из S3
+  /// клиент качает сам, остальные по-прежнему приезжают байтами через
+  /// сервер.
   Future<AttachmentBytes> downloadThumbnail({
     required String mxcUrl,
     int? width,
     int? height,
-  }) => _rpc.downloadAttachmentThumbnail(
-    mxcUrl: mxcUrl,
-    width: width,
-    height: height,
-  );
+  }) => _attachments.thumbnail(mxcUrl: mxcUrl, width: width, height: height);
 
   /// **TASK19 Chunk 3**: full-size download для tap-fullscreen viewer.
   Future<AttachmentBytes> downloadFullSize({required String mxcUrl}) =>
-      _rpc.downloadAttachment(mxcUrl: mxcUrl);
+      _attachments.full(mxcUrl: mxcUrl);
+
+  late final AttachmentTransport _attachments = AttachmentTransport(
+    downloadBytes: ({required String mxcUrl}) =>
+        _rpc.downloadAttachment(mxcUrl: mxcUrl),
+    downloadThumbnail: ({required String mxcUrl, int? width, int? height}) =>
+        _rpc.downloadAttachmentThumbnail(
+          mxcUrl: mxcUrl,
+          width: width,
+          height: height,
+        ),
+    // Тестовые двойники `MessagesRpc` ссылок не выдают — там всё пойдёт
+    // через сервер, как и раньше.
+    urlRpc: _rpc is AttachmentUrlRpc ? _rpc as AttachmentUrlRpc : null,
+  );
 
   /// Эпоха текущего init() — увеличивается при каждом restart.
   /// Async-операция проверяет epoch ПОСЛЕ await: если изменилось —
@@ -540,6 +626,7 @@ class MessagesController {
     final epoch = ++_initEpoch;
     _state.value = const MessagesLoading();
     _initBuffer = <MessengerMessage>[];
+    _initialPageSettled = false;
 
     // Subscribe-first (только при первом init — sub переживает restart).
     //
@@ -584,6 +671,10 @@ class MessagesController {
     // Оффлайн-история треда — вне скоупа.
     final cache = isThreadMode ? null : _cache;
     if (cache != null) {
+      // Сколько было непрочитано — с диска, до всякой сети. По этому числу
+      // экран решает, где открыться; сетевой ответ приедет уже после
+      // первого кадра, и позиция по нему означала бы видимый прыжок.
+      _unreadOnOpen ??= await cache.unreadCount(_roomId);
       try {
         final cached = await cache.getMessages(
           _roomId,
@@ -611,6 +702,8 @@ class MessagesController {
     } catch (e) {
       if (_disposed || epoch != _initEpoch) return;
       _initBuffer = null;
+      // Сети не будет — ждать вторую заливку ленты нечего (issue #112).
+      _initialPageSettled = true;
       // **TASK47**: оффлайн — если кэш уже показан, оставляем историю из
       // кэша; иначе (кэша нет / пуст) — ошибка.
       if (_state.value is! MessagesReady) {
@@ -630,6 +723,7 @@ class MessagesController {
     }
     _initBuffer = null;
     _nextToken = page.nextToken;
+    _initialPageSettled = true;
 
     _state.value = MessagesReady(
       messages: messages,
@@ -684,9 +778,10 @@ class MessagesController {
         }
       }
       final cachedTail = await cache.getMessages(_roomId, limit: 1);
-      // getMessages возвращает по возрастанию → последний = новейший.
+      // getMessages отдаёт новейшее первым → единственный элемент и есть
+      // новейшее кэшированное.
       if (cachedTail.isNotEmpty &&
-          serverOldest.isAfter(cachedTail.last.serverTimestamp)) {
+          serverOldest.isAfter(cachedTail.first.serverTimestamp)) {
         // Разрыв: серверная страница не смыкается с кэшем → сброс.
         await cache.resetRoomMessages(_roomId);
       }
@@ -1435,6 +1530,27 @@ class MessagesController {
     return s.isEmpty ? mxid : s;
   }
 
+  /// Корень треда для квитанции — или `null`, если помечается САМ корень.
+  ///
+  /// **issue #112.** В тред-режиме квитанция должна нести корень треда,
+  /// иначе прочтение засчитается основной ленте и в треде «прочитано» не
+  /// появится. Но сам корень живёт в основной ленте — он не «ответ сам
+  /// себе», — и квитанция на него с `thread_id == event_id` Matrix-ом
+  /// отвергается (400 `is not related to thread`). Отказ Matrix
+  /// останавливает весь markRead на сервере: счётчик комнаты не
+  /// обнуляется. Именно так чат поддержки набрал 40 непрочитанных при
+  /// ежедневном чтении.
+  ///
+  /// В ленту треда корень попадает всегда (сервер дописывает якорь в конец
+  /// последней страницы), а у задачи БЕЗ ответов он там единственный — и
+  /// становится «новейшим», которое [ThreadScreen] и метит.
+  @visibleForTesting
+  String? receiptThreadRootFor(String matrixEventId) {
+    final root = _threadRootEventId;
+    if (root == null || root.isEmpty) return null;
+    return root == matrixEventId ? null : root;
+  }
+
   /// Помечает комнату прочитанной до `matrixEventId` включительно
   /// (TASK18). Server-side: atomic SQL update + Matrix `m.read`
   /// receipt + emit `roomUnreadChanged` (counter=0) для cross-device.
@@ -1444,30 +1560,62 @@ class MessagesController {
   /// auto-markRead (через ChatScreen debounced timer на новое
   /// сообщение) всё равно перекроет horizon. Self-healing без явной
   /// retry-логики (см. ревью TASK18 plan #Q8).
+  ///
+  /// **issue #117**: молчание кончается там, где кончается self-healing.
+  /// Подряд идущие неудачи по одной комнате считаются, и на [_markReadAlarm]
+  /// отказ уходит в диагностику ОДИН раз (до следующего успеха). Различаем
+  /// не тип ошибки, а её устойчивость: отказ из #112 приезжал как 500 и
+  /// любым классификатором был бы записан в преходящие — а длился пять дней.
   Future<void> markRead(String matrixEventId) async {
     if (_disposed) return;
     try {
-      // В тред-режиме квитанция должна нести корень треда, иначе прочтение
-      // засчитается основной ленте и в треде «прочитано» не появится.
       await _rpc.markRead(
         roomId: _roomId,
         matrixEventId: matrixEventId,
-        threadRootEventId: _threadRootEventId,
+        threadRootEventId: receiptThreadRootFor(matrixEventId),
       );
-    } catch (e) {
-      // Тихо: failure не блокирует chat-UX. Auto-debounce следующим
-      // event-ом перекроет horizon. `onSendError` намеренно НЕ
+      // Успех закрывает инцидент: если сломается снова — это НОВАЯ беда,
+      // и о ней надо сообщить заново.
+      _markReadFailures.remove(_roomId);
+      _markReadReported.remove(_roomId);
+    } catch (e, st) {
+      // Тихо для пользователя: failure не блокирует chat-UX. Auto-debounce
+      // следующим event-ом перекроет horizon. `onSendError` намеренно НЕ
       // используется (его контракт — только about send-failures).
-      //
-      // Stacktrace опущен (ревью plan TASK18 7b8716f #1): на постоянном
-      // offline auto-trigger каждые 500ms даст лог-spam; для transient
-      // network errors stack малоинформативен. Если нужно глубже
-      // дебажить — использовать proper error reporter (TASK20 push
-      // routing вынесет ErrorReporter на этот путь).
+      final streak = (_markReadFailures[_roomId] ?? 0) + 1;
+      _markReadFailures[_roomId] = streak;
+      if (streak >= _markReadAlarm && _markReadReported.add(_roomId)) {
+        NsgMessengerDiagnostics.reportPersistent(e, st, {
+          'op': 'markRead',
+          'roomId': _roomId,
+          'thread': isThreadMode,
+          'streak': streak,
+        });
+      }
       if (kDebugMode) {
         debugPrint('[MessagesController.room=$_roomId] markRead failed: $e');
       }
     }
+  }
+
+  /// Сколько неудач подряд по комнате считать поломкой, а не помехой.
+  ///
+  /// Два, а не десять: оффлайн обычно даёт одну попытку и заканчивается
+  /// вместе с сеансом, а два отказа подряд по одной комнате — уже
+  /// закономерность. При этом первая же неудача не шумит.
+  static const int _markReadAlarm = 2;
+
+  /// Счётчики живут статически: контроллер умирает вместе с экраном, а
+  /// поломка — нет. Ключ — комната: беда бывает и в одной (см. #112, где
+  /// ломались именно треды задач).
+  static final Map<int, int> _markReadFailures = <int, int>{};
+  static final Set<int> _markReadReported = <int>{};
+
+  /// Сброс между тестами: статика переживает пересоздание контроллера.
+  @visibleForTesting
+  static void resetMarkReadDiagnostics() {
+    _markReadFailures.clear();
+    _markReadReported.clear();
   }
 
   /// Повторить send для bubble в `failed`-status. Reuse того же
@@ -1796,6 +1944,8 @@ class MessagesController {
       taskStage: e.taskStage,
       taskThreadRootEventId: e.taskThreadRootEventId,
       taskUrl: e.taskUrl,
+      taskKey: e.taskKey,
+      taskTitle: e.taskTitle,
     );
     _state.value = current.copyWith(messages: updated);
   }
@@ -1862,6 +2012,7 @@ class MessagesController {
     _state.dispose();
     _replyTarget.dispose();
     _typingPeers.dispose();
+    _typingBotPeers.dispose();
     _readReceiptsVersion.dispose();
     _reactionsVersion.dispose();
     _pinned.dispose();
@@ -1889,6 +2040,10 @@ class MessagesController {
       if (event.roomId != _roomId) return; // другая room
       final list = event.typingMatrixUserIds ?? const <String>[];
       _typingPeers.value = Set<String>.unmodifiable(list);
+      // null (старый сервер) → пустое множество: надпись прежняя.
+      _typingBotPeers.value = Set<String>.unmodifiable(
+        event.typingBotMatrixUserIds ?? const <String>[],
+      );
       return;
     }
 

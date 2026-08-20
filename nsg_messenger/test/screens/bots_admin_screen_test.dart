@@ -19,6 +19,7 @@ void main() {
     String name = 'DeployBot',
     String caps = 'send_messages',
     bool enabled = true,
+    bool discoverable = false,
     String token = 'bot_secret_token',
     String? commandsJson,
     // TASK77 итер.2: `null` = бот эпохи до итер.2 → grandfathered read_all.
@@ -32,6 +33,7 @@ void main() {
     accessToken: token,
     capabilities: caps,
     enabled: enabled,
+    discoverable: discoverable,
     commandsJson: commandsJson,
     readMode: readMode,
     createdAt: DateTime.utc(2026, 7, 1),
@@ -56,6 +58,7 @@ void main() {
     Future<Bot> Function(String name, String caps, bool discoverable)? onCreate,
     Future<Bot> Function(int botId)? onRotate,
     Future<Bot> Function(int botId, bool enabled)? onSetEnabled,
+    Future<Bot> Function(int botId, bool discoverable)? onSetDiscoverable,
     // TASK77 итер.2: смена режима чтения. TASK77 итер.3: ответ несёт ещё и
     // число подписок, к которым privacy mode не применяется.
     Future<BotReadModeResult> Function(int botId, String readMode)?
@@ -81,6 +84,8 @@ void main() {
         onRotate?.call(botId) ?? Future.value(bot()),
     setBotEnabledRpc: ({required int botId, required bool enabled}) =>
         onSetEnabled?.call(botId, enabled) ?? Future.value(bot()),
+    setBotDiscoverableRpc: ({required int botId, required bool discoverable}) =>
+        onSetDiscoverable?.call(botId, discoverable) ?? Future.value(bot()),
     setBotReadModeRpc: ({required int botId, required String readMode}) =>
         onSetReadMode?.call(botId, readMode) ??
         Future.value(
@@ -93,6 +98,62 @@ void main() {
     listAuditEventsRpc: ({required int botId, required int limit}) =>
         onAudit?.call(botId) ?? Future.value(const <BotAuditEvent>[]),
   );
+
+  /// Видимость бота в поиске/каталоге: у нового она выключена (issue #49),
+  /// а включить её мог ТОЛЬКО владелец по `ownerEmail`. Бота же заводит
+  /// админ и нередко на чужой адрес — тогда сделать бота видимым было
+  /// нельзя вообще, оставался SQL по живой базе.
+  testWidgets('видимость: админ включает скрытого бота', (tester) async {
+    final calls = <(int, bool)>[];
+    await tester.pumpWidget(
+      wrapL10n(
+        BotsAdminScreen(
+          adminOverride: makeAdmin(
+            onList: () async => [bot(discoverable: false)],
+            onSetDiscoverable: (id, d) async {
+              calls.add((id, d));
+              return bot(discoverable: d);
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Show in search').last);
+    await tester.pumpAndSettle();
+
+    expect(calls, [(1, true)], reason: 'скрытого включаем, а не выключаем');
+  });
+
+  testWidgets('видимость: и обратно — видимого можно скрыть', (tester) async {
+    final calls = <(int, bool)>[];
+    await tester.pumpWidget(
+      wrapL10n(
+        BotsAdminScreen(
+          adminOverride: makeAdmin(
+            onList: () async => [bot(discoverable: true)],
+            onSetDiscoverable: (id, d) async {
+              calls.add((id, d));
+              return bot(discoverable: d);
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Hide from search').last);
+    await tester.pumpAndSettle();
+
+    expect(calls, [
+      (1, false),
+    ], reason: 'переключатель обязан быть двусторонним');
+  });
 
   testWidgets('пустой список → empty-state', (tester) async {
     await tester.pumpWidget(
@@ -212,10 +273,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(
-        find.text('Reads only messages addressed to it'),
-        findsOneWidget,
-      );
+      expect(find.text('Reads only messages addressed to it'), findsOneWidget);
       expect(find.text('Reads ALL messages'), findsNothing);
     });
 

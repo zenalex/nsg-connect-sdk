@@ -5,6 +5,7 @@ import '../i18n/generated/nsg_l10n.dart';
 import '../messenger_runtime.dart';
 import '../theme/overlay_surface.dart';
 import 'chats_list_controller.dart';
+import '../widgets/nsg_modal_sheet.dart';
 
 /// **TASK62**: шит «Добавить в папку» — чекбоксы membership комнаты по
 /// всем пользовательским папкам + «Новая папка…». Один чат может быть в
@@ -17,19 +18,17 @@ Future<void> showChatFolderPicker(
   required ChatsListController controller,
   required RoomSummary room,
 }) {
-  return showModalBottomSheet<void>(
+  // Issue #105: список папок растёт вместе с их числом.
+  return showNsgModalSheet<void>(
     context: context,
-    isScrollControlled: true,
     // Chatista Glass: тёмный тёплый шит со скруглённым верхом
     // (docs/design/chatista-glass-design-prompt.md).
     backgroundColor: kOverlaySurface,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
-    builder: (ctx) => _ChatFolderPickerSheet(
-      controller: controller,
-      room: room,
-    ),
+    builder: (ctx) =>
+        _ChatFolderPickerSheet(controller: controller, room: room),
   );
 }
 
@@ -39,10 +38,7 @@ const _fgMuted = Color(0xB8FFFCF8);
 const _fgDim = Color(0x80FFFCF8);
 
 class _ChatFolderPickerSheet extends StatefulWidget {
-  const _ChatFolderPickerSheet({
-    required this.controller,
-    required this.room,
-  });
+  const _ChatFolderPickerSheet({required this.controller, required this.room});
 
   final ChatsListController controller;
   final RoomSummary room;
@@ -145,9 +141,7 @@ class _ChatFolderPickerSheetState extends State<_ChatFolderPickerSheet> {
       if (mounted) setState(_syncFromController);
     } catch (e, st) {
       _reportActionFailed(e, st, 'create');
-      messenger.showSnackBar(
-        SnackBar(content: Text(l.folderCreateFailed)),
-      );
+      messenger.showSnackBar(SnackBar(content: Text(l.folderCreateFailed)));
     }
   }
 
@@ -217,9 +211,7 @@ class _ChatFolderPickerSheetState extends State<_ChatFolderPickerSheet> {
         if (mounted) setState(_syncFromController);
       } catch (e, st) {
         _reportActionFailed(e, st, 'rename');
-        messenger.showSnackBar(
-          SnackBar(content: Text(l.contactRenameFailed)),
-        );
+        messenger.showSnackBar(SnackBar(content: Text(l.contactRenameFailed)));
       }
       return;
     }
@@ -247,9 +239,7 @@ class _ChatFolderPickerSheetState extends State<_ChatFolderPickerSheet> {
       if (mounted) setState(_syncFromController);
     } catch (e, st) {
       _reportActionFailed(e, st, 'delete');
-      messenger.showSnackBar(
-        SnackBar(content: Text(l.folderDeleteFailed)),
-      );
+      messenger.showSnackBar(SnackBar(content: Text(l.folderDeleteFailed)));
     }
   }
 
@@ -318,8 +308,7 @@ class _ChatFolderPickerSheetState extends State<_ChatFolderPickerSheet> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: Container(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 12),
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
                             decoration: BoxDecoration(
                               color: const Color(0x14FFFFFF),
                               borderRadius: BorderRadius.circular(12),
@@ -332,8 +321,7 @@ class _ChatFolderPickerSheetState extends State<_ChatFolderPickerSheet> {
                               controller: _newNameCtl,
                               autofocus: true,
                               cursorColor: accent,
-                              style:
-                                  const TextStyle(color: _fg, fontSize: 15),
+                              style: const TextStyle(color: _fg, fontSize: 15),
                               decoration: InputDecoration(
                                 hintText: l.folderNameHint,
                                 hintStyle: const TextStyle(
@@ -366,8 +354,9 @@ class _ChatFolderPickerSheetState extends State<_ChatFolderPickerSheet> {
                   )
                 else
                   InkWell(
-                    onTap:
-                        _busy ? null : () => setState(() => _creating = true),
+                    onTap: _busy
+                        ? null
+                        : () => setState(() => _creating = true),
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
                       child: Row(
@@ -400,8 +389,7 @@ class _ChatFolderPickerSheetState extends State<_ChatFolderPickerSheet> {
                   ),
                 Padding(
                   padding: const EdgeInsets.only(left: 74, right: 20),
-                  child:
-                      Container(height: 0.5, color: const Color(0x17FFFFFF)),
+                  child: Container(height: 0.5, color: const Color(0x17FFFFFF)),
                 ),
                 for (var i = 0; i < folders.length; i++)
                   _folderRow(
@@ -415,8 +403,7 @@ class _ChatFolderPickerSheetState extends State<_ChatFolderPickerSheet> {
                     padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
                     child: Text(
                       l.folderPickerEmpty,
-                      style:
-                          const TextStyle(color: _fgMuted, fontSize: 13.5),
+                      style: const TextStyle(color: _fgMuted, fontSize: 13.5),
                     ),
                   ),
               ],
@@ -441,9 +428,7 @@ class _ChatFolderPickerSheetState extends State<_ChatFolderPickerSheet> {
                 ),
               ),
               child: Text(
-                selectedCount > 0
-                    ? l.folderDoneN(selectedCount)
-                    : l.folderDone,
+                selectedCount > 0 ? l.folderDoneN(selectedCount) : l.folderDone,
               ),
             ),
           ),
@@ -503,8 +488,7 @@ class _ChatFolderPickerSheetState extends State<_ChatFolderPickerSheet> {
                       const SizedBox(height: 1),
                       Text(
                         l.folderChatCount(f.roomIds.length),
-                        style:
-                            const TextStyle(color: _fgDim, fontSize: 12.5),
+                        style: const TextStyle(color: _fgDim, fontSize: 12.5),
                       ),
                     ],
                   ),

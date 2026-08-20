@@ -87,114 +87,121 @@ class _RoomActionSheetBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = NsgL10n.of(context);
     return SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-            child: Text(
-              l.roomActionSheetTitle,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-          ),
-          if (room.muted)
-            ListTile(
-              leading: const Icon(Icons.notifications_active),
-              title: Text(l.roomActionUnmute),
-              onTap: () => _runOptimistic(
-                context,
-                'unmute',
-                () => controller.unmuteRoom(room.id),
+      // Набор пунктов переменный (mute/archive/leave + support-овый
+      // dismiss + host-овые [extraActions]), а sheet без
+      // isScrollControlled ограничен 9/16 высоты экрана — на низких
+      // вьюпортах Column вылезал («BOTTOM OVERFLOWED BY N PIXELS»).
+      // Скроллим, чтобы не зависеть от количества пунктов и высоты экрана.
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              child: Text(
+                l.roomActionSheetTitle,
+                style: Theme.of(context).textTheme.titleMedium,
               ),
-            )
-          else
+            ),
+            if (room.muted)
+              ListTile(
+                leading: const Icon(Icons.notifications_active),
+                title: Text(l.roomActionUnmute),
+                onTap: () => _runOptimistic(
+                  context,
+                  'unmute',
+                  () => controller.unmuteRoom(room.id),
+                ),
+              )
+            else
+              ListTile(
+                leading: const Icon(Icons.notifications_off),
+                title: Text(l.roomActionMute),
+                onTap: () async {
+                  final navigator = Navigator.of(context);
+                  // #17/#28: закрываем main sheet, затем duration-sheet показываем
+                  // на navigator.context — это живой root-контекст, переживающий
+                  // pop. Так RPC доходит (фикс #17: раньше pop шёл до показа и
+                  // showModalBottomSheet падал на мёртвом контексте), и нет «панели
+                  // поверх панели» (фикс регрессии #28: main sheet уже закрыт).
+                  navigator.pop();
+                  await _showMuteDurationSheet(
+                    navigator.context,
+                    room,
+                    controller,
+                  );
+                },
+              ),
+            if (room.archived)
+              ListTile(
+                leading: const Icon(Icons.unarchive_outlined),
+                title: Text(l.roomActionUnarchive),
+                onTap: () => _runOptimistic(
+                  context,
+                  'unarchive',
+                  () => controller.unarchiveRoom(room.id),
+                ),
+              )
+            else
+              ListTile(
+                leading: const Icon(Icons.archive_outlined),
+                title: Text(l.roomActionArchive),
+                onTap: () => _runOptimistic(
+                  context,
+                  'archive',
+                  () => controller.archiveRoom(room.id),
+                ),
+              ),
+            // **TASK75 §3**: «закрыть» support-чат у оператора — скрыть до
+            // следующего сообщения заявителя. Только для support-комнат.
+            if (room.roomType == RoomType.support)
+              ListTile(
+                leading: const Icon(Icons.check_circle_outline),
+                title: Text(l.roomActionDismissSupport),
+                onTap: () => _runOptimistic(
+                  context,
+                  'dismissSupport',
+                  () => controller.dismissRoom(room.id),
+                ),
+              ),
+            for (final entry in extraActions)
+              ListTile(
+                leading: Icon(entry.icon),
+                title: Text(entry.label),
+                onTap: () {
+                  Navigator.of(context).pop(); // закрываем sheet перед
+                  // host-app навигацией (route/dialog на viewport-level).
+                  entry.onTap();
+                },
+              ),
             ListTile(
-              leading: const Icon(Icons.notifications_off),
-              title: Text(l.roomActionMute),
+              leading: Icon(
+                Icons.exit_to_app,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              title: Text(
+                l.roomActionLeave,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
               onTap: () async {
                 final navigator = Navigator.of(context);
-                // #17/#28: закрываем main sheet, затем duration-sheet показываем
-                // на navigator.context — это живой root-контекст, переживающий
-                // pop. Так RPC доходит (фикс #17: раньше pop шёл до показа и
-                // showModalBottomSheet падал на мёртвом контексте), и нет «панели
-                // поверх панели» (фикс регрессии #28: main sheet уже закрыт).
+                // #17: confirm на ЖИВОМ контексте ДО pop. Раньше pop() шёл первым
+                // → showDialog на мёртвом контексте → confirmed=false → leaveRoom
+                // не вызывался (тот же дефект, что был у kick/ban). pop — после
+                // подтверждения.
+                final confirmed = await _showLeaveConfirmDialog(context);
+                if (!confirmed) return;
+                if (!context.mounted) return;
                 navigator.pop();
-                await _showMuteDurationSheet(
-                  navigator.context,
-                  room,
-                  controller,
+                await _runOptimisticDirect(
+                  context,
+                  'leave',
+                  () => controller.leaveRoom(room.id),
                 );
               },
             ),
-          if (room.archived)
-            ListTile(
-              leading: const Icon(Icons.unarchive_outlined),
-              title: Text(l.roomActionUnarchive),
-              onTap: () => _runOptimistic(
-                context,
-                'unarchive',
-                () => controller.unarchiveRoom(room.id),
-              ),
-            )
-          else
-            ListTile(
-              leading: const Icon(Icons.archive_outlined),
-              title: Text(l.roomActionArchive),
-              onTap: () => _runOptimistic(
-                context,
-                'archive',
-                () => controller.archiveRoom(room.id),
-              ),
-            ),
-          // **TASK75 §3**: «закрыть» support-чат у оператора — скрыть до
-          // следующего сообщения заявителя. Только для support-комнат.
-          if (room.roomType == RoomType.support)
-            ListTile(
-              leading: const Icon(Icons.check_circle_outline),
-              title: Text(l.roomActionDismissSupport),
-              onTap: () => _runOptimistic(
-                context,
-                'dismissSupport',
-                () => controller.dismissRoom(room.id),
-              ),
-            ),
-          for (final entry in extraActions)
-            ListTile(
-              leading: Icon(entry.icon),
-              title: Text(entry.label),
-              onTap: () {
-                Navigator.of(context).pop(); // закрываем sheet перед
-                // host-app навигацией (route/dialog на viewport-level).
-                entry.onTap();
-              },
-            ),
-          ListTile(
-            leading: Icon(
-              Icons.exit_to_app,
-              color: Theme.of(context).colorScheme.error,
-            ),
-            title: Text(
-              l.roomActionLeave,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
-            onTap: () async {
-              final navigator = Navigator.of(context);
-              // #17: confirm на ЖИВОМ контексте ДО pop. Раньше pop() шёл первым
-              // → showDialog на мёртвом контексте → confirmed=false → leaveRoom
-              // не вызывался (тот же дефект, что был у kick/ban). pop — после
-              // подтверждения.
-              final confirmed = await _showLeaveConfirmDialog(context);
-              if (!confirmed) return;
-              if (!context.mounted) return;
-              navigator.pop();
-              await _runOptimisticDirect(
-                context,
-                'leave',
-                () => controller.leaveRoom(room.id),
-              );
-            },
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -47,6 +47,19 @@ dependencies:
   # Детект Google Play Services на Android (fcm vs rustore).
   google_api_availability: ^5.0.1
 
+  # **Этап 3 TASK_TITAN_PRODUCT_PUSH01 §4.1**: каналы уведомлений Android
+  # (`NsgNotificationChannels`) и запрос POST_NOTIFICATIONS на RuStore-пути.
+  # Канал заводит ПРИЛОЖЕНИЕ, а не сообщение: сервер везёт только
+  # идентификатор, и если канала на устройстве нет, Firebase молча
+  # подставит канал из манифеста — тревога станет обычным уведомлением.
+  # Ни firebase_messaging, ни flutter_rustore_push каналов не создают.
+  #
+  # **Хосту нужен core library desugaring** — плагин собран против
+  # java.time, и без него релизная сборка падает на
+  # `checkReleaseAarMetadata` ещё до компиляции (у Chatista он уже есть,
+  # см. README). Отказ громкий, на этапе сборки, а не в поле.
+  flutter_local_notifications: ">=22.2.0 <23.0.0"
+
   # TASK46 (звонки в фоне): нативный полноэкранный входящий звонок.
   # На Android — full-screen-intent + foreground-service (звонит даже
   # когда приложение убито); на iOS — CallKit (но там нужен PushKit VoIP-

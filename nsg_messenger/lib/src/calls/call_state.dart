@@ -196,8 +196,7 @@ class CallConnected extends CallState {
       other.muted == muted &&
       other.speakerOn == speakerOn;
   @override
-  int get hashCode =>
-      Object.hash(callId, roomId, startedAt, muted, speakerOn);
+  int get hashCode => Object.hash(callId, roomId, startedAt, muted, speakerOn);
 }
 
 /// Звонок завершён. [reason] — почему. UI показывает финальный статус,

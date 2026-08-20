@@ -164,13 +164,13 @@ class _CallOverlayHostState extends State<CallOverlayHost> {
     try {
       final rt = MessengerRuntime.instance;
       if (!rt.isInitialized) return;
-      final settings = await rt.notificationSettings
-          .get()
-          .timeout(const Duration(milliseconds: 800));
+      final settings = await rt.notificationSettings.get().timeout(
+        const Duration(milliseconds: 800),
+      );
       if (settings.showCardsOnCall == false) return;
-      final rooms = await rt.rooms
-          .list()
-          .timeout(const Duration(milliseconds: 900));
+      final rooms = await rt.rooms.list().timeout(
+        const Duration(milliseconds: 900),
+      );
       RoomSummary? room;
       for (final r in rooms) {
         if (r.id == s.roomId) {
@@ -440,10 +440,7 @@ class _CallOverlayScaffold extends StatelessWidget {
             child: Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 420),
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: child,
-                ),
+                child: Padding(padding: const EdgeInsets.all(24), child: child),
               ),
             ),
           ),

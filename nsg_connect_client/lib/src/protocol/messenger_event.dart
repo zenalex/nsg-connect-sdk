@@ -46,6 +46,7 @@ abstract class MessengerEvent implements _i1.SerializableModel {
     this.readReceiptMatrixUserId,
     this.typingMatrixUserIds,
     this.typingDisplayNames,
+    this.typingBotMatrixUserIds,
     this.unreadCount,
     this.membershipChangedField,
     this.reactionTargetEventId,
@@ -72,6 +73,8 @@ abstract class MessengerEvent implements _i1.SerializableModel {
     this.taskStage,
     this.taskThreadRootEventId,
     this.taskUrl,
+    this.taskKey,
+    this.taskTitle,
   });
 
   factory MessengerEvent({
@@ -94,6 +97,7 @@ abstract class MessengerEvent implements _i1.SerializableModel {
     String? readReceiptMatrixUserId,
     List<String>? typingMatrixUserIds,
     List<String>? typingDisplayNames,
+    List<String>? typingBotMatrixUserIds,
     int? unreadCount,
     String? membershipChangedField,
     String? reactionTargetEventId,
@@ -120,6 +124,8 @@ abstract class MessengerEvent implements _i1.SerializableModel {
     String? taskStage,
     String? taskThreadRootEventId,
     String? taskUrl,
+    String? taskKey,
+    String? taskTitle,
   }) = _MessengerEventImpl;
 
   factory MessengerEvent.fromJson(Map<String, dynamic> jsonSerialization) {
@@ -167,6 +173,12 @@ abstract class MessengerEvent implements _i1.SerializableModel {
           ? null
           : _i6.Protocol().deserialize<List<String>>(
               jsonSerialization['typingDisplayNames'],
+            ),
+      typingBotMatrixUserIds:
+          jsonSerialization['typingBotMatrixUserIds'] == null
+          ? null
+          : _i6.Protocol().deserialize<List<String>>(
+              jsonSerialization['typingBotMatrixUserIds'],
             ),
       unreadCount: jsonSerialization['unreadCount'] as int?,
       membershipChangedField:
@@ -217,6 +229,8 @@ abstract class MessengerEvent implements _i1.SerializableModel {
       taskThreadRootEventId:
           jsonSerialization['taskThreadRootEventId'] as String?,
       taskUrl: jsonSerialization['taskUrl'] as String?,
+      taskKey: jsonSerialization['taskKey'] as String?,
+      taskTitle: jsonSerialization['taskTitle'] as String?,
     );
   }
 
@@ -302,6 +316,24 @@ abstract class MessengerEvent implements _i1.SerializableModel {
   /// displayName единственный способ показать красивое имя без
   /// дополнительного RPC.
   List<String>? typingDisplayNames;
+
+  /// Кто из `typingMatrixUserIds` — НЕ человек (бот / интеграция /
+  /// ИИ-агент). ПОДМНОЖЕСТВО `typingMatrixUserIds`, а не параллельный
+  /// список: SDK хранит печатающих в `Set<String>` (порядок теряется),
+  /// поэтому позиционное соответствие здесь развалилось бы — сравнение
+  /// по значению переживает любой порядок.
+  ///
+  /// Зачем: бот-агент думает МИНУТАМИ и всё это время честно шлёт
+  /// `m.typing` heartbeat-ом. Надпись «печатает…» десять минут подряд
+  /// читается как зависание — человек столько не печатает. Клиент по
+  /// этому полю показывает другой глагол («анализирует…»), суть
+  /// индикатора не меняя.
+  ///
+  /// null = сервер не знает (старая версия) — клиент ведёт себя как
+  /// раньше; пустой список = знает и ботов среди печатающих нет.
+  /// Аддитивное nullable-поле: старый клиент лишний JSON-ключ
+  /// игнорирует, новый клиент от старого сервера получает null.
+  List<String>? typingBotMatrixUserIds;
 
   /// Для `roomUnreadChanged` (TASK18) — новое значение counter-а
   /// для recipient-а (юзер на которого канал направлен). Эмитится
@@ -462,6 +494,13 @@ abstract class MessengerEvent implements _i1.SerializableModel {
 
   String? taskUrl;
 
+  ///   * `taskKey` / `taskTitle` (issue #99) — как задача НАЗЫВАЕТСЯ. Нужны
+  ///     не значку, а шапке треда: без них задача, заведённая только что,
+  ///     открывалась безымянным «Обсуждение задачи» до перезагрузки.
+  String? taskKey;
+
+  String? taskTitle;
+
   /// Returns a shallow copy of this [MessengerEvent]
   /// with some or all fields replaced by the given arguments.
   @_i1.useResult
@@ -485,6 +524,7 @@ abstract class MessengerEvent implements _i1.SerializableModel {
     String? readReceiptMatrixUserId,
     List<String>? typingMatrixUserIds,
     List<String>? typingDisplayNames,
+    List<String>? typingBotMatrixUserIds,
     int? unreadCount,
     String? membershipChangedField,
     String? reactionTargetEventId,
@@ -511,6 +551,8 @@ abstract class MessengerEvent implements _i1.SerializableModel {
     String? taskStage,
     String? taskThreadRootEventId,
     String? taskUrl,
+    String? taskKey,
+    String? taskTitle,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -541,6 +583,8 @@ abstract class MessengerEvent implements _i1.SerializableModel {
         'typingMatrixUserIds': typingMatrixUserIds?.toJson(),
       if (typingDisplayNames != null)
         'typingDisplayNames': typingDisplayNames?.toJson(),
+      if (typingBotMatrixUserIds != null)
+        'typingBotMatrixUserIds': typingBotMatrixUserIds?.toJson(),
       if (unreadCount != null) 'unreadCount': unreadCount,
       if (membershipChangedField != null)
         'membershipChangedField': membershipChangedField,
@@ -582,6 +626,8 @@ abstract class MessengerEvent implements _i1.SerializableModel {
       if (taskThreadRootEventId != null)
         'taskThreadRootEventId': taskThreadRootEventId,
       if (taskUrl != null) 'taskUrl': taskUrl,
+      if (taskKey != null) 'taskKey': taskKey,
+      if (taskTitle != null) 'taskTitle': taskTitle,
     };
   }
 
@@ -614,6 +660,7 @@ class _MessengerEventImpl extends MessengerEvent {
     String? readReceiptMatrixUserId,
     List<String>? typingMatrixUserIds,
     List<String>? typingDisplayNames,
+    List<String>? typingBotMatrixUserIds,
     int? unreadCount,
     String? membershipChangedField,
     String? reactionTargetEventId,
@@ -640,6 +687,8 @@ class _MessengerEventImpl extends MessengerEvent {
     String? taskStage,
     String? taskThreadRootEventId,
     String? taskUrl,
+    String? taskKey,
+    String? taskTitle,
   }) : super._(
          eventType: eventType,
          serverTimestamp: serverTimestamp,
@@ -660,6 +709,7 @@ class _MessengerEventImpl extends MessengerEvent {
          readReceiptMatrixUserId: readReceiptMatrixUserId,
          typingMatrixUserIds: typingMatrixUserIds,
          typingDisplayNames: typingDisplayNames,
+         typingBotMatrixUserIds: typingBotMatrixUserIds,
          unreadCount: unreadCount,
          membershipChangedField: membershipChangedField,
          reactionTargetEventId: reactionTargetEventId,
@@ -687,6 +737,8 @@ class _MessengerEventImpl extends MessengerEvent {
          taskStage: taskStage,
          taskThreadRootEventId: taskThreadRootEventId,
          taskUrl: taskUrl,
+         taskKey: taskKey,
+         taskTitle: taskTitle,
        );
 
   /// Returns a shallow copy of this [MessengerEvent]
@@ -713,6 +765,7 @@ class _MessengerEventImpl extends MessengerEvent {
     Object? readReceiptMatrixUserId = _Undefined,
     Object? typingMatrixUserIds = _Undefined,
     Object? typingDisplayNames = _Undefined,
+    Object? typingBotMatrixUserIds = _Undefined,
     Object? unreadCount = _Undefined,
     Object? membershipChangedField = _Undefined,
     Object? reactionTargetEventId = _Undefined,
@@ -739,6 +792,8 @@ class _MessengerEventImpl extends MessengerEvent {
     Object? taskStage = _Undefined,
     Object? taskThreadRootEventId = _Undefined,
     Object? taskUrl = _Undefined,
+    Object? taskKey = _Undefined,
+    Object? taskTitle = _Undefined,
   }) {
     return MessengerEvent(
       eventType: eventType ?? this.eventType,
@@ -786,6 +841,9 @@ class _MessengerEventImpl extends MessengerEvent {
       typingDisplayNames: typingDisplayNames is List<String>?
           ? typingDisplayNames
           : this.typingDisplayNames?.map((e0) => e0).toList(),
+      typingBotMatrixUserIds: typingBotMatrixUserIds is List<String>?
+          ? typingBotMatrixUserIds
+          : this.typingBotMatrixUserIds?.map((e0) => e0).toList(),
       unreadCount: unreadCount is int? ? unreadCount : this.unreadCount,
       membershipChangedField: membershipChangedField is String?
           ? membershipChangedField
@@ -845,6 +903,8 @@ class _MessengerEventImpl extends MessengerEvent {
           ? taskThreadRootEventId
           : this.taskThreadRootEventId,
       taskUrl: taskUrl is String? ? taskUrl : this.taskUrl,
+      taskKey: taskKey is String? ? taskKey : this.taskKey,
+      taskTitle: taskTitle is String? ? taskTitle : this.taskTitle,
     );
   }
 }
