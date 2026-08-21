@@ -126,6 +126,9 @@ dev_dependencies:
   # (getMultiImageWithOptions) + MockPlatformInterfaceMixin.
   image_picker_platform_interface: ^2.10.0
   plugin_platform_interface: ^2.1.5
+  # TASK91: объявление вида `link` открывает внешний браузер — тест
+  # подменяет UrlLauncherPlatform, чтобы проверить сам факт запуска.
+  url_launcher_platform_interface: ^2.3.2
 
 flutter:
   # TASK22 Chunk 1: enable l10n code-gen из ARB-файлов через config

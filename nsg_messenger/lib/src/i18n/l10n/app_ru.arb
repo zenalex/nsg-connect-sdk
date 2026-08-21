@@ -793,6 +793,7 @@
   "tasksScreenTitleForRoom": "Задачи: {room}",
   "announcementDismiss": "Понятно",
   "announcementOpen": "Открыть",
+  "announcementFollowLink": "Перейти",
   "attachmentDropHint": "Отпустите — прикрепим файлы",
   "participantsHiddenToggle": "Скрыть список участников",
   "participantsHiddenHint": "Состав будут видеть только администраторы",

@@ -39,6 +39,7 @@ abstract class Announcement implements _i1.SerializableModel {
     required this.body,
     this.route,
     this.payloadJson,
+    this.url,
     String? severity,
     this.startsAt,
     this.expiresAt,
@@ -59,6 +60,7 @@ abstract class Announcement implements _i1.SerializableModel {
     required String body,
     String? route,
     String? payloadJson,
+    String? url,
     String? severity,
     DateTime? startsAt,
     DateTime? expiresAt,
@@ -78,6 +80,7 @@ abstract class Announcement implements _i1.SerializableModel {
       body: jsonSerialization['body'] as String,
       route: jsonSerialization['route'] as String?,
       payloadJson: jsonSerialization['payloadJson'] as String?,
+      url: jsonSerialization['url'] as String?,
       severity: jsonSerialization['severity'] as String?,
       startsAt: jsonSerialization['startsAt'] == null
           ? null
@@ -112,13 +115,15 @@ abstract class Announcement implements _i1.SerializableModel {
   int? productId;
 
   /// `text` — показать текст и закрыть. `route` — предложить открыть экран
-  /// приложения ([route] + [payloadJson]). Строкой, а не enum: набор видов
+  /// приложения ([route] + [payloadJson]). `link` — предложить открыть
+  /// ВНЕШНЮЮ ссылку ([url]). Строкой, а не enum: набор видов
   /// будет расти со стороны продуктов, а старый клиент обязан пережить
   /// незнакомый вид (см. правило в AnnouncementService).
   String kind;
 
   String title;
 
+  /// Markdown (тот же subset, что в пузырях чата) — у всех видов.
   String body;
 
   /// Куда вести по кнопке действия (`kind = route`): маршрут В ТЕРМИНАХ
@@ -129,6 +134,12 @@ abstract class Announcement implements _i1.SerializableModel {
 
   /// Произвольный payload к маршруту (JSON-строка). Сервер не интерпретирует.
   String? payloadJson;
+
+  /// Внешняя ссылка для кнопки действия (`kind = link`), обязательна при этом
+  /// виде. Отдельным полем, а не через [route]: маршрут разбирает хост, а
+  /// ссылку открывает сам SDK, и путать эти два адресата в одном поле значит
+  /// отдать внешний URL в навигацию продукта.
+  String? url;
 
   /// Оформление на клиенте: `info` | `warning`. Плановые работы — не то же,
   /// что новость о функции, и человек должен различать их до чтения.
@@ -165,6 +176,7 @@ abstract class Announcement implements _i1.SerializableModel {
     String? body,
     String? route,
     String? payloadJson,
+    String? url,
     String? severity,
     DateTime? startsAt,
     DateTime? expiresAt,
@@ -185,6 +197,7 @@ abstract class Announcement implements _i1.SerializableModel {
       'body': body,
       if (route != null) 'route': route,
       if (payloadJson != null) 'payloadJson': payloadJson,
+      if (url != null) 'url': url,
       'severity': severity,
       if (startsAt != null) 'startsAt': startsAt?.toJson(),
       if (expiresAt != null) 'expiresAt': expiresAt?.toJson(),
@@ -213,6 +226,7 @@ class _AnnouncementImpl extends Announcement {
     required String body,
     String? route,
     String? payloadJson,
+    String? url,
     String? severity,
     DateTime? startsAt,
     DateTime? expiresAt,
@@ -229,6 +243,7 @@ class _AnnouncementImpl extends Announcement {
          body: body,
          route: route,
          payloadJson: payloadJson,
+         url: url,
          severity: severity,
          startsAt: startsAt,
          expiresAt: expiresAt,
@@ -251,6 +266,7 @@ class _AnnouncementImpl extends Announcement {
     String? body,
     Object? route = _Undefined,
     Object? payloadJson = _Undefined,
+    Object? url = _Undefined,
     String? severity,
     Object? startsAt = _Undefined,
     Object? expiresAt = _Undefined,
@@ -268,6 +284,7 @@ class _AnnouncementImpl extends Announcement {
       body: body ?? this.body,
       route: route is String? ? route : this.route,
       payloadJson: payloadJson is String? ? payloadJson : this.payloadJson,
+      url: url is String? ? url : this.url,
       severity: severity ?? this.severity,
       startsAt: startsAt is DateTime? ? startsAt : this.startsAt,
       expiresAt: expiresAt is DateTime? ? expiresAt : this.expiresAt,

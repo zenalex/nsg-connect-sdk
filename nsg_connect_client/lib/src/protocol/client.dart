@@ -2951,7 +2951,14 @@ class EndpointMessenger extends _i2.EndpointRef {
   ///
   /// Возвращает `true` если row реально обновился; `false` — older
   /// write rejected guard (другое устройство уже прочитало дальше).
-  /// Idempotent: повторный вызов с тем же eventId — noop.
+  ///
+  /// Идемпотентен по ХРАНИМОМУ состоянию: повторный вызов с тем же
+  /// eventId оставляет тот же горизонт и `unreadCount = 0`. Но не по
+  /// побочным эффектам — guard сравнивает время, а не событие, поэтому
+  /// повторный вызов снова шлёт Matrix-квитанцию и `roomUnreadChanged`
+  /// (обе операции безвредны при повторе). Единственный эффект, который
+  /// повтор НЕ производит, — тихий read-sync-пуш: он привязан к
+  /// фактическому сдвигу горизонта, см. [MarkReadService.markRead].
   _i3.Future<bool> markRead({
     required int roomId,
     required String matrixEventId,

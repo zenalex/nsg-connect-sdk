@@ -2724,6 +2724,9 @@ class NsgL10nEn extends NsgL10n {
   String get announcementOpen => 'Open';
 
   @override
+  String get announcementFollowLink => 'Go';
+
+  @override
   String get attachmentDropHint => 'Drop files to attach';
 
   @override

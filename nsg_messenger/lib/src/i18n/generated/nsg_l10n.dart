@@ -4747,6 +4747,12 @@ abstract class NsgL10n {
   /// **'Open'**
   String get announcementOpen;
 
+  /// TASK91: button that opens the external link an announcement points to. Separate from announcementOpen because it leaves the app for a browser.
+  ///
+  /// In en, this message translates to:
+  /// **'Go'**
+  String get announcementFollowLink;
+
   /// Overlay shown while dragging files over the chat (desktop drag-and-drop).
   ///
   /// In en, this message translates to:

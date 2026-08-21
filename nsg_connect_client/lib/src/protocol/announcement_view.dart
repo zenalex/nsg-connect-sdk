@@ -27,6 +27,7 @@ abstract class AnnouncementView implements _i1.SerializableModel {
     required this.body,
     this.route,
     this.payloadJson,
+    this.url,
     required this.severity,
     this.expiresAt,
     required this.createdAt,
@@ -39,6 +40,7 @@ abstract class AnnouncementView implements _i1.SerializableModel {
     required String body,
     String? route,
     String? payloadJson,
+    String? url,
     required String severity,
     DateTime? expiresAt,
     required DateTime createdAt,
@@ -52,6 +54,7 @@ abstract class AnnouncementView implements _i1.SerializableModel {
       body: jsonSerialization['body'] as String,
       route: jsonSerialization['route'] as String?,
       payloadJson: jsonSerialization['payloadJson'] as String?,
+      url: jsonSerialization['url'] as String?,
       severity: jsonSerialization['severity'] as String,
       expiresAt: jsonSerialization['expiresAt'] == null
           ? null
@@ -64,12 +67,13 @@ abstract class AnnouncementView implements _i1.SerializableModel {
 
   int id;
 
-  /// `text` | `route`. Незнакомый вид клиент показывает как `text` — см.
-  /// AnnouncementService.
+  /// `text` | `route` | `link`. Незнакомый вид клиент показывает как `text` —
+  /// см. AnnouncementService.
   String kind;
 
   String title;
 
+  /// Markdown (тот же subset, что в пузырях чата) — у всех видов.
   String body;
 
   /// Только для `route`: маршрут и payload в терминах ПРОДУКТА. Куда вести —
@@ -77,6 +81,10 @@ abstract class AnnouncementView implements _i1.SerializableModel {
   String? route;
 
   String? payloadJson;
+
+  /// Только для `link`: внешняя ссылка. В отличие от [route] её открывает сам
+  /// SDK — внешний адрес не зависит от того, какой продукт его показывает.
+  String? url;
 
   /// `info` | `warning` — оформление.
   String severity;
@@ -97,6 +105,7 @@ abstract class AnnouncementView implements _i1.SerializableModel {
     String? body,
     String? route,
     String? payloadJson,
+    String? url,
     String? severity,
     DateTime? expiresAt,
     DateTime? createdAt,
@@ -111,6 +120,7 @@ abstract class AnnouncementView implements _i1.SerializableModel {
       'body': body,
       if (route != null) 'route': route,
       if (payloadJson != null) 'payloadJson': payloadJson,
+      if (url != null) 'url': url,
       'severity': severity,
       if (expiresAt != null) 'expiresAt': expiresAt?.toJson(),
       'createdAt': createdAt.toJson(),
@@ -133,6 +143,7 @@ class _AnnouncementViewImpl extends AnnouncementView {
     required String body,
     String? route,
     String? payloadJson,
+    String? url,
     required String severity,
     DateTime? expiresAt,
     required DateTime createdAt,
@@ -143,6 +154,7 @@ class _AnnouncementViewImpl extends AnnouncementView {
          body: body,
          route: route,
          payloadJson: payloadJson,
+         url: url,
          severity: severity,
          expiresAt: expiresAt,
          createdAt: createdAt,
@@ -159,6 +171,7 @@ class _AnnouncementViewImpl extends AnnouncementView {
     String? body,
     Object? route = _Undefined,
     Object? payloadJson = _Undefined,
+    Object? url = _Undefined,
     String? severity,
     Object? expiresAt = _Undefined,
     DateTime? createdAt,
@@ -170,6 +183,7 @@ class _AnnouncementViewImpl extends AnnouncementView {
       body: body ?? this.body,
       route: route is String? ? route : this.route,
       payloadJson: payloadJson is String? ? payloadJson : this.payloadJson,
+      url: url is String? ? url : this.url,
       severity: severity ?? this.severity,
       expiresAt: expiresAt is DateTime? ? expiresAt : this.expiresAt,
       createdAt: createdAt ?? this.createdAt,

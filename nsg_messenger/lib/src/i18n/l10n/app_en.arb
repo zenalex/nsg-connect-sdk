@@ -3134,6 +3134,10 @@
   "@announcementOpen": {
     "description": "TASK91: button that opens the screen an announcement points to."
   },
+  "announcementFollowLink": "Go",
+  "@announcementFollowLink": {
+    "description": "TASK91: button that opens the external link an announcement points to. Separate from announcementOpen because it leaves the app for a browser."
+  },
   "attachmentDropHint": "Drop files to attach",
   "@attachmentDropHint": {
     "description": "Overlay shown while dragging files over the chat (desktop drag-and-drop)."

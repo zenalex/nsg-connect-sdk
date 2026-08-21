@@ -2764,6 +2764,9 @@ class NsgL10nRu extends NsgL10n {
   String get announcementOpen => 'Открыть';
 
   @override
+  String get announcementFollowLink => 'Перейти';
+
+  @override
   String get attachmentDropHint => 'Отпустите — прикрепим файлы';
 
   @override
