@@ -428,6 +428,11 @@ export 'package:nsg_connect_client/nsg_connect_client.dart'
         // человека на своих поверхностях (тот же признак, что у
         // `NsgBotBadge`).
         ParticipantKind,
+        // TASK91: объявление в том виде, в каком его получает клиент. Без
+        // него `AnnouncementsRpc` реализовать снаружи нечем — а он публичен
+        // именно затем, чтобы host-app подменял его в тестах через
+        // `rpcOverride` у [showPendingAnnouncements].
+        AnnouncementView,
         // TASK78 п.3: платформенная админка секретов тенантов — статус
         // tenant-а и журнал операций с ключами.
         ConnectTenantStatus,
