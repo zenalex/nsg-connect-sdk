@@ -44,12 +44,14 @@ abstract class Announcement implements _i1.SerializableModel {
     this.startsAt,
     this.expiresAt,
     bool? enabled,
+    bool? targeted,
     this.createdByEmail,
     required this.createdAt,
     required this.updatedAt,
   }) : kind = kind ?? 'text',
        severity = severity ?? 'info',
-       enabled = enabled ?? true;
+       enabled = enabled ?? true,
+       targeted = targeted ?? false;
 
   factory Announcement({
     int? id,
@@ -65,6 +67,7 @@ abstract class Announcement implements _i1.SerializableModel {
     DateTime? startsAt,
     DateTime? expiresAt,
     bool? enabled,
+    bool? targeted,
     String? createdByEmail,
     required DateTime createdAt,
     required DateTime updatedAt,
@@ -91,6 +94,9 @@ abstract class Announcement implements _i1.SerializableModel {
       enabled: jsonSerialization['enabled'] == null
           ? null
           : _i1.BoolJsonExtension.fromJson(jsonSerialization['enabled']),
+      targeted: jsonSerialization['targeted'] == null
+          ? null
+          : _i1.BoolJsonExtension.fromJson(jsonSerialization['targeted']),
       createdByEmail: jsonSerialization['createdByEmail'] as String?,
       createdAt: _i1.DateTimeJsonExtension.fromJson(
         jsonSerialization['createdAt'],
@@ -157,6 +163,21 @@ abstract class Announcement implements _i1.SerializableModel {
   /// отметки о просмотре).
   bool enabled;
 
+  /// **Адресное ли это объявление.** `false` — видит каждый пользователь
+  /// продукта (как было всегда); `true` — только те, кто перечислен в
+  /// [AnnouncementRecipient].
+  ///
+  /// Флаг, а не `COUNT(*)` по таблице адресатов: на показе надо ответить
+  /// «это объявление вообще адресное?» ДО того, как идти в таблицу связей.
+  /// Без него отбор либо тащил бы всех адресатов всех живых объявлений (до
+  /// 500 строк на каждое), либо не отличал бы «адресовано, но не мне» от
+  /// «адресовано всем» — то есть показывал бы адресную рассылку всем.
+  ///
+  /// Разъехаться с таблицей ему нечем: обе записи делает одна транзакция в
+  /// `AnnouncementService.insert`, а править заведённое объявление нельзя
+  /// по устройству ручек — только снять и завести новое.
+  bool targeted;
+
   /// Кто завёл — для аудита (админский e-mail, как в остальных admin-путях).
   String? createdByEmail;
 
@@ -181,6 +202,7 @@ abstract class Announcement implements _i1.SerializableModel {
     DateTime? startsAt,
     DateTime? expiresAt,
     bool? enabled,
+    bool? targeted,
     String? createdByEmail,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -202,6 +224,7 @@ abstract class Announcement implements _i1.SerializableModel {
       if (startsAt != null) 'startsAt': startsAt?.toJson(),
       if (expiresAt != null) 'expiresAt': expiresAt?.toJson(),
       'enabled': enabled,
+      'targeted': targeted,
       if (createdByEmail != null) 'createdByEmail': createdByEmail,
       'createdAt': createdAt.toJson(),
       'updatedAt': updatedAt.toJson(),
@@ -231,6 +254,7 @@ class _AnnouncementImpl extends Announcement {
     DateTime? startsAt,
     DateTime? expiresAt,
     bool? enabled,
+    bool? targeted,
     String? createdByEmail,
     required DateTime createdAt,
     required DateTime updatedAt,
@@ -248,6 +272,7 @@ class _AnnouncementImpl extends Announcement {
          startsAt: startsAt,
          expiresAt: expiresAt,
          enabled: enabled,
+         targeted: targeted,
          createdByEmail: createdByEmail,
          createdAt: createdAt,
          updatedAt: updatedAt,
@@ -271,6 +296,7 @@ class _AnnouncementImpl extends Announcement {
     Object? startsAt = _Undefined,
     Object? expiresAt = _Undefined,
     bool? enabled,
+    bool? targeted,
     Object? createdByEmail = _Undefined,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -289,6 +315,7 @@ class _AnnouncementImpl extends Announcement {
       startsAt: startsAt is DateTime? ? startsAt : this.startsAt,
       expiresAt: expiresAt is DateTime? ? expiresAt : this.expiresAt,
       enabled: enabled ?? this.enabled,
+      targeted: targeted ?? this.targeted,
       createdByEmail: createdByEmail is String?
           ? createdByEmail
           : this.createdByEmail,

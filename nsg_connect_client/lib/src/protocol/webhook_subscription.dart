@@ -31,6 +31,9 @@ abstract class WebhookSubscription implements _i1.SerializableModel {
     required this.eventTypes,
     this.roomId,
     this.botId,
+    String? deliveryMode,
+    this.lastPulledDeliveryId,
+    this.lastPulledAt,
     bool? enabled,
     int? failureCount,
     this.lastSuccessAt,
@@ -42,7 +45,8 @@ abstract class WebhookSubscription implements _i1.SerializableModel {
     this.unreachableSince,
     this.description,
     required this.createdAt,
-  }) : enabled = enabled ?? true,
+  }) : deliveryMode = deliveryMode ?? 'push',
+       enabled = enabled ?? true,
        failureCount = failureCount ?? 0,
        probesSinceDisabled = probesSinceDisabled ?? 0;
 
@@ -55,6 +59,9 @@ abstract class WebhookSubscription implements _i1.SerializableModel {
     required String eventTypes,
     int? roomId,
     int? botId,
+    String? deliveryMode,
+    int? lastPulledDeliveryId,
+    DateTime? lastPulledAt,
     bool? enabled,
     int? failureCount,
     DateTime? lastSuccessAt,
@@ -78,6 +85,13 @@ abstract class WebhookSubscription implements _i1.SerializableModel {
       eventTypes: jsonSerialization['eventTypes'] as String,
       roomId: jsonSerialization['roomId'] as int?,
       botId: jsonSerialization['botId'] as int?,
+      deliveryMode: jsonSerialization['deliveryMode'] as String?,
+      lastPulledDeliveryId: jsonSerialization['lastPulledDeliveryId'] as int?,
+      lastPulledAt: jsonSerialization['lastPulledAt'] == null
+          ? null
+          : _i1.DateTimeJsonExtension.fromJson(
+              jsonSerialization['lastPulledAt'],
+            ),
       enabled: jsonSerialization['enabled'] == null
           ? null
           : _i1.BoolJsonExtension.fromJson(jsonSerialization['enabled']),
@@ -152,6 +166,39 @@ abstract class WebhookSubscription implements _i1.SerializableModel {
   /// (ротация/отзыв вместе с ботом). null = обычная admin-подписка (TASK35).
   int? botId;
 
+  /// **issue #154**: как подписчик получает события.
+  ///
+  ///   * `push` — сервер сам стучится POST-ом по [url] (как было всегда);
+  ///   * `pull` — подписчик приходит сам за `POST /events/pull` и читает
+  ///     журнал по курсору. Сервер в этом режиме НЕ делает исходящих
+  ///     запросов вовсе: строку доставки пишет, попытку не планирует.
+  ///
+  /// Зачем второй режим. У подписчика может не быть публичного адреса —
+  /// наши боты живут на рабочей машине владельца, и до них дотягивались
+  /// обратным ssh-туннелем «пока нет полноценных вебхуков». Пять минут
+  /// бюджета ретраев короче любого перерыва в работе такой машины, отсюда
+  /// 88 потерянных сообщений (#153). В pull-режиме терять нечего: событие
+  /// лежит в журнале, пока за ним не придут.
+  String deliveryMode;
+
+  /// **issue #154**: курсор pull-подписчика — id последней доставки,
+  /// которую он подтвердил (прислал в следующем запросе). Держим на
+  /// сервере, чтобы клиенту было достаточно помнить его между запросами,
+  /// а восстановиться он мог и без него.
+  int? lastPulledDeliveryId;
+
+  /// **issue #154**: когда pull-подписчик приходил в последний раз.
+  ///
+  /// Признак жизни для pull-канала. Курсор для этого не годится: он
+  /// двигается только когда есть события, и на тихом канале стоит часами,
+  /// пока подписчик исправно ходит каждые 25 секунд.
+  ///
+  /// Обновляется на каждом успешном запросе за событиями — одна запись в
+  /// 25 секунд на канал, то есть пренебрежимо. Без него «подписчик умер» и
+  /// «в чате тихо» неотличимы, а проба HTTP-адреса у pull-подписки
+  /// бессмысленна: слушать там некому по построению.
+  DateTime? lastPulledAt;
+
   bool enabled;
 
   /// Подряд идущих неуспешных ПОПЫТОК доставки (failed HTTP call) для
@@ -222,6 +269,9 @@ abstract class WebhookSubscription implements _i1.SerializableModel {
     String? eventTypes,
     int? roomId,
     int? botId,
+    String? deliveryMode,
+    int? lastPulledDeliveryId,
+    DateTime? lastPulledAt,
     bool? enabled,
     int? failureCount,
     DateTime? lastSuccessAt,
@@ -246,6 +296,10 @@ abstract class WebhookSubscription implements _i1.SerializableModel {
       'eventTypes': eventTypes,
       if (roomId != null) 'roomId': roomId,
       if (botId != null) 'botId': botId,
+      'deliveryMode': deliveryMode,
+      if (lastPulledDeliveryId != null)
+        'lastPulledDeliveryId': lastPulledDeliveryId,
+      if (lastPulledAt != null) 'lastPulledAt': lastPulledAt?.toJson(),
       'enabled': enabled,
       'failureCount': failureCount,
       if (lastSuccessAt != null) 'lastSuccessAt': lastSuccessAt?.toJson(),
@@ -280,6 +334,9 @@ class _WebhookSubscriptionImpl extends WebhookSubscription {
     required String eventTypes,
     int? roomId,
     int? botId,
+    String? deliveryMode,
+    int? lastPulledDeliveryId,
+    DateTime? lastPulledAt,
     bool? enabled,
     int? failureCount,
     DateTime? lastSuccessAt,
@@ -300,6 +357,9 @@ class _WebhookSubscriptionImpl extends WebhookSubscription {
          eventTypes: eventTypes,
          roomId: roomId,
          botId: botId,
+         deliveryMode: deliveryMode,
+         lastPulledDeliveryId: lastPulledDeliveryId,
+         lastPulledAt: lastPulledAt,
          enabled: enabled,
          failureCount: failureCount,
          lastSuccessAt: lastSuccessAt,
@@ -326,6 +386,9 @@ class _WebhookSubscriptionImpl extends WebhookSubscription {
     String? eventTypes,
     Object? roomId = _Undefined,
     Object? botId = _Undefined,
+    String? deliveryMode,
+    Object? lastPulledDeliveryId = _Undefined,
+    Object? lastPulledAt = _Undefined,
     bool? enabled,
     int? failureCount,
     Object? lastSuccessAt = _Undefined,
@@ -347,6 +410,13 @@ class _WebhookSubscriptionImpl extends WebhookSubscription {
       eventTypes: eventTypes ?? this.eventTypes,
       roomId: roomId is int? ? roomId : this.roomId,
       botId: botId is int? ? botId : this.botId,
+      deliveryMode: deliveryMode ?? this.deliveryMode,
+      lastPulledDeliveryId: lastPulledDeliveryId is int?
+          ? lastPulledDeliveryId
+          : this.lastPulledDeliveryId,
+      lastPulledAt: lastPulledAt is DateTime?
+          ? lastPulledAt
+          : this.lastPulledAt,
       enabled: enabled ?? this.enabled,
       failureCount: failureCount ?? this.failureCount,
       lastSuccessAt: lastSuccessAt is DateTime?

@@ -12,272 +12,289 @@
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod_client/serverpod_client.dart' as _i1;
 import 'announcement.dart' as _i2;
-import 'announcement_seen.dart' as _i3;
-import 'announcement_view.dart' as _i4;
-import 'attachment_bytes.dart' as _i5;
-import 'attachment_object.dart' as _i6;
-import 'attachment_placement.dart' as _i7;
-import 'attachment_ref.dart' as _i8;
-import 'attachment_url.dart' as _i9;
-import 'available_bot.dart' as _i10;
-import 'bot.dart' as _i11;
-import 'bot_audit_event.dart' as _i12;
-import 'bot_channel_health.dart' as _i13;
-import 'bot_command.dart' as _i14;
-import 'bot_integration_created.dart' as _i15;
-import 'bot_integration_view.dart' as _i16;
-import 'bot_read_mode_result.dart' as _i17;
-import 'call_history_entry.dart' as _i18;
-import 'call_ice_candidate.dart' as _i19;
-import 'chat_folder.dart' as _i20;
-import 'chat_folder_room.dart' as _i21;
-import 'chat_folder_view.dart' as _i22;
-import 'conference.dart' as _i23;
-import 'conference_member.dart' as _i24;
-import 'conference_participant.dart' as _i25;
-import 'conference_screen_share.dart' as _i26;
-import 'conference_state.dart' as _i27;
-import 'connect_issued_token.dart' as _i28;
-import 'connect_issued_token_result.dart' as _i29;
-import 'connect_key_audit_event.dart' as _i30;
-import 'connect_tenant_status.dart' as _i31;
-import 'contact_block.dart' as _i32;
-import 'contact_card.dart' as _i33;
-import 'contact_card_info.dart' as _i34;
-import 'contact_label.dart' as _i35;
-import 'contact_label_assignment.dart' as _i36;
-import 'contact_link.dart' as _i37;
-import 'contact_meta.dart' as _i38;
-import 'contact_profile_view.dart' as _i39;
-import 'contact_relation.dart' as _i40;
-import 'contact_request.dart' as _i41;
-import 'contact_request_view.dart' as _i42;
-import 'delivery_pending.dart' as _i43;
-import 'device_registration.dart' as _i44;
-import 'device_registration_removal.dart' as _i45;
-import 'device_session_info.dart' as _i46;
-import 'email_account.dart' as _i47;
-import 'email_session.dart' as _i48;
-import 'email_verification_code.dart' as _i49;
-import 'enums/attachment_reject_reason.dart' as _i50;
-import 'enums/call_event_type.dart' as _i51;
-import 'enums/call_status.dart' as _i52;
-import 'enums/contact_link_source.dart' as _i53;
-import 'enums/contact_request_status.dart' as _i54;
-import 'enums/device_platform.dart' as _i55;
-import 'enums/device_removal_reason.dart' as _i56;
-import 'enums/identity_provider.dart' as _i57;
-import 'enums/messenger_event_type.dart' as _i58;
-import 'enums/participant_kind.dart' as _i59;
-import 'enums/product_notification_status.dart' as _i60;
-import 'enums/push_service.dart' as _i61;
-import 'enums/room_member_role.dart' as _i62;
-import 'enums/room_ownership.dart' as _i63;
-import 'enums/room_state.dart' as _i64;
-import 'enums/room_type.dart' as _i65;
-import 'enums/support_team_role.dart' as _i66;
-import 'enums/team_kind.dart' as _i67;
-import 'enums/team_member_role.dart' as _i68;
-import 'enums/tenant_hosting_mode.dart' as _i69;
-import 'enums/trust_token_kind.dart' as _i70;
-import 'errors/adapter_not_configured_exception.dart' as _i71;
-import 'errors/ambiguous_product_key_exception.dart' as _i72;
-import 'errors/attachment_access_denied_exception.dart' as _i73;
-import 'errors/attachment_rejected_exception.dart' as _i74;
-import 'errors/bot_capability_exception.dart' as _i75;
-import 'errors/bot_limit_exceeded_exception.dart' as _i76;
-import 'errors/bot_not_found_exception.dart' as _i77;
-import 'errors/bot_read_restricted_exception.dart' as _i78;
-import 'errors/conference_full_exception.dart' as _i79;
-import 'errors/email_auth_exception.dart' as _i80;
-import 'errors/insufficient_power_exception.dart' as _i81;
-import 'errors/invalid_bot_commands_exception.dart' as _i82;
-import 'errors/invalid_external_key_exception.dart' as _i83;
-import 'errors/invalid_notification_exception.dart' as _i84;
-import 'errors/invalid_token_exception.dart' as _i85;
-import 'errors/last_owner_cannot_demote_exception.dart' as _i86;
-import 'errors/message_body_too_large_exception.dart' as _i87;
-import 'errors/message_deleted_exception.dart' as _i88;
-import 'errors/message_not_editable_exception.dart' as _i89;
-import 'errors/messenger_not_authenticated_exception.dart' as _i90;
-import 'errors/not_object_room_exception.dart' as _i91;
-import 'errors/not_support_team_member_exception.dart' as _i92;
-import 'errors/not_support_team_owner_exception.dart' as _i93;
-import 'errors/operator_email_not_resolved_exception.dart' as _i94;
-import 'errors/peer_unavailable_exception.dart' as _i95;
-import 'errors/probe_target_not_allowed_exception.dart' as _i96;
-import 'errors/product_already_exists_exception.dart' as _i97;
-import 'errors/product_in_use_exception.dart' as _i98;
-import 'errors/product_not_found_exception.dart' as _i99;
-import 'errors/product_not_found_for_caller_exception.dart' as _i100;
-import 'errors/rate_limit_exceeded_exception.dart' as _i101;
-import 'errors/room_dissolve_partial_exception.dart' as _i102;
-import 'errors/room_unavailable_exception.dart' as _i103;
-import 'errors/screen_share_busy_exception.dart' as _i104;
-import 'errors/task_integration_not_configured_exception.dart' as _i105;
-import 'errors/team_access_denied_exception.dart' as _i106;
-import 'errors/team_peer_unknown_exception.dart' as _i107;
-import 'errors/tenant_already_exists_exception.dart' as _i108;
-import 'errors/tenant_not_found_exception.dart' as _i109;
-import 'errors/thumbnail_unavailable_exception.dart' as _i110;
-import 'errors/write_banned_exception.dart' as _i111;
-import 'escalation_result.dart' as _i112;
-import 'greetings/greeting.dart' as _i113;
-import 'identity_mapping.dart' as _i114;
-import 'incoming_webhook.dart' as _i115;
-import 'incoming_webhook_created.dart' as _i116;
-import 'link_preview.dart' as _i117;
-import 'link_preview_view.dart' as _i118;
-import 'message_index.dart' as _i119;
-import 'messenger_auth_context.dart' as _i120;
-import 'messenger_event.dart' as _i121;
-import 'messenger_message.dart' as _i122;
-import 'messenger_message_list_page.dart' as _i123;
-import 'messenger_session.dart' as _i124;
-import 'messenger_session_token.dart' as _i125;
-import 'messenger_user.dart' as _i126;
-import 'nearby_confirm_result.dart' as _i127;
-import 'nearby_confirmation.dart' as _i128;
-import 'notification_settings.dart' as _i129;
-import 'presence_conn_state.dart' as _i130;
-import 'presence_info.dart' as _i131;
-import 'presence_state.dart' as _i132;
-import 'presence_watched_index.dart' as _i133;
-import 'presence_watchers.dart' as _i134;
-import 'product.dart' as _i135;
-import 'product_admin_view.dart' as _i136;
-import 'product_delivery_health.dart' as _i137;
-import 'product_notification.dart' as _i138;
-import 'product_notification_recipient_result.dart' as _i139;
-import 'product_notification_send_result.dart' as _i140;
-import 'product_object_room.dart' as _i141;
-import 'profile_translation.dart' as _i142;
-import 'pulse_access_audit_event.dart' as _i143;
-import 'pulse_access_entry.dart' as _i144;
-import 'pulse_alert_rule.dart' as _i145;
-import 'pulse_event.dart' as _i146;
-import 'pulse_expiry_reminder.dart' as _i147;
-import 'pulse_folder.dart' as _i148;
-import 'pulse_folder_membership.dart' as _i149;
-import 'pulse_incident.dart' as _i150;
-import 'pulse_member_view.dart' as _i151;
-import 'pulse_monitor.dart' as _i152;
-import 'pulse_monitor_created.dart' as _i153;
-import 'pulse_monitor_membership.dart' as _i154;
-import 'pulse_probe_allowlist_entry.dart' as _i155;
-import 'pulse_tls_probe.dart' as _i156;
-import 'pulse_value_threshold.dart' as _i157;
-import 'push_queue_message.dart' as _i158;
-import 'push_test_job.dart' as _i159;
-import 'push_test_result.dart' as _i160;
-import 'room.dart' as _i161;
-import 'room_bot_commands.dart' as _i162;
-import 'room_details.dart' as _i163;
-import 'room_list_page.dart' as _i164;
-import 'room_membership.dart' as _i165;
-import 'room_participant.dart' as _i166;
-import 'room_summary.dart' as _i167;
-import 'room_task_stats.dart' as _i168;
-import 'room_task_view.dart' as _i169;
-import 'support_team.dart' as _i170;
-import 'support_team_exclusion.dart' as _i171;
-import 'support_team_member.dart' as _i172;
-import 'support_team_member_view.dart' as _i173;
-import 'support_team_view.dart' as _i174;
-import 'task_link.dart' as _i175;
-import 'task_manager_config.dart' as _i176;
-import 'team.dart' as _i177;
-import 'team_member.dart' as _i178;
-import 'team_member_view.dart' as _i179;
-import 'team_view.dart' as _i180;
-import 'tenant.dart' as _i181;
-import 'tenant_support_member.dart' as _i182;
-import 'tenant_support_member_view.dart' as _i183;
-import 'thread_read_state.dart' as _i184;
-import 'ticket.dart' as _i185;
-import 'ticket_event.dart' as _i186;
-import 'ticket_view.dart' as _i187;
-import 'trust_redeem_result.dart' as _i188;
-import 'trust_token.dart' as _i189;
-import 'trust_token_issued.dart' as _i190;
-import 'turn_credentials.dart' as _i191;
-import 'webhook_delivery.dart' as _i192;
-import 'webhook_event_message.dart' as _i193;
-import 'webhook_subscription.dart' as _i194;
+import 'announcement_recipient.dart' as _i3;
+import 'announcement_seen.dart' as _i4;
+import 'announcement_view.dart' as _i5;
+import 'attachment_bytes.dart' as _i6;
+import 'attachment_object.dart' as _i7;
+import 'attachment_placement.dart' as _i8;
+import 'attachment_ref.dart' as _i9;
+import 'attachment_url.dart' as _i10;
+import 'available_bot.dart' as _i11;
+import 'bot.dart' as _i12;
+import 'bot_audit_event.dart' as _i13;
+import 'bot_channel_health.dart' as _i14;
+import 'bot_command.dart' as _i15;
+import 'bot_integration_created.dart' as _i16;
+import 'bot_integration_view.dart' as _i17;
+import 'bot_read_mode_result.dart' as _i18;
+import 'call_history_entry.dart' as _i19;
+import 'call_ice_candidate.dart' as _i20;
+import 'chat_folder.dart' as _i21;
+import 'chat_folder_room.dart' as _i22;
+import 'chat_folder_view.dart' as _i23;
+import 'conference.dart' as _i24;
+import 'conference_member.dart' as _i25;
+import 'conference_participant.dart' as _i26;
+import 'conference_screen_share.dart' as _i27;
+import 'conference_state.dart' as _i28;
+import 'connect_issued_token.dart' as _i29;
+import 'connect_issued_token_result.dart' as _i30;
+import 'connect_key_audit_event.dart' as _i31;
+import 'connect_tenant_status.dart' as _i32;
+import 'contact_block.dart' as _i33;
+import 'contact_card.dart' as _i34;
+import 'contact_card_info.dart' as _i35;
+import 'contact_label.dart' as _i36;
+import 'contact_label_assignment.dart' as _i37;
+import 'contact_link.dart' as _i38;
+import 'contact_meta.dart' as _i39;
+import 'contact_profile_view.dart' as _i40;
+import 'contact_relation.dart' as _i41;
+import 'contact_request.dart' as _i42;
+import 'contact_request_view.dart' as _i43;
+import 'delivery_journal_entry.dart' as _i44;
+import 'delivery_journal_page.dart' as _i45;
+import 'delivery_pending.dart' as _i46;
+import 'delivery_recipient_state.dart' as _i47;
+import 'delivery_recipient_status.dart' as _i48;
+import 'delivery_silent_page.dart' as _i49;
+import 'delivery_silent_recipient.dart' as _i50;
+import 'delivery_usage.dart' as _i51;
+import 'device_registration.dart' as _i52;
+import 'device_registration_removal.dart' as _i53;
+import 'device_session_info.dart' as _i54;
+import 'email_account.dart' as _i55;
+import 'email_session.dart' as _i56;
+import 'email_verification_code.dart' as _i57;
+import 'enums/attachment_reject_reason.dart' as _i58;
+import 'enums/call_event_type.dart' as _i59;
+import 'enums/call_status.dart' as _i60;
+import 'enums/contact_link_source.dart' as _i61;
+import 'enums/contact_request_status.dart' as _i62;
+import 'enums/device_platform.dart' as _i63;
+import 'enums/device_removal_reason.dart' as _i64;
+import 'enums/identity_provider.dart' as _i65;
+import 'enums/messenger_event_type.dart' as _i66;
+import 'enums/participant_kind.dart' as _i67;
+import 'enums/product_notification_status.dart' as _i68;
+import 'enums/push_service.dart' as _i69;
+import 'enums/room_member_role.dart' as _i70;
+import 'enums/room_ownership.dart' as _i71;
+import 'enums/room_state.dart' as _i72;
+import 'enums/room_type.dart' as _i73;
+import 'enums/support_team_role.dart' as _i74;
+import 'enums/team_kind.dart' as _i75;
+import 'enums/team_member_role.dart' as _i76;
+import 'enums/tenant_hosting_mode.dart' as _i77;
+import 'enums/trust_token_kind.dart' as _i78;
+import 'errors/adapter_not_configured_exception.dart' as _i79;
+import 'errors/ambiguous_product_key_exception.dart' as _i80;
+import 'errors/attachment_access_denied_exception.dart' as _i81;
+import 'errors/attachment_rejected_exception.dart' as _i82;
+import 'errors/bot_capability_exception.dart' as _i83;
+import 'errors/bot_limit_exceeded_exception.dart' as _i84;
+import 'errors/bot_not_found_exception.dart' as _i85;
+import 'errors/bot_read_restricted_exception.dart' as _i86;
+import 'errors/conference_full_exception.dart' as _i87;
+import 'errors/email_auth_exception.dart' as _i88;
+import 'errors/insufficient_power_exception.dart' as _i89;
+import 'errors/invalid_bot_commands_exception.dart' as _i90;
+import 'errors/invalid_external_key_exception.dart' as _i91;
+import 'errors/invalid_notification_exception.dart' as _i92;
+import 'errors/invalid_token_exception.dart' as _i93;
+import 'errors/last_owner_cannot_demote_exception.dart' as _i94;
+import 'errors/message_body_too_large_exception.dart' as _i95;
+import 'errors/message_deleted_exception.dart' as _i96;
+import 'errors/message_not_editable_exception.dart' as _i97;
+import 'errors/messenger_not_authenticated_exception.dart' as _i98;
+import 'errors/not_object_room_exception.dart' as _i99;
+import 'errors/not_support_team_member_exception.dart' as _i100;
+import 'errors/not_support_team_owner_exception.dart' as _i101;
+import 'errors/notification_in_progress_exception.dart' as _i102;
+import 'errors/operator_email_not_resolved_exception.dart' as _i103;
+import 'errors/peer_unavailable_exception.dart' as _i104;
+import 'errors/probe_target_not_allowed_exception.dart' as _i105;
+import 'errors/product_already_exists_exception.dart' as _i106;
+import 'errors/product_in_use_exception.dart' as _i107;
+import 'errors/product_not_found_exception.dart' as _i108;
+import 'errors/product_not_found_for_caller_exception.dart' as _i109;
+import 'errors/rate_limit_exceeded_exception.dart' as _i110;
+import 'errors/room_capacity_exceeded_exception.dart' as _i111;
+import 'errors/room_dissolve_partial_exception.dart' as _i112;
+import 'errors/room_unavailable_exception.dart' as _i113;
+import 'errors/screen_share_busy_exception.dart' as _i114;
+import 'errors/task_integration_not_configured_exception.dart' as _i115;
+import 'errors/team_access_denied_exception.dart' as _i116;
+import 'errors/team_peer_unknown_exception.dart' as _i117;
+import 'errors/tenant_already_exists_exception.dart' as _i118;
+import 'errors/tenant_not_found_exception.dart' as _i119;
+import 'errors/thumbnail_unavailable_exception.dart' as _i120;
+import 'errors/write_banned_exception.dart' as _i121;
+import 'escalation_result.dart' as _i122;
+import 'greetings/greeting.dart' as _i123;
+import 'identity_mapping.dart' as _i124;
+import 'incoming_webhook.dart' as _i125;
+import 'incoming_webhook_created.dart' as _i126;
+import 'link_preview.dart' as _i127;
+import 'link_preview_view.dart' as _i128;
+import 'message_index.dart' as _i129;
+import 'messenger_auth_context.dart' as _i130;
+import 'messenger_event.dart' as _i131;
+import 'messenger_message.dart' as _i132;
+import 'messenger_message_list_page.dart' as _i133;
+import 'messenger_session.dart' as _i134;
+import 'messenger_session_token.dart' as _i135;
+import 'messenger_user.dart' as _i136;
+import 'nearby_confirm_result.dart' as _i137;
+import 'nearby_confirmation.dart' as _i138;
+import 'notification_settings.dart' as _i139;
+import 'presence_conn_state.dart' as _i140;
+import 'presence_info.dart' as _i141;
+import 'presence_state.dart' as _i142;
+import 'presence_watched_index.dart' as _i143;
+import 'presence_watchers.dart' as _i144;
+import 'product.dart' as _i145;
+import 'product_admin_view.dart' as _i146;
+import 'product_announcement_view.dart' as _i147;
+import 'product_delivery_health.dart' as _i148;
+import 'product_notification.dart' as _i149;
+import 'product_notification_recipient_result.dart' as _i150;
+import 'product_notification_send_result.dart' as _i151;
+import 'product_object_room.dart' as _i152;
+import 'profile_translation.dart' as _i153;
+import 'pulse_access_audit_event.dart' as _i154;
+import 'pulse_access_entry.dart' as _i155;
+import 'pulse_alert_rule.dart' as _i156;
+import 'pulse_event.dart' as _i157;
+import 'pulse_expiry_reminder.dart' as _i158;
+import 'pulse_folder.dart' as _i159;
+import 'pulse_folder_membership.dart' as _i160;
+import 'pulse_incident.dart' as _i161;
+import 'pulse_member_view.dart' as _i162;
+import 'pulse_monitor.dart' as _i163;
+import 'pulse_monitor_created.dart' as _i164;
+import 'pulse_monitor_membership.dart' as _i165;
+import 'pulse_probe_allowlist_entry.dart' as _i166;
+import 'pulse_tls_probe.dart' as _i167;
+import 'pulse_value_threshold.dart' as _i168;
+import 'push_queue_message.dart' as _i169;
+import 'push_test_job.dart' as _i170;
+import 'push_test_result.dart' as _i171;
+import 'room.dart' as _i172;
+import 'room_bot_commands.dart' as _i173;
+import 'room_delivery_backstop.dart' as _i174;
+import 'room_details.dart' as _i175;
+import 'room_list_page.dart' as _i176;
+import 'room_membership.dart' as _i177;
+import 'room_participant.dart' as _i178;
+import 'room_summary.dart' as _i179;
+import 'room_task_stats.dart' as _i180;
+import 'room_task_view.dart' as _i181;
+import 'support_team.dart' as _i182;
+import 'support_team_exclusion.dart' as _i183;
+import 'support_team_member.dart' as _i184;
+import 'support_team_member_view.dart' as _i185;
+import 'support_team_view.dart' as _i186;
+import 'task_link.dart' as _i187;
+import 'task_manager_config.dart' as _i188;
+import 'team.dart' as _i189;
+import 'team_member.dart' as _i190;
+import 'team_member_view.dart' as _i191;
+import 'team_view.dart' as _i192;
+import 'tenant.dart' as _i193;
+import 'tenant_support_member.dart' as _i194;
+import 'tenant_support_member_view.dart' as _i195;
+import 'thread_read_state.dart' as _i196;
+import 'ticket.dart' as _i197;
+import 'ticket_event.dart' as _i198;
+import 'ticket_view.dart' as _i199;
+import 'trust_redeem_result.dart' as _i200;
+import 'trust_token.dart' as _i201;
+import 'trust_token_issued.dart' as _i202;
+import 'turn_credentials.dart' as _i203;
+import 'webhook_delivery.dart' as _i204;
+import 'webhook_event_message.dart' as _i205;
+import 'webhook_subscription.dart' as _i206;
 import 'package:nsg_connect_client/src/protocol/webhook_subscription.dart'
-    as _i195;
-import 'package:nsg_connect_client/src/protocol/webhook_delivery.dart' as _i196;
-import 'package:nsg_connect_client/src/protocol/announcement.dart' as _i197;
-import 'package:nsg_connect_client/src/protocol/bot_audit_event.dart' as _i198;
-import 'package:nsg_connect_client/src/protocol/bot.dart' as _i199;
-import 'package:nsg_connect_client/src/protocol/room_summary.dart' as _i200;
-import 'package:nsg_connect_client/src/protocol/available_bot.dart' as _i201;
-import 'package:nsg_connect_client/src/protocol/bot_integration_view.dart'
-    as _i202;
-import 'package:nsg_connect_client/src/protocol/connect_tenant_status.dart'
-    as _i203;
-import 'package:nsg_connect_client/src/protocol/product_delivery_health.dart'
-    as _i204;
-import 'package:nsg_connect_client/src/protocol/tenant_support_member_view.dart'
-    as _i205;
-import 'package:nsg_connect_client/src/protocol/product_admin_view.dart'
-    as _i206;
-import 'package:nsg_connect_client/src/protocol/connect_key_audit_event.dart'
     as _i207;
-import 'package:nsg_connect_client/src/protocol/team_view.dart' as _i208;
-import 'package:nsg_connect_client/src/protocol/team_member_view.dart' as _i209;
-import 'package:nsg_connect_client/src/protocol/device_session_info.dart'
-    as _i210;
-import 'package:nsg_connect_client/src/protocol/incoming_webhook.dart' as _i211;
-import 'package:nsg_connect_client/src/protocol/bot_command.dart' as _i212;
-import 'package:nsg_connect_client/src/protocol/room_bot_commands.dart'
-    as _i213;
-import 'package:nsg_connect_client/src/protocol/messenger_message.dart'
+import 'package:nsg_connect_client/src/protocol/webhook_delivery.dart' as _i208;
+import 'package:nsg_connect_client/src/protocol/announcement.dart' as _i209;
+import 'package:nsg_connect_client/src/protocol/bot_audit_event.dart' as _i210;
+import 'package:nsg_connect_client/src/protocol/bot.dart' as _i211;
+import 'package:nsg_connect_client/src/protocol/room_summary.dart' as _i212;
+import 'package:nsg_connect_client/src/protocol/available_bot.dart' as _i213;
+import 'package:nsg_connect_client/src/protocol/bot_integration_view.dart'
     as _i214;
-import 'package:nsg_connect_client/src/protocol/call_ice_candidate.dart'
+import 'package:nsg_connect_client/src/protocol/connect_tenant_status.dart'
     as _i215;
-import 'package:nsg_connect_client/src/protocol/call_history_entry.dart'
+import 'package:nsg_connect_client/src/protocol/product_delivery_health.dart'
     as _i216;
-import 'package:nsg_connect_client/src/protocol/messenger_event.dart' as _i217;
-import 'package:nsg_connect_client/src/protocol/link_preview_view.dart'
+import 'package:nsg_connect_client/src/protocol/tenant_support_member_view.dart'
+    as _i217;
+import 'package:nsg_connect_client/src/protocol/product_admin_view.dart'
     as _i218;
-import 'package:nsg_connect_client/src/protocol/room_participant.dart' as _i219;
-import 'package:nsg_connect_client/src/protocol/ticket_view.dart' as _i220;
-import 'package:nsg_connect_client/src/protocol/announcement_view.dart'
-    as _i221;
-import 'package:nsg_connect_client/src/protocol/room_task_view.dart' as _i222;
-import 'package:nsg_connect_client/src/protocol/presence_info.dart' as _i223;
-import 'package:nsg_connect_client/src/protocol/chat_folder_view.dart' as _i224;
-import 'package:nsg_connect_client/src/protocol/contact_request_view.dart'
-    as _i225;
-import 'package:nsg_connect_client/src/protocol/contact_label.dart' as _i226;
-import 'package:nsg_connect_client/src/protocol/contact_label_assignment.dart'
+import 'package:nsg_connect_client/src/protocol/connect_key_audit_event.dart'
+    as _i219;
+import 'package:nsg_connect_client/src/protocol/team_view.dart' as _i220;
+import 'package:nsg_connect_client/src/protocol/team_member_view.dart' as _i221;
+import 'package:nsg_connect_client/src/protocol/delivery_recipient_status.dart'
+    as _i222;
+import 'package:nsg_connect_client/src/protocol/device_session_info.dart'
+    as _i223;
+import 'package:nsg_connect_client/src/protocol/incoming_webhook.dart' as _i224;
+import 'package:nsg_connect_client/src/protocol/bot_command.dart' as _i225;
+import 'package:nsg_connect_client/src/protocol/room_bot_commands.dart'
+    as _i226;
+import 'package:nsg_connect_client/src/protocol/messenger_message.dart'
     as _i227;
-import 'package:nsg_connect_client/src/protocol/product_object_room.dart'
+import 'package:nsg_connect_client/src/protocol/call_ice_candidate.dart'
     as _i228;
-import 'package:nsg_connect_client/src/protocol/product.dart' as _i229;
-import 'package:nsg_connect_client/src/protocol/profile_translation.dart'
-    as _i230;
-import 'package:nsg_connect_client/src/protocol/pulse_folder.dart' as _i231;
-import 'package:nsg_connect_client/src/protocol/pulse_monitor.dart' as _i232;
-import 'package:nsg_connect_client/src/protocol/pulse_alert_rule.dart' as _i233;
-import 'package:nsg_connect_client/src/protocol/pulse_incident.dart' as _i234;
-import 'package:nsg_connect_client/src/protocol/pulse_access_entry.dart'
-    as _i235;
-import 'package:nsg_connect_client/src/protocol/pulse_member_view.dart'
-    as _i236;
-import 'package:nsg_connect_client/src/protocol/pulse_access_audit_event.dart'
-    as _i237;
-import 'package:nsg_connect_client/src/protocol/pulse_tls_probe.dart' as _i238;
-import 'package:nsg_connect_client/src/protocol/pulse_value_threshold.dart'
-    as _i239;
-import 'package:nsg_connect_client/src/protocol/pulse_probe_allowlist_entry.dart'
+import 'package:nsg_connect_client/src/protocol/call_history_entry.dart'
+    as _i229;
+import 'package:nsg_connect_client/src/protocol/messenger_event.dart' as _i230;
+import 'package:nsg_connect_client/src/protocol/link_preview_view.dart'
+    as _i231;
+import 'package:nsg_connect_client/src/protocol/room_participant.dart' as _i232;
+import 'package:nsg_connect_client/src/protocol/ticket_view.dart' as _i233;
+import 'package:nsg_connect_client/src/protocol/announcement_view.dart'
+    as _i234;
+import 'package:nsg_connect_client/src/protocol/room_task_view.dart' as _i235;
+import 'package:nsg_connect_client/src/protocol/presence_info.dart' as _i236;
+import 'package:nsg_connect_client/src/protocol/chat_folder_view.dart' as _i237;
+import 'package:nsg_connect_client/src/protocol/contact_request_view.dart'
+    as _i238;
+import 'package:nsg_connect_client/src/protocol/contact_label.dart' as _i239;
+import 'package:nsg_connect_client/src/protocol/contact_label_assignment.dart'
     as _i240;
-import 'package:serverpod_auth_idp_client/serverpod_auth_idp_client.dart'
+import 'package:nsg_connect_client/src/protocol/product_object_room.dart'
     as _i241;
+import 'package:nsg_connect_client/src/protocol/product.dart' as _i242;
+import 'package:nsg_connect_client/src/protocol/profile_translation.dart'
+    as _i243;
+import 'package:nsg_connect_client/src/protocol/product_announcement_view.dart'
+    as _i244;
+import 'package:nsg_connect_client/src/protocol/pulse_folder.dart' as _i245;
+import 'package:nsg_connect_client/src/protocol/pulse_monitor.dart' as _i246;
+import 'package:nsg_connect_client/src/protocol/pulse_alert_rule.dart' as _i247;
+import 'package:nsg_connect_client/src/protocol/pulse_incident.dart' as _i248;
+import 'package:nsg_connect_client/src/protocol/pulse_access_entry.dart'
+    as _i249;
+import 'package:nsg_connect_client/src/protocol/pulse_member_view.dart'
+    as _i250;
+import 'package:nsg_connect_client/src/protocol/pulse_access_audit_event.dart'
+    as _i251;
+import 'package:nsg_connect_client/src/protocol/pulse_tls_probe.dart' as _i252;
+import 'package:nsg_connect_client/src/protocol/pulse_value_threshold.dart'
+    as _i253;
+import 'package:nsg_connect_client/src/protocol/pulse_probe_allowlist_entry.dart'
+    as _i254;
+import 'package:serverpod_auth_idp_client/serverpod_auth_idp_client.dart'
+    as _i255;
 import 'package:serverpod_auth_core_client/serverpod_auth_core_client.dart'
-    as _i242;
+    as _i256;
 export 'announcement.dart';
+export 'announcement_recipient.dart';
 export 'announcement_seen.dart';
 export 'announcement_view.dart';
 export 'attachment_bytes.dart';
@@ -318,7 +335,14 @@ export 'contact_profile_view.dart';
 export 'contact_relation.dart';
 export 'contact_request.dart';
 export 'contact_request_view.dart';
+export 'delivery_journal_entry.dart';
+export 'delivery_journal_page.dart';
 export 'delivery_pending.dart';
+export 'delivery_recipient_state.dart';
+export 'delivery_recipient_status.dart';
+export 'delivery_silent_page.dart';
+export 'delivery_silent_recipient.dart';
+export 'delivery_usage.dart';
 export 'device_registration.dart';
 export 'device_registration_removal.dart';
 export 'device_session_info.dart';
@@ -369,6 +393,7 @@ export 'errors/messenger_not_authenticated_exception.dart';
 export 'errors/not_object_room_exception.dart';
 export 'errors/not_support_team_member_exception.dart';
 export 'errors/not_support_team_owner_exception.dart';
+export 'errors/notification_in_progress_exception.dart';
 export 'errors/operator_email_not_resolved_exception.dart';
 export 'errors/peer_unavailable_exception.dart';
 export 'errors/probe_target_not_allowed_exception.dart';
@@ -377,6 +402,7 @@ export 'errors/product_in_use_exception.dart';
 export 'errors/product_not_found_exception.dart';
 export 'errors/product_not_found_for_caller_exception.dart';
 export 'errors/rate_limit_exceeded_exception.dart';
+export 'errors/room_capacity_exceeded_exception.dart';
 export 'errors/room_dissolve_partial_exception.dart';
 export 'errors/room_unavailable_exception.dart';
 export 'errors/screen_share_busy_exception.dart';
@@ -412,6 +438,7 @@ export 'presence_watched_index.dart';
 export 'presence_watchers.dart';
 export 'product.dart';
 export 'product_admin_view.dart';
+export 'product_announcement_view.dart';
 export 'product_delivery_health.dart';
 export 'product_notification.dart';
 export 'product_notification_recipient_result.dart';
@@ -438,6 +465,7 @@ export 'push_test_job.dart';
 export 'push_test_result.dart';
 export 'room.dart';
 export 'room_bot_commands.dart';
+export 'room_delivery_backstop.dart';
 export 'room_details.dart';
 export 'room_list_page.dart';
 export 'room_membership.dart';
@@ -509,1348 +537,1443 @@ class Protocol extends _i1.SerializationManager {
     if (t == _i2.Announcement) {
       return _i2.Announcement.fromJson(data) as T;
     }
-    if (t == _i3.AnnouncementSeen) {
-      return _i3.AnnouncementSeen.fromJson(data) as T;
+    if (t == _i3.AnnouncementRecipient) {
+      return _i3.AnnouncementRecipient.fromJson(data) as T;
     }
-    if (t == _i4.AnnouncementView) {
-      return _i4.AnnouncementView.fromJson(data) as T;
+    if (t == _i4.AnnouncementSeen) {
+      return _i4.AnnouncementSeen.fromJson(data) as T;
     }
-    if (t == _i5.AttachmentBytes) {
-      return _i5.AttachmentBytes.fromJson(data) as T;
+    if (t == _i5.AnnouncementView) {
+      return _i5.AnnouncementView.fromJson(data) as T;
     }
-    if (t == _i6.AttachmentObject) {
-      return _i6.AttachmentObject.fromJson(data) as T;
+    if (t == _i6.AttachmentBytes) {
+      return _i6.AttachmentBytes.fromJson(data) as T;
     }
-    if (t == _i7.AttachmentPlacement) {
-      return _i7.AttachmentPlacement.fromJson(data) as T;
+    if (t == _i7.AttachmentObject) {
+      return _i7.AttachmentObject.fromJson(data) as T;
     }
-    if (t == _i8.AttachmentRef) {
-      return _i8.AttachmentRef.fromJson(data) as T;
+    if (t == _i8.AttachmentPlacement) {
+      return _i8.AttachmentPlacement.fromJson(data) as T;
     }
-    if (t == _i9.AttachmentUrl) {
-      return _i9.AttachmentUrl.fromJson(data) as T;
+    if (t == _i9.AttachmentRef) {
+      return _i9.AttachmentRef.fromJson(data) as T;
     }
-    if (t == _i10.AvailableBot) {
-      return _i10.AvailableBot.fromJson(data) as T;
+    if (t == _i10.AttachmentUrl) {
+      return _i10.AttachmentUrl.fromJson(data) as T;
     }
-    if (t == _i11.Bot) {
-      return _i11.Bot.fromJson(data) as T;
+    if (t == _i11.AvailableBot) {
+      return _i11.AvailableBot.fromJson(data) as T;
     }
-    if (t == _i12.BotAuditEvent) {
-      return _i12.BotAuditEvent.fromJson(data) as T;
+    if (t == _i12.Bot) {
+      return _i12.Bot.fromJson(data) as T;
     }
-    if (t == _i13.BotChannelHealth) {
-      return _i13.BotChannelHealth.fromJson(data) as T;
+    if (t == _i13.BotAuditEvent) {
+      return _i13.BotAuditEvent.fromJson(data) as T;
     }
-    if (t == _i14.BotCommand) {
-      return _i14.BotCommand.fromJson(data) as T;
+    if (t == _i14.BotChannelHealth) {
+      return _i14.BotChannelHealth.fromJson(data) as T;
     }
-    if (t == _i15.BotIntegrationCreated) {
-      return _i15.BotIntegrationCreated.fromJson(data) as T;
+    if (t == _i15.BotCommand) {
+      return _i15.BotCommand.fromJson(data) as T;
     }
-    if (t == _i16.BotIntegrationView) {
-      return _i16.BotIntegrationView.fromJson(data) as T;
+    if (t == _i16.BotIntegrationCreated) {
+      return _i16.BotIntegrationCreated.fromJson(data) as T;
     }
-    if (t == _i17.BotReadModeResult) {
-      return _i17.BotReadModeResult.fromJson(data) as T;
+    if (t == _i17.BotIntegrationView) {
+      return _i17.BotIntegrationView.fromJson(data) as T;
     }
-    if (t == _i18.CallHistoryEntry) {
-      return _i18.CallHistoryEntry.fromJson(data) as T;
+    if (t == _i18.BotReadModeResult) {
+      return _i18.BotReadModeResult.fromJson(data) as T;
     }
-    if (t == _i19.CallIceCandidate) {
-      return _i19.CallIceCandidate.fromJson(data) as T;
+    if (t == _i19.CallHistoryEntry) {
+      return _i19.CallHistoryEntry.fromJson(data) as T;
     }
-    if (t == _i20.ChatFolderRecord) {
-      return _i20.ChatFolderRecord.fromJson(data) as T;
+    if (t == _i20.CallIceCandidate) {
+      return _i20.CallIceCandidate.fromJson(data) as T;
     }
-    if (t == _i21.ChatFolderRoom) {
-      return _i21.ChatFolderRoom.fromJson(data) as T;
+    if (t == _i21.ChatFolderRecord) {
+      return _i21.ChatFolderRecord.fromJson(data) as T;
     }
-    if (t == _i22.ChatFolderView) {
-      return _i22.ChatFolderView.fromJson(data) as T;
+    if (t == _i22.ChatFolderRoom) {
+      return _i22.ChatFolderRoom.fromJson(data) as T;
     }
-    if (t == _i23.Conference) {
-      return _i23.Conference.fromJson(data) as T;
+    if (t == _i23.ChatFolderView) {
+      return _i23.ChatFolderView.fromJson(data) as T;
     }
-    if (t == _i24.ConferenceMember) {
-      return _i24.ConferenceMember.fromJson(data) as T;
+    if (t == _i24.Conference) {
+      return _i24.Conference.fromJson(data) as T;
     }
-    if (t == _i25.ConferenceParticipant) {
-      return _i25.ConferenceParticipant.fromJson(data) as T;
+    if (t == _i25.ConferenceMember) {
+      return _i25.ConferenceMember.fromJson(data) as T;
     }
-    if (t == _i26.ConferenceScreenShare) {
-      return _i26.ConferenceScreenShare.fromJson(data) as T;
+    if (t == _i26.ConferenceParticipant) {
+      return _i26.ConferenceParticipant.fromJson(data) as T;
     }
-    if (t == _i27.ConferenceState) {
-      return _i27.ConferenceState.fromJson(data) as T;
+    if (t == _i27.ConferenceScreenShare) {
+      return _i27.ConferenceScreenShare.fromJson(data) as T;
     }
-    if (t == _i28.ConnectIssuedToken) {
-      return _i28.ConnectIssuedToken.fromJson(data) as T;
+    if (t == _i28.ConferenceState) {
+      return _i28.ConferenceState.fromJson(data) as T;
     }
-    if (t == _i29.ConnectIssuedTokenResult) {
-      return _i29.ConnectIssuedTokenResult.fromJson(data) as T;
+    if (t == _i29.ConnectIssuedToken) {
+      return _i29.ConnectIssuedToken.fromJson(data) as T;
     }
-    if (t == _i30.ConnectKeyAuditEvent) {
-      return _i30.ConnectKeyAuditEvent.fromJson(data) as T;
+    if (t == _i30.ConnectIssuedTokenResult) {
+      return _i30.ConnectIssuedTokenResult.fromJson(data) as T;
     }
-    if (t == _i31.ConnectTenantStatus) {
-      return _i31.ConnectTenantStatus.fromJson(data) as T;
+    if (t == _i31.ConnectKeyAuditEvent) {
+      return _i31.ConnectKeyAuditEvent.fromJson(data) as T;
     }
-    if (t == _i32.ContactBlock) {
-      return _i32.ContactBlock.fromJson(data) as T;
+    if (t == _i32.ConnectTenantStatus) {
+      return _i32.ConnectTenantStatus.fromJson(data) as T;
     }
-    if (t == _i33.ContactCard) {
-      return _i33.ContactCard.fromJson(data) as T;
+    if (t == _i33.ContactBlock) {
+      return _i33.ContactBlock.fromJson(data) as T;
     }
-    if (t == _i34.ContactCardInfo) {
-      return _i34.ContactCardInfo.fromJson(data) as T;
+    if (t == _i34.ContactCard) {
+      return _i34.ContactCard.fromJson(data) as T;
     }
-    if (t == _i35.ContactLabel) {
-      return _i35.ContactLabel.fromJson(data) as T;
+    if (t == _i35.ContactCardInfo) {
+      return _i35.ContactCardInfo.fromJson(data) as T;
     }
-    if (t == _i36.ContactLabelAssignment) {
-      return _i36.ContactLabelAssignment.fromJson(data) as T;
+    if (t == _i36.ContactLabel) {
+      return _i36.ContactLabel.fromJson(data) as T;
     }
-    if (t == _i37.ContactLink) {
-      return _i37.ContactLink.fromJson(data) as T;
+    if (t == _i37.ContactLabelAssignment) {
+      return _i37.ContactLabelAssignment.fromJson(data) as T;
     }
-    if (t == _i38.ContactMeta) {
-      return _i38.ContactMeta.fromJson(data) as T;
+    if (t == _i38.ContactLink) {
+      return _i38.ContactLink.fromJson(data) as T;
     }
-    if (t == _i39.ContactProfileView) {
-      return _i39.ContactProfileView.fromJson(data) as T;
+    if (t == _i39.ContactMeta) {
+      return _i39.ContactMeta.fromJson(data) as T;
     }
-    if (t == _i40.ContactRelation) {
-      return _i40.ContactRelation.fromJson(data) as T;
+    if (t == _i40.ContactProfileView) {
+      return _i40.ContactProfileView.fromJson(data) as T;
     }
-    if (t == _i41.ContactRequest) {
-      return _i41.ContactRequest.fromJson(data) as T;
+    if (t == _i41.ContactRelation) {
+      return _i41.ContactRelation.fromJson(data) as T;
     }
-    if (t == _i42.ContactRequestView) {
-      return _i42.ContactRequestView.fromJson(data) as T;
+    if (t == _i42.ContactRequest) {
+      return _i42.ContactRequest.fromJson(data) as T;
     }
-    if (t == _i43.DeliveryPending) {
-      return _i43.DeliveryPending.fromJson(data) as T;
+    if (t == _i43.ContactRequestView) {
+      return _i43.ContactRequestView.fromJson(data) as T;
     }
-    if (t == _i44.DeviceRegistration) {
-      return _i44.DeviceRegistration.fromJson(data) as T;
+    if (t == _i44.DeliveryJournalEntry) {
+      return _i44.DeliveryJournalEntry.fromJson(data) as T;
     }
-    if (t == _i45.DeviceRegistrationRemoval) {
-      return _i45.DeviceRegistrationRemoval.fromJson(data) as T;
+    if (t == _i45.DeliveryJournalPage) {
+      return _i45.DeliveryJournalPage.fromJson(data) as T;
     }
-    if (t == _i46.DeviceSessionInfo) {
-      return _i46.DeviceSessionInfo.fromJson(data) as T;
+    if (t == _i46.DeliveryPending) {
+      return _i46.DeliveryPending.fromJson(data) as T;
     }
-    if (t == _i47.EmailAccount) {
-      return _i47.EmailAccount.fromJson(data) as T;
+    if (t == _i47.DeliveryRecipientState) {
+      return _i47.DeliveryRecipientState.fromJson(data) as T;
     }
-    if (t == _i48.EmailSession) {
-      return _i48.EmailSession.fromJson(data) as T;
+    if (t == _i48.DeliveryRecipientStatus) {
+      return _i48.DeliveryRecipientStatus.fromJson(data) as T;
     }
-    if (t == _i49.EmailVerificationCode) {
-      return _i49.EmailVerificationCode.fromJson(data) as T;
+    if (t == _i49.DeliverySilentPage) {
+      return _i49.DeliverySilentPage.fromJson(data) as T;
     }
-    if (t == _i50.AttachmentRejectReason) {
-      return _i50.AttachmentRejectReason.fromJson(data) as T;
+    if (t == _i50.DeliverySilentRecipient) {
+      return _i50.DeliverySilentRecipient.fromJson(data) as T;
     }
-    if (t == _i51.CallEventType) {
-      return _i51.CallEventType.fromJson(data) as T;
+    if (t == _i51.DeliveryUsage) {
+      return _i51.DeliveryUsage.fromJson(data) as T;
     }
-    if (t == _i52.CallStatus) {
-      return _i52.CallStatus.fromJson(data) as T;
+    if (t == _i52.DeviceRegistration) {
+      return _i52.DeviceRegistration.fromJson(data) as T;
     }
-    if (t == _i53.ContactLinkSource) {
-      return _i53.ContactLinkSource.fromJson(data) as T;
+    if (t == _i53.DeviceRegistrationRemoval) {
+      return _i53.DeviceRegistrationRemoval.fromJson(data) as T;
     }
-    if (t == _i54.ContactRequestStatus) {
-      return _i54.ContactRequestStatus.fromJson(data) as T;
+    if (t == _i54.DeviceSessionInfo) {
+      return _i54.DeviceSessionInfo.fromJson(data) as T;
     }
-    if (t == _i55.DevicePlatform) {
-      return _i55.DevicePlatform.fromJson(data) as T;
+    if (t == _i55.EmailAccount) {
+      return _i55.EmailAccount.fromJson(data) as T;
     }
-    if (t == _i56.DeviceRemovalReason) {
-      return _i56.DeviceRemovalReason.fromJson(data) as T;
+    if (t == _i56.EmailSession) {
+      return _i56.EmailSession.fromJson(data) as T;
     }
-    if (t == _i57.IdentityProvider) {
-      return _i57.IdentityProvider.fromJson(data) as T;
+    if (t == _i57.EmailVerificationCode) {
+      return _i57.EmailVerificationCode.fromJson(data) as T;
     }
-    if (t == _i58.MessengerEventType) {
-      return _i58.MessengerEventType.fromJson(data) as T;
+    if (t == _i58.AttachmentRejectReason) {
+      return _i58.AttachmentRejectReason.fromJson(data) as T;
     }
-    if (t == _i59.ParticipantKind) {
-      return _i59.ParticipantKind.fromJson(data) as T;
+    if (t == _i59.CallEventType) {
+      return _i59.CallEventType.fromJson(data) as T;
     }
-    if (t == _i60.ProductNotificationStatus) {
-      return _i60.ProductNotificationStatus.fromJson(data) as T;
+    if (t == _i60.CallStatus) {
+      return _i60.CallStatus.fromJson(data) as T;
     }
-    if (t == _i61.PushService) {
-      return _i61.PushService.fromJson(data) as T;
+    if (t == _i61.ContactLinkSource) {
+      return _i61.ContactLinkSource.fromJson(data) as T;
     }
-    if (t == _i62.RoomMemberRole) {
-      return _i62.RoomMemberRole.fromJson(data) as T;
+    if (t == _i62.ContactRequestStatus) {
+      return _i62.ContactRequestStatus.fromJson(data) as T;
     }
-    if (t == _i63.RoomOwnership) {
-      return _i63.RoomOwnership.fromJson(data) as T;
+    if (t == _i63.DevicePlatform) {
+      return _i63.DevicePlatform.fromJson(data) as T;
     }
-    if (t == _i64.RoomState) {
-      return _i64.RoomState.fromJson(data) as T;
+    if (t == _i64.DeviceRemovalReason) {
+      return _i64.DeviceRemovalReason.fromJson(data) as T;
     }
-    if (t == _i65.RoomType) {
-      return _i65.RoomType.fromJson(data) as T;
+    if (t == _i65.IdentityProvider) {
+      return _i65.IdentityProvider.fromJson(data) as T;
     }
-    if (t == _i66.SupportTeamRole) {
-      return _i66.SupportTeamRole.fromJson(data) as T;
+    if (t == _i66.MessengerEventType) {
+      return _i66.MessengerEventType.fromJson(data) as T;
     }
-    if (t == _i67.TeamKind) {
-      return _i67.TeamKind.fromJson(data) as T;
+    if (t == _i67.ParticipantKind) {
+      return _i67.ParticipantKind.fromJson(data) as T;
     }
-    if (t == _i68.TeamMemberRole) {
-      return _i68.TeamMemberRole.fromJson(data) as T;
+    if (t == _i68.ProductNotificationStatus) {
+      return _i68.ProductNotificationStatus.fromJson(data) as T;
     }
-    if (t == _i69.TenantHostingMode) {
-      return _i69.TenantHostingMode.fromJson(data) as T;
+    if (t == _i69.PushService) {
+      return _i69.PushService.fromJson(data) as T;
     }
-    if (t == _i70.TrustTokenKind) {
-      return _i70.TrustTokenKind.fromJson(data) as T;
+    if (t == _i70.RoomMemberRole) {
+      return _i70.RoomMemberRole.fromJson(data) as T;
     }
-    if (t == _i71.AdapterNotConfiguredException) {
-      return _i71.AdapterNotConfiguredException.fromJson(data) as T;
+    if (t == _i71.RoomOwnership) {
+      return _i71.RoomOwnership.fromJson(data) as T;
     }
-    if (t == _i72.AmbiguousProductKeyException) {
-      return _i72.AmbiguousProductKeyException.fromJson(data) as T;
+    if (t == _i72.RoomState) {
+      return _i72.RoomState.fromJson(data) as T;
     }
-    if (t == _i73.AttachmentAccessDeniedException) {
-      return _i73.AttachmentAccessDeniedException.fromJson(data) as T;
+    if (t == _i73.RoomType) {
+      return _i73.RoomType.fromJson(data) as T;
     }
-    if (t == _i74.AttachmentRejectedException) {
-      return _i74.AttachmentRejectedException.fromJson(data) as T;
+    if (t == _i74.SupportTeamRole) {
+      return _i74.SupportTeamRole.fromJson(data) as T;
     }
-    if (t == _i75.BotCapabilityException) {
-      return _i75.BotCapabilityException.fromJson(data) as T;
+    if (t == _i75.TeamKind) {
+      return _i75.TeamKind.fromJson(data) as T;
     }
-    if (t == _i76.BotLimitExceededException) {
-      return _i76.BotLimitExceededException.fromJson(data) as T;
+    if (t == _i76.TeamMemberRole) {
+      return _i76.TeamMemberRole.fromJson(data) as T;
     }
-    if (t == _i77.BotNotFoundException) {
-      return _i77.BotNotFoundException.fromJson(data) as T;
+    if (t == _i77.TenantHostingMode) {
+      return _i77.TenantHostingMode.fromJson(data) as T;
     }
-    if (t == _i78.BotReadRestrictedException) {
-      return _i78.BotReadRestrictedException.fromJson(data) as T;
+    if (t == _i78.TrustTokenKind) {
+      return _i78.TrustTokenKind.fromJson(data) as T;
     }
-    if (t == _i79.ConferenceFullException) {
-      return _i79.ConferenceFullException.fromJson(data) as T;
+    if (t == _i79.AdapterNotConfiguredException) {
+      return _i79.AdapterNotConfiguredException.fromJson(data) as T;
     }
-    if (t == _i80.EmailAuthException) {
-      return _i80.EmailAuthException.fromJson(data) as T;
+    if (t == _i80.AmbiguousProductKeyException) {
+      return _i80.AmbiguousProductKeyException.fromJson(data) as T;
     }
-    if (t == _i81.InsufficientPowerException) {
-      return _i81.InsufficientPowerException.fromJson(data) as T;
+    if (t == _i81.AttachmentAccessDeniedException) {
+      return _i81.AttachmentAccessDeniedException.fromJson(data) as T;
     }
-    if (t == _i82.InvalidBotCommandsException) {
-      return _i82.InvalidBotCommandsException.fromJson(data) as T;
+    if (t == _i82.AttachmentRejectedException) {
+      return _i82.AttachmentRejectedException.fromJson(data) as T;
     }
-    if (t == _i83.InvalidExternalKeyException) {
-      return _i83.InvalidExternalKeyException.fromJson(data) as T;
+    if (t == _i83.BotCapabilityException) {
+      return _i83.BotCapabilityException.fromJson(data) as T;
     }
-    if (t == _i84.InvalidNotificationException) {
-      return _i84.InvalidNotificationException.fromJson(data) as T;
+    if (t == _i84.BotLimitExceededException) {
+      return _i84.BotLimitExceededException.fromJson(data) as T;
     }
-    if (t == _i85.InvalidTokenException) {
-      return _i85.InvalidTokenException.fromJson(data) as T;
+    if (t == _i85.BotNotFoundException) {
+      return _i85.BotNotFoundException.fromJson(data) as T;
     }
-    if (t == _i86.LastOwnerCannotDemoteException) {
-      return _i86.LastOwnerCannotDemoteException.fromJson(data) as T;
+    if (t == _i86.BotReadRestrictedException) {
+      return _i86.BotReadRestrictedException.fromJson(data) as T;
     }
-    if (t == _i87.MessageBodyTooLargeException) {
-      return _i87.MessageBodyTooLargeException.fromJson(data) as T;
+    if (t == _i87.ConferenceFullException) {
+      return _i87.ConferenceFullException.fromJson(data) as T;
     }
-    if (t == _i88.MessageDeletedException) {
-      return _i88.MessageDeletedException.fromJson(data) as T;
+    if (t == _i88.EmailAuthException) {
+      return _i88.EmailAuthException.fromJson(data) as T;
     }
-    if (t == _i89.MessageNotEditableException) {
-      return _i89.MessageNotEditableException.fromJson(data) as T;
+    if (t == _i89.InsufficientPowerException) {
+      return _i89.InsufficientPowerException.fromJson(data) as T;
     }
-    if (t == _i90.MessengerNotAuthenticatedException) {
-      return _i90.MessengerNotAuthenticatedException.fromJson(data) as T;
+    if (t == _i90.InvalidBotCommandsException) {
+      return _i90.InvalidBotCommandsException.fromJson(data) as T;
     }
-    if (t == _i91.NotObjectRoomException) {
-      return _i91.NotObjectRoomException.fromJson(data) as T;
+    if (t == _i91.InvalidExternalKeyException) {
+      return _i91.InvalidExternalKeyException.fromJson(data) as T;
     }
-    if (t == _i92.NotSupportTeamMemberException) {
-      return _i92.NotSupportTeamMemberException.fromJson(data) as T;
+    if (t == _i92.InvalidNotificationException) {
+      return _i92.InvalidNotificationException.fromJson(data) as T;
     }
-    if (t == _i93.NotSupportTeamOwnerException) {
-      return _i93.NotSupportTeamOwnerException.fromJson(data) as T;
+    if (t == _i93.InvalidTokenException) {
+      return _i93.InvalidTokenException.fromJson(data) as T;
     }
-    if (t == _i94.OperatorEmailNotResolvedException) {
-      return _i94.OperatorEmailNotResolvedException.fromJson(data) as T;
+    if (t == _i94.LastOwnerCannotDemoteException) {
+      return _i94.LastOwnerCannotDemoteException.fromJson(data) as T;
     }
-    if (t == _i95.PeerUnavailableException) {
-      return _i95.PeerUnavailableException.fromJson(data) as T;
+    if (t == _i95.MessageBodyTooLargeException) {
+      return _i95.MessageBodyTooLargeException.fromJson(data) as T;
     }
-    if (t == _i96.ProbeTargetNotAllowedException) {
-      return _i96.ProbeTargetNotAllowedException.fromJson(data) as T;
+    if (t == _i96.MessageDeletedException) {
+      return _i96.MessageDeletedException.fromJson(data) as T;
     }
-    if (t == _i97.ProductAlreadyExistsException) {
-      return _i97.ProductAlreadyExistsException.fromJson(data) as T;
+    if (t == _i97.MessageNotEditableException) {
+      return _i97.MessageNotEditableException.fromJson(data) as T;
     }
-    if (t == _i98.ProductInUseException) {
-      return _i98.ProductInUseException.fromJson(data) as T;
+    if (t == _i98.MessengerNotAuthenticatedException) {
+      return _i98.MessengerNotAuthenticatedException.fromJson(data) as T;
     }
-    if (t == _i99.ProductNotFoundException) {
-      return _i99.ProductNotFoundException.fromJson(data) as T;
+    if (t == _i99.NotObjectRoomException) {
+      return _i99.NotObjectRoomException.fromJson(data) as T;
     }
-    if (t == _i100.ProductNotFoundForCallerException) {
-      return _i100.ProductNotFoundForCallerException.fromJson(data) as T;
+    if (t == _i100.NotSupportTeamMemberException) {
+      return _i100.NotSupportTeamMemberException.fromJson(data) as T;
     }
-    if (t == _i101.RateLimitExceededException) {
-      return _i101.RateLimitExceededException.fromJson(data) as T;
+    if (t == _i101.NotSupportTeamOwnerException) {
+      return _i101.NotSupportTeamOwnerException.fromJson(data) as T;
     }
-    if (t == _i102.RoomDissolvePartialException) {
-      return _i102.RoomDissolvePartialException.fromJson(data) as T;
+    if (t == _i102.NotificationInProgressException) {
+      return _i102.NotificationInProgressException.fromJson(data) as T;
     }
-    if (t == _i103.RoomUnavailableException) {
-      return _i103.RoomUnavailableException.fromJson(data) as T;
+    if (t == _i103.OperatorEmailNotResolvedException) {
+      return _i103.OperatorEmailNotResolvedException.fromJson(data) as T;
     }
-    if (t == _i104.ScreenShareBusyException) {
-      return _i104.ScreenShareBusyException.fromJson(data) as T;
+    if (t == _i104.PeerUnavailableException) {
+      return _i104.PeerUnavailableException.fromJson(data) as T;
     }
-    if (t == _i105.TaskIntegrationNotConfiguredException) {
-      return _i105.TaskIntegrationNotConfiguredException.fromJson(data) as T;
+    if (t == _i105.ProbeTargetNotAllowedException) {
+      return _i105.ProbeTargetNotAllowedException.fromJson(data) as T;
     }
-    if (t == _i106.TeamAccessDeniedException) {
-      return _i106.TeamAccessDeniedException.fromJson(data) as T;
+    if (t == _i106.ProductAlreadyExistsException) {
+      return _i106.ProductAlreadyExistsException.fromJson(data) as T;
     }
-    if (t == _i107.TeamPeerUnknownException) {
-      return _i107.TeamPeerUnknownException.fromJson(data) as T;
+    if (t == _i107.ProductInUseException) {
+      return _i107.ProductInUseException.fromJson(data) as T;
     }
-    if (t == _i108.TenantAlreadyExistsException) {
-      return _i108.TenantAlreadyExistsException.fromJson(data) as T;
+    if (t == _i108.ProductNotFoundException) {
+      return _i108.ProductNotFoundException.fromJson(data) as T;
     }
-    if (t == _i109.TenantNotFoundException) {
-      return _i109.TenantNotFoundException.fromJson(data) as T;
+    if (t == _i109.ProductNotFoundForCallerException) {
+      return _i109.ProductNotFoundForCallerException.fromJson(data) as T;
     }
-    if (t == _i110.ThumbnailUnavailableException) {
-      return _i110.ThumbnailUnavailableException.fromJson(data) as T;
+    if (t == _i110.RateLimitExceededException) {
+      return _i110.RateLimitExceededException.fromJson(data) as T;
     }
-    if (t == _i111.WriteBannedException) {
-      return _i111.WriteBannedException.fromJson(data) as T;
+    if (t == _i111.RoomCapacityExceededException) {
+      return _i111.RoomCapacityExceededException.fromJson(data) as T;
     }
-    if (t == _i112.EscalationResult) {
-      return _i112.EscalationResult.fromJson(data) as T;
+    if (t == _i112.RoomDissolvePartialException) {
+      return _i112.RoomDissolvePartialException.fromJson(data) as T;
     }
-    if (t == _i113.Greeting) {
-      return _i113.Greeting.fromJson(data) as T;
+    if (t == _i113.RoomUnavailableException) {
+      return _i113.RoomUnavailableException.fromJson(data) as T;
     }
-    if (t == _i114.IdentityMapping) {
-      return _i114.IdentityMapping.fromJson(data) as T;
+    if (t == _i114.ScreenShareBusyException) {
+      return _i114.ScreenShareBusyException.fromJson(data) as T;
     }
-    if (t == _i115.IncomingWebhook) {
-      return _i115.IncomingWebhook.fromJson(data) as T;
+    if (t == _i115.TaskIntegrationNotConfiguredException) {
+      return _i115.TaskIntegrationNotConfiguredException.fromJson(data) as T;
     }
-    if (t == _i116.IncomingWebhookCreated) {
-      return _i116.IncomingWebhookCreated.fromJson(data) as T;
+    if (t == _i116.TeamAccessDeniedException) {
+      return _i116.TeamAccessDeniedException.fromJson(data) as T;
     }
-    if (t == _i117.LinkPreview) {
-      return _i117.LinkPreview.fromJson(data) as T;
+    if (t == _i117.TeamPeerUnknownException) {
+      return _i117.TeamPeerUnknownException.fromJson(data) as T;
     }
-    if (t == _i118.LinkPreviewView) {
-      return _i118.LinkPreviewView.fromJson(data) as T;
+    if (t == _i118.TenantAlreadyExistsException) {
+      return _i118.TenantAlreadyExistsException.fromJson(data) as T;
     }
-    if (t == _i119.MessageIndex) {
-      return _i119.MessageIndex.fromJson(data) as T;
+    if (t == _i119.TenantNotFoundException) {
+      return _i119.TenantNotFoundException.fromJson(data) as T;
     }
-    if (t == _i120.MessengerAuthContext) {
-      return _i120.MessengerAuthContext.fromJson(data) as T;
+    if (t == _i120.ThumbnailUnavailableException) {
+      return _i120.ThumbnailUnavailableException.fromJson(data) as T;
     }
-    if (t == _i121.MessengerEvent) {
-      return _i121.MessengerEvent.fromJson(data) as T;
+    if (t == _i121.WriteBannedException) {
+      return _i121.WriteBannedException.fromJson(data) as T;
     }
-    if (t == _i122.MessengerMessage) {
-      return _i122.MessengerMessage.fromJson(data) as T;
+    if (t == _i122.EscalationResult) {
+      return _i122.EscalationResult.fromJson(data) as T;
     }
-    if (t == _i123.MessengerMessageListPage) {
-      return _i123.MessengerMessageListPage.fromJson(data) as T;
+    if (t == _i123.Greeting) {
+      return _i123.Greeting.fromJson(data) as T;
     }
-    if (t == _i124.MessengerSession) {
-      return _i124.MessengerSession.fromJson(data) as T;
+    if (t == _i124.IdentityMapping) {
+      return _i124.IdentityMapping.fromJson(data) as T;
     }
-    if (t == _i125.MessengerSessionToken) {
-      return _i125.MessengerSessionToken.fromJson(data) as T;
+    if (t == _i125.IncomingWebhook) {
+      return _i125.IncomingWebhook.fromJson(data) as T;
     }
-    if (t == _i126.MessengerUser) {
-      return _i126.MessengerUser.fromJson(data) as T;
+    if (t == _i126.IncomingWebhookCreated) {
+      return _i126.IncomingWebhookCreated.fromJson(data) as T;
     }
-    if (t == _i127.NearbyConfirmResult) {
-      return _i127.NearbyConfirmResult.fromJson(data) as T;
+    if (t == _i127.LinkPreview) {
+      return _i127.LinkPreview.fromJson(data) as T;
     }
-    if (t == _i128.NearbyConfirmation) {
-      return _i128.NearbyConfirmation.fromJson(data) as T;
+    if (t == _i128.LinkPreviewView) {
+      return _i128.LinkPreviewView.fromJson(data) as T;
     }
-    if (t == _i129.NotificationSettings) {
-      return _i129.NotificationSettings.fromJson(data) as T;
+    if (t == _i129.MessageIndex) {
+      return _i129.MessageIndex.fromJson(data) as T;
     }
-    if (t == _i130.PresenceConnState) {
-      return _i130.PresenceConnState.fromJson(data) as T;
+    if (t == _i130.MessengerAuthContext) {
+      return _i130.MessengerAuthContext.fromJson(data) as T;
     }
-    if (t == _i131.PresenceInfo) {
-      return _i131.PresenceInfo.fromJson(data) as T;
+    if (t == _i131.MessengerEvent) {
+      return _i131.MessengerEvent.fromJson(data) as T;
     }
-    if (t == _i132.PresenceState) {
-      return _i132.PresenceState.fromJson(data) as T;
+    if (t == _i132.MessengerMessage) {
+      return _i132.MessengerMessage.fromJson(data) as T;
     }
-    if (t == _i133.PresenceWatchedIndex) {
-      return _i133.PresenceWatchedIndex.fromJson(data) as T;
+    if (t == _i133.MessengerMessageListPage) {
+      return _i133.MessengerMessageListPage.fromJson(data) as T;
     }
-    if (t == _i134.PresenceWatchers) {
-      return _i134.PresenceWatchers.fromJson(data) as T;
+    if (t == _i134.MessengerSession) {
+      return _i134.MessengerSession.fromJson(data) as T;
     }
-    if (t == _i135.Product) {
-      return _i135.Product.fromJson(data) as T;
+    if (t == _i135.MessengerSessionToken) {
+      return _i135.MessengerSessionToken.fromJson(data) as T;
     }
-    if (t == _i136.ProductAdminView) {
-      return _i136.ProductAdminView.fromJson(data) as T;
+    if (t == _i136.MessengerUser) {
+      return _i136.MessengerUser.fromJson(data) as T;
     }
-    if (t == _i137.ProductDeliveryHealth) {
-      return _i137.ProductDeliveryHealth.fromJson(data) as T;
+    if (t == _i137.NearbyConfirmResult) {
+      return _i137.NearbyConfirmResult.fromJson(data) as T;
     }
-    if (t == _i138.ProductNotification) {
-      return _i138.ProductNotification.fromJson(data) as T;
+    if (t == _i138.NearbyConfirmation) {
+      return _i138.NearbyConfirmation.fromJson(data) as T;
     }
-    if (t == _i139.ProductNotificationRecipientResult) {
-      return _i139.ProductNotificationRecipientResult.fromJson(data) as T;
+    if (t == _i139.NotificationSettings) {
+      return _i139.NotificationSettings.fromJson(data) as T;
     }
-    if (t == _i140.ProductNotificationSendResult) {
-      return _i140.ProductNotificationSendResult.fromJson(data) as T;
+    if (t == _i140.PresenceConnState) {
+      return _i140.PresenceConnState.fromJson(data) as T;
     }
-    if (t == _i141.ProductObjectRoom) {
-      return _i141.ProductObjectRoom.fromJson(data) as T;
+    if (t == _i141.PresenceInfo) {
+      return _i141.PresenceInfo.fromJson(data) as T;
     }
-    if (t == _i142.ProfileTranslation) {
-      return _i142.ProfileTranslation.fromJson(data) as T;
+    if (t == _i142.PresenceState) {
+      return _i142.PresenceState.fromJson(data) as T;
     }
-    if (t == _i143.PulseAccessAuditEvent) {
-      return _i143.PulseAccessAuditEvent.fromJson(data) as T;
+    if (t == _i143.PresenceWatchedIndex) {
+      return _i143.PresenceWatchedIndex.fromJson(data) as T;
     }
-    if (t == _i144.PulseAccessEntry) {
-      return _i144.PulseAccessEntry.fromJson(data) as T;
+    if (t == _i144.PresenceWatchers) {
+      return _i144.PresenceWatchers.fromJson(data) as T;
     }
-    if (t == _i145.PulseAlertRule) {
-      return _i145.PulseAlertRule.fromJson(data) as T;
+    if (t == _i145.Product) {
+      return _i145.Product.fromJson(data) as T;
     }
-    if (t == _i146.PulseEvent) {
-      return _i146.PulseEvent.fromJson(data) as T;
+    if (t == _i146.ProductAdminView) {
+      return _i146.ProductAdminView.fromJson(data) as T;
     }
-    if (t == _i147.PulseExpiryReminder) {
-      return _i147.PulseExpiryReminder.fromJson(data) as T;
+    if (t == _i147.ProductAnnouncementView) {
+      return _i147.ProductAnnouncementView.fromJson(data) as T;
     }
-    if (t == _i148.PulseFolder) {
-      return _i148.PulseFolder.fromJson(data) as T;
+    if (t == _i148.ProductDeliveryHealth) {
+      return _i148.ProductDeliveryHealth.fromJson(data) as T;
     }
-    if (t == _i149.PulseFolderMembership) {
-      return _i149.PulseFolderMembership.fromJson(data) as T;
+    if (t == _i149.ProductNotification) {
+      return _i149.ProductNotification.fromJson(data) as T;
     }
-    if (t == _i150.PulseIncident) {
-      return _i150.PulseIncident.fromJson(data) as T;
+    if (t == _i150.ProductNotificationRecipientResult) {
+      return _i150.ProductNotificationRecipientResult.fromJson(data) as T;
     }
-    if (t == _i151.PulseMemberView) {
-      return _i151.PulseMemberView.fromJson(data) as T;
+    if (t == _i151.ProductNotificationSendResult) {
+      return _i151.ProductNotificationSendResult.fromJson(data) as T;
     }
-    if (t == _i152.PulseMonitor) {
-      return _i152.PulseMonitor.fromJson(data) as T;
+    if (t == _i152.ProductObjectRoom) {
+      return _i152.ProductObjectRoom.fromJson(data) as T;
     }
-    if (t == _i153.PulseMonitorCreated) {
-      return _i153.PulseMonitorCreated.fromJson(data) as T;
+    if (t == _i153.ProfileTranslation) {
+      return _i153.ProfileTranslation.fromJson(data) as T;
     }
-    if (t == _i154.PulseMonitorMembership) {
-      return _i154.PulseMonitorMembership.fromJson(data) as T;
+    if (t == _i154.PulseAccessAuditEvent) {
+      return _i154.PulseAccessAuditEvent.fromJson(data) as T;
     }
-    if (t == _i155.PulseProbeAllowlistEntry) {
-      return _i155.PulseProbeAllowlistEntry.fromJson(data) as T;
+    if (t == _i155.PulseAccessEntry) {
+      return _i155.PulseAccessEntry.fromJson(data) as T;
     }
-    if (t == _i156.PulseTlsProbe) {
-      return _i156.PulseTlsProbe.fromJson(data) as T;
+    if (t == _i156.PulseAlertRule) {
+      return _i156.PulseAlertRule.fromJson(data) as T;
     }
-    if (t == _i157.PulseValueThreshold) {
-      return _i157.PulseValueThreshold.fromJson(data) as T;
+    if (t == _i157.PulseEvent) {
+      return _i157.PulseEvent.fromJson(data) as T;
     }
-    if (t == _i158.PushQueueMessage) {
-      return _i158.PushQueueMessage.fromJson(data) as T;
+    if (t == _i158.PulseExpiryReminder) {
+      return _i158.PulseExpiryReminder.fromJson(data) as T;
     }
-    if (t == _i159.PushTestJob) {
-      return _i159.PushTestJob.fromJson(data) as T;
+    if (t == _i159.PulseFolder) {
+      return _i159.PulseFolder.fromJson(data) as T;
     }
-    if (t == _i160.PushTestResult) {
-      return _i160.PushTestResult.fromJson(data) as T;
+    if (t == _i160.PulseFolderMembership) {
+      return _i160.PulseFolderMembership.fromJson(data) as T;
     }
-    if (t == _i161.Room) {
-      return _i161.Room.fromJson(data) as T;
+    if (t == _i161.PulseIncident) {
+      return _i161.PulseIncident.fromJson(data) as T;
     }
-    if (t == _i162.RoomBotCommands) {
-      return _i162.RoomBotCommands.fromJson(data) as T;
+    if (t == _i162.PulseMemberView) {
+      return _i162.PulseMemberView.fromJson(data) as T;
     }
-    if (t == _i163.RoomDetails) {
-      return _i163.RoomDetails.fromJson(data) as T;
+    if (t == _i163.PulseMonitor) {
+      return _i163.PulseMonitor.fromJson(data) as T;
     }
-    if (t == _i164.RoomListPage) {
-      return _i164.RoomListPage.fromJson(data) as T;
+    if (t == _i164.PulseMonitorCreated) {
+      return _i164.PulseMonitorCreated.fromJson(data) as T;
     }
-    if (t == _i165.RoomMembership) {
-      return _i165.RoomMembership.fromJson(data) as T;
+    if (t == _i165.PulseMonitorMembership) {
+      return _i165.PulseMonitorMembership.fromJson(data) as T;
     }
-    if (t == _i166.RoomParticipant) {
-      return _i166.RoomParticipant.fromJson(data) as T;
+    if (t == _i166.PulseProbeAllowlistEntry) {
+      return _i166.PulseProbeAllowlistEntry.fromJson(data) as T;
     }
-    if (t == _i167.RoomSummary) {
-      return _i167.RoomSummary.fromJson(data) as T;
+    if (t == _i167.PulseTlsProbe) {
+      return _i167.PulseTlsProbe.fromJson(data) as T;
     }
-    if (t == _i168.RoomTaskStats) {
-      return _i168.RoomTaskStats.fromJson(data) as T;
+    if (t == _i168.PulseValueThreshold) {
+      return _i168.PulseValueThreshold.fromJson(data) as T;
     }
-    if (t == _i169.RoomTaskView) {
-      return _i169.RoomTaskView.fromJson(data) as T;
+    if (t == _i169.PushQueueMessage) {
+      return _i169.PushQueueMessage.fromJson(data) as T;
     }
-    if (t == _i170.SupportTeam) {
-      return _i170.SupportTeam.fromJson(data) as T;
+    if (t == _i170.PushTestJob) {
+      return _i170.PushTestJob.fromJson(data) as T;
     }
-    if (t == _i171.SupportTeamExclusion) {
-      return _i171.SupportTeamExclusion.fromJson(data) as T;
+    if (t == _i171.PushTestResult) {
+      return _i171.PushTestResult.fromJson(data) as T;
     }
-    if (t == _i172.SupportTeamMember) {
-      return _i172.SupportTeamMember.fromJson(data) as T;
+    if (t == _i172.Room) {
+      return _i172.Room.fromJson(data) as T;
     }
-    if (t == _i173.SupportTeamMemberView) {
-      return _i173.SupportTeamMemberView.fromJson(data) as T;
+    if (t == _i173.RoomBotCommands) {
+      return _i173.RoomBotCommands.fromJson(data) as T;
     }
-    if (t == _i174.SupportTeamView) {
-      return _i174.SupportTeamView.fromJson(data) as T;
+    if (t == _i174.RoomDeliveryBackstop) {
+      return _i174.RoomDeliveryBackstop.fromJson(data) as T;
     }
-    if (t == _i175.TaskLink) {
-      return _i175.TaskLink.fromJson(data) as T;
+    if (t == _i175.RoomDetails) {
+      return _i175.RoomDetails.fromJson(data) as T;
     }
-    if (t == _i176.TaskManagerConfig) {
-      return _i176.TaskManagerConfig.fromJson(data) as T;
+    if (t == _i176.RoomListPage) {
+      return _i176.RoomListPage.fromJson(data) as T;
     }
-    if (t == _i177.Team) {
-      return _i177.Team.fromJson(data) as T;
+    if (t == _i177.RoomMembership) {
+      return _i177.RoomMembership.fromJson(data) as T;
     }
-    if (t == _i178.TeamMember) {
-      return _i178.TeamMember.fromJson(data) as T;
+    if (t == _i178.RoomParticipant) {
+      return _i178.RoomParticipant.fromJson(data) as T;
     }
-    if (t == _i179.TeamMemberView) {
-      return _i179.TeamMemberView.fromJson(data) as T;
+    if (t == _i179.RoomSummary) {
+      return _i179.RoomSummary.fromJson(data) as T;
     }
-    if (t == _i180.TeamView) {
-      return _i180.TeamView.fromJson(data) as T;
+    if (t == _i180.RoomTaskStats) {
+      return _i180.RoomTaskStats.fromJson(data) as T;
     }
-    if (t == _i181.Tenant) {
-      return _i181.Tenant.fromJson(data) as T;
+    if (t == _i181.RoomTaskView) {
+      return _i181.RoomTaskView.fromJson(data) as T;
     }
-    if (t == _i182.TenantSupportMember) {
-      return _i182.TenantSupportMember.fromJson(data) as T;
+    if (t == _i182.SupportTeam) {
+      return _i182.SupportTeam.fromJson(data) as T;
     }
-    if (t == _i183.TenantSupportMemberView) {
-      return _i183.TenantSupportMemberView.fromJson(data) as T;
+    if (t == _i183.SupportTeamExclusion) {
+      return _i183.SupportTeamExclusion.fromJson(data) as T;
     }
-    if (t == _i184.ThreadReadState) {
-      return _i184.ThreadReadState.fromJson(data) as T;
+    if (t == _i184.SupportTeamMember) {
+      return _i184.SupportTeamMember.fromJson(data) as T;
     }
-    if (t == _i185.Ticket) {
-      return _i185.Ticket.fromJson(data) as T;
+    if (t == _i185.SupportTeamMemberView) {
+      return _i185.SupportTeamMemberView.fromJson(data) as T;
     }
-    if (t == _i186.TicketEvent) {
-      return _i186.TicketEvent.fromJson(data) as T;
+    if (t == _i186.SupportTeamView) {
+      return _i186.SupportTeamView.fromJson(data) as T;
     }
-    if (t == _i187.TicketView) {
-      return _i187.TicketView.fromJson(data) as T;
+    if (t == _i187.TaskLink) {
+      return _i187.TaskLink.fromJson(data) as T;
     }
-    if (t == _i188.TrustRedeemResult) {
-      return _i188.TrustRedeemResult.fromJson(data) as T;
+    if (t == _i188.TaskManagerConfig) {
+      return _i188.TaskManagerConfig.fromJson(data) as T;
     }
-    if (t == _i189.TrustToken) {
-      return _i189.TrustToken.fromJson(data) as T;
+    if (t == _i189.Team) {
+      return _i189.Team.fromJson(data) as T;
     }
-    if (t == _i190.TrustTokenIssued) {
-      return _i190.TrustTokenIssued.fromJson(data) as T;
+    if (t == _i190.TeamMember) {
+      return _i190.TeamMember.fromJson(data) as T;
     }
-    if (t == _i191.TurnCredentials) {
-      return _i191.TurnCredentials.fromJson(data) as T;
+    if (t == _i191.TeamMemberView) {
+      return _i191.TeamMemberView.fromJson(data) as T;
     }
-    if (t == _i192.WebhookDelivery) {
-      return _i192.WebhookDelivery.fromJson(data) as T;
+    if (t == _i192.TeamView) {
+      return _i192.TeamView.fromJson(data) as T;
     }
-    if (t == _i193.WebhookEventMessage) {
-      return _i193.WebhookEventMessage.fromJson(data) as T;
+    if (t == _i193.Tenant) {
+      return _i193.Tenant.fromJson(data) as T;
     }
-    if (t == _i194.WebhookSubscription) {
-      return _i194.WebhookSubscription.fromJson(data) as T;
+    if (t == _i194.TenantSupportMember) {
+      return _i194.TenantSupportMember.fromJson(data) as T;
+    }
+    if (t == _i195.TenantSupportMemberView) {
+      return _i195.TenantSupportMemberView.fromJson(data) as T;
+    }
+    if (t == _i196.ThreadReadState) {
+      return _i196.ThreadReadState.fromJson(data) as T;
+    }
+    if (t == _i197.Ticket) {
+      return _i197.Ticket.fromJson(data) as T;
+    }
+    if (t == _i198.TicketEvent) {
+      return _i198.TicketEvent.fromJson(data) as T;
+    }
+    if (t == _i199.TicketView) {
+      return _i199.TicketView.fromJson(data) as T;
+    }
+    if (t == _i200.TrustRedeemResult) {
+      return _i200.TrustRedeemResult.fromJson(data) as T;
+    }
+    if (t == _i201.TrustToken) {
+      return _i201.TrustToken.fromJson(data) as T;
+    }
+    if (t == _i202.TrustTokenIssued) {
+      return _i202.TrustTokenIssued.fromJson(data) as T;
+    }
+    if (t == _i203.TurnCredentials) {
+      return _i203.TurnCredentials.fromJson(data) as T;
+    }
+    if (t == _i204.WebhookDelivery) {
+      return _i204.WebhookDelivery.fromJson(data) as T;
+    }
+    if (t == _i205.WebhookEventMessage) {
+      return _i205.WebhookEventMessage.fromJson(data) as T;
+    }
+    if (t == _i206.WebhookSubscription) {
+      return _i206.WebhookSubscription.fromJson(data) as T;
     }
     if (t == _i1.getType<_i2.Announcement?>()) {
       return (data != null ? _i2.Announcement.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i3.AnnouncementSeen?>()) {
-      return (data != null ? _i3.AnnouncementSeen.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i4.AnnouncementView?>()) {
-      return (data != null ? _i4.AnnouncementView.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i5.AttachmentBytes?>()) {
-      return (data != null ? _i5.AttachmentBytes.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i6.AttachmentObject?>()) {
-      return (data != null ? _i6.AttachmentObject.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i7.AttachmentPlacement?>()) {
-      return (data != null ? _i7.AttachmentPlacement.fromJson(data) : null)
+    if (t == _i1.getType<_i3.AnnouncementRecipient?>()) {
+      return (data != null ? _i3.AnnouncementRecipient.fromJson(data) : null)
           as T;
     }
-    if (t == _i1.getType<_i8.AttachmentRef?>()) {
-      return (data != null ? _i8.AttachmentRef.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i4.AnnouncementSeen?>()) {
+      return (data != null ? _i4.AnnouncementSeen.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i9.AttachmentUrl?>()) {
-      return (data != null ? _i9.AttachmentUrl.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i5.AnnouncementView?>()) {
+      return (data != null ? _i5.AnnouncementView.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i10.AvailableBot?>()) {
-      return (data != null ? _i10.AvailableBot.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i6.AttachmentBytes?>()) {
+      return (data != null ? _i6.AttachmentBytes.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i11.Bot?>()) {
-      return (data != null ? _i11.Bot.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i7.AttachmentObject?>()) {
+      return (data != null ? _i7.AttachmentObject.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i12.BotAuditEvent?>()) {
-      return (data != null ? _i12.BotAuditEvent.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i13.BotChannelHealth?>()) {
-      return (data != null ? _i13.BotChannelHealth.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i14.BotCommand?>()) {
-      return (data != null ? _i14.BotCommand.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i15.BotIntegrationCreated?>()) {
-      return (data != null ? _i15.BotIntegrationCreated.fromJson(data) : null)
+    if (t == _i1.getType<_i8.AttachmentPlacement?>()) {
+      return (data != null ? _i8.AttachmentPlacement.fromJson(data) : null)
           as T;
     }
-    if (t == _i1.getType<_i16.BotIntegrationView?>()) {
-      return (data != null ? _i16.BotIntegrationView.fromJson(data) : null)
+    if (t == _i1.getType<_i9.AttachmentRef?>()) {
+      return (data != null ? _i9.AttachmentRef.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i10.AttachmentUrl?>()) {
+      return (data != null ? _i10.AttachmentUrl.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i11.AvailableBot?>()) {
+      return (data != null ? _i11.AvailableBot.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i12.Bot?>()) {
+      return (data != null ? _i12.Bot.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i13.BotAuditEvent?>()) {
+      return (data != null ? _i13.BotAuditEvent.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i14.BotChannelHealth?>()) {
+      return (data != null ? _i14.BotChannelHealth.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i15.BotCommand?>()) {
+      return (data != null ? _i15.BotCommand.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i16.BotIntegrationCreated?>()) {
+      return (data != null ? _i16.BotIntegrationCreated.fromJson(data) : null)
           as T;
     }
-    if (t == _i1.getType<_i17.BotReadModeResult?>()) {
-      return (data != null ? _i17.BotReadModeResult.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i18.CallHistoryEntry?>()) {
-      return (data != null ? _i18.CallHistoryEntry.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i19.CallIceCandidate?>()) {
-      return (data != null ? _i19.CallIceCandidate.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i20.ChatFolderRecord?>()) {
-      return (data != null ? _i20.ChatFolderRecord.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i21.ChatFolderRoom?>()) {
-      return (data != null ? _i21.ChatFolderRoom.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i22.ChatFolderView?>()) {
-      return (data != null ? _i22.ChatFolderView.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i23.Conference?>()) {
-      return (data != null ? _i23.Conference.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i24.ConferenceMember?>()) {
-      return (data != null ? _i24.ConferenceMember.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i25.ConferenceParticipant?>()) {
-      return (data != null ? _i25.ConferenceParticipant.fromJson(data) : null)
+    if (t == _i1.getType<_i17.BotIntegrationView?>()) {
+      return (data != null ? _i17.BotIntegrationView.fromJson(data) : null)
           as T;
     }
-    if (t == _i1.getType<_i26.ConferenceScreenShare?>()) {
-      return (data != null ? _i26.ConferenceScreenShare.fromJson(data) : null)
+    if (t == _i1.getType<_i18.BotReadModeResult?>()) {
+      return (data != null ? _i18.BotReadModeResult.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i19.CallHistoryEntry?>()) {
+      return (data != null ? _i19.CallHistoryEntry.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i20.CallIceCandidate?>()) {
+      return (data != null ? _i20.CallIceCandidate.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i21.ChatFolderRecord?>()) {
+      return (data != null ? _i21.ChatFolderRecord.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i22.ChatFolderRoom?>()) {
+      return (data != null ? _i22.ChatFolderRoom.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i23.ChatFolderView?>()) {
+      return (data != null ? _i23.ChatFolderView.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i24.Conference?>()) {
+      return (data != null ? _i24.Conference.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i25.ConferenceMember?>()) {
+      return (data != null ? _i25.ConferenceMember.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i26.ConferenceParticipant?>()) {
+      return (data != null ? _i26.ConferenceParticipant.fromJson(data) : null)
           as T;
     }
-    if (t == _i1.getType<_i27.ConferenceState?>()) {
-      return (data != null ? _i27.ConferenceState.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i28.ConnectIssuedToken?>()) {
-      return (data != null ? _i28.ConnectIssuedToken.fromJson(data) : null)
+    if (t == _i1.getType<_i27.ConferenceScreenShare?>()) {
+      return (data != null ? _i27.ConferenceScreenShare.fromJson(data) : null)
           as T;
     }
-    if (t == _i1.getType<_i29.ConnectIssuedTokenResult?>()) {
+    if (t == _i1.getType<_i28.ConferenceState?>()) {
+      return (data != null ? _i28.ConferenceState.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i29.ConnectIssuedToken?>()) {
+      return (data != null ? _i29.ConnectIssuedToken.fromJson(data) : null)
+          as T;
+    }
+    if (t == _i1.getType<_i30.ConnectIssuedTokenResult?>()) {
       return (data != null
-              ? _i29.ConnectIssuedTokenResult.fromJson(data)
+              ? _i30.ConnectIssuedTokenResult.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i1.getType<_i30.ConnectKeyAuditEvent?>()) {
-      return (data != null ? _i30.ConnectKeyAuditEvent.fromJson(data) : null)
+    if (t == _i1.getType<_i31.ConnectKeyAuditEvent?>()) {
+      return (data != null ? _i31.ConnectKeyAuditEvent.fromJson(data) : null)
           as T;
     }
-    if (t == _i1.getType<_i31.ConnectTenantStatus?>()) {
-      return (data != null ? _i31.ConnectTenantStatus.fromJson(data) : null)
+    if (t == _i1.getType<_i32.ConnectTenantStatus?>()) {
+      return (data != null ? _i32.ConnectTenantStatus.fromJson(data) : null)
           as T;
     }
-    if (t == _i1.getType<_i32.ContactBlock?>()) {
-      return (data != null ? _i32.ContactBlock.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i33.ContactBlock?>()) {
+      return (data != null ? _i33.ContactBlock.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i33.ContactCard?>()) {
-      return (data != null ? _i33.ContactCard.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i34.ContactCard?>()) {
+      return (data != null ? _i34.ContactCard.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i34.ContactCardInfo?>()) {
-      return (data != null ? _i34.ContactCardInfo.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i35.ContactCardInfo?>()) {
+      return (data != null ? _i35.ContactCardInfo.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i35.ContactLabel?>()) {
-      return (data != null ? _i35.ContactLabel.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i36.ContactLabel?>()) {
+      return (data != null ? _i36.ContactLabel.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i36.ContactLabelAssignment?>()) {
-      return (data != null ? _i36.ContactLabelAssignment.fromJson(data) : null)
+    if (t == _i1.getType<_i37.ContactLabelAssignment?>()) {
+      return (data != null ? _i37.ContactLabelAssignment.fromJson(data) : null)
           as T;
     }
-    if (t == _i1.getType<_i37.ContactLink?>()) {
-      return (data != null ? _i37.ContactLink.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i38.ContactLink?>()) {
+      return (data != null ? _i38.ContactLink.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i38.ContactMeta?>()) {
-      return (data != null ? _i38.ContactMeta.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i39.ContactMeta?>()) {
+      return (data != null ? _i39.ContactMeta.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i39.ContactProfileView?>()) {
-      return (data != null ? _i39.ContactProfileView.fromJson(data) : null)
+    if (t == _i1.getType<_i40.ContactProfileView?>()) {
+      return (data != null ? _i40.ContactProfileView.fromJson(data) : null)
           as T;
     }
-    if (t == _i1.getType<_i40.ContactRelation?>()) {
-      return (data != null ? _i40.ContactRelation.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i41.ContactRelation?>()) {
+      return (data != null ? _i41.ContactRelation.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i41.ContactRequest?>()) {
-      return (data != null ? _i41.ContactRequest.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i42.ContactRequest?>()) {
+      return (data != null ? _i42.ContactRequest.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i42.ContactRequestView?>()) {
-      return (data != null ? _i42.ContactRequestView.fromJson(data) : null)
+    if (t == _i1.getType<_i43.ContactRequestView?>()) {
+      return (data != null ? _i43.ContactRequestView.fromJson(data) : null)
           as T;
     }
-    if (t == _i1.getType<_i43.DeliveryPending?>()) {
-      return (data != null ? _i43.DeliveryPending.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i44.DeviceRegistration?>()) {
-      return (data != null ? _i44.DeviceRegistration.fromJson(data) : null)
+    if (t == _i1.getType<_i44.DeliveryJournalEntry?>()) {
+      return (data != null ? _i44.DeliveryJournalEntry.fromJson(data) : null)
           as T;
     }
-    if (t == _i1.getType<_i45.DeviceRegistrationRemoval?>()) {
+    if (t == _i1.getType<_i45.DeliveryJournalPage?>()) {
+      return (data != null ? _i45.DeliveryJournalPage.fromJson(data) : null)
+          as T;
+    }
+    if (t == _i1.getType<_i46.DeliveryPending?>()) {
+      return (data != null ? _i46.DeliveryPending.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i47.DeliveryRecipientState?>()) {
+      return (data != null ? _i47.DeliveryRecipientState.fromJson(data) : null)
+          as T;
+    }
+    if (t == _i1.getType<_i48.DeliveryRecipientStatus?>()) {
+      return (data != null ? _i48.DeliveryRecipientStatus.fromJson(data) : null)
+          as T;
+    }
+    if (t == _i1.getType<_i49.DeliverySilentPage?>()) {
+      return (data != null ? _i49.DeliverySilentPage.fromJson(data) : null)
+          as T;
+    }
+    if (t == _i1.getType<_i50.DeliverySilentRecipient?>()) {
+      return (data != null ? _i50.DeliverySilentRecipient.fromJson(data) : null)
+          as T;
+    }
+    if (t == _i1.getType<_i51.DeliveryUsage?>()) {
+      return (data != null ? _i51.DeliveryUsage.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i52.DeviceRegistration?>()) {
+      return (data != null ? _i52.DeviceRegistration.fromJson(data) : null)
+          as T;
+    }
+    if (t == _i1.getType<_i53.DeviceRegistrationRemoval?>()) {
       return (data != null
-              ? _i45.DeviceRegistrationRemoval.fromJson(data)
+              ? _i53.DeviceRegistrationRemoval.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i1.getType<_i46.DeviceSessionInfo?>()) {
-      return (data != null ? _i46.DeviceSessionInfo.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i54.DeviceSessionInfo?>()) {
+      return (data != null ? _i54.DeviceSessionInfo.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i47.EmailAccount?>()) {
-      return (data != null ? _i47.EmailAccount.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i55.EmailAccount?>()) {
+      return (data != null ? _i55.EmailAccount.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i48.EmailSession?>()) {
-      return (data != null ? _i48.EmailSession.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i56.EmailSession?>()) {
+      return (data != null ? _i56.EmailSession.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i49.EmailVerificationCode?>()) {
-      return (data != null ? _i49.EmailVerificationCode.fromJson(data) : null)
+    if (t == _i1.getType<_i57.EmailVerificationCode?>()) {
+      return (data != null ? _i57.EmailVerificationCode.fromJson(data) : null)
           as T;
     }
-    if (t == _i1.getType<_i50.AttachmentRejectReason?>()) {
-      return (data != null ? _i50.AttachmentRejectReason.fromJson(data) : null)
+    if (t == _i1.getType<_i58.AttachmentRejectReason?>()) {
+      return (data != null ? _i58.AttachmentRejectReason.fromJson(data) : null)
           as T;
     }
-    if (t == _i1.getType<_i51.CallEventType?>()) {
-      return (data != null ? _i51.CallEventType.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i59.CallEventType?>()) {
+      return (data != null ? _i59.CallEventType.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i52.CallStatus?>()) {
-      return (data != null ? _i52.CallStatus.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i60.CallStatus?>()) {
+      return (data != null ? _i60.CallStatus.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i53.ContactLinkSource?>()) {
-      return (data != null ? _i53.ContactLinkSource.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i61.ContactLinkSource?>()) {
+      return (data != null ? _i61.ContactLinkSource.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i54.ContactRequestStatus?>()) {
-      return (data != null ? _i54.ContactRequestStatus.fromJson(data) : null)
+    if (t == _i1.getType<_i62.ContactRequestStatus?>()) {
+      return (data != null ? _i62.ContactRequestStatus.fromJson(data) : null)
           as T;
     }
-    if (t == _i1.getType<_i55.DevicePlatform?>()) {
-      return (data != null ? _i55.DevicePlatform.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i63.DevicePlatform?>()) {
+      return (data != null ? _i63.DevicePlatform.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i56.DeviceRemovalReason?>()) {
-      return (data != null ? _i56.DeviceRemovalReason.fromJson(data) : null)
+    if (t == _i1.getType<_i64.DeviceRemovalReason?>()) {
+      return (data != null ? _i64.DeviceRemovalReason.fromJson(data) : null)
           as T;
     }
-    if (t == _i1.getType<_i57.IdentityProvider?>()) {
-      return (data != null ? _i57.IdentityProvider.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i65.IdentityProvider?>()) {
+      return (data != null ? _i65.IdentityProvider.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i58.MessengerEventType?>()) {
-      return (data != null ? _i58.MessengerEventType.fromJson(data) : null)
+    if (t == _i1.getType<_i66.MessengerEventType?>()) {
+      return (data != null ? _i66.MessengerEventType.fromJson(data) : null)
           as T;
     }
-    if (t == _i1.getType<_i59.ParticipantKind?>()) {
-      return (data != null ? _i59.ParticipantKind.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i67.ParticipantKind?>()) {
+      return (data != null ? _i67.ParticipantKind.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i60.ProductNotificationStatus?>()) {
+    if (t == _i1.getType<_i68.ProductNotificationStatus?>()) {
       return (data != null
-              ? _i60.ProductNotificationStatus.fromJson(data)
+              ? _i68.ProductNotificationStatus.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i1.getType<_i61.PushService?>()) {
-      return (data != null ? _i61.PushService.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i69.PushService?>()) {
+      return (data != null ? _i69.PushService.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i62.RoomMemberRole?>()) {
-      return (data != null ? _i62.RoomMemberRole.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i70.RoomMemberRole?>()) {
+      return (data != null ? _i70.RoomMemberRole.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i63.RoomOwnership?>()) {
-      return (data != null ? _i63.RoomOwnership.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i71.RoomOwnership?>()) {
+      return (data != null ? _i71.RoomOwnership.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i64.RoomState?>()) {
-      return (data != null ? _i64.RoomState.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i72.RoomState?>()) {
+      return (data != null ? _i72.RoomState.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i65.RoomType?>()) {
-      return (data != null ? _i65.RoomType.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i73.RoomType?>()) {
+      return (data != null ? _i73.RoomType.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i66.SupportTeamRole?>()) {
-      return (data != null ? _i66.SupportTeamRole.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i74.SupportTeamRole?>()) {
+      return (data != null ? _i74.SupportTeamRole.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i67.TeamKind?>()) {
-      return (data != null ? _i67.TeamKind.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i75.TeamKind?>()) {
+      return (data != null ? _i75.TeamKind.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i68.TeamMemberRole?>()) {
-      return (data != null ? _i68.TeamMemberRole.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i76.TeamMemberRole?>()) {
+      return (data != null ? _i76.TeamMemberRole.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i69.TenantHostingMode?>()) {
-      return (data != null ? _i69.TenantHostingMode.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i77.TenantHostingMode?>()) {
+      return (data != null ? _i77.TenantHostingMode.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i70.TrustTokenKind?>()) {
-      return (data != null ? _i70.TrustTokenKind.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i78.TrustTokenKind?>()) {
+      return (data != null ? _i78.TrustTokenKind.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i71.AdapterNotConfiguredException?>()) {
+    if (t == _i1.getType<_i79.AdapterNotConfiguredException?>()) {
       return (data != null
-              ? _i71.AdapterNotConfiguredException.fromJson(data)
+              ? _i79.AdapterNotConfiguredException.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i1.getType<_i72.AmbiguousProductKeyException?>()) {
+    if (t == _i1.getType<_i80.AmbiguousProductKeyException?>()) {
       return (data != null
-              ? _i72.AmbiguousProductKeyException.fromJson(data)
+              ? _i80.AmbiguousProductKeyException.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i1.getType<_i73.AttachmentAccessDeniedException?>()) {
+    if (t == _i1.getType<_i81.AttachmentAccessDeniedException?>()) {
       return (data != null
-              ? _i73.AttachmentAccessDeniedException.fromJson(data)
+              ? _i81.AttachmentAccessDeniedException.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i1.getType<_i74.AttachmentRejectedException?>()) {
+    if (t == _i1.getType<_i82.AttachmentRejectedException?>()) {
       return (data != null
-              ? _i74.AttachmentRejectedException.fromJson(data)
+              ? _i82.AttachmentRejectedException.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i1.getType<_i75.BotCapabilityException?>()) {
-      return (data != null ? _i75.BotCapabilityException.fromJson(data) : null)
+    if (t == _i1.getType<_i83.BotCapabilityException?>()) {
+      return (data != null ? _i83.BotCapabilityException.fromJson(data) : null)
           as T;
     }
-    if (t == _i1.getType<_i76.BotLimitExceededException?>()) {
+    if (t == _i1.getType<_i84.BotLimitExceededException?>()) {
       return (data != null
-              ? _i76.BotLimitExceededException.fromJson(data)
+              ? _i84.BotLimitExceededException.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i1.getType<_i77.BotNotFoundException?>()) {
-      return (data != null ? _i77.BotNotFoundException.fromJson(data) : null)
+    if (t == _i1.getType<_i85.BotNotFoundException?>()) {
+      return (data != null ? _i85.BotNotFoundException.fromJson(data) : null)
           as T;
     }
-    if (t == _i1.getType<_i78.BotReadRestrictedException?>()) {
+    if (t == _i1.getType<_i86.BotReadRestrictedException?>()) {
       return (data != null
-              ? _i78.BotReadRestrictedException.fromJson(data)
+              ? _i86.BotReadRestrictedException.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i1.getType<_i79.ConferenceFullException?>()) {
-      return (data != null ? _i79.ConferenceFullException.fromJson(data) : null)
+    if (t == _i1.getType<_i87.ConferenceFullException?>()) {
+      return (data != null ? _i87.ConferenceFullException.fromJson(data) : null)
           as T;
     }
-    if (t == _i1.getType<_i80.EmailAuthException?>()) {
-      return (data != null ? _i80.EmailAuthException.fromJson(data) : null)
+    if (t == _i1.getType<_i88.EmailAuthException?>()) {
+      return (data != null ? _i88.EmailAuthException.fromJson(data) : null)
           as T;
     }
-    if (t == _i1.getType<_i81.InsufficientPowerException?>()) {
+    if (t == _i1.getType<_i89.InsufficientPowerException?>()) {
       return (data != null
-              ? _i81.InsufficientPowerException.fromJson(data)
+              ? _i89.InsufficientPowerException.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i1.getType<_i82.InvalidBotCommandsException?>()) {
+    if (t == _i1.getType<_i90.InvalidBotCommandsException?>()) {
       return (data != null
-              ? _i82.InvalidBotCommandsException.fromJson(data)
+              ? _i90.InvalidBotCommandsException.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i1.getType<_i83.InvalidExternalKeyException?>()) {
+    if (t == _i1.getType<_i91.InvalidExternalKeyException?>()) {
       return (data != null
-              ? _i83.InvalidExternalKeyException.fromJson(data)
+              ? _i91.InvalidExternalKeyException.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i1.getType<_i84.InvalidNotificationException?>()) {
+    if (t == _i1.getType<_i92.InvalidNotificationException?>()) {
       return (data != null
-              ? _i84.InvalidNotificationException.fromJson(data)
+              ? _i92.InvalidNotificationException.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i1.getType<_i85.InvalidTokenException?>()) {
-      return (data != null ? _i85.InvalidTokenException.fromJson(data) : null)
+    if (t == _i1.getType<_i93.InvalidTokenException?>()) {
+      return (data != null ? _i93.InvalidTokenException.fromJson(data) : null)
           as T;
     }
-    if (t == _i1.getType<_i86.LastOwnerCannotDemoteException?>()) {
+    if (t == _i1.getType<_i94.LastOwnerCannotDemoteException?>()) {
       return (data != null
-              ? _i86.LastOwnerCannotDemoteException.fromJson(data)
+              ? _i94.LastOwnerCannotDemoteException.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i1.getType<_i87.MessageBodyTooLargeException?>()) {
+    if (t == _i1.getType<_i95.MessageBodyTooLargeException?>()) {
       return (data != null
-              ? _i87.MessageBodyTooLargeException.fromJson(data)
+              ? _i95.MessageBodyTooLargeException.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i1.getType<_i88.MessageDeletedException?>()) {
-      return (data != null ? _i88.MessageDeletedException.fromJson(data) : null)
+    if (t == _i1.getType<_i96.MessageDeletedException?>()) {
+      return (data != null ? _i96.MessageDeletedException.fromJson(data) : null)
           as T;
     }
-    if (t == _i1.getType<_i89.MessageNotEditableException?>()) {
+    if (t == _i1.getType<_i97.MessageNotEditableException?>()) {
       return (data != null
-              ? _i89.MessageNotEditableException.fromJson(data)
+              ? _i97.MessageNotEditableException.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i1.getType<_i90.MessengerNotAuthenticatedException?>()) {
+    if (t == _i1.getType<_i98.MessengerNotAuthenticatedException?>()) {
       return (data != null
-              ? _i90.MessengerNotAuthenticatedException.fromJson(data)
+              ? _i98.MessengerNotAuthenticatedException.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i1.getType<_i91.NotObjectRoomException?>()) {
-      return (data != null ? _i91.NotObjectRoomException.fromJson(data) : null)
+    if (t == _i1.getType<_i99.NotObjectRoomException?>()) {
+      return (data != null ? _i99.NotObjectRoomException.fromJson(data) : null)
           as T;
     }
-    if (t == _i1.getType<_i92.NotSupportTeamMemberException?>()) {
+    if (t == _i1.getType<_i100.NotSupportTeamMemberException?>()) {
       return (data != null
-              ? _i92.NotSupportTeamMemberException.fromJson(data)
+              ? _i100.NotSupportTeamMemberException.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i1.getType<_i93.NotSupportTeamOwnerException?>()) {
+    if (t == _i1.getType<_i101.NotSupportTeamOwnerException?>()) {
       return (data != null
-              ? _i93.NotSupportTeamOwnerException.fromJson(data)
+              ? _i101.NotSupportTeamOwnerException.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i1.getType<_i94.OperatorEmailNotResolvedException?>()) {
+    if (t == _i1.getType<_i102.NotificationInProgressException?>()) {
       return (data != null
-              ? _i94.OperatorEmailNotResolvedException.fromJson(data)
+              ? _i102.NotificationInProgressException.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i1.getType<_i95.PeerUnavailableException?>()) {
+    if (t == _i1.getType<_i103.OperatorEmailNotResolvedException?>()) {
       return (data != null
-              ? _i95.PeerUnavailableException.fromJson(data)
+              ? _i103.OperatorEmailNotResolvedException.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i1.getType<_i96.ProbeTargetNotAllowedException?>()) {
+    if (t == _i1.getType<_i104.PeerUnavailableException?>()) {
       return (data != null
-              ? _i96.ProbeTargetNotAllowedException.fromJson(data)
+              ? _i104.PeerUnavailableException.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i1.getType<_i97.ProductAlreadyExistsException?>()) {
+    if (t == _i1.getType<_i105.ProbeTargetNotAllowedException?>()) {
       return (data != null
-              ? _i97.ProductAlreadyExistsException.fromJson(data)
+              ? _i105.ProbeTargetNotAllowedException.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i1.getType<_i98.ProductInUseException?>()) {
-      return (data != null ? _i98.ProductInUseException.fromJson(data) : null)
-          as T;
-    }
-    if (t == _i1.getType<_i99.ProductNotFoundException?>()) {
+    if (t == _i1.getType<_i106.ProductAlreadyExistsException?>()) {
       return (data != null
-              ? _i99.ProductNotFoundException.fromJson(data)
+              ? _i106.ProductAlreadyExistsException.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i1.getType<_i100.ProductNotFoundForCallerException?>()) {
+    if (t == _i1.getType<_i107.ProductInUseException?>()) {
+      return (data != null ? _i107.ProductInUseException.fromJson(data) : null)
+          as T;
+    }
+    if (t == _i1.getType<_i108.ProductNotFoundException?>()) {
       return (data != null
-              ? _i100.ProductNotFoundForCallerException.fromJson(data)
+              ? _i108.ProductNotFoundException.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i1.getType<_i101.RateLimitExceededException?>()) {
+    if (t == _i1.getType<_i109.ProductNotFoundForCallerException?>()) {
       return (data != null
-              ? _i101.RateLimitExceededException.fromJson(data)
+              ? _i109.ProductNotFoundForCallerException.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i1.getType<_i102.RoomDissolvePartialException?>()) {
+    if (t == _i1.getType<_i110.RateLimitExceededException?>()) {
       return (data != null
-              ? _i102.RoomDissolvePartialException.fromJson(data)
+              ? _i110.RateLimitExceededException.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i1.getType<_i103.RoomUnavailableException?>()) {
+    if (t == _i1.getType<_i111.RoomCapacityExceededException?>()) {
       return (data != null
-              ? _i103.RoomUnavailableException.fromJson(data)
+              ? _i111.RoomCapacityExceededException.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i1.getType<_i104.ScreenShareBusyException?>()) {
+    if (t == _i1.getType<_i112.RoomDissolvePartialException?>()) {
       return (data != null
-              ? _i104.ScreenShareBusyException.fromJson(data)
+              ? _i112.RoomDissolvePartialException.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i1.getType<_i105.TaskIntegrationNotConfiguredException?>()) {
+    if (t == _i1.getType<_i113.RoomUnavailableException?>()) {
       return (data != null
-              ? _i105.TaskIntegrationNotConfiguredException.fromJson(data)
+              ? _i113.RoomUnavailableException.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i1.getType<_i106.TeamAccessDeniedException?>()) {
+    if (t == _i1.getType<_i114.ScreenShareBusyException?>()) {
       return (data != null
-              ? _i106.TeamAccessDeniedException.fromJson(data)
+              ? _i114.ScreenShareBusyException.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i1.getType<_i107.TeamPeerUnknownException?>()) {
+    if (t == _i1.getType<_i115.TaskIntegrationNotConfiguredException?>()) {
       return (data != null
-              ? _i107.TeamPeerUnknownException.fromJson(data)
+              ? _i115.TaskIntegrationNotConfiguredException.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i1.getType<_i108.TenantAlreadyExistsException?>()) {
+    if (t == _i1.getType<_i116.TeamAccessDeniedException?>()) {
       return (data != null
-              ? _i108.TenantAlreadyExistsException.fromJson(data)
+              ? _i116.TeamAccessDeniedException.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i1.getType<_i109.TenantNotFoundException?>()) {
+    if (t == _i1.getType<_i117.TeamPeerUnknownException?>()) {
       return (data != null
-              ? _i109.TenantNotFoundException.fromJson(data)
+              ? _i117.TeamPeerUnknownException.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i1.getType<_i110.ThumbnailUnavailableException?>()) {
+    if (t == _i1.getType<_i118.TenantAlreadyExistsException?>()) {
       return (data != null
-              ? _i110.ThumbnailUnavailableException.fromJson(data)
+              ? _i118.TenantAlreadyExistsException.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i1.getType<_i111.WriteBannedException?>()) {
-      return (data != null ? _i111.WriteBannedException.fromJson(data) : null)
-          as T;
-    }
-    if (t == _i1.getType<_i112.EscalationResult?>()) {
-      return (data != null ? _i112.EscalationResult.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i113.Greeting?>()) {
-      return (data != null ? _i113.Greeting.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i114.IdentityMapping?>()) {
-      return (data != null ? _i114.IdentityMapping.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i115.IncomingWebhook?>()) {
-      return (data != null ? _i115.IncomingWebhook.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i116.IncomingWebhookCreated?>()) {
-      return (data != null ? _i116.IncomingWebhookCreated.fromJson(data) : null)
-          as T;
-    }
-    if (t == _i1.getType<_i117.LinkPreview?>()) {
-      return (data != null ? _i117.LinkPreview.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i118.LinkPreviewView?>()) {
-      return (data != null ? _i118.LinkPreviewView.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i119.MessageIndex?>()) {
-      return (data != null ? _i119.MessageIndex.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i120.MessengerAuthContext?>()) {
-      return (data != null ? _i120.MessengerAuthContext.fromJson(data) : null)
-          as T;
-    }
-    if (t == _i1.getType<_i121.MessengerEvent?>()) {
-      return (data != null ? _i121.MessengerEvent.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i122.MessengerMessage?>()) {
-      return (data != null ? _i122.MessengerMessage.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i123.MessengerMessageListPage?>()) {
+    if (t == _i1.getType<_i119.TenantNotFoundException?>()) {
       return (data != null
-              ? _i123.MessengerMessageListPage.fromJson(data)
+              ? _i119.TenantNotFoundException.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i1.getType<_i124.MessengerSession?>()) {
-      return (data != null ? _i124.MessengerSession.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i125.MessengerSessionToken?>()) {
-      return (data != null ? _i125.MessengerSessionToken.fromJson(data) : null)
-          as T;
-    }
-    if (t == _i1.getType<_i126.MessengerUser?>()) {
-      return (data != null ? _i126.MessengerUser.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i127.NearbyConfirmResult?>()) {
-      return (data != null ? _i127.NearbyConfirmResult.fromJson(data) : null)
-          as T;
-    }
-    if (t == _i1.getType<_i128.NearbyConfirmation?>()) {
-      return (data != null ? _i128.NearbyConfirmation.fromJson(data) : null)
-          as T;
-    }
-    if (t == _i1.getType<_i129.NotificationSettings?>()) {
-      return (data != null ? _i129.NotificationSettings.fromJson(data) : null)
-          as T;
-    }
-    if (t == _i1.getType<_i130.PresenceConnState?>()) {
-      return (data != null ? _i130.PresenceConnState.fromJson(data) : null)
-          as T;
-    }
-    if (t == _i1.getType<_i131.PresenceInfo?>()) {
-      return (data != null ? _i131.PresenceInfo.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i132.PresenceState?>()) {
-      return (data != null ? _i132.PresenceState.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i133.PresenceWatchedIndex?>()) {
-      return (data != null ? _i133.PresenceWatchedIndex.fromJson(data) : null)
-          as T;
-    }
-    if (t == _i1.getType<_i134.PresenceWatchers?>()) {
-      return (data != null ? _i134.PresenceWatchers.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i135.Product?>()) {
-      return (data != null ? _i135.Product.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i136.ProductAdminView?>()) {
-      return (data != null ? _i136.ProductAdminView.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i137.ProductDeliveryHealth?>()) {
-      return (data != null ? _i137.ProductDeliveryHealth.fromJson(data) : null)
-          as T;
-    }
-    if (t == _i1.getType<_i138.ProductNotification?>()) {
-      return (data != null ? _i138.ProductNotification.fromJson(data) : null)
-          as T;
-    }
-    if (t == _i1.getType<_i139.ProductNotificationRecipientResult?>()) {
+    if (t == _i1.getType<_i120.ThumbnailUnavailableException?>()) {
       return (data != null
-              ? _i139.ProductNotificationRecipientResult.fromJson(data)
+              ? _i120.ThumbnailUnavailableException.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i1.getType<_i140.ProductNotificationSendResult?>()) {
+    if (t == _i1.getType<_i121.WriteBannedException?>()) {
+      return (data != null ? _i121.WriteBannedException.fromJson(data) : null)
+          as T;
+    }
+    if (t == _i1.getType<_i122.EscalationResult?>()) {
+      return (data != null ? _i122.EscalationResult.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i123.Greeting?>()) {
+      return (data != null ? _i123.Greeting.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i124.IdentityMapping?>()) {
+      return (data != null ? _i124.IdentityMapping.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i125.IncomingWebhook?>()) {
+      return (data != null ? _i125.IncomingWebhook.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i126.IncomingWebhookCreated?>()) {
+      return (data != null ? _i126.IncomingWebhookCreated.fromJson(data) : null)
+          as T;
+    }
+    if (t == _i1.getType<_i127.LinkPreview?>()) {
+      return (data != null ? _i127.LinkPreview.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i128.LinkPreviewView?>()) {
+      return (data != null ? _i128.LinkPreviewView.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i129.MessageIndex?>()) {
+      return (data != null ? _i129.MessageIndex.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i130.MessengerAuthContext?>()) {
+      return (data != null ? _i130.MessengerAuthContext.fromJson(data) : null)
+          as T;
+    }
+    if (t == _i1.getType<_i131.MessengerEvent?>()) {
+      return (data != null ? _i131.MessengerEvent.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i132.MessengerMessage?>()) {
+      return (data != null ? _i132.MessengerMessage.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i133.MessengerMessageListPage?>()) {
       return (data != null
-              ? _i140.ProductNotificationSendResult.fromJson(data)
+              ? _i133.MessengerMessageListPage.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i1.getType<_i141.ProductObjectRoom?>()) {
-      return (data != null ? _i141.ProductObjectRoom.fromJson(data) : null)
+    if (t == _i1.getType<_i134.MessengerSession?>()) {
+      return (data != null ? _i134.MessengerSession.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i135.MessengerSessionToken?>()) {
+      return (data != null ? _i135.MessengerSessionToken.fromJson(data) : null)
           as T;
     }
-    if (t == _i1.getType<_i142.ProfileTranslation?>()) {
-      return (data != null ? _i142.ProfileTranslation.fromJson(data) : null)
+    if (t == _i1.getType<_i136.MessengerUser?>()) {
+      return (data != null ? _i136.MessengerUser.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i137.NearbyConfirmResult?>()) {
+      return (data != null ? _i137.NearbyConfirmResult.fromJson(data) : null)
           as T;
     }
-    if (t == _i1.getType<_i143.PulseAccessAuditEvent?>()) {
-      return (data != null ? _i143.PulseAccessAuditEvent.fromJson(data) : null)
+    if (t == _i1.getType<_i138.NearbyConfirmation?>()) {
+      return (data != null ? _i138.NearbyConfirmation.fromJson(data) : null)
           as T;
     }
-    if (t == _i1.getType<_i144.PulseAccessEntry?>()) {
-      return (data != null ? _i144.PulseAccessEntry.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i145.PulseAlertRule?>()) {
-      return (data != null ? _i145.PulseAlertRule.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i146.PulseEvent?>()) {
-      return (data != null ? _i146.PulseEvent.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i147.PulseExpiryReminder?>()) {
-      return (data != null ? _i147.PulseExpiryReminder.fromJson(data) : null)
+    if (t == _i1.getType<_i139.NotificationSettings?>()) {
+      return (data != null ? _i139.NotificationSettings.fromJson(data) : null)
           as T;
     }
-    if (t == _i1.getType<_i148.PulseFolder?>()) {
-      return (data != null ? _i148.PulseFolder.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i149.PulseFolderMembership?>()) {
-      return (data != null ? _i149.PulseFolderMembership.fromJson(data) : null)
+    if (t == _i1.getType<_i140.PresenceConnState?>()) {
+      return (data != null ? _i140.PresenceConnState.fromJson(data) : null)
           as T;
     }
-    if (t == _i1.getType<_i150.PulseIncident?>()) {
-      return (data != null ? _i150.PulseIncident.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i141.PresenceInfo?>()) {
+      return (data != null ? _i141.PresenceInfo.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i151.PulseMemberView?>()) {
-      return (data != null ? _i151.PulseMemberView.fromJson(data) : null) as T;
+    if (t == _i1.getType<_i142.PresenceState?>()) {
+      return (data != null ? _i142.PresenceState.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i152.PulseMonitor?>()) {
-      return (data != null ? _i152.PulseMonitor.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i153.PulseMonitorCreated?>()) {
-      return (data != null ? _i153.PulseMonitorCreated.fromJson(data) : null)
+    if (t == _i1.getType<_i143.PresenceWatchedIndex?>()) {
+      return (data != null ? _i143.PresenceWatchedIndex.fromJson(data) : null)
           as T;
     }
-    if (t == _i1.getType<_i154.PulseMonitorMembership?>()) {
-      return (data != null ? _i154.PulseMonitorMembership.fromJson(data) : null)
-          as T;
+    if (t == _i1.getType<_i144.PresenceWatchers?>()) {
+      return (data != null ? _i144.PresenceWatchers.fromJson(data) : null) as T;
     }
-    if (t == _i1.getType<_i155.PulseProbeAllowlistEntry?>()) {
+    if (t == _i1.getType<_i145.Product?>()) {
+      return (data != null ? _i145.Product.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i146.ProductAdminView?>()) {
+      return (data != null ? _i146.ProductAdminView.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i147.ProductAnnouncementView?>()) {
       return (data != null
-              ? _i155.PulseProbeAllowlistEntry.fromJson(data)
+              ? _i147.ProductAnnouncementView.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i1.getType<_i156.PulseTlsProbe?>()) {
-      return (data != null ? _i156.PulseTlsProbe.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i157.PulseValueThreshold?>()) {
-      return (data != null ? _i157.PulseValueThreshold.fromJson(data) : null)
+    if (t == _i1.getType<_i148.ProductDeliveryHealth?>()) {
+      return (data != null ? _i148.ProductDeliveryHealth.fromJson(data) : null)
           as T;
     }
-    if (t == _i1.getType<_i158.PushQueueMessage?>()) {
-      return (data != null ? _i158.PushQueueMessage.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i159.PushTestJob?>()) {
-      return (data != null ? _i159.PushTestJob.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i160.PushTestResult?>()) {
-      return (data != null ? _i160.PushTestResult.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i161.Room?>()) {
-      return (data != null ? _i161.Room.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i162.RoomBotCommands?>()) {
-      return (data != null ? _i162.RoomBotCommands.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i163.RoomDetails?>()) {
-      return (data != null ? _i163.RoomDetails.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i164.RoomListPage?>()) {
-      return (data != null ? _i164.RoomListPage.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i165.RoomMembership?>()) {
-      return (data != null ? _i165.RoomMembership.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i166.RoomParticipant?>()) {
-      return (data != null ? _i166.RoomParticipant.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i167.RoomSummary?>()) {
-      return (data != null ? _i167.RoomSummary.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i168.RoomTaskStats?>()) {
-      return (data != null ? _i168.RoomTaskStats.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i169.RoomTaskView?>()) {
-      return (data != null ? _i169.RoomTaskView.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i170.SupportTeam?>()) {
-      return (data != null ? _i170.SupportTeam.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i171.SupportTeamExclusion?>()) {
-      return (data != null ? _i171.SupportTeamExclusion.fromJson(data) : null)
+    if (t == _i1.getType<_i149.ProductNotification?>()) {
+      return (data != null ? _i149.ProductNotification.fromJson(data) : null)
           as T;
     }
-    if (t == _i1.getType<_i172.SupportTeamMember?>()) {
-      return (data != null ? _i172.SupportTeamMember.fromJson(data) : null)
-          as T;
-    }
-    if (t == _i1.getType<_i173.SupportTeamMemberView?>()) {
-      return (data != null ? _i173.SupportTeamMemberView.fromJson(data) : null)
-          as T;
-    }
-    if (t == _i1.getType<_i174.SupportTeamView?>()) {
-      return (data != null ? _i174.SupportTeamView.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i175.TaskLink?>()) {
-      return (data != null ? _i175.TaskLink.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i176.TaskManagerConfig?>()) {
-      return (data != null ? _i176.TaskManagerConfig.fromJson(data) : null)
-          as T;
-    }
-    if (t == _i1.getType<_i177.Team?>()) {
-      return (data != null ? _i177.Team.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i178.TeamMember?>()) {
-      return (data != null ? _i178.TeamMember.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i179.TeamMemberView?>()) {
-      return (data != null ? _i179.TeamMemberView.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i180.TeamView?>()) {
-      return (data != null ? _i180.TeamView.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i181.Tenant?>()) {
-      return (data != null ? _i181.Tenant.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i182.TenantSupportMember?>()) {
-      return (data != null ? _i182.TenantSupportMember.fromJson(data) : null)
-          as T;
-    }
-    if (t == _i1.getType<_i183.TenantSupportMemberView?>()) {
+    if (t == _i1.getType<_i150.ProductNotificationRecipientResult?>()) {
       return (data != null
-              ? _i183.TenantSupportMemberView.fromJson(data)
+              ? _i150.ProductNotificationRecipientResult.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i1.getType<_i184.ThreadReadState?>()) {
-      return (data != null ? _i184.ThreadReadState.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i185.Ticket?>()) {
-      return (data != null ? _i185.Ticket.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i186.TicketEvent?>()) {
-      return (data != null ? _i186.TicketEvent.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i187.TicketView?>()) {
-      return (data != null ? _i187.TicketView.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i188.TrustRedeemResult?>()) {
-      return (data != null ? _i188.TrustRedeemResult.fromJson(data) : null)
+    if (t == _i1.getType<_i151.ProductNotificationSendResult?>()) {
+      return (data != null
+              ? _i151.ProductNotificationSendResult.fromJson(data)
+              : null)
           as T;
     }
-    if (t == _i1.getType<_i189.TrustToken?>()) {
-      return (data != null ? _i189.TrustToken.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i190.TrustTokenIssued?>()) {
-      return (data != null ? _i190.TrustTokenIssued.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i191.TurnCredentials?>()) {
-      return (data != null ? _i191.TurnCredentials.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i192.WebhookDelivery?>()) {
-      return (data != null ? _i192.WebhookDelivery.fromJson(data) : null) as T;
-    }
-    if (t == _i1.getType<_i193.WebhookEventMessage?>()) {
-      return (data != null ? _i193.WebhookEventMessage.fromJson(data) : null)
+    if (t == _i1.getType<_i152.ProductObjectRoom?>()) {
+      return (data != null ? _i152.ProductObjectRoom.fromJson(data) : null)
           as T;
     }
-    if (t == _i1.getType<_i194.WebhookSubscription?>()) {
-      return (data != null ? _i194.WebhookSubscription.fromJson(data) : null)
+    if (t == _i1.getType<_i153.ProfileTranslation?>()) {
+      return (data != null ? _i153.ProfileTranslation.fromJson(data) : null)
           as T;
     }
-    if (t == List<_i14.BotCommand>) {
-      return (data as List).map((e) => deserialize<_i14.BotCommand>(e)).toList()
+    if (t == _i1.getType<_i154.PulseAccessAuditEvent?>()) {
+      return (data != null ? _i154.PulseAccessAuditEvent.fromJson(data) : null)
+          as T;
+    }
+    if (t == _i1.getType<_i155.PulseAccessEntry?>()) {
+      return (data != null ? _i155.PulseAccessEntry.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i156.PulseAlertRule?>()) {
+      return (data != null ? _i156.PulseAlertRule.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i157.PulseEvent?>()) {
+      return (data != null ? _i157.PulseEvent.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i158.PulseExpiryReminder?>()) {
+      return (data != null ? _i158.PulseExpiryReminder.fromJson(data) : null)
+          as T;
+    }
+    if (t == _i1.getType<_i159.PulseFolder?>()) {
+      return (data != null ? _i159.PulseFolder.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i160.PulseFolderMembership?>()) {
+      return (data != null ? _i160.PulseFolderMembership.fromJson(data) : null)
+          as T;
+    }
+    if (t == _i1.getType<_i161.PulseIncident?>()) {
+      return (data != null ? _i161.PulseIncident.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i162.PulseMemberView?>()) {
+      return (data != null ? _i162.PulseMemberView.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i163.PulseMonitor?>()) {
+      return (data != null ? _i163.PulseMonitor.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i164.PulseMonitorCreated?>()) {
+      return (data != null ? _i164.PulseMonitorCreated.fromJson(data) : null)
+          as T;
+    }
+    if (t == _i1.getType<_i165.PulseMonitorMembership?>()) {
+      return (data != null ? _i165.PulseMonitorMembership.fromJson(data) : null)
+          as T;
+    }
+    if (t == _i1.getType<_i166.PulseProbeAllowlistEntry?>()) {
+      return (data != null
+              ? _i166.PulseProbeAllowlistEntry.fromJson(data)
+              : null)
+          as T;
+    }
+    if (t == _i1.getType<_i167.PulseTlsProbe?>()) {
+      return (data != null ? _i167.PulseTlsProbe.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i168.PulseValueThreshold?>()) {
+      return (data != null ? _i168.PulseValueThreshold.fromJson(data) : null)
+          as T;
+    }
+    if (t == _i1.getType<_i169.PushQueueMessage?>()) {
+      return (data != null ? _i169.PushQueueMessage.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i170.PushTestJob?>()) {
+      return (data != null ? _i170.PushTestJob.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i171.PushTestResult?>()) {
+      return (data != null ? _i171.PushTestResult.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i172.Room?>()) {
+      return (data != null ? _i172.Room.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i173.RoomBotCommands?>()) {
+      return (data != null ? _i173.RoomBotCommands.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i174.RoomDeliveryBackstop?>()) {
+      return (data != null ? _i174.RoomDeliveryBackstop.fromJson(data) : null)
+          as T;
+    }
+    if (t == _i1.getType<_i175.RoomDetails?>()) {
+      return (data != null ? _i175.RoomDetails.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i176.RoomListPage?>()) {
+      return (data != null ? _i176.RoomListPage.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i177.RoomMembership?>()) {
+      return (data != null ? _i177.RoomMembership.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i178.RoomParticipant?>()) {
+      return (data != null ? _i178.RoomParticipant.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i179.RoomSummary?>()) {
+      return (data != null ? _i179.RoomSummary.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i180.RoomTaskStats?>()) {
+      return (data != null ? _i180.RoomTaskStats.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i181.RoomTaskView?>()) {
+      return (data != null ? _i181.RoomTaskView.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i182.SupportTeam?>()) {
+      return (data != null ? _i182.SupportTeam.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i183.SupportTeamExclusion?>()) {
+      return (data != null ? _i183.SupportTeamExclusion.fromJson(data) : null)
+          as T;
+    }
+    if (t == _i1.getType<_i184.SupportTeamMember?>()) {
+      return (data != null ? _i184.SupportTeamMember.fromJson(data) : null)
+          as T;
+    }
+    if (t == _i1.getType<_i185.SupportTeamMemberView?>()) {
+      return (data != null ? _i185.SupportTeamMemberView.fromJson(data) : null)
+          as T;
+    }
+    if (t == _i1.getType<_i186.SupportTeamView?>()) {
+      return (data != null ? _i186.SupportTeamView.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i187.TaskLink?>()) {
+      return (data != null ? _i187.TaskLink.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i188.TaskManagerConfig?>()) {
+      return (data != null ? _i188.TaskManagerConfig.fromJson(data) : null)
+          as T;
+    }
+    if (t == _i1.getType<_i189.Team?>()) {
+      return (data != null ? _i189.Team.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i190.TeamMember?>()) {
+      return (data != null ? _i190.TeamMember.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i191.TeamMemberView?>()) {
+      return (data != null ? _i191.TeamMemberView.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i192.TeamView?>()) {
+      return (data != null ? _i192.TeamView.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i193.Tenant?>()) {
+      return (data != null ? _i193.Tenant.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i194.TenantSupportMember?>()) {
+      return (data != null ? _i194.TenantSupportMember.fromJson(data) : null)
+          as T;
+    }
+    if (t == _i1.getType<_i195.TenantSupportMemberView?>()) {
+      return (data != null
+              ? _i195.TenantSupportMemberView.fromJson(data)
+              : null)
+          as T;
+    }
+    if (t == _i1.getType<_i196.ThreadReadState?>()) {
+      return (data != null ? _i196.ThreadReadState.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i197.Ticket?>()) {
+      return (data != null ? _i197.Ticket.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i198.TicketEvent?>()) {
+      return (data != null ? _i198.TicketEvent.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i199.TicketView?>()) {
+      return (data != null ? _i199.TicketView.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i200.TrustRedeemResult?>()) {
+      return (data != null ? _i200.TrustRedeemResult.fromJson(data) : null)
+          as T;
+    }
+    if (t == _i1.getType<_i201.TrustToken?>()) {
+      return (data != null ? _i201.TrustToken.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i202.TrustTokenIssued?>()) {
+      return (data != null ? _i202.TrustTokenIssued.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i203.TurnCredentials?>()) {
+      return (data != null ? _i203.TurnCredentials.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i204.WebhookDelivery?>()) {
+      return (data != null ? _i204.WebhookDelivery.fromJson(data) : null) as T;
+    }
+    if (t == _i1.getType<_i205.WebhookEventMessage?>()) {
+      return (data != null ? _i205.WebhookEventMessage.fromJson(data) : null)
+          as T;
+    }
+    if (t == _i1.getType<_i206.WebhookSubscription?>()) {
+      return (data != null ? _i206.WebhookSubscription.fromJson(data) : null)
+          as T;
+    }
+    if (t == List<_i15.BotCommand>) {
+      return (data as List).map((e) => deserialize<_i15.BotCommand>(e)).toList()
           as T;
     }
     if (t == List<int>) {
       return (data as List).map((e) => deserialize<int>(e)).toList() as T;
     }
-    if (t == List<_i24.ConferenceMember>) {
+    if (t == List<_i25.ConferenceMember>) {
       return (data as List)
-              .map((e) => deserialize<_i24.ConferenceMember>(e))
+              .map((e) => deserialize<_i25.ConferenceMember>(e))
               .toList()
           as T;
     }
     if (t == List<String>) {
       return (data as List).map((e) => deserialize<String>(e)).toList() as T;
+    }
+    if (t == List<_i44.DeliveryJournalEntry>) {
+      return (data as List)
+              .map((e) => deserialize<_i44.DeliveryJournalEntry>(e))
+              .toList()
+          as T;
     }
     if (t == _i1.getType<List<String>?>()) {
       return (data != null
@@ -1858,24 +1981,30 @@ class Protocol extends _i1.SerializationManager {
               : null)
           as T;
     }
-    if (t == List<_i19.CallIceCandidate>) {
+    if (t == List<_i50.DeliverySilentRecipient>) {
       return (data as List)
-              .map((e) => deserialize<_i19.CallIceCandidate>(e))
+              .map((e) => deserialize<_i50.DeliverySilentRecipient>(e))
               .toList()
           as T;
     }
-    if (t == _i1.getType<List<_i19.CallIceCandidate>?>()) {
+    if (t == List<_i20.CallIceCandidate>) {
+      return (data as List)
+              .map((e) => deserialize<_i20.CallIceCandidate>(e))
+              .toList()
+          as T;
+    }
+    if (t == _i1.getType<List<_i20.CallIceCandidate>?>()) {
       return (data != null
               ? (data as List)
-                    .map((e) => deserialize<_i19.CallIceCandidate>(e))
+                    .map((e) => deserialize<_i20.CallIceCandidate>(e))
                     .toList()
               : null)
           as T;
     }
-    if (t == _i1.getType<List<_i24.ConferenceMember>?>()) {
+    if (t == _i1.getType<List<_i25.ConferenceMember>?>()) {
       return (data != null
               ? (data as List)
-                    .map((e) => deserialize<_i24.ConferenceMember>(e))
+                    .map((e) => deserialize<_i25.ConferenceMember>(e))
                     .toList()
               : null)
           as T;
@@ -1886,123 +2015,123 @@ class Protocol extends _i1.SerializationManager {
               : null)
           as T;
     }
-    if (t == List<_i122.MessengerMessage>) {
+    if (t == List<_i132.MessengerMessage>) {
       return (data as List)
-              .map((e) => deserialize<_i122.MessengerMessage>(e))
+              .map((e) => deserialize<_i132.MessengerMessage>(e))
               .toList()
           as T;
     }
-    if (t == List<_i139.ProductNotificationRecipientResult>) {
+    if (t == List<_i150.ProductNotificationRecipientResult>) {
       return (data as List)
               .map(
-                (e) => deserialize<_i139.ProductNotificationRecipientResult>(e),
+                (e) => deserialize<_i150.ProductNotificationRecipientResult>(e),
               )
               .toList()
           as T;
     }
-    if (t == List<_i166.RoomParticipant>) {
+    if (t == List<_i178.RoomParticipant>) {
       return (data as List)
-              .map((e) => deserialize<_i166.RoomParticipant>(e))
+              .map((e) => deserialize<_i178.RoomParticipant>(e))
               .toList()
           as T;
     }
-    if (t == List<_i167.RoomSummary>) {
+    if (t == List<_i179.RoomSummary>) {
       return (data as List)
-              .map((e) => deserialize<_i167.RoomSummary>(e))
+              .map((e) => deserialize<_i179.RoomSummary>(e))
               .toList()
           as T;
     }
-    if (t == List<_i173.SupportTeamMemberView>) {
+    if (t == List<_i185.SupportTeamMemberView>) {
       return (data as List)
-              .map((e) => deserialize<_i173.SupportTeamMemberView>(e))
+              .map((e) => deserialize<_i185.SupportTeamMemberView>(e))
               .toList()
           as T;
     }
-    if (t == List<_i195.WebhookSubscription>) {
+    if (t == List<_i207.WebhookSubscription>) {
       return (data as List)
-              .map((e) => deserialize<_i195.WebhookSubscription>(e))
+              .map((e) => deserialize<_i207.WebhookSubscription>(e))
               .toList()
           as T;
     }
-    if (t == List<_i196.WebhookDelivery>) {
+    if (t == List<_i208.WebhookDelivery>) {
       return (data as List)
-              .map((e) => deserialize<_i196.WebhookDelivery>(e))
+              .map((e) => deserialize<_i208.WebhookDelivery>(e))
               .toList()
           as T;
     }
-    if (t == List<_i197.Announcement>) {
+    if (t == List<_i209.Announcement>) {
       return (data as List)
-              .map((e) => deserialize<_i197.Announcement>(e))
+              .map((e) => deserialize<_i209.Announcement>(e))
               .toList()
           as T;
     }
-    if (t == List<_i198.BotAuditEvent>) {
+    if (t == List<_i210.BotAuditEvent>) {
       return (data as List)
-              .map((e) => deserialize<_i198.BotAuditEvent>(e))
+              .map((e) => deserialize<_i210.BotAuditEvent>(e))
               .toList()
           as T;
     }
-    if (t == List<_i199.Bot>) {
-      return (data as List).map((e) => deserialize<_i199.Bot>(e)).toList() as T;
+    if (t == List<_i211.Bot>) {
+      return (data as List).map((e) => deserialize<_i211.Bot>(e)).toList() as T;
     }
-    if (t == List<_i200.RoomSummary>) {
+    if (t == List<_i212.RoomSummary>) {
       return (data as List)
-              .map((e) => deserialize<_i200.RoomSummary>(e))
+              .map((e) => deserialize<_i212.RoomSummary>(e))
               .toList()
           as T;
     }
     if (t == List<int>) {
       return (data as List).map((e) => deserialize<int>(e)).toList() as T;
     }
-    if (t == List<_i201.AvailableBot>) {
+    if (t == List<_i213.AvailableBot>) {
       return (data as List)
-              .map((e) => deserialize<_i201.AvailableBot>(e))
+              .map((e) => deserialize<_i213.AvailableBot>(e))
               .toList()
           as T;
     }
-    if (t == List<_i202.BotIntegrationView>) {
+    if (t == List<_i214.BotIntegrationView>) {
       return (data as List)
-              .map((e) => deserialize<_i202.BotIntegrationView>(e))
+              .map((e) => deserialize<_i214.BotIntegrationView>(e))
               .toList()
           as T;
     }
-    if (t == List<_i203.ConnectTenantStatus>) {
+    if (t == List<_i215.ConnectTenantStatus>) {
       return (data as List)
-              .map((e) => deserialize<_i203.ConnectTenantStatus>(e))
+              .map((e) => deserialize<_i215.ConnectTenantStatus>(e))
               .toList()
           as T;
     }
-    if (t == List<_i204.ProductDeliveryHealth>) {
+    if (t == List<_i216.ProductDeliveryHealth>) {
       return (data as List)
-              .map((e) => deserialize<_i204.ProductDeliveryHealth>(e))
+              .map((e) => deserialize<_i216.ProductDeliveryHealth>(e))
               .toList()
           as T;
     }
-    if (t == List<_i205.TenantSupportMemberView>) {
+    if (t == List<_i217.TenantSupportMemberView>) {
       return (data as List)
-              .map((e) => deserialize<_i205.TenantSupportMemberView>(e))
+              .map((e) => deserialize<_i217.TenantSupportMemberView>(e))
               .toList()
           as T;
     }
-    if (t == List<_i206.ProductAdminView>) {
+    if (t == List<_i218.ProductAdminView>) {
       return (data as List)
-              .map((e) => deserialize<_i206.ProductAdminView>(e))
+              .map((e) => deserialize<_i218.ProductAdminView>(e))
               .toList()
           as T;
     }
-    if (t == List<_i207.ConnectKeyAuditEvent>) {
+    if (t == List<_i219.ConnectKeyAuditEvent>) {
       return (data as List)
-              .map((e) => deserialize<_i207.ConnectKeyAuditEvent>(e))
+              .map((e) => deserialize<_i219.ConnectKeyAuditEvent>(e))
               .toList()
           as T;
     }
-    if (t == List<_i208.TeamView>) {
-      return (data as List).map((e) => deserialize<_i208.TeamView>(e)).toList()
+    if (t == List<_i220.TeamView>) {
+      return (data as List).map((e) => deserialize<_i220.TeamView>(e)).toList()
           as T;
     }
-    if (t == List<_i209.TeamMemberView>) {
+    if (t == List<_i221.TeamMemberView>) {
       return (data as List)
-              .map((e) => deserialize<_i209.TeamMemberView>(e))
+              .map((e) => deserialize<_i221.TeamMemberView>(e))
               .toList()
           as T;
     }
@@ -2021,15 +2150,24 @@ class Protocol extends _i1.SerializationManager {
               : null)
           as T;
     }
-    if (t == List<_i210.DeviceSessionInfo>) {
+    if (t == List<_i222.DeliveryRecipientStatus>) {
       return (data as List)
-              .map((e) => deserialize<_i210.DeviceSessionInfo>(e))
+              .map((e) => deserialize<_i222.DeliveryRecipientStatus>(e))
               .toList()
           as T;
     }
-    if (t == List<_i211.IncomingWebhook>) {
+    if (t == List<String>) {
+      return (data as List).map((e) => deserialize<String>(e)).toList() as T;
+    }
+    if (t == List<_i223.DeviceSessionInfo>) {
       return (data as List)
-              .map((e) => deserialize<_i211.IncomingWebhook>(e))
+              .map((e) => deserialize<_i223.DeviceSessionInfo>(e))
+              .toList()
+          as T;
+    }
+    if (t == List<_i224.IncomingWebhook>) {
+      return (data as List)
+              .map((e) => deserialize<_i224.IncomingWebhook>(e))
               .toList()
           as T;
     }
@@ -2039,62 +2177,59 @@ class Protocol extends _i1.SerializationManager {
               : null)
           as T;
     }
-    if (t == List<_i212.BotCommand>) {
+    if (t == List<_i225.BotCommand>) {
       return (data as List)
-              .map((e) => deserialize<_i212.BotCommand>(e))
+              .map((e) => deserialize<_i225.BotCommand>(e))
               .toList()
           as T;
     }
-    if (t == List<_i213.RoomBotCommands>) {
+    if (t == List<_i226.RoomBotCommands>) {
       return (data as List)
-              .map((e) => deserialize<_i213.RoomBotCommands>(e))
+              .map((e) => deserialize<_i226.RoomBotCommands>(e))
               .toList()
           as T;
     }
-    if (t == List<String>) {
-      return (data as List).map((e) => deserialize<String>(e)).toList() as T;
-    }
-    if (t == List<_i214.MessengerMessage>) {
+    if (t == List<_i227.MessengerMessage>) {
       return (data as List)
-              .map((e) => deserialize<_i214.MessengerMessage>(e))
+              .map((e) => deserialize<_i227.MessengerMessage>(e))
               .toList()
           as T;
     }
-    if (t == List<_i215.CallIceCandidate>) {
+    if (t == List<_i228.CallIceCandidate>) {
       return (data as List)
-              .map((e) => deserialize<_i215.CallIceCandidate>(e))
+              .map((e) => deserialize<_i228.CallIceCandidate>(e))
               .toList()
           as T;
     }
-    if (t == _i1.getType<List<_i215.CallIceCandidate>?>()) {
+    if (t == _i1.getType<List<_i228.CallIceCandidate>?>()) {
       return (data != null
               ? (data as List)
-                    .map((e) => deserialize<_i215.CallIceCandidate>(e))
+                    .map((e) => deserialize<_i228.CallIceCandidate>(e))
                     .toList()
               : null)
           as T;
     }
-    if (t == List<_i216.CallHistoryEntry>) {
+    if (t == List<_i229.CallHistoryEntry>) {
       return (data as List)
-              .map((e) => deserialize<_i216.CallHistoryEntry>(e))
+              .map((e) => deserialize<_i229.CallHistoryEntry>(e))
               .toList()
           as T;
     }
-    if (t == List<_i217.MessengerEvent>) {
+    if (t == List<_i230.MessengerEvent>) {
       return (data as List)
-              .map((e) => deserialize<_i217.MessengerEvent>(e))
+              .map((e) => deserialize<_i230.MessengerEvent>(e))
               .toList()
           as T;
     }
-    if (t == List<_i218.LinkPreviewView>) {
+    if (t == List<_i231.LinkPreviewView>) {
       return (data as List)
-              .map((e) => deserialize<_i218.LinkPreviewView>(e))
+              .map((e) => deserialize<_i231.LinkPreviewView>(e))
               .toList()
           as T;
     }
-    if (t == List<_i219.RoomParticipant>) {
+    if (t == List<_i232.RoomParticipant>) {
       return (data as List)
-              .map((e) => deserialize<_i219.RoomParticipant>(e))
+              .map((e) => deserialize<_i232.RoomParticipant>(e))
               .toList()
           as T;
     }
@@ -2104,67 +2239,67 @@ class Protocol extends _i1.SerializationManager {
               : null)
           as T;
     }
-    if (t == List<_i220.TicketView>) {
+    if (t == List<_i233.TicketView>) {
       return (data as List)
-              .map((e) => deserialize<_i220.TicketView>(e))
+              .map((e) => deserialize<_i233.TicketView>(e))
               .toList()
           as T;
     }
-    if (t == List<_i221.AnnouncementView>) {
+    if (t == List<_i234.AnnouncementView>) {
       return (data as List)
-              .map((e) => deserialize<_i221.AnnouncementView>(e))
+              .map((e) => deserialize<_i234.AnnouncementView>(e))
               .toList()
           as T;
     }
-    if (t == List<_i222.RoomTaskView>) {
+    if (t == List<_i235.RoomTaskView>) {
       return (data as List)
-              .map((e) => deserialize<_i222.RoomTaskView>(e))
+              .map((e) => deserialize<_i235.RoomTaskView>(e))
               .toList()
           as T;
     }
-    if (t == List<_i223.PresenceInfo>) {
+    if (t == List<_i236.PresenceInfo>) {
       return (data as List)
-              .map((e) => deserialize<_i223.PresenceInfo>(e))
+              .map((e) => deserialize<_i236.PresenceInfo>(e))
               .toList()
           as T;
     }
-    if (t == List<_i224.ChatFolderView>) {
+    if (t == List<_i237.ChatFolderView>) {
       return (data as List)
-              .map((e) => deserialize<_i224.ChatFolderView>(e))
+              .map((e) => deserialize<_i237.ChatFolderView>(e))
               .toList()
           as T;
     }
-    if (t == List<_i225.ContactRequestView>) {
+    if (t == List<_i238.ContactRequestView>) {
       return (data as List)
-              .map((e) => deserialize<_i225.ContactRequestView>(e))
+              .map((e) => deserialize<_i238.ContactRequestView>(e))
               .toList()
           as T;
     }
-    if (t == List<_i226.ContactLabel>) {
+    if (t == List<_i239.ContactLabel>) {
       return (data as List)
-              .map((e) => deserialize<_i226.ContactLabel>(e))
+              .map((e) => deserialize<_i239.ContactLabel>(e))
               .toList()
           as T;
     }
-    if (t == List<_i227.ContactLabelAssignment>) {
+    if (t == List<_i240.ContactLabelAssignment>) {
       return (data as List)
-              .map((e) => deserialize<_i227.ContactLabelAssignment>(e))
+              .map((e) => deserialize<_i240.ContactLabelAssignment>(e))
               .toList()
           as T;
     }
-    if (t == List<_i228.ProductObjectRoom>) {
+    if (t == List<_i241.ProductObjectRoom>) {
       return (data as List)
-              .map((e) => deserialize<_i228.ProductObjectRoom>(e))
+              .map((e) => deserialize<_i241.ProductObjectRoom>(e))
               .toList()
           as T;
     }
-    if (t == List<_i229.Product>) {
-      return (data as List).map((e) => deserialize<_i229.Product>(e)).toList()
+    if (t == List<_i242.Product>) {
+      return (data as List).map((e) => deserialize<_i242.Product>(e)).toList()
           as T;
     }
-    if (t == List<_i230.ProfileTranslation>) {
+    if (t == List<_i243.ProfileTranslation>) {
       return (data as List)
-              .map((e) => deserialize<_i230.ProfileTranslation>(e))
+              .map((e) => deserialize<_i243.ProfileTranslation>(e))
               .toList()
           as T;
     }
@@ -2174,71 +2309,77 @@ class Protocol extends _i1.SerializationManager {
           )
           as T;
     }
-    if (t == List<_i231.PulseFolder>) {
+    if (t == List<_i244.ProductAnnouncementView>) {
       return (data as List)
-              .map((e) => deserialize<_i231.PulseFolder>(e))
+              .map((e) => deserialize<_i244.ProductAnnouncementView>(e))
               .toList()
           as T;
     }
-    if (t == List<_i232.PulseMonitor>) {
+    if (t == List<_i245.PulseFolder>) {
       return (data as List)
-              .map((e) => deserialize<_i232.PulseMonitor>(e))
+              .map((e) => deserialize<_i245.PulseFolder>(e))
               .toList()
           as T;
     }
-    if (t == List<_i233.PulseAlertRule>) {
+    if (t == List<_i246.PulseMonitor>) {
       return (data as List)
-              .map((e) => deserialize<_i233.PulseAlertRule>(e))
+              .map((e) => deserialize<_i246.PulseMonitor>(e))
               .toList()
           as T;
     }
-    if (t == List<_i234.PulseIncident>) {
+    if (t == List<_i247.PulseAlertRule>) {
       return (data as List)
-              .map((e) => deserialize<_i234.PulseIncident>(e))
+              .map((e) => deserialize<_i247.PulseAlertRule>(e))
               .toList()
           as T;
     }
-    if (t == List<_i235.PulseAccessEntry>) {
+    if (t == List<_i248.PulseIncident>) {
       return (data as List)
-              .map((e) => deserialize<_i235.PulseAccessEntry>(e))
+              .map((e) => deserialize<_i248.PulseIncident>(e))
               .toList()
           as T;
     }
-    if (t == List<_i236.PulseMemberView>) {
+    if (t == List<_i249.PulseAccessEntry>) {
       return (data as List)
-              .map((e) => deserialize<_i236.PulseMemberView>(e))
+              .map((e) => deserialize<_i249.PulseAccessEntry>(e))
               .toList()
           as T;
     }
-    if (t == List<_i237.PulseAccessAuditEvent>) {
+    if (t == List<_i250.PulseMemberView>) {
       return (data as List)
-              .map((e) => deserialize<_i237.PulseAccessAuditEvent>(e))
+              .map((e) => deserialize<_i250.PulseMemberView>(e))
               .toList()
           as T;
     }
-    if (t == List<_i238.PulseTlsProbe>) {
+    if (t == List<_i251.PulseAccessAuditEvent>) {
       return (data as List)
-              .map((e) => deserialize<_i238.PulseTlsProbe>(e))
+              .map((e) => deserialize<_i251.PulseAccessAuditEvent>(e))
               .toList()
           as T;
     }
-    if (t == List<_i239.PulseValueThreshold>) {
+    if (t == List<_i252.PulseTlsProbe>) {
       return (data as List)
-              .map((e) => deserialize<_i239.PulseValueThreshold>(e))
+              .map((e) => deserialize<_i252.PulseTlsProbe>(e))
               .toList()
           as T;
     }
-    if (t == List<_i240.PulseProbeAllowlistEntry>) {
+    if (t == List<_i253.PulseValueThreshold>) {
       return (data as List)
-              .map((e) => deserialize<_i240.PulseProbeAllowlistEntry>(e))
+              .map((e) => deserialize<_i253.PulseValueThreshold>(e))
+              .toList()
+          as T;
+    }
+    if (t == List<_i254.PulseProbeAllowlistEntry>) {
+      return (data as List)
+              .map((e) => deserialize<_i254.PulseProbeAllowlistEntry>(e))
               .toList()
           as T;
     }
     try {
-      return _i241.Protocol().deserialize<T>(data, t);
+      return _i255.Protocol().deserialize<T>(data, t);
     } on _i1.DeserializationTypeNotFoundException catch (_) {}
     try {
-      return _i242.Protocol().deserialize<T>(data, t);
+      return _i256.Protocol().deserialize<T>(data, t);
     } on _i1.DeserializationTypeNotFoundException catch (_) {}
     return super.deserialize<T>(data, t);
   }
@@ -2246,203 +2387,216 @@ class Protocol extends _i1.SerializationManager {
   static String? getClassNameForType(Type type) {
     return switch (type) {
       _i2.Announcement => 'Announcement',
-      _i3.AnnouncementSeen => 'AnnouncementSeen',
-      _i4.AnnouncementView => 'AnnouncementView',
-      _i5.AttachmentBytes => 'AttachmentBytes',
-      _i6.AttachmentObject => 'AttachmentObject',
-      _i7.AttachmentPlacement => 'AttachmentPlacement',
-      _i8.AttachmentRef => 'AttachmentRef',
-      _i9.AttachmentUrl => 'AttachmentUrl',
-      _i10.AvailableBot => 'AvailableBot',
-      _i11.Bot => 'Bot',
-      _i12.BotAuditEvent => 'BotAuditEvent',
-      _i13.BotChannelHealth => 'BotChannelHealth',
-      _i14.BotCommand => 'BotCommand',
-      _i15.BotIntegrationCreated => 'BotIntegrationCreated',
-      _i16.BotIntegrationView => 'BotIntegrationView',
-      _i17.BotReadModeResult => 'BotReadModeResult',
-      _i18.CallHistoryEntry => 'CallHistoryEntry',
-      _i19.CallIceCandidate => 'CallIceCandidate',
-      _i20.ChatFolderRecord => 'ChatFolderRecord',
-      _i21.ChatFolderRoom => 'ChatFolderRoom',
-      _i22.ChatFolderView => 'ChatFolderView',
-      _i23.Conference => 'Conference',
-      _i24.ConferenceMember => 'ConferenceMember',
-      _i25.ConferenceParticipant => 'ConferenceParticipant',
-      _i26.ConferenceScreenShare => 'ConferenceScreenShare',
-      _i27.ConferenceState => 'ConferenceState',
-      _i28.ConnectIssuedToken => 'ConnectIssuedToken',
-      _i29.ConnectIssuedTokenResult => 'ConnectIssuedTokenResult',
-      _i30.ConnectKeyAuditEvent => 'ConnectKeyAuditEvent',
-      _i31.ConnectTenantStatus => 'ConnectTenantStatus',
-      _i32.ContactBlock => 'ContactBlock',
-      _i33.ContactCard => 'ContactCard',
-      _i34.ContactCardInfo => 'ContactCardInfo',
-      _i35.ContactLabel => 'ContactLabel',
-      _i36.ContactLabelAssignment => 'ContactLabelAssignment',
-      _i37.ContactLink => 'ContactLink',
-      _i38.ContactMeta => 'ContactMeta',
-      _i39.ContactProfileView => 'ContactProfileView',
-      _i40.ContactRelation => 'ContactRelation',
-      _i41.ContactRequest => 'ContactRequest',
-      _i42.ContactRequestView => 'ContactRequestView',
-      _i43.DeliveryPending => 'DeliveryPending',
-      _i44.DeviceRegistration => 'DeviceRegistration',
-      _i45.DeviceRegistrationRemoval => 'DeviceRegistrationRemoval',
-      _i46.DeviceSessionInfo => 'DeviceSessionInfo',
-      _i47.EmailAccount => 'EmailAccount',
-      _i48.EmailSession => 'EmailSession',
-      _i49.EmailVerificationCode => 'EmailVerificationCode',
-      _i50.AttachmentRejectReason => 'AttachmentRejectReason',
-      _i51.CallEventType => 'CallEventType',
-      _i52.CallStatus => 'CallStatus',
-      _i53.ContactLinkSource => 'ContactLinkSource',
-      _i54.ContactRequestStatus => 'ContactRequestStatus',
-      _i55.DevicePlatform => 'DevicePlatform',
-      _i56.DeviceRemovalReason => 'DeviceRemovalReason',
-      _i57.IdentityProvider => 'IdentityProvider',
-      _i58.MessengerEventType => 'MessengerEventType',
-      _i59.ParticipantKind => 'ParticipantKind',
-      _i60.ProductNotificationStatus => 'ProductNotificationStatus',
-      _i61.PushService => 'PushService',
-      _i62.RoomMemberRole => 'RoomMemberRole',
-      _i63.RoomOwnership => 'RoomOwnership',
-      _i64.RoomState => 'RoomState',
-      _i65.RoomType => 'RoomType',
-      _i66.SupportTeamRole => 'SupportTeamRole',
-      _i67.TeamKind => 'TeamKind',
-      _i68.TeamMemberRole => 'TeamMemberRole',
-      _i69.TenantHostingMode => 'TenantHostingMode',
-      _i70.TrustTokenKind => 'TrustTokenKind',
-      _i71.AdapterNotConfiguredException => 'AdapterNotConfiguredException',
-      _i72.AmbiguousProductKeyException => 'AmbiguousProductKeyException',
-      _i73.AttachmentAccessDeniedException => 'AttachmentAccessDeniedException',
-      _i74.AttachmentRejectedException => 'AttachmentRejectedException',
-      _i75.BotCapabilityException => 'BotCapabilityException',
-      _i76.BotLimitExceededException => 'BotLimitExceededException',
-      _i77.BotNotFoundException => 'BotNotFoundException',
-      _i78.BotReadRestrictedException => 'BotReadRestrictedException',
-      _i79.ConferenceFullException => 'ConferenceFullException',
-      _i80.EmailAuthException => 'EmailAuthException',
-      _i81.InsufficientPowerException => 'InsufficientPowerException',
-      _i82.InvalidBotCommandsException => 'InvalidBotCommandsException',
-      _i83.InvalidExternalKeyException => 'InvalidExternalKeyException',
-      _i84.InvalidNotificationException => 'InvalidNotificationException',
-      _i85.InvalidTokenException => 'InvalidTokenException',
-      _i86.LastOwnerCannotDemoteException => 'LastOwnerCannotDemoteException',
-      _i87.MessageBodyTooLargeException => 'MessageBodyTooLargeException',
-      _i88.MessageDeletedException => 'MessageDeletedException',
-      _i89.MessageNotEditableException => 'MessageNotEditableException',
-      _i90.MessengerNotAuthenticatedException =>
+      _i3.AnnouncementRecipient => 'AnnouncementRecipient',
+      _i4.AnnouncementSeen => 'AnnouncementSeen',
+      _i5.AnnouncementView => 'AnnouncementView',
+      _i6.AttachmentBytes => 'AttachmentBytes',
+      _i7.AttachmentObject => 'AttachmentObject',
+      _i8.AttachmentPlacement => 'AttachmentPlacement',
+      _i9.AttachmentRef => 'AttachmentRef',
+      _i10.AttachmentUrl => 'AttachmentUrl',
+      _i11.AvailableBot => 'AvailableBot',
+      _i12.Bot => 'Bot',
+      _i13.BotAuditEvent => 'BotAuditEvent',
+      _i14.BotChannelHealth => 'BotChannelHealth',
+      _i15.BotCommand => 'BotCommand',
+      _i16.BotIntegrationCreated => 'BotIntegrationCreated',
+      _i17.BotIntegrationView => 'BotIntegrationView',
+      _i18.BotReadModeResult => 'BotReadModeResult',
+      _i19.CallHistoryEntry => 'CallHistoryEntry',
+      _i20.CallIceCandidate => 'CallIceCandidate',
+      _i21.ChatFolderRecord => 'ChatFolderRecord',
+      _i22.ChatFolderRoom => 'ChatFolderRoom',
+      _i23.ChatFolderView => 'ChatFolderView',
+      _i24.Conference => 'Conference',
+      _i25.ConferenceMember => 'ConferenceMember',
+      _i26.ConferenceParticipant => 'ConferenceParticipant',
+      _i27.ConferenceScreenShare => 'ConferenceScreenShare',
+      _i28.ConferenceState => 'ConferenceState',
+      _i29.ConnectIssuedToken => 'ConnectIssuedToken',
+      _i30.ConnectIssuedTokenResult => 'ConnectIssuedTokenResult',
+      _i31.ConnectKeyAuditEvent => 'ConnectKeyAuditEvent',
+      _i32.ConnectTenantStatus => 'ConnectTenantStatus',
+      _i33.ContactBlock => 'ContactBlock',
+      _i34.ContactCard => 'ContactCard',
+      _i35.ContactCardInfo => 'ContactCardInfo',
+      _i36.ContactLabel => 'ContactLabel',
+      _i37.ContactLabelAssignment => 'ContactLabelAssignment',
+      _i38.ContactLink => 'ContactLink',
+      _i39.ContactMeta => 'ContactMeta',
+      _i40.ContactProfileView => 'ContactProfileView',
+      _i41.ContactRelation => 'ContactRelation',
+      _i42.ContactRequest => 'ContactRequest',
+      _i43.ContactRequestView => 'ContactRequestView',
+      _i44.DeliveryJournalEntry => 'DeliveryJournalEntry',
+      _i45.DeliveryJournalPage => 'DeliveryJournalPage',
+      _i46.DeliveryPending => 'DeliveryPending',
+      _i47.DeliveryRecipientState => 'DeliveryRecipientState',
+      _i48.DeliveryRecipientStatus => 'DeliveryRecipientStatus',
+      _i49.DeliverySilentPage => 'DeliverySilentPage',
+      _i50.DeliverySilentRecipient => 'DeliverySilentRecipient',
+      _i51.DeliveryUsage => 'DeliveryUsage',
+      _i52.DeviceRegistration => 'DeviceRegistration',
+      _i53.DeviceRegistrationRemoval => 'DeviceRegistrationRemoval',
+      _i54.DeviceSessionInfo => 'DeviceSessionInfo',
+      _i55.EmailAccount => 'EmailAccount',
+      _i56.EmailSession => 'EmailSession',
+      _i57.EmailVerificationCode => 'EmailVerificationCode',
+      _i58.AttachmentRejectReason => 'AttachmentRejectReason',
+      _i59.CallEventType => 'CallEventType',
+      _i60.CallStatus => 'CallStatus',
+      _i61.ContactLinkSource => 'ContactLinkSource',
+      _i62.ContactRequestStatus => 'ContactRequestStatus',
+      _i63.DevicePlatform => 'DevicePlatform',
+      _i64.DeviceRemovalReason => 'DeviceRemovalReason',
+      _i65.IdentityProvider => 'IdentityProvider',
+      _i66.MessengerEventType => 'MessengerEventType',
+      _i67.ParticipantKind => 'ParticipantKind',
+      _i68.ProductNotificationStatus => 'ProductNotificationStatus',
+      _i69.PushService => 'PushService',
+      _i70.RoomMemberRole => 'RoomMemberRole',
+      _i71.RoomOwnership => 'RoomOwnership',
+      _i72.RoomState => 'RoomState',
+      _i73.RoomType => 'RoomType',
+      _i74.SupportTeamRole => 'SupportTeamRole',
+      _i75.TeamKind => 'TeamKind',
+      _i76.TeamMemberRole => 'TeamMemberRole',
+      _i77.TenantHostingMode => 'TenantHostingMode',
+      _i78.TrustTokenKind => 'TrustTokenKind',
+      _i79.AdapterNotConfiguredException => 'AdapterNotConfiguredException',
+      _i80.AmbiguousProductKeyException => 'AmbiguousProductKeyException',
+      _i81.AttachmentAccessDeniedException => 'AttachmentAccessDeniedException',
+      _i82.AttachmentRejectedException => 'AttachmentRejectedException',
+      _i83.BotCapabilityException => 'BotCapabilityException',
+      _i84.BotLimitExceededException => 'BotLimitExceededException',
+      _i85.BotNotFoundException => 'BotNotFoundException',
+      _i86.BotReadRestrictedException => 'BotReadRestrictedException',
+      _i87.ConferenceFullException => 'ConferenceFullException',
+      _i88.EmailAuthException => 'EmailAuthException',
+      _i89.InsufficientPowerException => 'InsufficientPowerException',
+      _i90.InvalidBotCommandsException => 'InvalidBotCommandsException',
+      _i91.InvalidExternalKeyException => 'InvalidExternalKeyException',
+      _i92.InvalidNotificationException => 'InvalidNotificationException',
+      _i93.InvalidTokenException => 'InvalidTokenException',
+      _i94.LastOwnerCannotDemoteException => 'LastOwnerCannotDemoteException',
+      _i95.MessageBodyTooLargeException => 'MessageBodyTooLargeException',
+      _i96.MessageDeletedException => 'MessageDeletedException',
+      _i97.MessageNotEditableException => 'MessageNotEditableException',
+      _i98.MessengerNotAuthenticatedException =>
         'MessengerNotAuthenticatedException',
-      _i91.NotObjectRoomException => 'NotObjectRoomException',
-      _i92.NotSupportTeamMemberException => 'NotSupportTeamMemberException',
-      _i93.NotSupportTeamOwnerException => 'NotSupportTeamOwnerException',
-      _i94.OperatorEmailNotResolvedException =>
+      _i99.NotObjectRoomException => 'NotObjectRoomException',
+      _i100.NotSupportTeamMemberException => 'NotSupportTeamMemberException',
+      _i101.NotSupportTeamOwnerException => 'NotSupportTeamOwnerException',
+      _i102.NotificationInProgressException =>
+        'NotificationInProgressException',
+      _i103.OperatorEmailNotResolvedException =>
         'OperatorEmailNotResolvedException',
-      _i95.PeerUnavailableException => 'PeerUnavailableException',
-      _i96.ProbeTargetNotAllowedException => 'ProbeTargetNotAllowedException',
-      _i97.ProductAlreadyExistsException => 'ProductAlreadyExistsException',
-      _i98.ProductInUseException => 'ProductInUseException',
-      _i99.ProductNotFoundException => 'ProductNotFoundException',
-      _i100.ProductNotFoundForCallerException =>
+      _i104.PeerUnavailableException => 'PeerUnavailableException',
+      _i105.ProbeTargetNotAllowedException => 'ProbeTargetNotAllowedException',
+      _i106.ProductAlreadyExistsException => 'ProductAlreadyExistsException',
+      _i107.ProductInUseException => 'ProductInUseException',
+      _i108.ProductNotFoundException => 'ProductNotFoundException',
+      _i109.ProductNotFoundForCallerException =>
         'ProductNotFoundForCallerException',
-      _i101.RateLimitExceededException => 'RateLimitExceededException',
-      _i102.RoomDissolvePartialException => 'RoomDissolvePartialException',
-      _i103.RoomUnavailableException => 'RoomUnavailableException',
-      _i104.ScreenShareBusyException => 'ScreenShareBusyException',
-      _i105.TaskIntegrationNotConfiguredException =>
+      _i110.RateLimitExceededException => 'RateLimitExceededException',
+      _i111.RoomCapacityExceededException => 'RoomCapacityExceededException',
+      _i112.RoomDissolvePartialException => 'RoomDissolvePartialException',
+      _i113.RoomUnavailableException => 'RoomUnavailableException',
+      _i114.ScreenShareBusyException => 'ScreenShareBusyException',
+      _i115.TaskIntegrationNotConfiguredException =>
         'TaskIntegrationNotConfiguredException',
-      _i106.TeamAccessDeniedException => 'TeamAccessDeniedException',
-      _i107.TeamPeerUnknownException => 'TeamPeerUnknownException',
-      _i108.TenantAlreadyExistsException => 'TenantAlreadyExistsException',
-      _i109.TenantNotFoundException => 'TenantNotFoundException',
-      _i110.ThumbnailUnavailableException => 'ThumbnailUnavailableException',
-      _i111.WriteBannedException => 'WriteBannedException',
-      _i112.EscalationResult => 'EscalationResult',
-      _i113.Greeting => 'Greeting',
-      _i114.IdentityMapping => 'IdentityMapping',
-      _i115.IncomingWebhook => 'IncomingWebhook',
-      _i116.IncomingWebhookCreated => 'IncomingWebhookCreated',
-      _i117.LinkPreview => 'LinkPreview',
-      _i118.LinkPreviewView => 'LinkPreviewView',
-      _i119.MessageIndex => 'MessageIndex',
-      _i120.MessengerAuthContext => 'MessengerAuthContext',
-      _i121.MessengerEvent => 'MessengerEvent',
-      _i122.MessengerMessage => 'MessengerMessage',
-      _i123.MessengerMessageListPage => 'MessengerMessageListPage',
-      _i124.MessengerSession => 'MessengerSession',
-      _i125.MessengerSessionToken => 'MessengerSessionToken',
-      _i126.MessengerUser => 'MessengerUser',
-      _i127.NearbyConfirmResult => 'NearbyConfirmResult',
-      _i128.NearbyConfirmation => 'NearbyConfirmation',
-      _i129.NotificationSettings => 'NotificationSettings',
-      _i130.PresenceConnState => 'PresenceConnState',
-      _i131.PresenceInfo => 'PresenceInfo',
-      _i132.PresenceState => 'PresenceState',
-      _i133.PresenceWatchedIndex => 'PresenceWatchedIndex',
-      _i134.PresenceWatchers => 'PresenceWatchers',
-      _i135.Product => 'Product',
-      _i136.ProductAdminView => 'ProductAdminView',
-      _i137.ProductDeliveryHealth => 'ProductDeliveryHealth',
-      _i138.ProductNotification => 'ProductNotification',
-      _i139.ProductNotificationRecipientResult =>
+      _i116.TeamAccessDeniedException => 'TeamAccessDeniedException',
+      _i117.TeamPeerUnknownException => 'TeamPeerUnknownException',
+      _i118.TenantAlreadyExistsException => 'TenantAlreadyExistsException',
+      _i119.TenantNotFoundException => 'TenantNotFoundException',
+      _i120.ThumbnailUnavailableException => 'ThumbnailUnavailableException',
+      _i121.WriteBannedException => 'WriteBannedException',
+      _i122.EscalationResult => 'EscalationResult',
+      _i123.Greeting => 'Greeting',
+      _i124.IdentityMapping => 'IdentityMapping',
+      _i125.IncomingWebhook => 'IncomingWebhook',
+      _i126.IncomingWebhookCreated => 'IncomingWebhookCreated',
+      _i127.LinkPreview => 'LinkPreview',
+      _i128.LinkPreviewView => 'LinkPreviewView',
+      _i129.MessageIndex => 'MessageIndex',
+      _i130.MessengerAuthContext => 'MessengerAuthContext',
+      _i131.MessengerEvent => 'MessengerEvent',
+      _i132.MessengerMessage => 'MessengerMessage',
+      _i133.MessengerMessageListPage => 'MessengerMessageListPage',
+      _i134.MessengerSession => 'MessengerSession',
+      _i135.MessengerSessionToken => 'MessengerSessionToken',
+      _i136.MessengerUser => 'MessengerUser',
+      _i137.NearbyConfirmResult => 'NearbyConfirmResult',
+      _i138.NearbyConfirmation => 'NearbyConfirmation',
+      _i139.NotificationSettings => 'NotificationSettings',
+      _i140.PresenceConnState => 'PresenceConnState',
+      _i141.PresenceInfo => 'PresenceInfo',
+      _i142.PresenceState => 'PresenceState',
+      _i143.PresenceWatchedIndex => 'PresenceWatchedIndex',
+      _i144.PresenceWatchers => 'PresenceWatchers',
+      _i145.Product => 'Product',
+      _i146.ProductAdminView => 'ProductAdminView',
+      _i147.ProductAnnouncementView => 'ProductAnnouncementView',
+      _i148.ProductDeliveryHealth => 'ProductDeliveryHealth',
+      _i149.ProductNotification => 'ProductNotification',
+      _i150.ProductNotificationRecipientResult =>
         'ProductNotificationRecipientResult',
-      _i140.ProductNotificationSendResult => 'ProductNotificationSendResult',
-      _i141.ProductObjectRoom => 'ProductObjectRoom',
-      _i142.ProfileTranslation => 'ProfileTranslation',
-      _i143.PulseAccessAuditEvent => 'PulseAccessAuditEvent',
-      _i144.PulseAccessEntry => 'PulseAccessEntry',
-      _i145.PulseAlertRule => 'PulseAlertRule',
-      _i146.PulseEvent => 'PulseEvent',
-      _i147.PulseExpiryReminder => 'PulseExpiryReminder',
-      _i148.PulseFolder => 'PulseFolder',
-      _i149.PulseFolderMembership => 'PulseFolderMembership',
-      _i150.PulseIncident => 'PulseIncident',
-      _i151.PulseMemberView => 'PulseMemberView',
-      _i152.PulseMonitor => 'PulseMonitor',
-      _i153.PulseMonitorCreated => 'PulseMonitorCreated',
-      _i154.PulseMonitorMembership => 'PulseMonitorMembership',
-      _i155.PulseProbeAllowlistEntry => 'PulseProbeAllowlistEntry',
-      _i156.PulseTlsProbe => 'PulseTlsProbe',
-      _i157.PulseValueThreshold => 'PulseValueThreshold',
-      _i158.PushQueueMessage => 'PushQueueMessage',
-      _i159.PushTestJob => 'PushTestJob',
-      _i160.PushTestResult => 'PushTestResult',
-      _i161.Room => 'Room',
-      _i162.RoomBotCommands => 'RoomBotCommands',
-      _i163.RoomDetails => 'RoomDetails',
-      _i164.RoomListPage => 'RoomListPage',
-      _i165.RoomMembership => 'RoomMembership',
-      _i166.RoomParticipant => 'RoomParticipant',
-      _i167.RoomSummary => 'RoomSummary',
-      _i168.RoomTaskStats => 'RoomTaskStats',
-      _i169.RoomTaskView => 'RoomTaskView',
-      _i170.SupportTeam => 'SupportTeam',
-      _i171.SupportTeamExclusion => 'SupportTeamExclusion',
-      _i172.SupportTeamMember => 'SupportTeamMember',
-      _i173.SupportTeamMemberView => 'SupportTeamMemberView',
-      _i174.SupportTeamView => 'SupportTeamView',
-      _i175.TaskLink => 'TaskLink',
-      _i176.TaskManagerConfig => 'TaskManagerConfig',
-      _i177.Team => 'Team',
-      _i178.TeamMember => 'TeamMember',
-      _i179.TeamMemberView => 'TeamMemberView',
-      _i180.TeamView => 'TeamView',
-      _i181.Tenant => 'Tenant',
-      _i182.TenantSupportMember => 'TenantSupportMember',
-      _i183.TenantSupportMemberView => 'TenantSupportMemberView',
-      _i184.ThreadReadState => 'ThreadReadState',
-      _i185.Ticket => 'Ticket',
-      _i186.TicketEvent => 'TicketEvent',
-      _i187.TicketView => 'TicketView',
-      _i188.TrustRedeemResult => 'TrustRedeemResult',
-      _i189.TrustToken => 'TrustToken',
-      _i190.TrustTokenIssued => 'TrustTokenIssued',
-      _i191.TurnCredentials => 'TurnCredentials',
-      _i192.WebhookDelivery => 'WebhookDelivery',
-      _i193.WebhookEventMessage => 'WebhookEventMessage',
-      _i194.WebhookSubscription => 'WebhookSubscription',
+      _i151.ProductNotificationSendResult => 'ProductNotificationSendResult',
+      _i152.ProductObjectRoom => 'ProductObjectRoom',
+      _i153.ProfileTranslation => 'ProfileTranslation',
+      _i154.PulseAccessAuditEvent => 'PulseAccessAuditEvent',
+      _i155.PulseAccessEntry => 'PulseAccessEntry',
+      _i156.PulseAlertRule => 'PulseAlertRule',
+      _i157.PulseEvent => 'PulseEvent',
+      _i158.PulseExpiryReminder => 'PulseExpiryReminder',
+      _i159.PulseFolder => 'PulseFolder',
+      _i160.PulseFolderMembership => 'PulseFolderMembership',
+      _i161.PulseIncident => 'PulseIncident',
+      _i162.PulseMemberView => 'PulseMemberView',
+      _i163.PulseMonitor => 'PulseMonitor',
+      _i164.PulseMonitorCreated => 'PulseMonitorCreated',
+      _i165.PulseMonitorMembership => 'PulseMonitorMembership',
+      _i166.PulseProbeAllowlistEntry => 'PulseProbeAllowlistEntry',
+      _i167.PulseTlsProbe => 'PulseTlsProbe',
+      _i168.PulseValueThreshold => 'PulseValueThreshold',
+      _i169.PushQueueMessage => 'PushQueueMessage',
+      _i170.PushTestJob => 'PushTestJob',
+      _i171.PushTestResult => 'PushTestResult',
+      _i172.Room => 'Room',
+      _i173.RoomBotCommands => 'RoomBotCommands',
+      _i174.RoomDeliveryBackstop => 'RoomDeliveryBackstop',
+      _i175.RoomDetails => 'RoomDetails',
+      _i176.RoomListPage => 'RoomListPage',
+      _i177.RoomMembership => 'RoomMembership',
+      _i178.RoomParticipant => 'RoomParticipant',
+      _i179.RoomSummary => 'RoomSummary',
+      _i180.RoomTaskStats => 'RoomTaskStats',
+      _i181.RoomTaskView => 'RoomTaskView',
+      _i182.SupportTeam => 'SupportTeam',
+      _i183.SupportTeamExclusion => 'SupportTeamExclusion',
+      _i184.SupportTeamMember => 'SupportTeamMember',
+      _i185.SupportTeamMemberView => 'SupportTeamMemberView',
+      _i186.SupportTeamView => 'SupportTeamView',
+      _i187.TaskLink => 'TaskLink',
+      _i188.TaskManagerConfig => 'TaskManagerConfig',
+      _i189.Team => 'Team',
+      _i190.TeamMember => 'TeamMember',
+      _i191.TeamMemberView => 'TeamMemberView',
+      _i192.TeamView => 'TeamView',
+      _i193.Tenant => 'Tenant',
+      _i194.TenantSupportMember => 'TenantSupportMember',
+      _i195.TenantSupportMemberView => 'TenantSupportMemberView',
+      _i196.ThreadReadState => 'ThreadReadState',
+      _i197.Ticket => 'Ticket',
+      _i198.TicketEvent => 'TicketEvent',
+      _i199.TicketView => 'TicketView',
+      _i200.TrustRedeemResult => 'TrustRedeemResult',
+      _i201.TrustToken => 'TrustToken',
+      _i202.TrustTokenIssued => 'TrustTokenIssued',
+      _i203.TurnCredentials => 'TurnCredentials',
+      _i204.WebhookDelivery => 'WebhookDelivery',
+      _i205.WebhookEventMessage => 'WebhookEventMessage',
+      _i206.WebhookSubscription => 'WebhookSubscription',
       _ => null,
     };
   }
@@ -2459,396 +2613,420 @@ class Protocol extends _i1.SerializationManager {
     switch (data) {
       case _i2.Announcement():
         return 'Announcement';
-      case _i3.AnnouncementSeen():
+      case _i3.AnnouncementRecipient():
+        return 'AnnouncementRecipient';
+      case _i4.AnnouncementSeen():
         return 'AnnouncementSeen';
-      case _i4.AnnouncementView():
+      case _i5.AnnouncementView():
         return 'AnnouncementView';
-      case _i5.AttachmentBytes():
+      case _i6.AttachmentBytes():
         return 'AttachmentBytes';
-      case _i6.AttachmentObject():
+      case _i7.AttachmentObject():
         return 'AttachmentObject';
-      case _i7.AttachmentPlacement():
+      case _i8.AttachmentPlacement():
         return 'AttachmentPlacement';
-      case _i8.AttachmentRef():
+      case _i9.AttachmentRef():
         return 'AttachmentRef';
-      case _i9.AttachmentUrl():
+      case _i10.AttachmentUrl():
         return 'AttachmentUrl';
-      case _i10.AvailableBot():
+      case _i11.AvailableBot():
         return 'AvailableBot';
-      case _i11.Bot():
+      case _i12.Bot():
         return 'Bot';
-      case _i12.BotAuditEvent():
+      case _i13.BotAuditEvent():
         return 'BotAuditEvent';
-      case _i13.BotChannelHealth():
+      case _i14.BotChannelHealth():
         return 'BotChannelHealth';
-      case _i14.BotCommand():
+      case _i15.BotCommand():
         return 'BotCommand';
-      case _i15.BotIntegrationCreated():
+      case _i16.BotIntegrationCreated():
         return 'BotIntegrationCreated';
-      case _i16.BotIntegrationView():
+      case _i17.BotIntegrationView():
         return 'BotIntegrationView';
-      case _i17.BotReadModeResult():
+      case _i18.BotReadModeResult():
         return 'BotReadModeResult';
-      case _i18.CallHistoryEntry():
+      case _i19.CallHistoryEntry():
         return 'CallHistoryEntry';
-      case _i19.CallIceCandidate():
+      case _i20.CallIceCandidate():
         return 'CallIceCandidate';
-      case _i20.ChatFolderRecord():
+      case _i21.ChatFolderRecord():
         return 'ChatFolderRecord';
-      case _i21.ChatFolderRoom():
+      case _i22.ChatFolderRoom():
         return 'ChatFolderRoom';
-      case _i22.ChatFolderView():
+      case _i23.ChatFolderView():
         return 'ChatFolderView';
-      case _i23.Conference():
+      case _i24.Conference():
         return 'Conference';
-      case _i24.ConferenceMember():
+      case _i25.ConferenceMember():
         return 'ConferenceMember';
-      case _i25.ConferenceParticipant():
+      case _i26.ConferenceParticipant():
         return 'ConferenceParticipant';
-      case _i26.ConferenceScreenShare():
+      case _i27.ConferenceScreenShare():
         return 'ConferenceScreenShare';
-      case _i27.ConferenceState():
+      case _i28.ConferenceState():
         return 'ConferenceState';
-      case _i28.ConnectIssuedToken():
+      case _i29.ConnectIssuedToken():
         return 'ConnectIssuedToken';
-      case _i29.ConnectIssuedTokenResult():
+      case _i30.ConnectIssuedTokenResult():
         return 'ConnectIssuedTokenResult';
-      case _i30.ConnectKeyAuditEvent():
+      case _i31.ConnectKeyAuditEvent():
         return 'ConnectKeyAuditEvent';
-      case _i31.ConnectTenantStatus():
+      case _i32.ConnectTenantStatus():
         return 'ConnectTenantStatus';
-      case _i32.ContactBlock():
+      case _i33.ContactBlock():
         return 'ContactBlock';
-      case _i33.ContactCard():
+      case _i34.ContactCard():
         return 'ContactCard';
-      case _i34.ContactCardInfo():
+      case _i35.ContactCardInfo():
         return 'ContactCardInfo';
-      case _i35.ContactLabel():
+      case _i36.ContactLabel():
         return 'ContactLabel';
-      case _i36.ContactLabelAssignment():
+      case _i37.ContactLabelAssignment():
         return 'ContactLabelAssignment';
-      case _i37.ContactLink():
+      case _i38.ContactLink():
         return 'ContactLink';
-      case _i38.ContactMeta():
+      case _i39.ContactMeta():
         return 'ContactMeta';
-      case _i39.ContactProfileView():
+      case _i40.ContactProfileView():
         return 'ContactProfileView';
-      case _i40.ContactRelation():
+      case _i41.ContactRelation():
         return 'ContactRelation';
-      case _i41.ContactRequest():
+      case _i42.ContactRequest():
         return 'ContactRequest';
-      case _i42.ContactRequestView():
+      case _i43.ContactRequestView():
         return 'ContactRequestView';
-      case _i43.DeliveryPending():
+      case _i44.DeliveryJournalEntry():
+        return 'DeliveryJournalEntry';
+      case _i45.DeliveryJournalPage():
+        return 'DeliveryJournalPage';
+      case _i46.DeliveryPending():
         return 'DeliveryPending';
-      case _i44.DeviceRegistration():
+      case _i47.DeliveryRecipientState():
+        return 'DeliveryRecipientState';
+      case _i48.DeliveryRecipientStatus():
+        return 'DeliveryRecipientStatus';
+      case _i49.DeliverySilentPage():
+        return 'DeliverySilentPage';
+      case _i50.DeliverySilentRecipient():
+        return 'DeliverySilentRecipient';
+      case _i51.DeliveryUsage():
+        return 'DeliveryUsage';
+      case _i52.DeviceRegistration():
         return 'DeviceRegistration';
-      case _i45.DeviceRegistrationRemoval():
+      case _i53.DeviceRegistrationRemoval():
         return 'DeviceRegistrationRemoval';
-      case _i46.DeviceSessionInfo():
+      case _i54.DeviceSessionInfo():
         return 'DeviceSessionInfo';
-      case _i47.EmailAccount():
+      case _i55.EmailAccount():
         return 'EmailAccount';
-      case _i48.EmailSession():
+      case _i56.EmailSession():
         return 'EmailSession';
-      case _i49.EmailVerificationCode():
+      case _i57.EmailVerificationCode():
         return 'EmailVerificationCode';
-      case _i50.AttachmentRejectReason():
+      case _i58.AttachmentRejectReason():
         return 'AttachmentRejectReason';
-      case _i51.CallEventType():
+      case _i59.CallEventType():
         return 'CallEventType';
-      case _i52.CallStatus():
+      case _i60.CallStatus():
         return 'CallStatus';
-      case _i53.ContactLinkSource():
+      case _i61.ContactLinkSource():
         return 'ContactLinkSource';
-      case _i54.ContactRequestStatus():
+      case _i62.ContactRequestStatus():
         return 'ContactRequestStatus';
-      case _i55.DevicePlatform():
+      case _i63.DevicePlatform():
         return 'DevicePlatform';
-      case _i56.DeviceRemovalReason():
+      case _i64.DeviceRemovalReason():
         return 'DeviceRemovalReason';
-      case _i57.IdentityProvider():
+      case _i65.IdentityProvider():
         return 'IdentityProvider';
-      case _i58.MessengerEventType():
+      case _i66.MessengerEventType():
         return 'MessengerEventType';
-      case _i59.ParticipantKind():
+      case _i67.ParticipantKind():
         return 'ParticipantKind';
-      case _i60.ProductNotificationStatus():
+      case _i68.ProductNotificationStatus():
         return 'ProductNotificationStatus';
-      case _i61.PushService():
+      case _i69.PushService():
         return 'PushService';
-      case _i62.RoomMemberRole():
+      case _i70.RoomMemberRole():
         return 'RoomMemberRole';
-      case _i63.RoomOwnership():
+      case _i71.RoomOwnership():
         return 'RoomOwnership';
-      case _i64.RoomState():
+      case _i72.RoomState():
         return 'RoomState';
-      case _i65.RoomType():
+      case _i73.RoomType():
         return 'RoomType';
-      case _i66.SupportTeamRole():
+      case _i74.SupportTeamRole():
         return 'SupportTeamRole';
-      case _i67.TeamKind():
+      case _i75.TeamKind():
         return 'TeamKind';
-      case _i68.TeamMemberRole():
+      case _i76.TeamMemberRole():
         return 'TeamMemberRole';
-      case _i69.TenantHostingMode():
+      case _i77.TenantHostingMode():
         return 'TenantHostingMode';
-      case _i70.TrustTokenKind():
+      case _i78.TrustTokenKind():
         return 'TrustTokenKind';
-      case _i71.AdapterNotConfiguredException():
+      case _i79.AdapterNotConfiguredException():
         return 'AdapterNotConfiguredException';
-      case _i72.AmbiguousProductKeyException():
+      case _i80.AmbiguousProductKeyException():
         return 'AmbiguousProductKeyException';
-      case _i73.AttachmentAccessDeniedException():
+      case _i81.AttachmentAccessDeniedException():
         return 'AttachmentAccessDeniedException';
-      case _i74.AttachmentRejectedException():
+      case _i82.AttachmentRejectedException():
         return 'AttachmentRejectedException';
-      case _i75.BotCapabilityException():
+      case _i83.BotCapabilityException():
         return 'BotCapabilityException';
-      case _i76.BotLimitExceededException():
+      case _i84.BotLimitExceededException():
         return 'BotLimitExceededException';
-      case _i77.BotNotFoundException():
+      case _i85.BotNotFoundException():
         return 'BotNotFoundException';
-      case _i78.BotReadRestrictedException():
+      case _i86.BotReadRestrictedException():
         return 'BotReadRestrictedException';
-      case _i79.ConferenceFullException():
+      case _i87.ConferenceFullException():
         return 'ConferenceFullException';
-      case _i80.EmailAuthException():
+      case _i88.EmailAuthException():
         return 'EmailAuthException';
-      case _i81.InsufficientPowerException():
+      case _i89.InsufficientPowerException():
         return 'InsufficientPowerException';
-      case _i82.InvalidBotCommandsException():
+      case _i90.InvalidBotCommandsException():
         return 'InvalidBotCommandsException';
-      case _i83.InvalidExternalKeyException():
+      case _i91.InvalidExternalKeyException():
         return 'InvalidExternalKeyException';
-      case _i84.InvalidNotificationException():
+      case _i92.InvalidNotificationException():
         return 'InvalidNotificationException';
-      case _i85.InvalidTokenException():
+      case _i93.InvalidTokenException():
         return 'InvalidTokenException';
-      case _i86.LastOwnerCannotDemoteException():
+      case _i94.LastOwnerCannotDemoteException():
         return 'LastOwnerCannotDemoteException';
-      case _i87.MessageBodyTooLargeException():
+      case _i95.MessageBodyTooLargeException():
         return 'MessageBodyTooLargeException';
-      case _i88.MessageDeletedException():
+      case _i96.MessageDeletedException():
         return 'MessageDeletedException';
-      case _i89.MessageNotEditableException():
+      case _i97.MessageNotEditableException():
         return 'MessageNotEditableException';
-      case _i90.MessengerNotAuthenticatedException():
+      case _i98.MessengerNotAuthenticatedException():
         return 'MessengerNotAuthenticatedException';
-      case _i91.NotObjectRoomException():
+      case _i99.NotObjectRoomException():
         return 'NotObjectRoomException';
-      case _i92.NotSupportTeamMemberException():
+      case _i100.NotSupportTeamMemberException():
         return 'NotSupportTeamMemberException';
-      case _i93.NotSupportTeamOwnerException():
+      case _i101.NotSupportTeamOwnerException():
         return 'NotSupportTeamOwnerException';
-      case _i94.OperatorEmailNotResolvedException():
+      case _i102.NotificationInProgressException():
+        return 'NotificationInProgressException';
+      case _i103.OperatorEmailNotResolvedException():
         return 'OperatorEmailNotResolvedException';
-      case _i95.PeerUnavailableException():
+      case _i104.PeerUnavailableException():
         return 'PeerUnavailableException';
-      case _i96.ProbeTargetNotAllowedException():
+      case _i105.ProbeTargetNotAllowedException():
         return 'ProbeTargetNotAllowedException';
-      case _i97.ProductAlreadyExistsException():
+      case _i106.ProductAlreadyExistsException():
         return 'ProductAlreadyExistsException';
-      case _i98.ProductInUseException():
+      case _i107.ProductInUseException():
         return 'ProductInUseException';
-      case _i99.ProductNotFoundException():
+      case _i108.ProductNotFoundException():
         return 'ProductNotFoundException';
-      case _i100.ProductNotFoundForCallerException():
+      case _i109.ProductNotFoundForCallerException():
         return 'ProductNotFoundForCallerException';
-      case _i101.RateLimitExceededException():
+      case _i110.RateLimitExceededException():
         return 'RateLimitExceededException';
-      case _i102.RoomDissolvePartialException():
+      case _i111.RoomCapacityExceededException():
+        return 'RoomCapacityExceededException';
+      case _i112.RoomDissolvePartialException():
         return 'RoomDissolvePartialException';
-      case _i103.RoomUnavailableException():
+      case _i113.RoomUnavailableException():
         return 'RoomUnavailableException';
-      case _i104.ScreenShareBusyException():
+      case _i114.ScreenShareBusyException():
         return 'ScreenShareBusyException';
-      case _i105.TaskIntegrationNotConfiguredException():
+      case _i115.TaskIntegrationNotConfiguredException():
         return 'TaskIntegrationNotConfiguredException';
-      case _i106.TeamAccessDeniedException():
+      case _i116.TeamAccessDeniedException():
         return 'TeamAccessDeniedException';
-      case _i107.TeamPeerUnknownException():
+      case _i117.TeamPeerUnknownException():
         return 'TeamPeerUnknownException';
-      case _i108.TenantAlreadyExistsException():
+      case _i118.TenantAlreadyExistsException():
         return 'TenantAlreadyExistsException';
-      case _i109.TenantNotFoundException():
+      case _i119.TenantNotFoundException():
         return 'TenantNotFoundException';
-      case _i110.ThumbnailUnavailableException():
+      case _i120.ThumbnailUnavailableException():
         return 'ThumbnailUnavailableException';
-      case _i111.WriteBannedException():
+      case _i121.WriteBannedException():
         return 'WriteBannedException';
-      case _i112.EscalationResult():
+      case _i122.EscalationResult():
         return 'EscalationResult';
-      case _i113.Greeting():
+      case _i123.Greeting():
         return 'Greeting';
-      case _i114.IdentityMapping():
+      case _i124.IdentityMapping():
         return 'IdentityMapping';
-      case _i115.IncomingWebhook():
+      case _i125.IncomingWebhook():
         return 'IncomingWebhook';
-      case _i116.IncomingWebhookCreated():
+      case _i126.IncomingWebhookCreated():
         return 'IncomingWebhookCreated';
-      case _i117.LinkPreview():
+      case _i127.LinkPreview():
         return 'LinkPreview';
-      case _i118.LinkPreviewView():
+      case _i128.LinkPreviewView():
         return 'LinkPreviewView';
-      case _i119.MessageIndex():
+      case _i129.MessageIndex():
         return 'MessageIndex';
-      case _i120.MessengerAuthContext():
+      case _i130.MessengerAuthContext():
         return 'MessengerAuthContext';
-      case _i121.MessengerEvent():
+      case _i131.MessengerEvent():
         return 'MessengerEvent';
-      case _i122.MessengerMessage():
+      case _i132.MessengerMessage():
         return 'MessengerMessage';
-      case _i123.MessengerMessageListPage():
+      case _i133.MessengerMessageListPage():
         return 'MessengerMessageListPage';
-      case _i124.MessengerSession():
+      case _i134.MessengerSession():
         return 'MessengerSession';
-      case _i125.MessengerSessionToken():
+      case _i135.MessengerSessionToken():
         return 'MessengerSessionToken';
-      case _i126.MessengerUser():
+      case _i136.MessengerUser():
         return 'MessengerUser';
-      case _i127.NearbyConfirmResult():
+      case _i137.NearbyConfirmResult():
         return 'NearbyConfirmResult';
-      case _i128.NearbyConfirmation():
+      case _i138.NearbyConfirmation():
         return 'NearbyConfirmation';
-      case _i129.NotificationSettings():
+      case _i139.NotificationSettings():
         return 'NotificationSettings';
-      case _i130.PresenceConnState():
+      case _i140.PresenceConnState():
         return 'PresenceConnState';
-      case _i131.PresenceInfo():
+      case _i141.PresenceInfo():
         return 'PresenceInfo';
-      case _i132.PresenceState():
+      case _i142.PresenceState():
         return 'PresenceState';
-      case _i133.PresenceWatchedIndex():
+      case _i143.PresenceWatchedIndex():
         return 'PresenceWatchedIndex';
-      case _i134.PresenceWatchers():
+      case _i144.PresenceWatchers():
         return 'PresenceWatchers';
-      case _i135.Product():
+      case _i145.Product():
         return 'Product';
-      case _i136.ProductAdminView():
+      case _i146.ProductAdminView():
         return 'ProductAdminView';
-      case _i137.ProductDeliveryHealth():
+      case _i147.ProductAnnouncementView():
+        return 'ProductAnnouncementView';
+      case _i148.ProductDeliveryHealth():
         return 'ProductDeliveryHealth';
-      case _i138.ProductNotification():
+      case _i149.ProductNotification():
         return 'ProductNotification';
-      case _i139.ProductNotificationRecipientResult():
+      case _i150.ProductNotificationRecipientResult():
         return 'ProductNotificationRecipientResult';
-      case _i140.ProductNotificationSendResult():
+      case _i151.ProductNotificationSendResult():
         return 'ProductNotificationSendResult';
-      case _i141.ProductObjectRoom():
+      case _i152.ProductObjectRoom():
         return 'ProductObjectRoom';
-      case _i142.ProfileTranslation():
+      case _i153.ProfileTranslation():
         return 'ProfileTranslation';
-      case _i143.PulseAccessAuditEvent():
+      case _i154.PulseAccessAuditEvent():
         return 'PulseAccessAuditEvent';
-      case _i144.PulseAccessEntry():
+      case _i155.PulseAccessEntry():
         return 'PulseAccessEntry';
-      case _i145.PulseAlertRule():
+      case _i156.PulseAlertRule():
         return 'PulseAlertRule';
-      case _i146.PulseEvent():
+      case _i157.PulseEvent():
         return 'PulseEvent';
-      case _i147.PulseExpiryReminder():
+      case _i158.PulseExpiryReminder():
         return 'PulseExpiryReminder';
-      case _i148.PulseFolder():
+      case _i159.PulseFolder():
         return 'PulseFolder';
-      case _i149.PulseFolderMembership():
+      case _i160.PulseFolderMembership():
         return 'PulseFolderMembership';
-      case _i150.PulseIncident():
+      case _i161.PulseIncident():
         return 'PulseIncident';
-      case _i151.PulseMemberView():
+      case _i162.PulseMemberView():
         return 'PulseMemberView';
-      case _i152.PulseMonitor():
+      case _i163.PulseMonitor():
         return 'PulseMonitor';
-      case _i153.PulseMonitorCreated():
+      case _i164.PulseMonitorCreated():
         return 'PulseMonitorCreated';
-      case _i154.PulseMonitorMembership():
+      case _i165.PulseMonitorMembership():
         return 'PulseMonitorMembership';
-      case _i155.PulseProbeAllowlistEntry():
+      case _i166.PulseProbeAllowlistEntry():
         return 'PulseProbeAllowlistEntry';
-      case _i156.PulseTlsProbe():
+      case _i167.PulseTlsProbe():
         return 'PulseTlsProbe';
-      case _i157.PulseValueThreshold():
+      case _i168.PulseValueThreshold():
         return 'PulseValueThreshold';
-      case _i158.PushQueueMessage():
+      case _i169.PushQueueMessage():
         return 'PushQueueMessage';
-      case _i159.PushTestJob():
+      case _i170.PushTestJob():
         return 'PushTestJob';
-      case _i160.PushTestResult():
+      case _i171.PushTestResult():
         return 'PushTestResult';
-      case _i161.Room():
+      case _i172.Room():
         return 'Room';
-      case _i162.RoomBotCommands():
+      case _i173.RoomBotCommands():
         return 'RoomBotCommands';
-      case _i163.RoomDetails():
+      case _i174.RoomDeliveryBackstop():
+        return 'RoomDeliveryBackstop';
+      case _i175.RoomDetails():
         return 'RoomDetails';
-      case _i164.RoomListPage():
+      case _i176.RoomListPage():
         return 'RoomListPage';
-      case _i165.RoomMembership():
+      case _i177.RoomMembership():
         return 'RoomMembership';
-      case _i166.RoomParticipant():
+      case _i178.RoomParticipant():
         return 'RoomParticipant';
-      case _i167.RoomSummary():
+      case _i179.RoomSummary():
         return 'RoomSummary';
-      case _i168.RoomTaskStats():
+      case _i180.RoomTaskStats():
         return 'RoomTaskStats';
-      case _i169.RoomTaskView():
+      case _i181.RoomTaskView():
         return 'RoomTaskView';
-      case _i170.SupportTeam():
+      case _i182.SupportTeam():
         return 'SupportTeam';
-      case _i171.SupportTeamExclusion():
+      case _i183.SupportTeamExclusion():
         return 'SupportTeamExclusion';
-      case _i172.SupportTeamMember():
+      case _i184.SupportTeamMember():
         return 'SupportTeamMember';
-      case _i173.SupportTeamMemberView():
+      case _i185.SupportTeamMemberView():
         return 'SupportTeamMemberView';
-      case _i174.SupportTeamView():
+      case _i186.SupportTeamView():
         return 'SupportTeamView';
-      case _i175.TaskLink():
+      case _i187.TaskLink():
         return 'TaskLink';
-      case _i176.TaskManagerConfig():
+      case _i188.TaskManagerConfig():
         return 'TaskManagerConfig';
-      case _i177.Team():
+      case _i189.Team():
         return 'Team';
-      case _i178.TeamMember():
+      case _i190.TeamMember():
         return 'TeamMember';
-      case _i179.TeamMemberView():
+      case _i191.TeamMemberView():
         return 'TeamMemberView';
-      case _i180.TeamView():
+      case _i192.TeamView():
         return 'TeamView';
-      case _i181.Tenant():
+      case _i193.Tenant():
         return 'Tenant';
-      case _i182.TenantSupportMember():
+      case _i194.TenantSupportMember():
         return 'TenantSupportMember';
-      case _i183.TenantSupportMemberView():
+      case _i195.TenantSupportMemberView():
         return 'TenantSupportMemberView';
-      case _i184.ThreadReadState():
+      case _i196.ThreadReadState():
         return 'ThreadReadState';
-      case _i185.Ticket():
+      case _i197.Ticket():
         return 'Ticket';
-      case _i186.TicketEvent():
+      case _i198.TicketEvent():
         return 'TicketEvent';
-      case _i187.TicketView():
+      case _i199.TicketView():
         return 'TicketView';
-      case _i188.TrustRedeemResult():
+      case _i200.TrustRedeemResult():
         return 'TrustRedeemResult';
-      case _i189.TrustToken():
+      case _i201.TrustToken():
         return 'TrustToken';
-      case _i190.TrustTokenIssued():
+      case _i202.TrustTokenIssued():
         return 'TrustTokenIssued';
-      case _i191.TurnCredentials():
+      case _i203.TurnCredentials():
         return 'TurnCredentials';
-      case _i192.WebhookDelivery():
+      case _i204.WebhookDelivery():
         return 'WebhookDelivery';
-      case _i193.WebhookEventMessage():
+      case _i205.WebhookEventMessage():
         return 'WebhookEventMessage';
-      case _i194.WebhookSubscription():
+      case _i206.WebhookSubscription():
         return 'WebhookSubscription';
     }
-    className = _i241.Protocol().getClassNameForObject(data);
+    className = _i255.Protocol().getClassNameForObject(data);
     if (className != null) {
       return 'serverpod_auth_idp.$className';
     }
-    className = _i242.Protocol().getClassNameForObject(data);
+    className = _i256.Protocol().getClassNameForObject(data);
     if (className != null) {
       return 'serverpod_auth_core.$className';
     }
@@ -2864,593 +3042,629 @@ class Protocol extends _i1.SerializationManager {
     if (dataClassName == 'Announcement') {
       return deserialize<_i2.Announcement>(data['data']);
     }
+    if (dataClassName == 'AnnouncementRecipient') {
+      return deserialize<_i3.AnnouncementRecipient>(data['data']);
+    }
     if (dataClassName == 'AnnouncementSeen') {
-      return deserialize<_i3.AnnouncementSeen>(data['data']);
+      return deserialize<_i4.AnnouncementSeen>(data['data']);
     }
     if (dataClassName == 'AnnouncementView') {
-      return deserialize<_i4.AnnouncementView>(data['data']);
+      return deserialize<_i5.AnnouncementView>(data['data']);
     }
     if (dataClassName == 'AttachmentBytes') {
-      return deserialize<_i5.AttachmentBytes>(data['data']);
+      return deserialize<_i6.AttachmentBytes>(data['data']);
     }
     if (dataClassName == 'AttachmentObject') {
-      return deserialize<_i6.AttachmentObject>(data['data']);
+      return deserialize<_i7.AttachmentObject>(data['data']);
     }
     if (dataClassName == 'AttachmentPlacement') {
-      return deserialize<_i7.AttachmentPlacement>(data['data']);
+      return deserialize<_i8.AttachmentPlacement>(data['data']);
     }
     if (dataClassName == 'AttachmentRef') {
-      return deserialize<_i8.AttachmentRef>(data['data']);
+      return deserialize<_i9.AttachmentRef>(data['data']);
     }
     if (dataClassName == 'AttachmentUrl') {
-      return deserialize<_i9.AttachmentUrl>(data['data']);
+      return deserialize<_i10.AttachmentUrl>(data['data']);
     }
     if (dataClassName == 'AvailableBot') {
-      return deserialize<_i10.AvailableBot>(data['data']);
+      return deserialize<_i11.AvailableBot>(data['data']);
     }
     if (dataClassName == 'Bot') {
-      return deserialize<_i11.Bot>(data['data']);
+      return deserialize<_i12.Bot>(data['data']);
     }
     if (dataClassName == 'BotAuditEvent') {
-      return deserialize<_i12.BotAuditEvent>(data['data']);
+      return deserialize<_i13.BotAuditEvent>(data['data']);
     }
     if (dataClassName == 'BotChannelHealth') {
-      return deserialize<_i13.BotChannelHealth>(data['data']);
+      return deserialize<_i14.BotChannelHealth>(data['data']);
     }
     if (dataClassName == 'BotCommand') {
-      return deserialize<_i14.BotCommand>(data['data']);
+      return deserialize<_i15.BotCommand>(data['data']);
     }
     if (dataClassName == 'BotIntegrationCreated') {
-      return deserialize<_i15.BotIntegrationCreated>(data['data']);
+      return deserialize<_i16.BotIntegrationCreated>(data['data']);
     }
     if (dataClassName == 'BotIntegrationView') {
-      return deserialize<_i16.BotIntegrationView>(data['data']);
+      return deserialize<_i17.BotIntegrationView>(data['data']);
     }
     if (dataClassName == 'BotReadModeResult') {
-      return deserialize<_i17.BotReadModeResult>(data['data']);
+      return deserialize<_i18.BotReadModeResult>(data['data']);
     }
     if (dataClassName == 'CallHistoryEntry') {
-      return deserialize<_i18.CallHistoryEntry>(data['data']);
+      return deserialize<_i19.CallHistoryEntry>(data['data']);
     }
     if (dataClassName == 'CallIceCandidate') {
-      return deserialize<_i19.CallIceCandidate>(data['data']);
+      return deserialize<_i20.CallIceCandidate>(data['data']);
     }
     if (dataClassName == 'ChatFolderRecord') {
-      return deserialize<_i20.ChatFolderRecord>(data['data']);
+      return deserialize<_i21.ChatFolderRecord>(data['data']);
     }
     if (dataClassName == 'ChatFolderRoom') {
-      return deserialize<_i21.ChatFolderRoom>(data['data']);
+      return deserialize<_i22.ChatFolderRoom>(data['data']);
     }
     if (dataClassName == 'ChatFolderView') {
-      return deserialize<_i22.ChatFolderView>(data['data']);
+      return deserialize<_i23.ChatFolderView>(data['data']);
     }
     if (dataClassName == 'Conference') {
-      return deserialize<_i23.Conference>(data['data']);
+      return deserialize<_i24.Conference>(data['data']);
     }
     if (dataClassName == 'ConferenceMember') {
-      return deserialize<_i24.ConferenceMember>(data['data']);
+      return deserialize<_i25.ConferenceMember>(data['data']);
     }
     if (dataClassName == 'ConferenceParticipant') {
-      return deserialize<_i25.ConferenceParticipant>(data['data']);
+      return deserialize<_i26.ConferenceParticipant>(data['data']);
     }
     if (dataClassName == 'ConferenceScreenShare') {
-      return deserialize<_i26.ConferenceScreenShare>(data['data']);
+      return deserialize<_i27.ConferenceScreenShare>(data['data']);
     }
     if (dataClassName == 'ConferenceState') {
-      return deserialize<_i27.ConferenceState>(data['data']);
+      return deserialize<_i28.ConferenceState>(data['data']);
     }
     if (dataClassName == 'ConnectIssuedToken') {
-      return deserialize<_i28.ConnectIssuedToken>(data['data']);
+      return deserialize<_i29.ConnectIssuedToken>(data['data']);
     }
     if (dataClassName == 'ConnectIssuedTokenResult') {
-      return deserialize<_i29.ConnectIssuedTokenResult>(data['data']);
+      return deserialize<_i30.ConnectIssuedTokenResult>(data['data']);
     }
     if (dataClassName == 'ConnectKeyAuditEvent') {
-      return deserialize<_i30.ConnectKeyAuditEvent>(data['data']);
+      return deserialize<_i31.ConnectKeyAuditEvent>(data['data']);
     }
     if (dataClassName == 'ConnectTenantStatus') {
-      return deserialize<_i31.ConnectTenantStatus>(data['data']);
+      return deserialize<_i32.ConnectTenantStatus>(data['data']);
     }
     if (dataClassName == 'ContactBlock') {
-      return deserialize<_i32.ContactBlock>(data['data']);
+      return deserialize<_i33.ContactBlock>(data['data']);
     }
     if (dataClassName == 'ContactCard') {
-      return deserialize<_i33.ContactCard>(data['data']);
+      return deserialize<_i34.ContactCard>(data['data']);
     }
     if (dataClassName == 'ContactCardInfo') {
-      return deserialize<_i34.ContactCardInfo>(data['data']);
+      return deserialize<_i35.ContactCardInfo>(data['data']);
     }
     if (dataClassName == 'ContactLabel') {
-      return deserialize<_i35.ContactLabel>(data['data']);
+      return deserialize<_i36.ContactLabel>(data['data']);
     }
     if (dataClassName == 'ContactLabelAssignment') {
-      return deserialize<_i36.ContactLabelAssignment>(data['data']);
+      return deserialize<_i37.ContactLabelAssignment>(data['data']);
     }
     if (dataClassName == 'ContactLink') {
-      return deserialize<_i37.ContactLink>(data['data']);
+      return deserialize<_i38.ContactLink>(data['data']);
     }
     if (dataClassName == 'ContactMeta') {
-      return deserialize<_i38.ContactMeta>(data['data']);
+      return deserialize<_i39.ContactMeta>(data['data']);
     }
     if (dataClassName == 'ContactProfileView') {
-      return deserialize<_i39.ContactProfileView>(data['data']);
+      return deserialize<_i40.ContactProfileView>(data['data']);
     }
     if (dataClassName == 'ContactRelation') {
-      return deserialize<_i40.ContactRelation>(data['data']);
+      return deserialize<_i41.ContactRelation>(data['data']);
     }
     if (dataClassName == 'ContactRequest') {
-      return deserialize<_i41.ContactRequest>(data['data']);
+      return deserialize<_i42.ContactRequest>(data['data']);
     }
     if (dataClassName == 'ContactRequestView') {
-      return deserialize<_i42.ContactRequestView>(data['data']);
+      return deserialize<_i43.ContactRequestView>(data['data']);
+    }
+    if (dataClassName == 'DeliveryJournalEntry') {
+      return deserialize<_i44.DeliveryJournalEntry>(data['data']);
+    }
+    if (dataClassName == 'DeliveryJournalPage') {
+      return deserialize<_i45.DeliveryJournalPage>(data['data']);
     }
     if (dataClassName == 'DeliveryPending') {
-      return deserialize<_i43.DeliveryPending>(data['data']);
+      return deserialize<_i46.DeliveryPending>(data['data']);
+    }
+    if (dataClassName == 'DeliveryRecipientState') {
+      return deserialize<_i47.DeliveryRecipientState>(data['data']);
+    }
+    if (dataClassName == 'DeliveryRecipientStatus') {
+      return deserialize<_i48.DeliveryRecipientStatus>(data['data']);
+    }
+    if (dataClassName == 'DeliverySilentPage') {
+      return deserialize<_i49.DeliverySilentPage>(data['data']);
+    }
+    if (dataClassName == 'DeliverySilentRecipient') {
+      return deserialize<_i50.DeliverySilentRecipient>(data['data']);
+    }
+    if (dataClassName == 'DeliveryUsage') {
+      return deserialize<_i51.DeliveryUsage>(data['data']);
     }
     if (dataClassName == 'DeviceRegistration') {
-      return deserialize<_i44.DeviceRegistration>(data['data']);
+      return deserialize<_i52.DeviceRegistration>(data['data']);
     }
     if (dataClassName == 'DeviceRegistrationRemoval') {
-      return deserialize<_i45.DeviceRegistrationRemoval>(data['data']);
+      return deserialize<_i53.DeviceRegistrationRemoval>(data['data']);
     }
     if (dataClassName == 'DeviceSessionInfo') {
-      return deserialize<_i46.DeviceSessionInfo>(data['data']);
+      return deserialize<_i54.DeviceSessionInfo>(data['data']);
     }
     if (dataClassName == 'EmailAccount') {
-      return deserialize<_i47.EmailAccount>(data['data']);
+      return deserialize<_i55.EmailAccount>(data['data']);
     }
     if (dataClassName == 'EmailSession') {
-      return deserialize<_i48.EmailSession>(data['data']);
+      return deserialize<_i56.EmailSession>(data['data']);
     }
     if (dataClassName == 'EmailVerificationCode') {
-      return deserialize<_i49.EmailVerificationCode>(data['data']);
+      return deserialize<_i57.EmailVerificationCode>(data['data']);
     }
     if (dataClassName == 'AttachmentRejectReason') {
-      return deserialize<_i50.AttachmentRejectReason>(data['data']);
+      return deserialize<_i58.AttachmentRejectReason>(data['data']);
     }
     if (dataClassName == 'CallEventType') {
-      return deserialize<_i51.CallEventType>(data['data']);
+      return deserialize<_i59.CallEventType>(data['data']);
     }
     if (dataClassName == 'CallStatus') {
-      return deserialize<_i52.CallStatus>(data['data']);
+      return deserialize<_i60.CallStatus>(data['data']);
     }
     if (dataClassName == 'ContactLinkSource') {
-      return deserialize<_i53.ContactLinkSource>(data['data']);
+      return deserialize<_i61.ContactLinkSource>(data['data']);
     }
     if (dataClassName == 'ContactRequestStatus') {
-      return deserialize<_i54.ContactRequestStatus>(data['data']);
+      return deserialize<_i62.ContactRequestStatus>(data['data']);
     }
     if (dataClassName == 'DevicePlatform') {
-      return deserialize<_i55.DevicePlatform>(data['data']);
+      return deserialize<_i63.DevicePlatform>(data['data']);
     }
     if (dataClassName == 'DeviceRemovalReason') {
-      return deserialize<_i56.DeviceRemovalReason>(data['data']);
+      return deserialize<_i64.DeviceRemovalReason>(data['data']);
     }
     if (dataClassName == 'IdentityProvider') {
-      return deserialize<_i57.IdentityProvider>(data['data']);
+      return deserialize<_i65.IdentityProvider>(data['data']);
     }
     if (dataClassName == 'MessengerEventType') {
-      return deserialize<_i58.MessengerEventType>(data['data']);
+      return deserialize<_i66.MessengerEventType>(data['data']);
     }
     if (dataClassName == 'ParticipantKind') {
-      return deserialize<_i59.ParticipantKind>(data['data']);
+      return deserialize<_i67.ParticipantKind>(data['data']);
     }
     if (dataClassName == 'ProductNotificationStatus') {
-      return deserialize<_i60.ProductNotificationStatus>(data['data']);
+      return deserialize<_i68.ProductNotificationStatus>(data['data']);
     }
     if (dataClassName == 'PushService') {
-      return deserialize<_i61.PushService>(data['data']);
+      return deserialize<_i69.PushService>(data['data']);
     }
     if (dataClassName == 'RoomMemberRole') {
-      return deserialize<_i62.RoomMemberRole>(data['data']);
+      return deserialize<_i70.RoomMemberRole>(data['data']);
     }
     if (dataClassName == 'RoomOwnership') {
-      return deserialize<_i63.RoomOwnership>(data['data']);
+      return deserialize<_i71.RoomOwnership>(data['data']);
     }
     if (dataClassName == 'RoomState') {
-      return deserialize<_i64.RoomState>(data['data']);
+      return deserialize<_i72.RoomState>(data['data']);
     }
     if (dataClassName == 'RoomType') {
-      return deserialize<_i65.RoomType>(data['data']);
+      return deserialize<_i73.RoomType>(data['data']);
     }
     if (dataClassName == 'SupportTeamRole') {
-      return deserialize<_i66.SupportTeamRole>(data['data']);
+      return deserialize<_i74.SupportTeamRole>(data['data']);
     }
     if (dataClassName == 'TeamKind') {
-      return deserialize<_i67.TeamKind>(data['data']);
+      return deserialize<_i75.TeamKind>(data['data']);
     }
     if (dataClassName == 'TeamMemberRole') {
-      return deserialize<_i68.TeamMemberRole>(data['data']);
+      return deserialize<_i76.TeamMemberRole>(data['data']);
     }
     if (dataClassName == 'TenantHostingMode') {
-      return deserialize<_i69.TenantHostingMode>(data['data']);
+      return deserialize<_i77.TenantHostingMode>(data['data']);
     }
     if (dataClassName == 'TrustTokenKind') {
-      return deserialize<_i70.TrustTokenKind>(data['data']);
+      return deserialize<_i78.TrustTokenKind>(data['data']);
     }
     if (dataClassName == 'AdapterNotConfiguredException') {
-      return deserialize<_i71.AdapterNotConfiguredException>(data['data']);
+      return deserialize<_i79.AdapterNotConfiguredException>(data['data']);
     }
     if (dataClassName == 'AmbiguousProductKeyException') {
-      return deserialize<_i72.AmbiguousProductKeyException>(data['data']);
+      return deserialize<_i80.AmbiguousProductKeyException>(data['data']);
     }
     if (dataClassName == 'AttachmentAccessDeniedException') {
-      return deserialize<_i73.AttachmentAccessDeniedException>(data['data']);
+      return deserialize<_i81.AttachmentAccessDeniedException>(data['data']);
     }
     if (dataClassName == 'AttachmentRejectedException') {
-      return deserialize<_i74.AttachmentRejectedException>(data['data']);
+      return deserialize<_i82.AttachmentRejectedException>(data['data']);
     }
     if (dataClassName == 'BotCapabilityException') {
-      return deserialize<_i75.BotCapabilityException>(data['data']);
+      return deserialize<_i83.BotCapabilityException>(data['data']);
     }
     if (dataClassName == 'BotLimitExceededException') {
-      return deserialize<_i76.BotLimitExceededException>(data['data']);
+      return deserialize<_i84.BotLimitExceededException>(data['data']);
     }
     if (dataClassName == 'BotNotFoundException') {
-      return deserialize<_i77.BotNotFoundException>(data['data']);
+      return deserialize<_i85.BotNotFoundException>(data['data']);
     }
     if (dataClassName == 'BotReadRestrictedException') {
-      return deserialize<_i78.BotReadRestrictedException>(data['data']);
+      return deserialize<_i86.BotReadRestrictedException>(data['data']);
     }
     if (dataClassName == 'ConferenceFullException') {
-      return deserialize<_i79.ConferenceFullException>(data['data']);
+      return deserialize<_i87.ConferenceFullException>(data['data']);
     }
     if (dataClassName == 'EmailAuthException') {
-      return deserialize<_i80.EmailAuthException>(data['data']);
+      return deserialize<_i88.EmailAuthException>(data['data']);
     }
     if (dataClassName == 'InsufficientPowerException') {
-      return deserialize<_i81.InsufficientPowerException>(data['data']);
+      return deserialize<_i89.InsufficientPowerException>(data['data']);
     }
     if (dataClassName == 'InvalidBotCommandsException') {
-      return deserialize<_i82.InvalidBotCommandsException>(data['data']);
+      return deserialize<_i90.InvalidBotCommandsException>(data['data']);
     }
     if (dataClassName == 'InvalidExternalKeyException') {
-      return deserialize<_i83.InvalidExternalKeyException>(data['data']);
+      return deserialize<_i91.InvalidExternalKeyException>(data['data']);
     }
     if (dataClassName == 'InvalidNotificationException') {
-      return deserialize<_i84.InvalidNotificationException>(data['data']);
+      return deserialize<_i92.InvalidNotificationException>(data['data']);
     }
     if (dataClassName == 'InvalidTokenException') {
-      return deserialize<_i85.InvalidTokenException>(data['data']);
+      return deserialize<_i93.InvalidTokenException>(data['data']);
     }
     if (dataClassName == 'LastOwnerCannotDemoteException') {
-      return deserialize<_i86.LastOwnerCannotDemoteException>(data['data']);
+      return deserialize<_i94.LastOwnerCannotDemoteException>(data['data']);
     }
     if (dataClassName == 'MessageBodyTooLargeException') {
-      return deserialize<_i87.MessageBodyTooLargeException>(data['data']);
+      return deserialize<_i95.MessageBodyTooLargeException>(data['data']);
     }
     if (dataClassName == 'MessageDeletedException') {
-      return deserialize<_i88.MessageDeletedException>(data['data']);
+      return deserialize<_i96.MessageDeletedException>(data['data']);
     }
     if (dataClassName == 'MessageNotEditableException') {
-      return deserialize<_i89.MessageNotEditableException>(data['data']);
+      return deserialize<_i97.MessageNotEditableException>(data['data']);
     }
     if (dataClassName == 'MessengerNotAuthenticatedException') {
-      return deserialize<_i90.MessengerNotAuthenticatedException>(data['data']);
+      return deserialize<_i98.MessengerNotAuthenticatedException>(data['data']);
     }
     if (dataClassName == 'NotObjectRoomException') {
-      return deserialize<_i91.NotObjectRoomException>(data['data']);
+      return deserialize<_i99.NotObjectRoomException>(data['data']);
     }
     if (dataClassName == 'NotSupportTeamMemberException') {
-      return deserialize<_i92.NotSupportTeamMemberException>(data['data']);
+      return deserialize<_i100.NotSupportTeamMemberException>(data['data']);
     }
     if (dataClassName == 'NotSupportTeamOwnerException') {
-      return deserialize<_i93.NotSupportTeamOwnerException>(data['data']);
+      return deserialize<_i101.NotSupportTeamOwnerException>(data['data']);
+    }
+    if (dataClassName == 'NotificationInProgressException') {
+      return deserialize<_i102.NotificationInProgressException>(data['data']);
     }
     if (dataClassName == 'OperatorEmailNotResolvedException') {
-      return deserialize<_i94.OperatorEmailNotResolvedException>(data['data']);
+      return deserialize<_i103.OperatorEmailNotResolvedException>(data['data']);
     }
     if (dataClassName == 'PeerUnavailableException') {
-      return deserialize<_i95.PeerUnavailableException>(data['data']);
+      return deserialize<_i104.PeerUnavailableException>(data['data']);
     }
     if (dataClassName == 'ProbeTargetNotAllowedException') {
-      return deserialize<_i96.ProbeTargetNotAllowedException>(data['data']);
+      return deserialize<_i105.ProbeTargetNotAllowedException>(data['data']);
     }
     if (dataClassName == 'ProductAlreadyExistsException') {
-      return deserialize<_i97.ProductAlreadyExistsException>(data['data']);
+      return deserialize<_i106.ProductAlreadyExistsException>(data['data']);
     }
     if (dataClassName == 'ProductInUseException') {
-      return deserialize<_i98.ProductInUseException>(data['data']);
+      return deserialize<_i107.ProductInUseException>(data['data']);
     }
     if (dataClassName == 'ProductNotFoundException') {
-      return deserialize<_i99.ProductNotFoundException>(data['data']);
+      return deserialize<_i108.ProductNotFoundException>(data['data']);
     }
     if (dataClassName == 'ProductNotFoundForCallerException') {
-      return deserialize<_i100.ProductNotFoundForCallerException>(data['data']);
+      return deserialize<_i109.ProductNotFoundForCallerException>(data['data']);
     }
     if (dataClassName == 'RateLimitExceededException') {
-      return deserialize<_i101.RateLimitExceededException>(data['data']);
+      return deserialize<_i110.RateLimitExceededException>(data['data']);
+    }
+    if (dataClassName == 'RoomCapacityExceededException') {
+      return deserialize<_i111.RoomCapacityExceededException>(data['data']);
     }
     if (dataClassName == 'RoomDissolvePartialException') {
-      return deserialize<_i102.RoomDissolvePartialException>(data['data']);
+      return deserialize<_i112.RoomDissolvePartialException>(data['data']);
     }
     if (dataClassName == 'RoomUnavailableException') {
-      return deserialize<_i103.RoomUnavailableException>(data['data']);
+      return deserialize<_i113.RoomUnavailableException>(data['data']);
     }
     if (dataClassName == 'ScreenShareBusyException') {
-      return deserialize<_i104.ScreenShareBusyException>(data['data']);
+      return deserialize<_i114.ScreenShareBusyException>(data['data']);
     }
     if (dataClassName == 'TaskIntegrationNotConfiguredException') {
-      return deserialize<_i105.TaskIntegrationNotConfiguredException>(
+      return deserialize<_i115.TaskIntegrationNotConfiguredException>(
         data['data'],
       );
     }
     if (dataClassName == 'TeamAccessDeniedException') {
-      return deserialize<_i106.TeamAccessDeniedException>(data['data']);
+      return deserialize<_i116.TeamAccessDeniedException>(data['data']);
     }
     if (dataClassName == 'TeamPeerUnknownException') {
-      return deserialize<_i107.TeamPeerUnknownException>(data['data']);
+      return deserialize<_i117.TeamPeerUnknownException>(data['data']);
     }
     if (dataClassName == 'TenantAlreadyExistsException') {
-      return deserialize<_i108.TenantAlreadyExistsException>(data['data']);
+      return deserialize<_i118.TenantAlreadyExistsException>(data['data']);
     }
     if (dataClassName == 'TenantNotFoundException') {
-      return deserialize<_i109.TenantNotFoundException>(data['data']);
+      return deserialize<_i119.TenantNotFoundException>(data['data']);
     }
     if (dataClassName == 'ThumbnailUnavailableException') {
-      return deserialize<_i110.ThumbnailUnavailableException>(data['data']);
+      return deserialize<_i120.ThumbnailUnavailableException>(data['data']);
     }
     if (dataClassName == 'WriteBannedException') {
-      return deserialize<_i111.WriteBannedException>(data['data']);
+      return deserialize<_i121.WriteBannedException>(data['data']);
     }
     if (dataClassName == 'EscalationResult') {
-      return deserialize<_i112.EscalationResult>(data['data']);
+      return deserialize<_i122.EscalationResult>(data['data']);
     }
     if (dataClassName == 'Greeting') {
-      return deserialize<_i113.Greeting>(data['data']);
+      return deserialize<_i123.Greeting>(data['data']);
     }
     if (dataClassName == 'IdentityMapping') {
-      return deserialize<_i114.IdentityMapping>(data['data']);
+      return deserialize<_i124.IdentityMapping>(data['data']);
     }
     if (dataClassName == 'IncomingWebhook') {
-      return deserialize<_i115.IncomingWebhook>(data['data']);
+      return deserialize<_i125.IncomingWebhook>(data['data']);
     }
     if (dataClassName == 'IncomingWebhookCreated') {
-      return deserialize<_i116.IncomingWebhookCreated>(data['data']);
+      return deserialize<_i126.IncomingWebhookCreated>(data['data']);
     }
     if (dataClassName == 'LinkPreview') {
-      return deserialize<_i117.LinkPreview>(data['data']);
+      return deserialize<_i127.LinkPreview>(data['data']);
     }
     if (dataClassName == 'LinkPreviewView') {
-      return deserialize<_i118.LinkPreviewView>(data['data']);
+      return deserialize<_i128.LinkPreviewView>(data['data']);
     }
     if (dataClassName == 'MessageIndex') {
-      return deserialize<_i119.MessageIndex>(data['data']);
+      return deserialize<_i129.MessageIndex>(data['data']);
     }
     if (dataClassName == 'MessengerAuthContext') {
-      return deserialize<_i120.MessengerAuthContext>(data['data']);
+      return deserialize<_i130.MessengerAuthContext>(data['data']);
     }
     if (dataClassName == 'MessengerEvent') {
-      return deserialize<_i121.MessengerEvent>(data['data']);
+      return deserialize<_i131.MessengerEvent>(data['data']);
     }
     if (dataClassName == 'MessengerMessage') {
-      return deserialize<_i122.MessengerMessage>(data['data']);
+      return deserialize<_i132.MessengerMessage>(data['data']);
     }
     if (dataClassName == 'MessengerMessageListPage') {
-      return deserialize<_i123.MessengerMessageListPage>(data['data']);
+      return deserialize<_i133.MessengerMessageListPage>(data['data']);
     }
     if (dataClassName == 'MessengerSession') {
-      return deserialize<_i124.MessengerSession>(data['data']);
+      return deserialize<_i134.MessengerSession>(data['data']);
     }
     if (dataClassName == 'MessengerSessionToken') {
-      return deserialize<_i125.MessengerSessionToken>(data['data']);
+      return deserialize<_i135.MessengerSessionToken>(data['data']);
     }
     if (dataClassName == 'MessengerUser') {
-      return deserialize<_i126.MessengerUser>(data['data']);
+      return deserialize<_i136.MessengerUser>(data['data']);
     }
     if (dataClassName == 'NearbyConfirmResult') {
-      return deserialize<_i127.NearbyConfirmResult>(data['data']);
+      return deserialize<_i137.NearbyConfirmResult>(data['data']);
     }
     if (dataClassName == 'NearbyConfirmation') {
-      return deserialize<_i128.NearbyConfirmation>(data['data']);
+      return deserialize<_i138.NearbyConfirmation>(data['data']);
     }
     if (dataClassName == 'NotificationSettings') {
-      return deserialize<_i129.NotificationSettings>(data['data']);
+      return deserialize<_i139.NotificationSettings>(data['data']);
     }
     if (dataClassName == 'PresenceConnState') {
-      return deserialize<_i130.PresenceConnState>(data['data']);
+      return deserialize<_i140.PresenceConnState>(data['data']);
     }
     if (dataClassName == 'PresenceInfo') {
-      return deserialize<_i131.PresenceInfo>(data['data']);
+      return deserialize<_i141.PresenceInfo>(data['data']);
     }
     if (dataClassName == 'PresenceState') {
-      return deserialize<_i132.PresenceState>(data['data']);
+      return deserialize<_i142.PresenceState>(data['data']);
     }
     if (dataClassName == 'PresenceWatchedIndex') {
-      return deserialize<_i133.PresenceWatchedIndex>(data['data']);
+      return deserialize<_i143.PresenceWatchedIndex>(data['data']);
     }
     if (dataClassName == 'PresenceWatchers') {
-      return deserialize<_i134.PresenceWatchers>(data['data']);
+      return deserialize<_i144.PresenceWatchers>(data['data']);
     }
     if (dataClassName == 'Product') {
-      return deserialize<_i135.Product>(data['data']);
+      return deserialize<_i145.Product>(data['data']);
     }
     if (dataClassName == 'ProductAdminView') {
-      return deserialize<_i136.ProductAdminView>(data['data']);
+      return deserialize<_i146.ProductAdminView>(data['data']);
+    }
+    if (dataClassName == 'ProductAnnouncementView') {
+      return deserialize<_i147.ProductAnnouncementView>(data['data']);
     }
     if (dataClassName == 'ProductDeliveryHealth') {
-      return deserialize<_i137.ProductDeliveryHealth>(data['data']);
+      return deserialize<_i148.ProductDeliveryHealth>(data['data']);
     }
     if (dataClassName == 'ProductNotification') {
-      return deserialize<_i138.ProductNotification>(data['data']);
+      return deserialize<_i149.ProductNotification>(data['data']);
     }
     if (dataClassName == 'ProductNotificationRecipientResult') {
-      return deserialize<_i139.ProductNotificationRecipientResult>(
+      return deserialize<_i150.ProductNotificationRecipientResult>(
         data['data'],
       );
     }
     if (dataClassName == 'ProductNotificationSendResult') {
-      return deserialize<_i140.ProductNotificationSendResult>(data['data']);
+      return deserialize<_i151.ProductNotificationSendResult>(data['data']);
     }
     if (dataClassName == 'ProductObjectRoom') {
-      return deserialize<_i141.ProductObjectRoom>(data['data']);
+      return deserialize<_i152.ProductObjectRoom>(data['data']);
     }
     if (dataClassName == 'ProfileTranslation') {
-      return deserialize<_i142.ProfileTranslation>(data['data']);
+      return deserialize<_i153.ProfileTranslation>(data['data']);
     }
     if (dataClassName == 'PulseAccessAuditEvent') {
-      return deserialize<_i143.PulseAccessAuditEvent>(data['data']);
+      return deserialize<_i154.PulseAccessAuditEvent>(data['data']);
     }
     if (dataClassName == 'PulseAccessEntry') {
-      return deserialize<_i144.PulseAccessEntry>(data['data']);
+      return deserialize<_i155.PulseAccessEntry>(data['data']);
     }
     if (dataClassName == 'PulseAlertRule') {
-      return deserialize<_i145.PulseAlertRule>(data['data']);
+      return deserialize<_i156.PulseAlertRule>(data['data']);
     }
     if (dataClassName == 'PulseEvent') {
-      return deserialize<_i146.PulseEvent>(data['data']);
+      return deserialize<_i157.PulseEvent>(data['data']);
     }
     if (dataClassName == 'PulseExpiryReminder') {
-      return deserialize<_i147.PulseExpiryReminder>(data['data']);
+      return deserialize<_i158.PulseExpiryReminder>(data['data']);
     }
     if (dataClassName == 'PulseFolder') {
-      return deserialize<_i148.PulseFolder>(data['data']);
+      return deserialize<_i159.PulseFolder>(data['data']);
     }
     if (dataClassName == 'PulseFolderMembership') {
-      return deserialize<_i149.PulseFolderMembership>(data['data']);
+      return deserialize<_i160.PulseFolderMembership>(data['data']);
     }
     if (dataClassName == 'PulseIncident') {
-      return deserialize<_i150.PulseIncident>(data['data']);
+      return deserialize<_i161.PulseIncident>(data['data']);
     }
     if (dataClassName == 'PulseMemberView') {
-      return deserialize<_i151.PulseMemberView>(data['data']);
+      return deserialize<_i162.PulseMemberView>(data['data']);
     }
     if (dataClassName == 'PulseMonitor') {
-      return deserialize<_i152.PulseMonitor>(data['data']);
+      return deserialize<_i163.PulseMonitor>(data['data']);
     }
     if (dataClassName == 'PulseMonitorCreated') {
-      return deserialize<_i153.PulseMonitorCreated>(data['data']);
+      return deserialize<_i164.PulseMonitorCreated>(data['data']);
     }
     if (dataClassName == 'PulseMonitorMembership') {
-      return deserialize<_i154.PulseMonitorMembership>(data['data']);
+      return deserialize<_i165.PulseMonitorMembership>(data['data']);
     }
     if (dataClassName == 'PulseProbeAllowlistEntry') {
-      return deserialize<_i155.PulseProbeAllowlistEntry>(data['data']);
+      return deserialize<_i166.PulseProbeAllowlistEntry>(data['data']);
     }
     if (dataClassName == 'PulseTlsProbe') {
-      return deserialize<_i156.PulseTlsProbe>(data['data']);
+      return deserialize<_i167.PulseTlsProbe>(data['data']);
     }
     if (dataClassName == 'PulseValueThreshold') {
-      return deserialize<_i157.PulseValueThreshold>(data['data']);
+      return deserialize<_i168.PulseValueThreshold>(data['data']);
     }
     if (dataClassName == 'PushQueueMessage') {
-      return deserialize<_i158.PushQueueMessage>(data['data']);
+      return deserialize<_i169.PushQueueMessage>(data['data']);
     }
     if (dataClassName == 'PushTestJob') {
-      return deserialize<_i159.PushTestJob>(data['data']);
+      return deserialize<_i170.PushTestJob>(data['data']);
     }
     if (dataClassName == 'PushTestResult') {
-      return deserialize<_i160.PushTestResult>(data['data']);
+      return deserialize<_i171.PushTestResult>(data['data']);
     }
     if (dataClassName == 'Room') {
-      return deserialize<_i161.Room>(data['data']);
+      return deserialize<_i172.Room>(data['data']);
     }
     if (dataClassName == 'RoomBotCommands') {
-      return deserialize<_i162.RoomBotCommands>(data['data']);
+      return deserialize<_i173.RoomBotCommands>(data['data']);
+    }
+    if (dataClassName == 'RoomDeliveryBackstop') {
+      return deserialize<_i174.RoomDeliveryBackstop>(data['data']);
     }
     if (dataClassName == 'RoomDetails') {
-      return deserialize<_i163.RoomDetails>(data['data']);
+      return deserialize<_i175.RoomDetails>(data['data']);
     }
     if (dataClassName == 'RoomListPage') {
-      return deserialize<_i164.RoomListPage>(data['data']);
+      return deserialize<_i176.RoomListPage>(data['data']);
     }
     if (dataClassName == 'RoomMembership') {
-      return deserialize<_i165.RoomMembership>(data['data']);
+      return deserialize<_i177.RoomMembership>(data['data']);
     }
     if (dataClassName == 'RoomParticipant') {
-      return deserialize<_i166.RoomParticipant>(data['data']);
+      return deserialize<_i178.RoomParticipant>(data['data']);
     }
     if (dataClassName == 'RoomSummary') {
-      return deserialize<_i167.RoomSummary>(data['data']);
+      return deserialize<_i179.RoomSummary>(data['data']);
     }
     if (dataClassName == 'RoomTaskStats') {
-      return deserialize<_i168.RoomTaskStats>(data['data']);
+      return deserialize<_i180.RoomTaskStats>(data['data']);
     }
     if (dataClassName == 'RoomTaskView') {
-      return deserialize<_i169.RoomTaskView>(data['data']);
+      return deserialize<_i181.RoomTaskView>(data['data']);
     }
     if (dataClassName == 'SupportTeam') {
-      return deserialize<_i170.SupportTeam>(data['data']);
+      return deserialize<_i182.SupportTeam>(data['data']);
     }
     if (dataClassName == 'SupportTeamExclusion') {
-      return deserialize<_i171.SupportTeamExclusion>(data['data']);
+      return deserialize<_i183.SupportTeamExclusion>(data['data']);
     }
     if (dataClassName == 'SupportTeamMember') {
-      return deserialize<_i172.SupportTeamMember>(data['data']);
+      return deserialize<_i184.SupportTeamMember>(data['data']);
     }
     if (dataClassName == 'SupportTeamMemberView') {
-      return deserialize<_i173.SupportTeamMemberView>(data['data']);
+      return deserialize<_i185.SupportTeamMemberView>(data['data']);
     }
     if (dataClassName == 'SupportTeamView') {
-      return deserialize<_i174.SupportTeamView>(data['data']);
+      return deserialize<_i186.SupportTeamView>(data['data']);
     }
     if (dataClassName == 'TaskLink') {
-      return deserialize<_i175.TaskLink>(data['data']);
+      return deserialize<_i187.TaskLink>(data['data']);
     }
     if (dataClassName == 'TaskManagerConfig') {
-      return deserialize<_i176.TaskManagerConfig>(data['data']);
+      return deserialize<_i188.TaskManagerConfig>(data['data']);
     }
     if (dataClassName == 'Team') {
-      return deserialize<_i177.Team>(data['data']);
+      return deserialize<_i189.Team>(data['data']);
     }
     if (dataClassName == 'TeamMember') {
-      return deserialize<_i178.TeamMember>(data['data']);
+      return deserialize<_i190.TeamMember>(data['data']);
     }
     if (dataClassName == 'TeamMemberView') {
-      return deserialize<_i179.TeamMemberView>(data['data']);
+      return deserialize<_i191.TeamMemberView>(data['data']);
     }
     if (dataClassName == 'TeamView') {
-      return deserialize<_i180.TeamView>(data['data']);
+      return deserialize<_i192.TeamView>(data['data']);
     }
     if (dataClassName == 'Tenant') {
-      return deserialize<_i181.Tenant>(data['data']);
+      return deserialize<_i193.Tenant>(data['data']);
     }
     if (dataClassName == 'TenantSupportMember') {
-      return deserialize<_i182.TenantSupportMember>(data['data']);
+      return deserialize<_i194.TenantSupportMember>(data['data']);
     }
     if (dataClassName == 'TenantSupportMemberView') {
-      return deserialize<_i183.TenantSupportMemberView>(data['data']);
+      return deserialize<_i195.TenantSupportMemberView>(data['data']);
     }
     if (dataClassName == 'ThreadReadState') {
-      return deserialize<_i184.ThreadReadState>(data['data']);
+      return deserialize<_i196.ThreadReadState>(data['data']);
     }
     if (dataClassName == 'Ticket') {
-      return deserialize<_i185.Ticket>(data['data']);
+      return deserialize<_i197.Ticket>(data['data']);
     }
     if (dataClassName == 'TicketEvent') {
-      return deserialize<_i186.TicketEvent>(data['data']);
+      return deserialize<_i198.TicketEvent>(data['data']);
     }
     if (dataClassName == 'TicketView') {
-      return deserialize<_i187.TicketView>(data['data']);
+      return deserialize<_i199.TicketView>(data['data']);
     }
     if (dataClassName == 'TrustRedeemResult') {
-      return deserialize<_i188.TrustRedeemResult>(data['data']);
+      return deserialize<_i200.TrustRedeemResult>(data['data']);
     }
     if (dataClassName == 'TrustToken') {
-      return deserialize<_i189.TrustToken>(data['data']);
+      return deserialize<_i201.TrustToken>(data['data']);
     }
     if (dataClassName == 'TrustTokenIssued') {
-      return deserialize<_i190.TrustTokenIssued>(data['data']);
+      return deserialize<_i202.TrustTokenIssued>(data['data']);
     }
     if (dataClassName == 'TurnCredentials') {
-      return deserialize<_i191.TurnCredentials>(data['data']);
+      return deserialize<_i203.TurnCredentials>(data['data']);
     }
     if (dataClassName == 'WebhookDelivery') {
-      return deserialize<_i192.WebhookDelivery>(data['data']);
+      return deserialize<_i204.WebhookDelivery>(data['data']);
     }
     if (dataClassName == 'WebhookEventMessage') {
-      return deserialize<_i193.WebhookEventMessage>(data['data']);
+      return deserialize<_i205.WebhookEventMessage>(data['data']);
     }
     if (dataClassName == 'WebhookSubscription') {
-      return deserialize<_i194.WebhookSubscription>(data['data']);
+      return deserialize<_i206.WebhookSubscription>(data['data']);
     }
     if (dataClassName.startsWith('serverpod_auth_idp.')) {
       data['className'] = dataClassName.substring(19);
-      return _i241.Protocol().deserializeByClassName(data);
+      return _i255.Protocol().deserializeByClassName(data);
     }
     if (dataClassName.startsWith('serverpod_auth_core.')) {
       data['className'] = dataClassName.substring(20);
-      return _i242.Protocol().deserializeByClassName(data);
+      return _i256.Protocol().deserializeByClassName(data);
     }
     return super.deserializeByClassName(data);
   }
@@ -3465,10 +3679,10 @@ class Protocol extends _i1.SerializationManager {
       return null;
     }
     try {
-      return _i241.Protocol().mapRecordToJson(record);
+      return _i255.Protocol().mapRecordToJson(record);
     } catch (_) {}
     try {
-      return _i242.Protocol().mapRecordToJson(record);
+      return _i256.Protocol().mapRecordToJson(record);
     } catch (_) {}
     throw Exception('Unsupported record type ${record.runtimeType}');
   }

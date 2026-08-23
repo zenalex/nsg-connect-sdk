@@ -23,12 +23,14 @@ abstract class ProductNotificationRecipientResult
     required this.externalUserId,
     required this.status,
     required this.deviceCount,
+    this.reason,
   });
 
   factory ProductNotificationRecipientResult({
     required String externalUserId,
     required _i2.ProductNotificationStatus status,
     required int deviceCount,
+    String? reason,
   }) = _ProductNotificationRecipientResultImpl;
 
   factory ProductNotificationRecipientResult.fromJson(
@@ -40,6 +42,7 @@ abstract class ProductNotificationRecipientResult
         (jsonSerialization['status'] as String),
       ),
       deviceCount: jsonSerialization['deviceCount'] as int,
+      reason: jsonSerialization['reason'] as String?,
     );
   }
 
@@ -50,6 +53,27 @@ abstract class ProductNotificationRecipientResult
   /// Сколько устройств адресата приняли payload (0 при noDevices/deduped).
   int deviceCount;
 
+  /// **issue #157**: ПОЧЕМУ не доставлено. Пусто у успешных исходов.
+  ///
+  ///   * `unknown_recipient` — такого адресата мы не знаем: привязки
+  ///     `externalUserId` → пользователь мессенджера нет вовсе. Ошибка
+  ///     интеграции: продукт шлёт на идентификатор, которого у нас нет
+  ///     (или он заведён под другим провайдером). Чинится сверкой id;
+  ///   * `no_devices` — адресат известен, но подходящих устройств нет.
+  ///     Ситуация продуктовая: человек не обновил приложение, токен не
+  ///     выдавался. Чинится работой с людьми, а не с кодом;
+  ///   * `stale_tokens` — устройства есть, но все давно не продлевались
+  ///     (см. `DeviceRegistrationService.isRegistrationStale`): скорее
+  ///     всего установка мертва;
+  ///   * `no_credentials` — устройства есть, а службы их доставки у нас не
+  ///     настроены. Это НАШ отказ, и продукту он ничего чинить не даёт.
+  ///
+  /// **Строка, а не enum, намеренно.** Контракт внешний: клиент на C# или
+  /// Python разбирает JSON, и добавление пятой причины не должно ломать
+  /// тех, кто уже разбирает четыре. Значение неизвестной причины такой
+  /// клиент просто покажет как есть.
+  String? reason;
+
   /// Returns a shallow copy of this [ProductNotificationRecipientResult]
   /// with some or all fields replaced by the given arguments.
   @_i1.useResult
@@ -57,6 +81,7 @@ abstract class ProductNotificationRecipientResult
     String? externalUserId,
     _i2.ProductNotificationStatus? status,
     int? deviceCount,
+    String? reason,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -65,6 +90,7 @@ abstract class ProductNotificationRecipientResult
       'externalUserId': externalUserId,
       'status': status.toJson(),
       'deviceCount': deviceCount,
+      if (reason != null) 'reason': reason,
     };
   }
 
@@ -74,16 +100,20 @@ abstract class ProductNotificationRecipientResult
   }
 }
 
+class _Undefined {}
+
 class _ProductNotificationRecipientResultImpl
     extends ProductNotificationRecipientResult {
   _ProductNotificationRecipientResultImpl({
     required String externalUserId,
     required _i2.ProductNotificationStatus status,
     required int deviceCount,
+    String? reason,
   }) : super._(
          externalUserId: externalUserId,
          status: status,
          deviceCount: deviceCount,
+         reason: reason,
        );
 
   /// Returns a shallow copy of this [ProductNotificationRecipientResult]
@@ -94,11 +124,13 @@ class _ProductNotificationRecipientResultImpl
     String? externalUserId,
     _i2.ProductNotificationStatus? status,
     int? deviceCount,
+    Object? reason = _Undefined,
   }) {
     return ProductNotificationRecipientResult(
       externalUserId: externalUserId ?? this.externalUserId,
       status: status ?? this.status,
       deviceCount: deviceCount ?? this.deviceCount,
+      reason: reason is String? ? reason : this.reason,
     );
   }
 }

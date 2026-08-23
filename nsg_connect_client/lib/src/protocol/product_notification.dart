@@ -49,6 +49,7 @@ abstract class ProductNotification implements _i1.SerializableModel {
     required this.idempotencyKey,
     required this.status,
     required this.deviceCount,
+    this.reason,
     required this.createdAt,
   });
 
@@ -60,6 +61,7 @@ abstract class ProductNotification implements _i1.SerializableModel {
     required String idempotencyKey,
     required _i2.ProductNotificationStatus status,
     required int deviceCount,
+    String? reason,
     required DateTime createdAt,
   }) = _ProductNotificationImpl;
 
@@ -74,6 +76,7 @@ abstract class ProductNotification implements _i1.SerializableModel {
         (jsonSerialization['status'] as String),
       ),
       deviceCount: jsonSerialization['deviceCount'] as int,
+      reason: jsonSerialization['reason'] as String?,
       createdAt: _i1.DateTimeJsonExtension.fromJson(
         jsonSerialization['createdAt'],
       ),
@@ -101,6 +104,12 @@ abstract class ProductNotification implements _i1.SerializableModel {
   /// Сколько устройств адресата приняли payload (0 при noDevices/deduped).
   int deviceCount;
 
+  /// **issue #157**: причина неудачи (см. `ProductNotificationRecipientResult
+  /// .reason`). Хранится вместе с записью, потому что реестр доставки
+  /// (#160) обязан отвечать на «почему не дошло» и через месяц, когда
+  /// синхронный ответ давно забыт.
+  String? reason;
+
   DateTime createdAt;
 
   /// Returns a shallow copy of this [ProductNotification]
@@ -114,6 +123,7 @@ abstract class ProductNotification implements _i1.SerializableModel {
     String? idempotencyKey,
     _i2.ProductNotificationStatus? status,
     int? deviceCount,
+    String? reason,
     DateTime? createdAt,
   });
   @override
@@ -127,6 +137,7 @@ abstract class ProductNotification implements _i1.SerializableModel {
       'idempotencyKey': idempotencyKey,
       'status': status.toJson(),
       'deviceCount': deviceCount,
+      if (reason != null) 'reason': reason,
       'createdAt': createdAt.toJson(),
     };
   }
@@ -148,6 +159,7 @@ class _ProductNotificationImpl extends ProductNotification {
     required String idempotencyKey,
     required _i2.ProductNotificationStatus status,
     required int deviceCount,
+    String? reason,
     required DateTime createdAt,
   }) : super._(
          id: id,
@@ -157,6 +169,7 @@ class _ProductNotificationImpl extends ProductNotification {
          idempotencyKey: idempotencyKey,
          status: status,
          deviceCount: deviceCount,
+         reason: reason,
          createdAt: createdAt,
        );
 
@@ -172,6 +185,7 @@ class _ProductNotificationImpl extends ProductNotification {
     String? idempotencyKey,
     _i2.ProductNotificationStatus? status,
     int? deviceCount,
+    Object? reason = _Undefined,
     DateTime? createdAt,
   }) {
     return ProductNotification(
@@ -182,6 +196,7 @@ class _ProductNotificationImpl extends ProductNotification {
       idempotencyKey: idempotencyKey ?? this.idempotencyKey,
       status: status ?? this.status,
       deviceCount: deviceCount ?? this.deviceCount,
+      reason: reason is String? ? reason : this.reason,
       createdAt: createdAt ?? this.createdAt,
     );
   }

@@ -36,7 +36,9 @@ abstract class WebhookDelivery implements _i1.SerializableModel {
     required this.createdAt,
     this.deliveredAt,
     this.nextRetryAt,
-  }) : attempt = attempt ?? 0;
+    int? requeueCount,
+  }) : attempt = attempt ?? 0,
+       requeueCount = requeueCount ?? 0;
 
   factory WebhookDelivery({
     int? id,
@@ -51,6 +53,7 @@ abstract class WebhookDelivery implements _i1.SerializableModel {
     required DateTime createdAt,
     DateTime? deliveredAt,
     DateTime? nextRetryAt,
+    int? requeueCount,
   }) = _WebhookDeliveryImpl;
 
   factory WebhookDelivery.fromJson(Map<String, dynamic> jsonSerialization) {
@@ -77,6 +80,7 @@ abstract class WebhookDelivery implements _i1.SerializableModel {
           : _i1.DateTimeJsonExtension.fromJson(
               jsonSerialization['nextRetryAt'],
             ),
+      requeueCount: jsonSerialization['requeueCount'] as int?,
     );
   }
 
@@ -126,6 +130,15 @@ abstract class WebhookDelivery implements _i1.SerializableModel {
   /// Когда запланирована следующая попытка (для status='failed').
   DateTime? nextRetryAt;
 
+  /// **issue #153**: сколько раз доставку возвращали из `dead` в очередь
+  /// после того, как канал ожил.
+  ///
+  /// Нужен как предохранитель. Возврат срабатывает на каждое доказанное
+  /// оживление канала, а событие может быть отравленным само по себе
+  /// (подписчик отвечает 500 именно на него) — без счётчика такая строка
+  /// воскресала бы вечно, отъедая попытки у живых событий.
+  int requeueCount;
+
   /// Returns a shallow copy of this [WebhookDelivery]
   /// with some or all fields replaced by the given arguments.
   @_i1.useResult
@@ -142,6 +155,7 @@ abstract class WebhookDelivery implements _i1.SerializableModel {
     DateTime? createdAt,
     DateTime? deliveredAt,
     DateTime? nextRetryAt,
+    int? requeueCount,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -159,6 +173,7 @@ abstract class WebhookDelivery implements _i1.SerializableModel {
       'createdAt': createdAt.toJson(),
       if (deliveredAt != null) 'deliveredAt': deliveredAt?.toJson(),
       if (nextRetryAt != null) 'nextRetryAt': nextRetryAt?.toJson(),
+      'requeueCount': requeueCount,
     };
   }
 
@@ -184,6 +199,7 @@ class _WebhookDeliveryImpl extends WebhookDelivery {
     required DateTime createdAt,
     DateTime? deliveredAt,
     DateTime? nextRetryAt,
+    int? requeueCount,
   }) : super._(
          id: id,
          subscriptionId: subscriptionId,
@@ -197,6 +213,7 @@ class _WebhookDeliveryImpl extends WebhookDelivery {
          createdAt: createdAt,
          deliveredAt: deliveredAt,
          nextRetryAt: nextRetryAt,
+         requeueCount: requeueCount,
        );
 
   /// Returns a shallow copy of this [WebhookDelivery]
@@ -216,6 +233,7 @@ class _WebhookDeliveryImpl extends WebhookDelivery {
     DateTime? createdAt,
     Object? deliveredAt = _Undefined,
     Object? nextRetryAt = _Undefined,
+    int? requeueCount,
   }) {
     return WebhookDelivery(
       id: id is int? ? id : this.id,
@@ -230,6 +248,7 @@ class _WebhookDeliveryImpl extends WebhookDelivery {
       createdAt: createdAt ?? this.createdAt,
       deliveredAt: deliveredAt is DateTime? ? deliveredAt : this.deliveredAt,
       nextRetryAt: nextRetryAt is DateTime? ? nextRetryAt : this.nextRetryAt,
+      requeueCount: requeueCount ?? this.requeueCount,
     );
   }
 }
