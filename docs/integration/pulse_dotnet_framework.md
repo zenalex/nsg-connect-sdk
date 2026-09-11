@@ -33,7 +33,9 @@ X-Pulse-Token: plt_<token>
   name, folder, period, grace.
 - **Period = how often your service will send.** Presets: 1, 5, 15, 30 min,
   1 h, 1 day. Grace is the allowance for jitter (default 120 s). Name, period
-  and grace cannot be edited later — create a new monitor if you need others.
+  and grace can be changed later with **Edit** on the monitor card — the token
+  stays the same, so senders need no changes. New values apply from the next
+  check.
 - **The token is shown once.** Hand it to the developer over a secure
   channel. If it leaks, press **Regenerate token** on the monitor card — the
   old one stops working immediately.
