@@ -18,7 +18,7 @@ Read-only for consumers — changes land in the monorepo and get synced here.
 | `nsg_connect_client` | Generated Serverpod API client (SDK dependency) |
 | `nsg_connect_flutter` | Flutter glue for the Serverpod client |
 | `docs/integration` | Integrator docs — start here |
-| `examples/server-csharp` | Reference S2S client for your backend |
+| `examples/server-csharp` | Reference S2S client and Pulse heartbeat for your backend |
 
 ## Quick start
 
@@ -35,6 +35,11 @@ dependencies:
 
 Backend (any language) — two HTTP calls authorized by a tenant secret, see
 [`docs/integration/server_side.md`](docs/integration/server_side.md).
+
+Uptime monitoring (Connect Pulse) — your service sends a short heartbeat
+every few minutes, and alerts land in your chat room when it stops. The
+protocol is plain HTTP; .NET Framework 4.7.2 is covered step by step in
+[`docs/integration/pulse_dotnet_framework.md`](docs/integration/pulse_dotnet_framework.md).
 
 To onboard (tenant/product keys, tenant secret) contact the platform
 operator.
