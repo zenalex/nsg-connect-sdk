@@ -183,29 +183,31 @@ void main() {
     },
   );
 
-  test('applyRoomUnreadChanged: прочитанное на диске становится нулём',
-      () async {
-    // **issue #112.** Диск умел только прибавлять: +1 на каждое чужое
-    // сообщение, а обнулять — ничего и никогда, до полного `list()` с
-    // сервера. Открытие чата целится по этому же числу (`readBoundaryOf`),
-    // поэтому чтение оживлённого чата само уводило следующее открытие всё
-    // дальше в историю.
-    final s = await open(1);
-    addTearDown(s.close);
-    await s.putRooms([room(11, at: t0, unread: 0)]);
-    await s.applyMessageCreated(
-      msg(11, 'x', at: t0.add(const Duration(minutes: 1)), sender: 2),
-    );
-    expect((await s.getRooms()).single.unreadCount, 1);
+  test(
+    'applyRoomUnreadChanged: прочитанное на диске становится нулём',
+    () async {
+      // **issue #112.** Диск умел только прибавлять: +1 на каждое чужое
+      // сообщение, а обнулять — ничего и никогда, до полного `list()` с
+      // сервера. Открытие чата целится по этому же числу (`readBoundaryOf`),
+      // поэтому чтение оживлённого чата само уводило следующее открытие всё
+      // дальше в историю.
+      final s = await open(1);
+      addTearDown(s.close);
+      await s.putRooms([room(11, at: t0, unread: 0)]);
+      await s.applyMessageCreated(
+        msg(11, 'x', at: t0.add(const Duration(minutes: 1)), sender: 2),
+      );
+      expect((await s.getRooms()).single.unreadCount, 1);
 
-    await s.applyRoomUnreadChanged(11, 0);
-    expect(await s.unreadCount(11), 0);
+      await s.applyRoomUnreadChanged(11, 0);
+      expect(await s.unreadCount(11), 0);
 
-    // Событие приходит и на инкремент (другое устройство/другая комната) —
-    // значение берём как есть, сервер тут авторитет.
-    await s.applyRoomUnreadChanged(11, 3);
-    expect(await s.unreadCount(11), 3);
-  });
+      // Событие приходит и на инкремент (другое устройство/другая комната) —
+      // значение берём как есть, сервер тут авторитет.
+      await s.applyRoomUnreadChanged(11, 3);
+      expect(await s.unreadCount(11), 3);
+    },
+  );
 
   test('applyRoomUnreadChanged: незнакомая комната не создаётся', () async {
     // Иначе в списке чатов появилась бы строка-призрак без имени и
@@ -253,13 +255,9 @@ void main() {
       final s = await open(1);
       addTearDown(s.close);
       await s.putRooms([room(10, at: t0)]);
-      await s.putMessages(10, [
-        msg(10, 'a', at: t0, body: 'старое тело'),
-      ]);
+      await s.putMessages(10, [msg(10, 'a', at: t0, body: 'старое тело')]);
       // Правка новейшего → тело в кэше и превью комнаты обновились.
-      await s.applyMessageUpdated(
-        msg(10, 'a', at: t0, body: 'новое тело'),
-      );
+      await s.applyMessageUpdated(msg(10, 'a', at: t0, body: 'новое тело'));
       expect((await s.getMessages(10)).single.body, 'новое тело');
       expect((await s.getRooms()).single.lastMessagePreview, 'новое тело');
 
@@ -273,42 +271,44 @@ void main() {
     },
   );
 
-  test(
-    'reconcileRooms: удаляет «призраков» (нет в свежем списке) в скоупе; '
-    'архивные при includeArchived=false не трогает',
-    () async {
-      final s = await open(1);
-      addTearDown(s.close);
-      await s.putRooms([
+  test('reconcileRooms: удаляет «призраков» (нет в свежем списке) в скоупе; '
+      'архивные при includeArchived=false не трогает', () async {
+    final s = await open(1);
+    addTearDown(s.close);
+    await s.putRooms([
+      room(1, at: t0),
+      room(2, at: t0), // призрак — удалили из комнаты, пока офлайн
+      room(3, at: t0, archived: true), // архив вне скоупа
+      room(4, at: t0, productId: 42), // другой продукт
+    ]);
+    await s.putMessages(2, [msg(2, 'm2', at: t0)]);
+
+    // Полный список сервера (не-архив, без product-фильтра): 1 и 4.
+    await s.reconcileRooms(
+      fresh: [
         room(1, at: t0),
-        room(2, at: t0), // призрак — удалили из комнаты, пока офлайн
-        room(3, at: t0, archived: true), // архив вне скоупа
-        room(4, at: t0, productId: 42), // другой продукт
-      ]);
-      await s.putMessages(2, [msg(2, 'm2', at: t0)]);
+        room(4, at: t0),
+      ],
+    );
 
-      // Полный список сервера (не-архив, без product-фильтра): 1 и 4.
-      await s.reconcileRooms(fresh: [room(1, at: t0), room(4, at: t0)]);
+    final ids = (await s.getRooms(
+      includeArchived: true,
+    )).map((r) => r.id).toSet();
+    expect(ids, {1, 3, 4}, reason: 'призрак 2 удалён, архив 3 остался');
+    expect(
+      await s.getMessages(2),
+      isEmpty,
+      reason: 'сообщения призрака удалены вместе с комнатой',
+    );
 
-      final ids = (await s.getRooms(includeArchived: true))
-          .map((r) => r.id)
-          .toSet();
-      expect(ids, {1, 3, 4}, reason: 'призрак 2 удалён, архив 3 остался');
-      expect(
-        await s.getMessages(2),
-        isEmpty,
-        reason: 'сообщения призрака удалены вместе с комнатой',
-      );
-
-      // Product-scoped reconcile: полный список продукта 42 пуст →
-      // удаляется только комната продукта 42, глобальные не трогаем.
-      await s.reconcileRooms(fresh: const [], productId: 42);
-      expect(
-        (await s.getRooms(includeArchived: true)).map((r) => r.id).toSet(),
-        {1, 3},
-      );
-    },
-  );
+    // Product-scoped reconcile: полный список продукта 42 пуст →
+    // удаляется только комната продукта 42, глобальные не трогаем.
+    await s.reconcileRooms(fresh: const [], productId: 42);
+    expect((await s.getRooms(includeArchived: true)).map((r) => r.id).toSet(), {
+      1,
+      3,
+    });
+  });
 
   test('gap-reset + removeRoom', () async {
     final s = await open(1);
@@ -418,7 +418,11 @@ void main() {
       final s = await open(1);
       addTearDown(s.close);
       for (final id in ['a', 'b', 'c']) {
-        await s.putAttachment(mxcUrl: 'mxc://$id', kind: thumb, bytes: blob(100));
+        await s.putAttachment(
+          mxcUrl: 'mxc://$id',
+          kind: thumb,
+          bytes: blob(100),
+        );
       }
       // Явные метки: a — самое старое, c — самое свежее.
       await s.debugSetAttachmentAccess('mxc://a', thumb, 100);

@@ -58,11 +58,14 @@ void main() {
 
   /// Открывает чат с одним сообщением в истории и доводит до Ready.
   /// Возвращает (rpc, controller, eventCtrl) — teardown на вызывающем.
-  Future<({_FakeRpc rpc, MessagesController controller,
-      StreamController<MessengerEvent> events})> openChat(
-    WidgetTester tester, {
-    String seedEventId = 'first',
-  }) async {
+  Future<
+    ({
+      _FakeRpc rpc,
+      MessagesController controller,
+      StreamController<MessengerEvent> events,
+    })
+  >
+  openChat(WidgetTester tester, {String seedEventId = 'first'}) async {
     final rpc = _FakeRpc();
     rpc.listMessagesHandler = (_, _, _) =>
         Future.value(_page([_msg(eventId: seedEventId)]));
@@ -85,141 +88,127 @@ void main() {
 
   // ─── Фоновая доставка ────────────────────────────────────────────────
 
-  testWidgets(
-    'приложение свёрнуто (paused) → входящее realtime-сообщение НЕ '
-    'помечается прочитанным',
-    (tester) async {
-      final h = await openChat(tester);
-      addTearDown(() async {
-        await h.controller.dispose();
-        await h.events.close();
-      });
+  testWidgets('приложение свёрнуто (paused) → входящее realtime-сообщение НЕ '
+      'помечается прочитанным', (tester) async {
+    final h = await openChat(tester);
+    addTearDown(() async {
+      await h.controller.dispose();
+      await h.events.close();
+    });
 
-      // Чат открыт в foreground — seed помечен, это корректно.
-      expect(h.rpc.markReadCalls, ['first']);
+    // Чат открыт в foreground — seed помечен, это корректно.
+    expect(h.rpc.markReadCalls, ['first']);
 
-      // Юзер свернул приложение. Чат остаётся смонтированным и
-      // `active == true` — ровно кейс из заявки.
-      fireLifecycle(tester, AppLifecycleState.paused);
-      await tester.pump();
+    // Юзер свернул приложение. Чат остаётся смонтированным и
+    // `active == true` — ровно кейс из заявки.
+    fireLifecycle(tester, AppLifecycleState.paused);
+    await tester.pump();
 
-      // Пока приложение в фоне, прилетает новое сообщение (сокет ещё жив
-      // / успел долететь до сворачивания подписки).
-      h.events.add(_eventForRoom(1, _msg(eventId: 'bg-msg')));
-      await tester.pump();
+    // Пока приложение в фоне, прилетает новое сообщение (сокет ещё жив
+    // / успел долететь до сворачивания подписки).
+    h.events.add(_eventForRoom(1, _msg(eventId: 'bg-msg')));
+    await tester.pump();
 
-      // Ждём заведомо дольше debounce-а (500ms).
-      await tester.pump(const Duration(milliseconds: 900));
+    // Ждём заведомо дольше debounce-а (500ms).
+    await tester.pump(const Duration(milliseconds: 900));
 
-      expect(
-        h.rpc.markReadCalls,
-        ['first'],
-        reason: 'юзер не видел сообщение — «прочитано» слать нельзя '
-            '(issue #37: именно здесь ✓✓ и врали)',
-      );
+    expect(
+      h.rpc.markReadCalls,
+      ['first'],
+      reason:
+          'юзер не видел сообщение — «прочитано» слать нельзя '
+          '(issue #37: именно здесь ✓✓ и врали)',
+    );
 
-      await tester.pumpWidget(const SizedBox.shrink());
-    },
-  );
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
-  testWidgets(
-    'inactive/hidden (расфокус, шторка) тоже блокируют markRead — '
-    'bus в этих состояниях подписку НЕ рвёт',
-    (tester) async {
-      final h = await openChat(tester);
-      addTearDown(() async {
-        await h.controller.dispose();
-        await h.events.close();
-      });
-      expect(h.rpc.markReadCalls, ['first']);
+  testWidgets('inactive/hidden (расфокус, шторка) тоже блокируют markRead — '
+      'bus в этих состояниях подписку НЕ рвёт', (tester) async {
+    final h = await openChat(tester);
+    addTearDown(() async {
+      await h.controller.dispose();
+      await h.events.close();
+    });
+    expect(h.rpc.markReadCalls, ['first']);
 
-      fireLifecycle(tester, AppLifecycleState.inactive);
-      await tester.pump();
-      h.events.add(_eventForRoom(1, _msg(eventId: 'while-inactive')));
-      await tester.pump(const Duration(milliseconds: 900));
-      expect(h.rpc.markReadCalls, ['first']);
+    fireLifecycle(tester, AppLifecycleState.inactive);
+    await tester.pump();
+    h.events.add(_eventForRoom(1, _msg(eventId: 'while-inactive')));
+    await tester.pump(const Duration(milliseconds: 900));
+    expect(h.rpc.markReadCalls, ['first']);
 
-      fireLifecycle(tester, AppLifecycleState.hidden);
-      await tester.pump();
-      h.events.add(_eventForRoom(1, _msg(eventId: 'while-hidden')));
-      await tester.pump(const Duration(milliseconds: 900));
-      expect(
-        h.rpc.markReadCalls,
-        ['first'],
-        reason: 'на desktop расфокусированное окно живёт в inactive/hidden '
-            'сколько угодно долго — и получает realtime',
-      );
+    fireLifecycle(tester, AppLifecycleState.hidden);
+    await tester.pump();
+    h.events.add(_eventForRoom(1, _msg(eventId: 'while-hidden')));
+    await tester.pump(const Duration(milliseconds: 900));
+    expect(
+      h.rpc.markReadCalls,
+      ['first'],
+      reason:
+          'на desktop расфокусированное окно живёт в inactive/hidden '
+          'сколько угодно долго — и получает realtime',
+    );
 
-      await tester.pumpWidget(const SizedBox.shrink());
-    },
-  );
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
-  testWidgets(
-    'возврат в foreground (resumed) → накопленное в фоне помечается '
-    'прочитанным ровно сейчас',
-    (tester) async {
-      final h = await openChat(tester);
-      addTearDown(() async {
-        await h.controller.dispose();
-        await h.events.close();
-      });
+  testWidgets('возврат в foreground (resumed) → накопленное в фоне помечается '
+      'прочитанным ровно сейчас', (tester) async {
+    final h = await openChat(tester);
+    addTearDown(() async {
+      await h.controller.dispose();
+      await h.events.close();
+    });
 
-      fireLifecycle(tester, AppLifecycleState.paused);
-      await tester.pump();
-      h.events.add(_eventForRoom(1, _msg(eventId: 'bg-1')));
-      await tester.pump();
-      h.events.add(_eventForRoom(1, _msg(eventId: 'bg-2')));
-      await tester.pump(const Duration(milliseconds: 900));
-      expect(h.rpc.markReadCalls, ['first'], reason: 'в фоне — молчим');
+    fireLifecycle(tester, AppLifecycleState.paused);
+    await tester.pump();
+    h.events.add(_eventForRoom(1, _msg(eventId: 'bg-1')));
+    await tester.pump();
+    h.events.add(_eventForRoom(1, _msg(eventId: 'bg-2')));
+    await tester.pump(const Duration(milliseconds: 900));
+    expect(h.rpc.markReadCalls, ['first'], reason: 'в фоне — молчим');
 
-      // Юзер вернулся в приложение и смотрит на чат.
-      fireLifecycle(tester, AppLifecycleState.resumed);
-      await tester.pump();
-      await tester.pump();
+    // Юзер вернулся в приложение и смотрит на чат.
+    fireLifecycle(tester, AppLifecycleState.resumed);
+    await tester.pump();
+    await tester.pump();
 
-      expect(
-        h.rpc.markReadCalls,
-        ['first', 'bg-2'],
-        reason: 'отложенный markRead дожимается с newest event id '
-            '(накопленный burst — одним вызовом)',
-      );
+    expect(
+      h.rpc.markReadCalls,
+      ['first', 'bg-2'],
+      reason:
+          'отложенный markRead дожимается с newest event id '
+          '(накопленный burst — одним вызовом)',
+    );
 
-      await tester.pumpWidget(const SizedBox.shrink());
-    },
-  );
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
   // ─── Чат открыт на переднем плане (регрессия) ────────────────────────
 
-  testWidgets(
-    'чат открыт и приложение в foreground → входящее помечается '
-    'прочитанным (debounce 500ms)',
-    (tester) async {
-      final h = await openChat(tester);
-      addTearDown(() async {
-        await h.controller.dispose();
-        await h.events.close();
-      });
-      expect(h.rpc.markReadCalls, ['first']);
+  testWidgets('чат открыт и приложение в foreground → входящее помечается '
+      'прочитанным (debounce 500ms)', (tester) async {
+    final h = await openChat(tester);
+    addTearDown(() async {
+      await h.controller.dispose();
+      await h.events.close();
+    });
+    expect(h.rpc.markReadCalls, ['first']);
 
-      h.events.add(_eventForRoom(1, _msg(eventId: 'live')));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 200));
-      expect(
-        h.rpc.markReadCalls,
-        ['first'],
-        reason: 'debounce ещё не истёк',
-      );
+    h.events.add(_eventForRoom(1, _msg(eventId: 'live')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(h.rpc.markReadCalls, ['first'], reason: 'debounce ещё не истёк');
 
-      await tester.pump(const Duration(milliseconds: 400));
-      expect(
-        h.rpc.markReadCalls,
-        ['first', 'live'],
-        reason: 'юзер смотрит на чат — «прочитано» честное',
-      );
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(h.rpc.markReadCalls, [
+      'first',
+      'live',
+    ], reason: 'юзер смотрит на чат — «прочитано» честное');
 
-      await tester.pumpWidget(const SizedBox.shrink());
-    },
-  );
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
   // ─── Видимая область ─────────────────────────────────────────────────
 
@@ -373,6 +362,7 @@ class _FakeRpc implements MessagesRpc {
     String? forwardedFromEventId,
     // TASK82: тред задачи — фейку достаточно принять параметр.
     String? threadId,
+    int? stickerId,
   }) => throw UnimplementedError();
 
   @override

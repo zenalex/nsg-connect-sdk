@@ -73,29 +73,31 @@ void main() {
     expect(reports.single['thread'], isTrue);
   });
 
-  test('успех закрывает инцидент — следующая поломка сообщается заново',
-      () async {
-    final rpc = _FlakyRpc();
-    final c = make(rpc);
-    addTearDown(c.dispose);
+  test(
+    'успех закрывает инцидент — следующая поломка сообщается заново',
+    () async {
+      final rpc = _FlakyRpc();
+      final c = make(rpc);
+      addTearDown(c.dispose);
 
-    rpc.fail = true;
-    await c.markRead(r'$e1');
-    await c.markRead(r'$e2');
-    expect(reports, hasLength(1));
+      rpc.fail = true;
+      await c.markRead(r'$e1');
+      await c.markRead(r'$e2');
+      expect(reports, hasLength(1));
 
-    rpc.fail = false;
-    await c.markRead(r'$e3'); // починилось
+      rpc.fail = false;
+      await c.markRead(r'$e3'); // починилось
 
-    rpc.fail = true;
-    await c.markRead(r'$e4');
-    await c.markRead(r'$e5');
-    expect(
-      reports,
-      hasLength(2),
-      reason: 'сломалось снова — это НОВАЯ поломка, а не та же самая',
-    );
-  });
+      rpc.fail = true;
+      await c.markRead(r'$e4');
+      await c.markRead(r'$e5');
+      expect(
+        reports,
+        hasLength(2),
+        reason: 'сломалось снова — это НОВАЯ поломка, а не та же самая',
+      );
+    },
+  );
 
   test('счётчик комнатный: чужая комната не гасит тревогу по этой', () async {
     // Поломка бывает в одной комнате (в #112 — в тредах поддержки), и

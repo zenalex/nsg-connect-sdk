@@ -26,8 +26,7 @@ void main() {
     RemoveBotFromMyRoomRpc? removeBotFromMyRoomRpc,
   }) => NsgMessengerBotCatalog.withRpcs(
     listAvailableBotsRpc:
-        listAvailableBotsRpc ??
-        ({int? roomId}) async => const <AvailableBot>[],
+        listAvailableBotsRpc ?? ({int? roomId}) async => const <AvailableBot>[],
     getBotCardRpc:
         getBotCardRpc ??
         ({required int botMessengerUserId, int? roomId}) async => null,
@@ -35,26 +34,29 @@ void main() {
         listMyAdminRoomsRpc ??
         ({required int limit}) async => const <RoomSummary>[],
     addBotToMyRoomRpc:
-        addBotToMyRoomRpc ?? ({required int botId, required int roomId}) async {},
+        addBotToMyRoomRpc ??
+        ({required int botId, required int roomId}) async {},
     removeBotFromMyRoomRpc:
         removeBotFromMyRoomRpc ??
         ({required int botId, required int roomId}) async {},
   );
 
-  test('listAvailableBots: roomId-контекст уходит в RPC (нужен для inRoom)',
-      () async {
-    int? seen = -1;
-    final catalog = make(
-      listAvailableBotsRpc: ({int? roomId}) async {
-        seen = roomId;
-        return const <AvailableBot>[];
-      },
-    );
-    await catalog.listAvailableBots(roomId: 42);
-    expect(seen, 42);
-    await catalog.listAvailableBots();
-    expect(seen, isNull, reason: 'без контекста комнаты — null, не 0');
-  });
+  test(
+    'listAvailableBots: roomId-контекст уходит в RPC (нужен для inRoom)',
+    () async {
+      int? seen = -1;
+      final catalog = make(
+        listAvailableBotsRpc: ({int? roomId}) async {
+          seen = roomId;
+          return const <AvailableBot>[];
+        },
+      );
+      await catalog.listAvailableBots(roomId: 42);
+      expect(seen, 42);
+      await catalog.listAvailableBots();
+      expect(seen, isNull, reason: 'без контекста комнаты — null, не 0');
+    },
+  );
 
   test('getBotCard: botMessengerUserId + roomId насквозь', () async {
     (int, int?)? seen;
@@ -113,7 +115,10 @@ void main() {
     test('пустой режим НЕ превращается в read_all: в AvailableBot сервер '
         'уже применил grandfathering, и пустая строка тут — аномалия, '
         'которую нельзя трактовать как «читает всё»', () {
-      expect(NsgMessengerBotCatalog.readsAllMessages(bot(readMode: '')), isFalse);
+      expect(
+        NsgMessengerBotCatalog.readsAllMessages(bot(readMode: '')),
+        isFalse,
+      );
     });
   });
 }

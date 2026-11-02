@@ -22,36 +22,33 @@ void main() {
   NsgMessengerBotsAdmin makeAdmin({
     ListAdminRoomsRpc? listAllRoomsRpc,
     ListBotRoomIdsRpc? listBotRoomIdsRpc,
-  }) =>
-      NsgMessengerBotsAdmin.withRpcs(
-        isBotAdminRpc: () async => true,
-        listBotsRpc: ({required String tenantExternalKey}) async =>
-            const <Bot>[],
-        createBotRpc:
-            ({
-              required String tenantExternalKey,
-              String? productExternalKey,
-              required String name,
-              required String ownerEmail,
-              required String capabilities,
-              required bool discoverable,
-              // TASK77 итер.2: режим чтения.
-              required String readMode,
-            }) => throw UnimplementedError(),
-        rotateBotTokenRpc: ({required int botId}) =>
-            throw UnimplementedError(),
-        setBotEnabledRpc: ({required int botId, required bool enabled}) =>
-            throw UnimplementedError(),
-        // TASK77 итер.3: ответ — BotReadModeResult (бот + подписки, обходящие
-        // privacy mode).
-        setBotReadModeRpc: ({required int botId, required String readMode}) =>
-            throw UnimplementedError(),
-        addBotToRoomRpc: ({required int botId, required int roomId}) async {},
-        listAuditEventsRpc: ({required int botId, required int limit}) async =>
-            const <BotAuditEvent>[],
-        listAllRoomsRpc: listAllRoomsRpc,
-        listBotRoomIdsRpc: listBotRoomIdsRpc,
-      );
+  }) => NsgMessengerBotsAdmin.withRpcs(
+    isBotAdminRpc: () async => true,
+    listBotsRpc: ({required String tenantExternalKey}) async => const <Bot>[],
+    createBotRpc:
+        ({
+          required String tenantExternalKey,
+          String? productExternalKey,
+          required String name,
+          required String ownerEmail,
+          required String capabilities,
+          required bool discoverable,
+          // TASK77 итер.2: режим чтения.
+          required String readMode,
+        }) => throw UnimplementedError(),
+    rotateBotTokenRpc: ({required int botId}) => throw UnimplementedError(),
+    setBotEnabledRpc: ({required int botId, required bool enabled}) =>
+        throw UnimplementedError(),
+    // TASK77 итер.3: ответ — BotReadModeResult (бот + подписки, обходящие
+    // privacy mode).
+    setBotReadModeRpc: ({required int botId, required String readMode}) =>
+        throw UnimplementedError(),
+    addBotToRoomRpc: ({required int botId, required int roomId}) async {},
+    listAuditEventsRpc: ({required int botId, required int limit}) async =>
+        const <BotAuditEvent>[],
+    listAllRoomsRpc: listAllRoomsRpc,
+    listBotRoomIdsRpc: listBotRoomIdsRpc,
+  );
 
   test('listAllRooms зовёт админский RPC и отдаёт его результат', () async {
     int? seenLimit;

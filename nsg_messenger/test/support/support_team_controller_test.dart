@@ -244,63 +244,74 @@ void main() {
 
   // ─────────────── TASK76: setMemberRole (назначение админов) ───────────────
 
-  test('setMemberRole success → RPC вызван + новый view с owner-ролью', () async {
-    final rpc = _FakeRpc(
-      getResult: view(
-        members: [member(1, role: SupportTeamRole.owner), member(2)],
-      ),
-      addResult: view(
-        members: [
-          member(1, role: SupportTeamRole.owner),
-          member(2, role: SupportTeamRole.owner),
-        ],
-      ),
-    );
-    final c = SupportTeamController(
-      rpc: rpc,
-      productExternalKey: 'titan_control',
-    );
-    await c.init();
+  test(
+    'setMemberRole success → RPC вызван + новый view с owner-ролью',
+    () async {
+      final rpc = _FakeRpc(
+        getResult: view(
+          members: [
+            member(1, role: SupportTeamRole.owner),
+            member(2),
+          ],
+        ),
+        addResult: view(
+          members: [
+            member(1, role: SupportTeamRole.owner),
+            member(2, role: SupportTeamRole.owner),
+          ],
+        ),
+      );
+      final c = SupportTeamController(
+        rpc: rpc,
+        productExternalKey: 'titan_control',
+      );
+      await c.init();
 
-    final ok = await c.setMemberRole(2, SupportTeamRole.owner);
-    expect(ok, isTrue);
-    expect(rpc.setRoleCalls, 1);
-    expect(rpc.lastRoleMuid, 2);
-    expect(rpc.lastRoleValue, SupportTeamRole.owner);
-    final ready = c.state as SupportTeamReady;
-    expect(ready.busy, isFalse);
-    expect(
-      ready.view.members.where((m) => m.role == SupportTeamRole.owner).length,
-      2,
-    );
-    c.dispose();
-  });
+      final ok = await c.setMemberRole(2, SupportTeamRole.owner);
+      expect(ok, isTrue);
+      expect(rpc.setRoleCalls, 1);
+      expect(rpc.lastRoleMuid, 2);
+      expect(rpc.lastRoleValue, SupportTeamRole.owner);
+      final ready = c.state as SupportTeamReady;
+      expect(ready.busy, isFalse);
+      expect(
+        ready.view.members.where((m) => m.role == SupportTeamRole.owner).length,
+        2,
+      );
+      c.dispose();
+    },
+  );
 
-  test('setMemberRole failure (LastOwnerCannotDemote) → не-busy Ready, false',
-      () async {
-    final rpc = _FakeRpc(
-      getResult: view(
-        members: [member(1, role: SupportTeamRole.owner), member(2)],
-      ),
-      addError: LastOwnerCannotDemoteException(),
-    );
-    final c = SupportTeamController(
-      rpc: rpc,
-      productExternalKey: 'titan_control',
-    );
-    await c.init();
+  test(
+    'setMemberRole failure (LastOwnerCannotDemote) → не-busy Ready, false',
+    () async {
+      final rpc = _FakeRpc(
+        getResult: view(
+          members: [
+            member(1, role: SupportTeamRole.owner),
+            member(2),
+          ],
+        ),
+        addError: LastOwnerCannotDemoteException(),
+      );
+      final c = SupportTeamController(
+        rpc: rpc,
+        productExternalKey: 'titan_control',
+      );
+      await c.init();
 
-    final ok = await c.setMemberRole(1, SupportTeamRole.member);
-    expect(ok, isFalse);
-    final ready = c.state as SupportTeamReady;
-    expect(ready.busy, isFalse);
-    expect(
-      ready.view.members.where((m) => m.role == SupportTeamRole.owner).length,
-      1,
-      reason: 'view не изменился — откат к прежнему состоянию',
-    );
-    c.dispose();
-  });
+      final ok = await c.setMemberRole(1, SupportTeamRole.member);
+      expect(ok, isFalse);
+      final ready = c.state as SupportTeamReady;
+      expect(ready.busy, isFalse);
+      expect(
+        ready.view.members.where((m) => m.role == SupportTeamRole.owner).length,
+        1,
+        reason: 'view не изменился — откат к прежнему состоянию',
+      );
+      c.dispose();
+    },
+  );
 
   // ─────────────────────────────────────────────────────────────────
   // TASK73: «Покинуть команду»

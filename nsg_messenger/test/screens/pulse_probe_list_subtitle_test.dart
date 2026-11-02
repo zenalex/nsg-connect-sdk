@@ -74,8 +74,8 @@ NsgMessengerPulse _fake(List<PulseTlsProbe> probes) =>
       setPausedRpc: ({required int id, required bool paused}) =>
           throw UnimplementedError(),
       moveMonitorRpc: ({required int id, int? folderId}) =>
-      throw UnimplementedError(),
-  deleteMonitorRpc: ({required int id}) => throw UnimplementedError(),
+          throw UnimplementedError(),
+      deleteMonitorRpc: ({required int id}) => throw UnimplementedError(),
       createTlsProbeRpc:
           ({
             required String name,
@@ -92,8 +92,7 @@ NsgMessengerPulse _fake(List<PulseTlsProbe> probes) =>
             required int warnBeforeDays,
             required int errorBeforeDays,
           }) => throw UnimplementedError(),
-      listProbeAllowlistRpc: () async =>
-          const <PulseProbeAllowlistEntry>[],
+      listProbeAllowlistRpc: () async => const <PulseProbeAllowlistEntry>[],
       addProbeAllowlistRpc:
           ({
             required String address,
@@ -126,6 +125,13 @@ NsgMessengerPulse _fake(List<PulseTlsProbe> probes) =>
             String? connectHost,
             int? port,
             String? serverName,
+          }) => throw UnimplementedError(),
+      updateMonitorRpc:
+          ({
+            required int id,
+            String? name,
+            int? periodSeconds,
+            int? graceSeconds,
           }) => throw UnimplementedError(),
       getExpiryReminderRpc: ({required int monitorId}) =>
           throw UnimplementedError(),
@@ -183,8 +189,9 @@ Future<void> _pump(WidgetTester t, List<PulseTlsProbe> probes) async {
 }
 
 void main() {
-  testWidgets('проба показывает СРОК сертификата, а не «сигналов не было»',
-      (t) async {
+  testWidgets('проба показывает СРОК сертификата, а не «сигналов не было»', (
+    t,
+  ) async {
     await _pump(t, [
       _probe(
         notAfter: _now.add(const Duration(days: 89, hours: 12)),
@@ -214,10 +221,12 @@ void main() {
     expect(find.textContaining('истёк'), findsOneWidget);
   });
 
-  testWidgets('пока сертификата не видели — говорим о проверках, не о сигналах',
-      (t) async {
-    await _pump(t, [_probe()]);
-    expect(find.textContaining('проверок ещё не было'), findsOneWidget);
-    expect(find.textContaining('сигнал'), findsNothing);
-  });
+  testWidgets(
+    'пока сертификата не видели — говорим о проверках, не о сигналах',
+    (t) async {
+      await _pump(t, [_probe()]);
+      expect(find.textContaining('проверок ещё не было'), findsOneWidget);
+      expect(find.textContaining('сигнал'), findsNothing);
+    },
+  );
 }

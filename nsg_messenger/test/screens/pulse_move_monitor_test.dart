@@ -88,7 +88,7 @@ NsgMessengerPulse _fake(List<PulseTlsProbe> probes) =>
         moved.add((id: id, folderId: folderId));
         return _probeMonitor();
       },
-  deleteMonitorRpc: ({required int id}) => throw UnimplementedError(),
+      deleteMonitorRpc: ({required int id}) => throw UnimplementedError(),
       createTlsProbeRpc:
           ({
             required String name,
@@ -105,8 +105,7 @@ NsgMessengerPulse _fake(List<PulseTlsProbe> probes) =>
             required int warnBeforeDays,
             required int errorBeforeDays,
           }) => throw UnimplementedError(),
-      listProbeAllowlistRpc: () async =>
-          const <PulseProbeAllowlistEntry>[],
+      listProbeAllowlistRpc: () async => const <PulseProbeAllowlistEntry>[],
       addProbeAllowlistRpc:
           ({
             required String address,
@@ -139,6 +138,13 @@ NsgMessengerPulse _fake(List<PulseTlsProbe> probes) =>
             String? connectHost,
             int? port,
             String? serverName,
+          }) => throw UnimplementedError(),
+      updateMonitorRpc:
+          ({
+            required int id,
+            String? name,
+            int? periodSeconds,
+            int? graceSeconds,
           }) => throw UnimplementedError(),
       getExpiryReminderRpc: ({required int monitorId}) =>
           throw UnimplementedError(),

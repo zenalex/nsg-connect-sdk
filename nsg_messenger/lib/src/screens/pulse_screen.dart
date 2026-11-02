@@ -413,53 +413,15 @@ class _PulseScreenState extends State<PulseScreen> {
       return;
     }
     if (!mounted) return;
-    await _showBeatUrlDialog(created.beatUrl);
+    await showPulseBeatDialog(
+      context,
+      beatUrl: created.beatUrl,
+      token: created.token,
+    );
     await _load();
   }
 
   /// One-time диалог с beat-URL + готовым curl-сниппетом (токен виден один раз).
-  Future<void> _showBeatUrlDialog(String beatUrl) {
-    final l = NsgL10n.of(context);
-    // Beat-роут принимает ТОЛЬКО POST (PulseBeatRoute methods: {Method.post}) —
-    // без -X POST скопированный сниппет уходит GET-ом и молча не работает.
-    final curl = 'curl -fsS -X POST $beatUrl';
-    return showDialog<void>(
-      context: context,
-      builder: (ctx) {
-        final theme = Theme.of(ctx);
-        final caption = theme.textTheme.bodySmall?.copyWith(
-          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-        );
-        return AlertDialog(
-          title: Text(l.pulseBeatUrlLabel),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  CopyableField(value: beatUrl, copiedMessage: l.pulseCopied),
-                  const SizedBox(height: 12),
-                  Text(l.pulseCurlHint, style: caption),
-                  const SizedBox(height: 4),
-                  CopyableField(value: curl, copiedMessage: l.pulseCopied),
-                  const SizedBox(height: 8),
-                  Text(l.pulseBeatUrlOnce, style: caption),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            FilledButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: Text(l.commonOk),
-            ),
-          ],
-        );
-      },
-    );
-  }
 
   Future<bool?> _confirm({
     required String title,
@@ -754,7 +716,13 @@ class _PulseScreenState extends State<PulseScreen> {
           return RefreshIndicator(
             onRefresh: _load,
             child: ListView(
-              padding: const EdgeInsets.only(bottom: 24),
+              // Явный padding отменяет автоматический отступ ListView от
+              // MediaQuery, поэтому нижний inset добавляем сами: в Chatista
+              // плавающая нижняя панель (`extendBody`) лежит поверх списка и
+              // закрывала последний монитор (#189).
+              padding: EdgeInsets.only(
+                bottom: 24 + MediaQuery.paddingOf(context).bottom,
+              ),
               children: [
                 for (final f in rootFolders)
                   _buildFolderTile(context, l, f, childFolders, childMonitors),
@@ -1389,6 +1357,37 @@ class _MonitorDetailSheetState extends State<_MonitorDetailSheet> {
   /// Не «настройки», а отдельное действие с предупреждением: наблюдения
   /// прежней цели сбрасываются, и человек должен понимать это ДО правки —
   /// зелёный монитор с тем же именем начнёт смотреть в другое место.
+  /// **issue #187**: правка имени, периода и допуска.
+  ///
+  /// Жалоба через поддержку: «после создания монитора нет возможности внести
+  /// изменение… хотя бы изменить период». Раньше единственным путём было
+  /// завести монитор заново — с новым токеном, который пришлось бы раздать
+  /// отправителям.
+  Future<void> _editSettings() async {
+    final l = NsgL10n.of(context);
+    final result = await showDialog<({String name, int period, int grace})>(
+      context: context,
+      builder: (ctx) => _EditMonitorDialog(l: l, monitor: _monitor),
+    );
+    if (result == null || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      final updated = await widget.pulse.updateMonitor(
+        id: _monitor.id!,
+        name: result.name,
+        periodSeconds: result.period,
+        graceSeconds: result.grace,
+      );
+      if (!mounted) return;
+      setState(() => _monitor = updated);
+    } catch (e, st) {
+      _reportPulseActionFailed(e, st, 'updateMonitor');
+      _snack(l.pulseActionFailed);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _editProbeTarget() async {
     final l = NsgL10n.of(context);
     final probe = _probe;
@@ -1463,49 +1462,10 @@ class _MonitorDetailSheetState extends State<_MonitorDetailSheet> {
       _monitor = created.monitor;
       _busy = false;
     });
-    await _showBeatUrlDialog(created.beatUrl);
-  }
-
-  Future<void> _showBeatUrlDialog(String beatUrl) {
-    final l = NsgL10n.of(context);
-    // Beat-роут принимает ТОЛЬКО POST (PulseBeatRoute methods: {Method.post}) —
-    // без -X POST скопированный сниппет уходит GET-ом и молча не работает.
-    final curl = 'curl -fsS -X POST $beatUrl';
-    return showDialog<void>(
-      context: context,
-      builder: (ctx) {
-        final theme = Theme.of(ctx);
-        final caption = theme.textTheme.bodySmall?.copyWith(
-          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-        );
-        return AlertDialog(
-          title: Text(l.pulseBeatUrlLabel),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  CopyableField(value: beatUrl, copiedMessage: l.pulseCopied),
-                  const SizedBox(height: 12),
-                  Text(l.pulseCurlHint, style: caption),
-                  const SizedBox(height: 4),
-                  CopyableField(value: curl, copiedMessage: l.pulseCopied),
-                  const SizedBox(height: 8),
-                  Text(l.pulseBeatUrlOnce, style: caption),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            FilledButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: Text(l.commonOk),
-            ),
-          ],
-        );
-      },
+    await showPulseBeatDialog(
+      context,
+      beatUrl: created.beatUrl,
+      token: created.token,
     );
   }
 
@@ -1704,6 +1664,16 @@ class _MonitorDetailSheetState extends State<_MonitorDetailSheet> {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
+                  // **issue #187**: право — как у паузы (`admin`): период и
+                  // допуск меняют, КОГДА сработает тревога, а не ЧТО
+                  // наблюдается. Мониторам, которые ведёт сервер, кнопку не
+                  // показываем: их период — расписание серверного воркера.
+                  if (_canAdmin && PulseMonitorKinds.isUserEditable(m.kind))
+                    OutlinedButton.icon(
+                      onPressed: _busy ? null : _editSettings,
+                      icon: const Icon(Icons.tune, size: 18),
+                      label: Text(l.pulseEditMonitor),
+                    ),
                   if (_canAdmin) ...[
                     OutlinedButton.icon(
                       onPressed: _busy ? null : _togglePause,
@@ -1900,9 +1870,42 @@ String _periodLabel(NsgL10n l, int seconds) {
       return l.pulsePeriod1h;
     case 86400:
       return l.pulsePeriod24h;
+    case 604800:
+      return l.pulsePeriod7d;
     default:
       return '$seconds s';
   }
+}
+
+/// Пресеты периода — общие у создания и правки монитора (issue #187).
+///
+/// [include] — текущий период монитора. Если его нет среди пресетов (монитор
+/// заведён через API с «нестандартным» периодом), он добавляется отдельным
+/// пунктом: `DropdownButtonFormField` с начальным значением, которого нет в
+/// списке, падает на проверке вместо того, чтобы открыться.
+List<DropdownMenuItem<int>> _periodMenuItems(NsgL10n l, {int? include}) {
+  const presets = [
+    60,
+    300,
+    900,
+    // 30 мин — шаг планировщиков «раз в полчаса» (Task Scheduler / cron).
+    // Без этого пресета такие сервисы приходилось ставить на «1 час», и
+    // пропущенный прогон подсвечивался только через час.
+    1800,
+    3600,
+    86400,
+    // **TASK94**: неделя — для сертификатов. Они живут месяцами, и рубежи
+    // напоминаний предупреждают за 30 дней; чаще спрашивать нечего.
+    604800,
+  ];
+  final values = [
+    ...presets,
+    if (include != null && !presets.contains(include)) include,
+  ]..sort();
+  return [
+    for (final v in values)
+      DropdownMenuItem(value: v, child: Text(_periodLabel(l, v))),
+  ];
 }
 
 class _IncidentRow extends StatelessWidget {
@@ -2149,6 +2152,134 @@ class _DetailRow extends StatelessWidget {
 /// имя в SNI при переезде или адрес при смене узла). Предупреждение о
 /// сбросе наблюдений стоит НАД полями, а не под кнопкой: прочитать его
 /// нужно до правки, а не после.
+/// **issue #187**: имя, период и допуск созданного монитора.
+///
+/// Компактный отдельный диалог, а не режим диалога создания: там переключатель
+/// вида и все поля пробы, а менять вид и цель здесь нельзя (цель — отдельное
+/// действие владельца, [_ProbeTargetDialog]).
+class _EditMonitorDialog extends StatefulWidget {
+  const _EditMonitorDialog({required this.l, required this.monitor});
+
+  final NsgL10n l;
+  final PulseMonitor monitor;
+
+  @override
+  State<_EditMonitorDialog> createState() => _EditMonitorDialogState();
+}
+
+class _EditMonitorDialogState extends State<_EditMonitorDialog> {
+  late final TextEditingController _name = TextEditingController(
+    text: widget.monitor.name,
+  );
+  late final TextEditingController _grace = TextEditingController(
+    text: '${widget.monitor.graceSeconds}',
+  );
+  late int _period = widget.monitor.periodSeconds;
+
+  @override
+  void initState() {
+    super.initState();
+    for (final c in [_name, _grace]) {
+      c.addListener(_sync);
+    }
+  }
+
+  void _sync() => setState(() {});
+
+  @override
+  void dispose() {
+    for (final c in [_name, _grace]) {
+      c.removeListener(_sync);
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  int? get _graceValue => int.tryParse(_grace.text.trim());
+
+  bool get _valid =>
+      _name.text.trim().isNotEmpty && _graceValue != null && _graceValue! >= 0;
+
+  /// Сохранять нечего — кнопка неактивна: ложный «сохранил» хуже честного
+  /// «ничего не изменилось».
+  bool get _dirty =>
+      _name.text.trim() != widget.monitor.name ||
+      _period != widget.monitor.periodSeconds ||
+      _graceValue != widget.monitor.graceSeconds;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = widget.l;
+    final small = Theme.of(context).textTheme.bodySmall;
+    // У пробы сигналов нет — сервер ходит сам, и период там просто частота
+    // проверки. У heartbeat период — чужое расписание отправки.
+    final isHeartbeat = !PulseMonitorKinds.isProbe(widget.monitor.kind);
+    return AlertDialog(
+      title: Text(l.pulseEditMonitorTitle),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l.pulseEditMonitorBody, style: small),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _name,
+              decoration: InputDecoration(
+                labelText: l.pulseNameLabel,
+                border: const OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<int>(
+              initialValue: _period,
+              isExpanded: true,
+              // issue #43: без явного цвета меню выпадашки берёт canvasColor
+              // (= прозрачный surface в Glass-теме) и просвечивает диалог.
+              dropdownColor: kOverlaySurface,
+              decoration: InputDecoration(
+                labelText: l.pulsePeriodLabel,
+                border: const OutlineInputBorder(),
+              ),
+              items: _periodMenuItems(l, include: widget.monitor.periodSeconds),
+              onChanged: (v) => setState(() => _period = v ?? _period),
+            ),
+            if (isHeartbeat) ...[
+              const SizedBox(height: 8),
+              Text(l.pulseEditMonitorHeartbeatHint, style: small),
+            ],
+            const SizedBox(height: 12),
+            TextField(
+              controller: _grace,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                labelText: l.pulseGraceLabel,
+                border: const OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l.commonCancel),
+        ),
+        FilledButton(
+          onPressed: _valid && _dirty
+              ? () => Navigator.of(context).pop((
+                  name: _name.text.trim(),
+                  period: _period,
+                  grace: _graceValue!,
+                ))
+              : null,
+          child: Text(l.pulseEditMonitorSave),
+        ),
+      ],
+    );
+  }
+}
+
 class _ProbeTargetDialog extends StatefulWidget {
   const _ProbeTargetDialog({required this.l, required this.probe});
 
@@ -2878,21 +3009,7 @@ class _NewMonitorDialogState extends State<_NewMonitorDialog> {
                 labelText: l.pulsePeriodLabel,
                 border: const OutlineInputBorder(),
               ),
-              items: [
-                DropdownMenuItem(value: 60, child: Text(l.pulsePeriod60s)),
-                DropdownMenuItem(value: 300, child: Text(l.pulsePeriod5m)),
-                DropdownMenuItem(value: 900, child: Text(l.pulsePeriod15m)),
-                // 30 мин — шаг планировщиков «раз в полчаса» (Task Scheduler /
-                // cron). Без этого пресета такие сервисы приходилось ставить на
-                // «1 час», и пропущенный прогон подсвечивался только через час.
-                DropdownMenuItem(value: 1800, child: Text(l.pulsePeriod30m)),
-                DropdownMenuItem(value: 3600, child: Text(l.pulsePeriod1h)),
-                DropdownMenuItem(value: 86400, child: Text(l.pulsePeriod24h)),
-                // **TASK94**: неделя — для сертификатов. Они живут месяцами,
-                // и рубежи напоминаний предупреждают за 30 дней; чаще
-                // спрашивать нечего.
-                DropdownMenuItem(value: 604800, child: Text(l.pulsePeriod7d)),
-              ],
+              items: _periodMenuItems(l),
               onChanged: (v) => setState(() {
                 _periodSeconds = v ?? 300;
                 _periodTouched = true;
@@ -3232,4 +3349,66 @@ class _CenteredMessage extends StatelessWidget {
       ),
     );
   }
+}
+
+/// One-time диалог с адресом и токеном для heartbeat.
+///
+/// **Токен отдельным полем, а не внутри адреса** (issue #143). Сервер
+/// перестал принимать `POST /beat/<токен>` — такая ссылка утекала в логи и
+/// в историю команд, — но продолжал отдавать её в `beatUrl`, а диалог честно
+/// показывал. Две недели каждый, кто заводил монитор, копировал сниппет,
+/// получал `401 token_in_path_not_accepted` и оставался без единственного
+/// шанса увидеть токен: второй раз он не показывается, только ротация.
+///
+/// Общая функция на оба экрана (список и карточка): раньше здесь лежали две
+/// одинаковые копии, и правку пришлось бы делать дважды.
+Future<void> showPulseBeatDialog(
+  BuildContext context, {
+  required String beatUrl,
+  required String token,
+}) {
+  final l = NsgL10n.of(context);
+  // Beat-роут принимает ТОЛЬКО POST (PulseBeatRoute methods: {Method.post}) —
+  // без -X POST скопированный сниппет уходит GET-ом и молча не работает.
+  final curl = "curl -fsS -X POST -H 'X-Pulse-Token: $token' $beatUrl";
+  return showDialog<void>(
+    context: context,
+    builder: (ctx) {
+      final theme = Theme.of(ctx);
+      final caption = theme.textTheme.bodySmall?.copyWith(
+        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+      );
+      return AlertDialog(
+        title: Text(l.pulseBeatUrlLabel),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CopyableField(value: beatUrl, copiedMessage: l.pulseCopied),
+                const SizedBox(height: 12),
+                Text(l.pulseBeatTokenLabel, style: caption),
+                const SizedBox(height: 4),
+                CopyableField(value: token, copiedMessage: l.pulseCopied),
+                const SizedBox(height: 12),
+                Text(l.pulseCurlHint, style: caption),
+                const SizedBox(height: 4),
+                CopyableField(value: curl, copiedMessage: l.pulseCopied),
+                const SizedBox(height: 8),
+                Text(l.pulseBeatUrlOnce, style: caption),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(l.commonOk),
+          ),
+        ],
+      );
+    },
+  );
 }

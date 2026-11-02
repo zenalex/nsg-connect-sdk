@@ -39,10 +39,7 @@ void main() {
       const bubble = Color(0xFF1F1F1F);
       const text = Color(0xFFE6E6E6);
 
-      final oldPlate = Color.alphaBlend(
-        text.withValues(alpha: 0.12),
-        bubble,
-      );
+      final oldPlate = Color.alphaBlend(text.withValues(alpha: 0.12), bubble);
       final newPlate = highlightSurface(bubble, Brightness.dark);
 
       expect(
@@ -89,7 +86,10 @@ void main() {
           brightness,
           strength: HighlightStrength.subtle,
         );
-        expect(contrastRatio(onHighlight(text), plate), greaterThanOrEqualTo(4.5));
+        expect(
+          contrastRatio(onHighlight(text), plate),
+          greaterThanOrEqualTo(4.5),
+        );
         // Вторичный текст полупрозрачен — накладываем его на плашку,
         // иначе меряли бы несуществующий цвет.
         final secondary = Color.alphaBlend(

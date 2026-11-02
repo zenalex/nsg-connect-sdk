@@ -103,6 +103,18 @@ class _RoomActionSheetBody extends StatelessWidget {
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             ),
+            // #188: прочитать, не открывая чат. Без непрочитанных пункт
+            // бессмыслен — не показываем.
+            if (room.unreadCount > 0)
+              ListTile(
+                leading: const Icon(Icons.mark_chat_read_outlined),
+                title: Text(l.roomActionMarkRead),
+                onTap: () => _runOptimistic(
+                  context,
+                  'markRead',
+                  () => controller.markRoomRead(room.id),
+                ),
+              ),
             if (room.muted)
               ListTile(
                 leading: const Icon(Icons.notifications_active),
@@ -223,7 +235,7 @@ class _RoomActionSheetBody extends StatelessWidget {
   /// сейчас pop-нется, но root-scaffold messenger жив весь lifetime
   /// `ChatsListScreen`).
   ///
-  /// [actionName] — только для трекера: через этот хелпер проходят все шесть
+  /// [actionName] — только для трекера: через этот хелпер проходят все семь
   /// действий sheet-а с ОДНИМ снеком `roomActionFailedSnack`, и без тега
   /// отчёт сводится к «что-то в action-sheet упало».
   static Future<void> _runOptimisticDirect(

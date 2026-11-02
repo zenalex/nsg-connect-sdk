@@ -205,8 +205,9 @@ class CallMediaCollector {
     final dLost = lostLast - lostFirst;
     final dRecv = recvLast - recvFirst;
     final denom = dLost + dRecv;
-    if (denom <= 0)
+    if (denom <= 0) {
       return null; // за окно не пришло ничего — доля не определена
+    }
     return 100.0 * dLost / denom;
   }
 

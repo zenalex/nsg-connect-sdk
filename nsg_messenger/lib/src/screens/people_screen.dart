@@ -649,28 +649,35 @@ class _PeopleScreenState extends State<PeopleScreen> {
             },
           ),
           // **TASK52 итер.2**: входящие карточки-заявки с бейджем-счётчиком.
-          ValueListenableBuilder<int>(
-            valueListenable:
-                MessengerRuntime.instance.contacts.incomingRequestCount,
-            builder: (ctx, count, _) => IconButton(
-              key: const Key('peopleRequestsButton'),
-              tooltip: NsgL10n.of(ctx).requestsTitle,
-              icon: Badge(
-                isLabelVisible: count > 0,
-                label: Text('$count'),
-                backgroundColor: accent,
-                textColor: _onAccent,
-                child: const Icon(Icons.mail_outline, color: _fgMuted),
+          //
+          // **issue #167**: рантайм в `build` спрашиваем безопасной формой.
+          // Бросающий `contacts` здесь означал бы отказ сборки кадра при
+          // сносе рантайма — на Windows это уронило шапку целиком.
+          if (MessengerRuntime.instance.contactsOrNull != null)
+            ValueListenableBuilder<int>(
+              valueListenable: MessengerRuntime
+                  .instance
+                  .contactsOrNull!
+                  .incomingRequestCount,
+              builder: (ctx, count, _) => IconButton(
+                key: const Key('peopleRequestsButton'),
+                tooltip: NsgL10n.of(ctx).requestsTitle,
+                icon: Badge(
+                  isLabelVisible: count > 0,
+                  label: Text('$count'),
+                  backgroundColor: accent,
+                  textColor: _onAccent,
+                  child: const Icon(Icons.mail_outline, color: _fgMuted),
+                ),
+                onPressed: () async {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const ContactRequestsScreen(),
+                    ),
+                  );
+                },
               ),
-              onPressed: () async {
-                await Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const ContactRequestsScreen(),
-                  ),
-                );
-              },
             ),
-          ),
           IconButton(
             icon: Icon(Icons.search, color: _showSearch ? accent : _fgMuted),
             onPressed: () => setState(() {

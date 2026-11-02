@@ -15,8 +15,11 @@ import 'pulse_monitor.dart' as _i2;
 import 'package:nsg_connect_client/src/protocol/protocol.dart' as _i3;
 
 /// DTO create/rotate монитора Pulse (TASK60): монитор + beat-токен.
-/// Токен показывается ОДИН раз (в БД — только хеш); `beatUrl` — готовый
-/// URL для curl-сниппета (`<hooks-base>/beat/<token>`).
+/// Токен показывается ОДИН раз (в БД — только хеш); `beatUrl` — адрес
+/// приёмника БЕЗ токена (`<hooks-base>/beat`). Токен идёт отдельным полем и
+/// отправляется заголовком `X-Pulse-Token`: в адресе он больше не
+/// принимается (issue #143), иначе секрет оседает в логах и в истории
+/// команд.
 abstract class PulseMonitorCreated implements _i1.SerializableModel {
   PulseMonitorCreated._({
     required this.monitor,

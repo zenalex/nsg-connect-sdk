@@ -128,6 +128,9 @@ export 'src/screens/contact_card_editor_screen.dart'
 export 'src/i18n/profile_locales.dart'
     show kProfileLocaleNames, profileLocaleLabel;
 export 'src/screens/pulse_screen.dart' show PulseScreen;
+// **issue #151**: управление своими наборами стикеров. Наружу, потому что
+// вход в него — пункт настроек хост-приложения (и кнопка в пикере).
+export 'src/stickers/sticker_packs_screen.dart' show StickerPacksScreen;
 // Issue #102: обрезка аватара перед загрузкой — нужна и хост-приложениям
 // (Chatista зовёт из настроек профиля), поэтому наружу.
 export 'src/screens/avatar_crop_screen.dart'

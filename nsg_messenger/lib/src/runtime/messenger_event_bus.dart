@@ -7,9 +7,10 @@ import 'package:flutter/widgets.dart' show AppLifecycleState, WidgetsBinding;
 import 'package:nsg_connect_client/nsg_connect_client.dart';
 
 import '../messenger_session_state.dart';
-import '../session/auth_retry.dart' show isAuthInvalidation;
+import '../session/auth_retry.dart' show isAuthInvalidation, isTransportFailure;
 import 'delivery_ack_sender.dart';
 import 'messenger_connection_state.dart';
+import 'stream_outage.dart';
 import 'transport_error_text.dart';
 
 /// Сигнатура для `client.messenger.userEventStream` — позволяет тестам
@@ -455,9 +456,7 @@ class MessengerEventBus {
       // мог убить WS, sub думает что жив). Cancel + re-subscribe.
       unawaited(_stopUnderlyingSubscription());
     }
-    _consecutiveFailures = 0;
-    _outageStartedAt = null;
-    _outageReported = false;
+    _forgetOutage();
     _startUnderlyingSubscription();
   }
 
@@ -560,6 +559,18 @@ class MessengerEventBus {
           '[MessengerEventBus] setPresence(foreground=$foreground) failed: $e',
         );
       }
+      // **Присутствие — украшение, и сеть под ним ломается штатно.**
+      // Телефон уходит в карман, приложение сворачивается на подъезде в
+      // лифт — и обновление «онлайн/офлайн» не доезжает. Чинить тут
+      // нечего: следующее переключение перепишет состояние, а человек
+      // ничего не терял.
+      //
+      // В трекер это уходило `TimeoutException after 0:00:08` (двадцать
+      // с лишним событий с iOS за неделю) — тот же шум, ради которого в
+      // #118 отчёт о пропаже стрима отложили на две минуты. Отчёт
+      // оставляем только для неожиданного: отказ НЕ транспортный
+      // означает, что сломался договор, а не связь.
+      if (isTransportFailure(e)) return;
       _onError?.call(e, st);
     });
   }
@@ -687,9 +698,7 @@ class MessengerEventBus {
           // фильтрует одинаковые transitions).
           if (_consecutiveFailures != 0 ||
               _connectionState != MessengerConnectionState.healthy) {
-            _consecutiveFailures = 0;
-            _outageStartedAt = null;
-            _outageReported = false;
+            _forgetOutage();
             _setConnectionState(MessengerConnectionState.healthy);
           }
           // Удар сердца несёт ровно один смысл — «канал работает», и он уже
@@ -846,6 +855,25 @@ class MessengerEventBus {
     return true;
   }
 
+  /// **Связь снова здорова: забыть всё, что помним о пропаже.**
+  ///
+  /// Одним методом, а не тремя наборами присваиваний по местам, намеренно.
+  /// Пока сброс был переписан в каждом месте отдельно, одно из трёх —
+  /// подтверждение реконнекта для тихого аккаунта — отстало от issue #118 и
+  /// сбрасывало только счётчик попыток. Разошлось молча: тестами эта ветка
+  /// не покрывалась, а в трекере расхождение выглядело не поломкой, а
+  /// потоком правдоподобных отчётов. Разбор — в issue #170.
+  ///
+  /// Три поля живут вместе и обязаны сбрасываться вместе: счётчик решает,
+  /// когда объявить `disconnected`, отметка — сколько связи не было, флаг —
+  /// сообщали ли уже. Половинчатый сброс ломает и отчёт (числа от прошлой
+  /// пропажи), и молчание (флаг глушит следующую настоящую).
+  void _forgetOutage() {
+    _consecutiveFailures = 0;
+    _outageStartedAt = null;
+    _outageReported = false;
+  }
+
   /// **TASK20 followup (a)**: запланировать reconnect после transport
   /// failure. Increment failure counter, emit reconnecting/disconnected,
   /// schedule retry с jittered backoff.
@@ -917,25 +945,29 @@ class MessengerEventBus {
     // бы в новом виде. Счётчик обнуляется при успешном подключении, поэтому
     // следующий настоящий обрыв снова будет виден.
     //
-    // Текст — через [describeTransportError]: иначе в трекер едет артефакт
+    // Причина — через [describeTransportError]: иначе в трекер едет артефакт
     // `dart:io` «https://host:0/v1/websocket#», и разбор начинается с погони
-    // за несуществующим портом 0 (я на неё сегодня и потратил время).
+    // за несуществующим портом 0 (я на неё в тот день и потратил время).
     // **issue #118**: сообщаем по ДЛИТЕЛЬНОСТИ, а не по числу попыток.
     // Порог в попытках наступал через полторы секунды — столько длится любой
     // рестарт сервера, поэтому каждый наш деплой рождал по событию на
     // каждого подключённого клиента (полторы сотни «связь моргнула» в сутки).
-    // Один отчёт на одну пропажу: флаг снимается только восстановлением.
+    // Один отчёт на одну пропажу: флаг снимается только восстановлением
+    // ([_forgetOutage] — и обязательно во всех трёх его местах, см. #170).
+    //
+    // **issue #170**: числа отдаём типом [StreamOutage], а не текстом. В
+    // тексте они плодили по группе на каждую пропажу — 109 групп из 275.
     final since = _outageStartedAt;
     if (error != null &&
         !_outageReported &&
         since != null &&
         DateTime.now().difference(since) >= _outageReportAfter) {
       _outageReported = true;
-      final lasted = DateTime.now().difference(since);
       _onError?.call(
-        StateError(
-          'Связь со стримом не восстановилась за ${lasted.inSeconds} с '
-          '($attempt попыток): ${describeTransportError(error)}',
+        StreamOutage(
+          lasted: DateTime.now().difference(since),
+          attempts: attempt,
+          cause: describeTransportError(error),
         ),
         stack ?? StackTrace.current,
       );
@@ -987,7 +1019,16 @@ class MessengerEventBus {
             '${_reconnectConfirmDelay.inSeconds}s) → healthy',
           );
         }
-        _consecutiveFailures = 0;
+        // **issue #170**: сбрасываем ВСЁ, что помнит пропажу, а не один
+        // счётчик попыток. Пока здесь стояло `_consecutiveFailures = 0`,
+        // отметка начала пропажи и флаг «уже отрапортовали» переживали
+        // восстановление — и стоили нам обеих сторон отчётности сразу:
+        // следующая единичная осечка рапортовала «связь не восстановилась
+        // за 28 часов» (отметка от прошлой, давно кончившейся пропажи), а
+        // настоящая следующая пропажа не рапортовалась вовсе (флаг так и
+        // остался взведённым). В трекере это дало 109 групп из 275 — и ни
+        // одного честного отчёта.
+        _forgetOutage();
         _setConnectionState(MessengerConnectionState.healthy);
       }
     });

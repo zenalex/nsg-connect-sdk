@@ -10,8 +10,20 @@ void main() {
   test('содержит популярные локали из спеки', () {
     // §2 перечисляет их поимённо — набор не должен «усохнуть» при
     // рефакторинге.
-    for (final code in ['ru', 'en', 'de', 'fr', 'es', 'it', 'pt', 'tr',
-        'zh', 'ar', 'uk', 'kk']) {
+    for (final code in [
+      'ru',
+      'en',
+      'de',
+      'fr',
+      'es',
+      'it',
+      'pt',
+      'tr',
+      'zh',
+      'ar',
+      'uk',
+      'kk',
+    ]) {
       expect(kProfileLocaleNames, contains(code), reason: code);
     }
   });

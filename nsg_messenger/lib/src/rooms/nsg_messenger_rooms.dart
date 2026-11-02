@@ -1489,6 +1489,29 @@ class NsgMessengerRooms {
     _detailsCache.remove(roomId);
   }
 
+  /// **#188**: пометить чат прочитанным, не открывая его. Квитанция ставится
+  /// на последнее сообщение основной ленты: сервер по ней обнуляет
+  /// `unreadCount` и сам рассылает `roomUnreadChanged` и read-sync-пуш на
+  /// остальные устройства — ровно то же, что при открытии чата. В пустой
+  /// комнате отмечать нечего.
+  Future<void> markRoomRead(int roomId) async {
+    final messenger = MessengerRuntime.instance.client.messenger;
+    final session = MessengerRuntime.instance.sessionManager;
+    final page = await withAuthRetry(
+      () => messenger.listMessages(roomId: roomId, limit: 1),
+      session,
+    );
+    if (page.messages.isEmpty) return;
+    await withAuthRetry(
+      () => messenger.markRead(
+        roomId: roomId,
+        matrixEventId: page.messages.first.matrixEventId,
+      ),
+      session,
+    );
+    _listEntry = null;
+  }
+
   /// Покинуть комнату. Direct chat — после leave + новый
   /// `createDirect(peer)` создаст fresh Matrix room (см. server-side
   /// `RoomService.leaveRoom` doc). list invalidate (room исчезает),

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'crm/crm_rpc.dart';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
@@ -39,6 +40,8 @@ import 'settings/nsg_messenger_settings.dart';
 import 'runtime/messenger_connection_state.dart';
 import 'runtime/messenger_event_bus.dart';
 import 'runtime/nsg_messenger_config.dart';
+import 'runtime/stream_outage.dart';
+import 'stickers/nsg_messenger_stickers.dart';
 import 'session/auth_retry.dart' show withAuthRetry, clientConnectionTimeout;
 import 'session/auth_token_store.dart';
 import 'session/messenger_session_manager.dart';
@@ -82,6 +85,7 @@ class MessengerRuntime with WidgetsBindingObserver {
   NsgMessengerSettings? _notificationSettings;
   // **TASK58**: контроллер входящих webhook-ов (автопостов) комнаты.
   NsgMessengerIntegrations? _integrations;
+  NsgMessengerStickers? _stickers;
   // **TASK36**: контроллер админки ботов (tenant-wide, BOT_ADMIN_EMAILS).
   NsgMessengerBotsAdmin? _botsAdmin;
   // **TASK78 п.3**: контроллер платформенной админки секретов тенантов
@@ -222,6 +226,9 @@ class MessengerRuntime with WidgetsBindingObserver {
   /// обработчике ошибок. Экранам, которые умеют жить без данных, надо давать
   /// возможность промолчать, а не падать.
   Client? get clientOrNull => _client;
+
+  /// Safe for rendering while initialization, logout or account switching runs.
+  MessengerSession? get sessionOrNull => _sessionManager?.session;
 
   Client get client {
     final c = _client;
@@ -591,6 +598,23 @@ class MessengerRuntime with WidgetsBindingObserver {
     return i;
   }
 
+  /// **issue #151**: наборы пользовательских стикеров. Доступны через
+  /// `NsgMessenger.stickers`; используются пикером и экраном управления.
+  NsgMessengerStickers get stickers {
+    final s = _stickers;
+    if (s == null) {
+      throw StateError(
+        'NsgMessengerStickers отсутствует. NsgMessenger.init() не вызван '
+        'или dispose() уже отработал.',
+      );
+    }
+    return s;
+  }
+
+  /// То же, но молча: для `build`, где бросок означает отказ сборки кадра
+  /// (см. сторож `runtime_in_build_guard_test`).
+  NsgMessengerStickers? get stickersOrNull => _stickers;
+
   /// **TASK36**: публичный API админки ботов (tenant-wide). Доступен через
   /// `NsgMessenger.botsAdmin`; используется `BotsAdminScreen`. Серверный
   /// гейт — `BOT_ADMIN_EMAILS`; `isBotAdmin()` только прячет вход в UI.
@@ -674,6 +698,18 @@ class MessengerRuntime with WidgetsBindingObserver {
 
   /// **TASK63**: организация контактов — per-viewer alias/заметка/метки.
   /// Доступен через `NsgMessenger.contacts`.
+  /// Безопасная форма для `build` (#167).
+  ///
+  /// Бросающий [contacts] годится для путей ДЕЙСТВИЯ — там исключение
+  /// видно человеку как отказ операции. В `build` он превращается в отказ
+  /// сборки кадра: снос рантайма (смена профиля, выход, dispose) роняет
+  /// перерисовку, а `ErrorWidget` на месте sliver-заголовка ломает дерево
+  /// рендера целиком. Ровно это и случилось 24.08.2026 на Windows.
+  ///
+  /// Виджет, которому контакты нужны для показа, обязан уметь обойтись без
+  /// них — то есть спрашивать здесь и молчать при `null`.
+  NsgMessengerContacts? get contactsOrNull => _contacts;
+
   NsgMessengerContacts get contacts {
     final c = _contacts;
     if (c == null) {
@@ -832,7 +868,14 @@ class MessengerRuntime with WidgetsBindingObserver {
           : (e, st) => errorReporter.reportError(
               e,
               st,
-              tags: const {'source': 'event_bus'},
+              tags: {
+                'source': 'event_bus',
+                // **issue #170**: длительность и число попыток — тегами, а
+                // не в тексте ошибки. В тексте они заводили в трекере по
+                // группе на каждую пропажу; тегами по ним ищут и сортируют,
+                // а группа остаётся одна.
+                if (e is StreamOutage) ...e.tags,
+              },
             ),
       // **Session-recovery fix (a2)**: типизированный auth-invalidation на
       // `userEventStream` маршрутится сюда (вместо бесконечного transport-
@@ -846,6 +889,9 @@ class MessengerRuntime with WidgetsBindingObserver {
     // **TASK58**: контроллер входящих webhook-ов (автопостов). Stateless-
     // прокси над `client.incomingWebhook.*` — attach сразу, до session.init().
     _integrations = NsgMessengerIntegrations.attach(client: _client!);
+    // **issue #151**: наборы стикеров. Тоже stateless-прокси, кэша нет —
+    // «я же только что удалил стикер» не должно отвечать старым списком.
+    _stickers = NsgMessengerStickers.attach(client: _client!);
     // **TASK36**: контроллер админки ботов. Тоже stateless-прокси (над
     // `client.botAdmin.*`) — attach сразу, до session.init().
     _botsAdmin = NsgMessengerBotsAdmin.attach(client: _client!);
@@ -1080,6 +1126,12 @@ class MessengerRuntime with WidgetsBindingObserver {
         final sender = OutboxSender(
           store: store,
           rpc: ClientMessagesRpc(client),
+          sendCrmActivity: (item) async {
+            await CrmRpc(client.crm).activity(
+              Map<String, dynamic>.from(jsonDecode(item.body) as Map),
+              item.clientTxnId,
+            );
+          },
         );
         _outbox = sender;
         sender.start();
@@ -1523,6 +1575,7 @@ class MessengerRuntime with WidgetsBindingObserver {
     // **TASK58**: контроллер интеграций — stateless-прокси, отдельного
     // teardown не требует (нет подписок/ресурсов); просто сбрасываем ссылку.
     _integrations = null;
+    _stickers = null;
     // **TASK36**: админка ботов — stateless-прокси, teardown-а не требует.
     _botsAdmin = null;
     // **TASK78 п.3**: платформенная админка — stateless-прокси, teardown-а

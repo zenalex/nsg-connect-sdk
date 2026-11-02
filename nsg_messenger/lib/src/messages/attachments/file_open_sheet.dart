@@ -85,6 +85,7 @@ Future<void> showFileActionsSheet(
                 context,
                 () => actions.saveToDisk(attachment),
                 onSavedPath: true,
+                revealInFolder: actions.revealInFolder,
               );
             },
           ),
@@ -105,13 +106,32 @@ Future<void> runFileAction(
   BuildContext context,
   Future<Object?> Function() action, {
   bool onSavedPath = false,
+
+  /// **issue #169**: чем открыть каталог сохранённого файла. `null` —
+  /// кнопки не будет (мобильные: там сохраняет системный лист, и
+  /// открывать нам нечего).
+  Future<bool> Function(String savedPath)? revealInFolder,
 }) async {
   final l = NsgL10n.of(context);
   final messenger = ScaffoldMessenger.of(context);
   try {
     final result = await action();
     if (onSavedPath && result is String) {
-      messenger.showSnackBar(SnackBar(content: Text(l.fileSavedTo(result))));
+      // **issue #169** (жалоба оператора): «файл скачивается в папку
+      // загрузки, но кнопки открыть папку нет». Путь в тексте был, но по
+      // тексту никуда не попадёшь — его надо выделить и вставить в
+      // проводник. Кнопка делает то же одним нажатием.
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(l.fileSavedTo(result)),
+          action: revealInFolder == null
+              ? null
+              : SnackBarAction(
+                  label: l.fileShowInFolder,
+                  onPressed: () => revealInFolder(result),
+                ),
+        ),
+      );
     }
   } on NoHandlerForFileException catch (e) {
     messenger.showSnackBar(

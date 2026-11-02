@@ -50,7 +50,7 @@ class MessengerCacheStore {
   /// `cached_attachments`) при апгрейде пересоздаются (расходный кэш), а
   /// `outbox` — `CREATE IF NOT EXISTS`, поэтому bump версии НЕ теряет
   /// поставленные в очередь отправки.
-  static const int _schemaVersion = 4;
+  static const int _schemaVersion = 5;
 
   /// Лимит превью тела в chat-list (совпадает с серверным TASK13).
   static const int _previewMaxChars = 120;
@@ -100,6 +100,11 @@ class MessengerCacheStore {
   }
 
   static Future<void> _onCreate(Database db, int version) async {
+    await db.execute(
+      'CREATE TABLE IF NOT EXISTS cached_crm ('
+      'userId INTEGER NOT NULL, cacheKey TEXT NOT NULL, json TEXT NOT NULL, '
+      'PRIMARY KEY(userId, cacheKey))',
+    );
     await db.execute('''
       CREATE TABLE cached_rooms (
         userId INTEGER NOT NULL,
@@ -804,10 +809,12 @@ class MessengerCacheStore {
     String clientTxnId, {
     String? lastError,
     int? attempts,
+    int? retentionDeadline,
   }) => _updateOutbox(clientTxnId, {
     'status': OutboxStatus.failed,
     'lastError': lastError,
     'attempts': ?attempts,
+    'nextAttemptAt': ?retentionDeadline,
   });
 
   /// **OUTBOX**: ручной retry из UI — `failed`/`pending` строку возвращаем в
@@ -861,6 +868,7 @@ class MessengerCacheStore {
   /// аккаунта через отдельный вызов при необходимости.
   Future<void> clear() async {
     await _db.transaction((txn) async {
+      await txn.delete('cached_crm', where: 'userId = ?', whereArgs: [userId]);
       await txn.delete(
         'cached_rooms',
         where: 'userId = ?',
@@ -883,6 +891,79 @@ class MessengerCacheStore {
       );
     });
   }
+
+  /// Failed CRM payloads are plaintext TASK47 outbox data. Delete after seven
+  /// days; retain only a count per space until the user acknowledges the notice.
+  /// For failed CRM rows nextAttemptAt holds the retention deadline, not retry.
+  Future<void> purgeFailedCrmActivities(int nowMs) async {
+    var changed = false;
+    await _db.transaction((txn) async {
+      final rows = await txn.query(
+        'outbox',
+        where:
+            'userId = ? AND kind = ? AND status = ? AND CASE WHEN nextAttemptAt >= createdAt + 604800000 THEN nextAttemptAt ELSE createdAt + 604800000 END <= ?',
+        whereArgs: [userId, OutboxKind.crmActivity, OutboxStatus.failed, nowMs],
+      );
+      final counts = <int, int>{};
+      for (final row in rows) {
+        try {
+          final space =
+              (jsonDecode(row['body'] as String) as Map)['spaceId'] as int;
+          counts.update(space, (n) => n + 1, ifAbsent: () => 1);
+        } catch (_) {
+          /* Corrupt payload is also removed without logging. */
+        }
+        await txn.delete(
+          'outbox',
+          where: 'userId = ? AND clientTxnId = ?',
+          whereArgs: [userId, row['clientTxnId']],
+        );
+      }
+      for (final entry in counts.entries) {
+        final key = 'expiredActivities:${entry.key}';
+        final previous = await txn.query(
+          'cached_crm',
+          where: 'userId = ? AND cacheKey = ?',
+          whereArgs: [userId, key],
+        );
+        final count = previous.isEmpty
+            ? 0
+            : int.tryParse(previous.single['json'] as String) ?? 0;
+        await txn.insert('cached_crm', {
+          'userId': userId,
+          'cacheKey': key,
+          'json': '${count + entry.value}',
+        }, conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+      changed = rows.isNotEmpty;
+    });
+    if (changed) _notifyOutbox(0);
+  }
+
+  Future<void> putCrm(String key, String json) => _db
+      .insert('cached_crm', {
+        'userId': userId,
+        'cacheKey': key,
+        'json': json,
+      }, conflictAlgorithm: ConflictAlgorithm.replace)
+      .then((_) {});
+
+  Future<String?> getCrm(String key) async {
+    final rows = await _db.query(
+      'cached_crm',
+      where: 'userId = ? AND cacheKey = ?',
+      whereArgs: [userId, key],
+    );
+    return rows.isEmpty ? null : rows.single['json'] as String;
+  }
+
+  Future<void> removeCrm(String key) => _db
+      .delete(
+        'cached_crm',
+        where: 'userId = ? AND cacheKey = ?',
+        whereArgs: [userId, key],
+      )
+      .then((_) {});
 
   Future<void> close() async {
     await _outboxChangesCtl.close();

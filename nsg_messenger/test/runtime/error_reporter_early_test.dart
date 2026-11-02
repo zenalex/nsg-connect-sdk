@@ -7,7 +7,11 @@ import 'package:nsg_messenger/src/messenger_runtime.dart';
 class _CapturingReporter implements ErrorReporter {
   final List<Object> errors = [];
   @override
-  void reportError(Object error, StackTrace? stack, {Map<String, String>? tags}) {
+  void reportError(
+    Object error,
+    StackTrace? stack, {
+    Map<String, String>? tags,
+  }) {
     errors.add(error);
   }
 }
@@ -55,12 +59,20 @@ void main() {
 
 class _NullReporter implements ErrorReporter {
   @override
-  void reportError(Object error, StackTrace? stack, {Map<String, String>? tags}) {}
+  void reportError(
+    Object error,
+    StackTrace? stack, {
+    Map<String, String>? tags,
+  }) {}
 }
 
 class _ThrowingReporter implements ErrorReporter {
   @override
-  void reportError(Object error, StackTrace? stack, {Map<String, String>? tags}) {
+  void reportError(
+    Object error,
+    StackTrace? stack, {
+    Map<String, String>? tags,
+  }) {
     throw StateError('tracker down');
   }
 }

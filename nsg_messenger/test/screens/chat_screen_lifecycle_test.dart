@@ -181,6 +181,7 @@ class _StubRpc implements MessagesRpc {
     String? forwardedFromEventId,
     // TASK82: тред задачи — фейку достаточно принять параметр.
     String? threadId,
+    int? stickerId,
   }) => throw UnimplementedError();
 
   @override
@@ -271,6 +272,7 @@ class _StubRpc implements MessagesRpc {
   }) async => const <String>[];
 
   @override
-  Future<List<MessengerMessage>> listPinnedMessages({required int roomId}) async =>
-      const <MessengerMessage>[];
+  Future<List<MessengerMessage>> listPinnedMessages({
+    required int roomId,
+  }) async => const <MessengerMessage>[];
 }

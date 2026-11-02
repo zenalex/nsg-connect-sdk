@@ -1,4 +1,8 @@
+import '../crm/crm_room_controller.dart';
+import '../nsg_messenger.dart';
 import 'dart:async' show unawaited;
+import '../crm/crm_proposal_card.dart';
+import '../crm/crm_rpc.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
@@ -21,6 +25,8 @@ import 'link_preview_card.dart';
 import 'link_preview_store.dart';
 import 'markdown_spans.dart';
 import 'status_card_data.dart';
+import 'sticker_bubble.dart';
+import 'sticker_data.dart';
 
 /// Рендер одного [ChatMessage] в чате (TASK15 Chunk 2).
 ///
@@ -42,6 +48,9 @@ class MessageBubble extends StatelessWidget {
     required this.message,
     required this.isOwn,
     required this.onRetry,
+    this.onCrmReply,
+    this.crmRoom,
+    this.crmReadStatus,
     this.thumbnailRpc,
     this.fullSizeRpc,
     this.onLongPress,
@@ -79,6 +88,8 @@ class MessageBubble extends StatelessWidget {
   /// кто открыл переписку).
   final LinkPreviewStore? linkPreviews;
 
+  final CrmRoomController? crmRoom;
+  final Future<Map<String, dynamic>> Function(int)? crmReadStatus;
   final ChatMessage message;
   final bool isOwn;
 
@@ -116,6 +127,7 @@ class MessageBubble extends StatelessWidget {
   /// Зовётся при тапе по retry-button у failed bubble. На sent/pending —
   /// not invoked. ChatScreen перенаправляет в `controller.retry(txnId)`.
   final void Function(ChatMessage failed) onRetry;
+  final Future<void> Function(String text, String eventId)? onCrmReply;
 
   /// **TASK19 Chunk 3**: RPC для рендеринга attachment thumbnail/full
   /// в media-сообщениях. Required когда `message.attachment != null`;
@@ -322,6 +334,12 @@ class MessageBubble extends StatelessWidget {
     );
   }
 
+  Future<Map<String, dynamic>> _readCrmProposalStatus(int id) async {
+    final client = MessengerRuntime.instance.clientOrNull;
+    if (client == null) throw StateError('CRM unavailable');
+    return CrmRpc(client.crm).proposalStatus(id);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -349,6 +367,16 @@ class MessageBubble extends StatelessWidget {
         ? colors.primaryContainer
         : colors.surfaceContainerHighest;
     final ink = tokens.bubbleInk;
+    // **issue #151**: стикер рисуется без пузыря — так его и ожидают
+    // увидеть. Фон и отступы снимаем здесь, саму картинку рисует
+    // `StickerBubble`.
+    final isSticker =
+        message.msgType == kStickerMsgType &&
+        message.sticker != null &&
+        message.attachment != null &&
+        thumbnailRpc != null &&
+        fullSizeRpc != null;
+
     final bubbleColor = ink == null
         ? rawBubble
         : Color.alphaBlend(rawBubble, ink);
@@ -446,9 +474,9 @@ class MessageBubble extends StatelessWidget {
                           MediaQuery.of(context).size.width *
                           tokens.maxWidthFraction,
                     ),
-                    padding: tokens.padding,
+                    padding: isSticker ? EdgeInsets.zero : tokens.padding,
                     decoration: BoxDecoration(
-                      color: bubbleColor,
+                      color: isSticker ? Colors.transparent : bubbleColor,
                       borderRadius: isOwn
                           ? tokens.radiusOwn
                           : tokens.radiusPeer,
@@ -546,6 +574,46 @@ class MessageBubble extends StatelessWidget {
                                 bubbleColor,
                                 theme.brightness,
                               ),
+                            )
+                          else if (isSticker)
+                            StickerBubble(
+                              sticker: message.sticker!,
+                              attachment: message.attachment!,
+                              thumbnailRpc: thumbnailRpc!,
+                              fullSizeRpc: fullSizeRpc!,
+                              textColor: textColor,
+                            )
+                          else if (message.crmProposalId != null &&
+                              message.matrixEventId != null &&
+                              onCrmReply != null)
+                            CrmProposalCard(
+                              proposalId: message.crmProposalId!,
+                              body: message.body,
+                              eventId: message.matrixEventId!,
+                              readStatus:
+                                  crmReadStatus ?? _readCrmProposalStatus,
+                              room: crmRoom,
+                              textColor: colors.brightness == Brightness.dark
+                                  ? colors.onPrimary
+                                  : colors.onSecondaryContainer,
+                              reply: onCrmReply!,
+                            )
+                          else if (message.crmEventDealId != null)
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  message.body,
+                                  style: TextStyle(color: textColor),
+                                ),
+                                TextButton(
+                                  onPressed: () => NsgMessenger.openDeal(
+                                    context,
+                                    message.crmEventDealId!,
+                                  ),
+                                  child: Text(NsgL10n.of(context).crmOpenDeal),
+                                ),
+                              ],
                             )
                           else if (message.msgType == 'nsg.status_card' &&
                               message.statusCard != null)

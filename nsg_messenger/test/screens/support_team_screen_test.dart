@@ -160,10 +160,7 @@ void main() {
       // (старый сервер, чужой бэкенд, подменённый ответ).
       await pumpScreen(
         tester,
-        view([
-          member(selfId),
-          member(1, email: 'op@nsg.ru'),
-        ], owner: false),
+        view([member(selfId), member(1, email: 'op@nsg.ru')], owner: false),
       );
 
       expect(find.text('U1'), findsOneWidget, reason: 'состав отрисован');
@@ -274,23 +271,28 @@ void main() {
     });
   });
 
-  testWidgets('временная ошибка загрузки → кнопка «Повторить» перезапрашивает', (
-    tester,
-  ) async {
-    final rpc = _FakeRpc(view([member(1)]), getError: StateError('network'));
-    await pumpPushed(tester, rpc);
+  testWidgets(
+    'временная ошибка загрузки → кнопка «Повторить» перезапрашивает',
+    (tester) async {
+      final rpc = _FakeRpc(view([member(1)]), getError: StateError('network'));
+      await pumpPushed(tester, rpc);
 
-    expect(rpc.getCalls, 1);
-    final retry = find.byKey(const Key('retryLoadButton'));
-    expect(retry, findsOneWidget, reason: 'сеть — не гейт, должен быть выход');
+      expect(rpc.getCalls, 1);
+      final retry = find.byKey(const Key('retryLoadButton'));
+      expect(
+        retry,
+        findsOneWidget,
+        reason: 'сеть — не гейт, должен быть выход',
+      );
 
-    rpc.getError = null;
-    await tester.tap(retry);
-    await tester.pumpAndSettle();
+      rpc.getError = null;
+      await tester.tap(retry);
+      await tester.pumpAndSettle();
 
-    expect(rpc.getCalls, 2);
-    expect(find.text('U1'), findsOneWidget, reason: 'состав загрузился');
-  });
+      expect(rpc.getCalls, 2);
+      expect(find.text('U1'), findsOneWidget, reason: 'состав загрузился');
+    },
+  );
 
   testWidgets('гейт «не участник» → retry НЕ показываем', (tester) async {
     final rpc = _FakeRpc(

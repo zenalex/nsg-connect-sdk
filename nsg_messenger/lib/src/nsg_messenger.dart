@@ -2,6 +2,9 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:nsg_connect_client/nsg_connect_client.dart';
+import 'crm/crm_screen.dart';
+import 'crm/crm_detail_screen.dart';
+import 'crm/crm_rpc.dart';
 
 import 'auth_token_provider.dart';
 import 'calls/call_controller.dart';
@@ -17,6 +20,7 @@ import 'admin/nsg_messenger_platform_admin.dart';
 import 'bots/nsg_messenger_bot_catalog.dart';
 import 'bots/nsg_messenger_my_bots.dart';
 import 'integrations/nsg_messenger_integrations.dart';
+import 'messages/chat_message.dart';
 import 'messages/messages_controller.dart';
 import 'messages/messages_rpc.dart';
 import 'messenger_mode.dart';
@@ -71,6 +75,22 @@ class NsgMessenger {
   /// не перезатрёт репортер, подключённый здесь.
   static void configureErrorReporter(ErrorReporter reporter) =>
       MessengerRuntime.instance.configureErrorReporter(reporter);
+
+  /// **Жалоба на сообщение** (App Store guideline 1.2, user-generated
+  /// content). Хост подключает свой канал разбора жалоб; пока обработчик
+  /// не задан, пункта «Пожаловаться» в меню сообщения нет.
+  ///
+  /// Хук статический, а не параметр [ChatScreen], намеренно: меню
+  /// сообщения открывается из глубины SDK (`MessageBubble` →
+  /// `showMessageActionSheet`), и протаскивать колбэк через всю эту
+  /// цепочку ради одного пункта — лишняя связность. Канал разбора у
+  /// приложения ровно один на процесс, поэтому и хук один.
+  ///
+  /// Куда жалоба уходит — дело хоста: у Chatista это тот же чат
+  /// поддержки, что «Сообщить об ошибке», отдельным видом обращения.
+  /// SDK лишь показывает пункт и передаёт сообщение, на которое жалуются.
+  static Future<void> Function(BuildContext context, ChatMessage message)?
+  reportMessageHandler;
 
   static Future<void> init({
     required String apiBaseUrl,
@@ -482,6 +502,10 @@ class NsgMessenger {
   /// подписаться на [sessionStateStream] чтобы знать состояние.
   static MessengerSession get session => MessengerRuntime.instance.session;
 
+  /// Nullable while authentication changes; use this when rendering UI.
+  static MessengerSession? get sessionOrNull =>
+      MessengerRuntime.instance.sessionOrNull;
+
   /// **Avatar upload (B16-extension)**: загрузить аватар текущего юзера.
   ///
   /// Server:
@@ -831,6 +855,45 @@ class NsgMessenger {
       ),
     );
   }
+
+  static Widget crmView({Widget? leading}) => CrmScreen(leading: leading);
+  static bool canHandleDeepLink(Uri uri) => crmDealIdFromUri(uri) != null;
+  static Future<void> handleDeepLink(BuildContext context, Uri uri) async {
+    final id = crmDealIdFromUri(uri);
+    if (id != null) await openDeal(context, id);
+  }
+
+  static int? crmDealIdFromUri(Uri uri) {
+    if (!{'chatista', 'futbolista'}.contains(uri.scheme)) return null;
+    final parts = [if (uri.host.isNotEmpty) uri.host, ...uri.pathSegments];
+    if (parts.length != 3 || parts[0] != 'crm' || parts[1] != 'deal') {
+      return null;
+    }
+    final id = int.tryParse(parts[2]);
+    return id != null && id > 0 ? id : null;
+  }
+
+  static Future<void> openCrm(BuildContext context) => Navigator.of(
+    context,
+  ).push(MaterialPageRoute<void>(builder: (_) => crmView()));
+  static Future<void> openDeal(BuildContext context, int id) =>
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => CrmDealScreen(
+            id: id,
+            rpc: CrmRpc(MessengerRuntime.instance.client.crm),
+          ),
+        ),
+      );
+  static Future<void> openCompany(BuildContext context, int id) =>
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => CrmCompanyScreen(
+            id: id,
+            rpc: CrmRpc(MessengerRuntime.instance.client.crm),
+          ),
+        ),
+      );
 
   /// Открыть support-chat для заданного контекста (id заказа,
   /// тикета и т.д.).

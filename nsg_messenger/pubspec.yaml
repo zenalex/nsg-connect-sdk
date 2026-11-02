@@ -92,7 +92,15 @@ dependencies:
   # (dart2js/--no-wasm) + windows (нативный libwebrtc.m144). CallController
   # держит RTCPeerConnection за WebRtcAdapter-интерфейсом (тестируемость),
   # прямой usage flutter_webrtc — только в RealWebRtcAdapter.
-  flutter_webrtc: ^1.5.2
+  #
+  # Нижняя граница 1.6.1 — НЕ произвольная: до 1.6.0 плагин дёргал приватный
+  # селектор `buttonPressed:` у RPSystemBroadcastPickerView
+  # (FlutterRTCDesktopCapturer.m, ветка presentBroadcastPicker). Статический
+  # скан App Store находит его в бинарнике независимо от того, зовём ли мы
+  # шаринг экрана на iOS, — Chatista 1.1.62 (164) отклонили именно за это
+  # («non-public API»). В 1.6.0 селектор заменён на публичный
+  # sendActionsForControlEvents:, апстрим-фикс #2121. Не опускать ниже 1.6.1.
+  flutter_webrtc: ^1.6.1
   # TASK46 (SDK): UUID для callId (per-звонок) + partyId (per-device).
   uuid: ^4.5.1
   # TASK47 iter1: дисковый оффлайн-кэш чатов (список + последние сообщения,

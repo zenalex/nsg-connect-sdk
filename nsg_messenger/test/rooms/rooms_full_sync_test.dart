@@ -176,9 +176,11 @@ void main() {
   test('останавливается на nextCursor == null, а не на неполной странице', () {
     // Признак «страница короче limit» для остановки не годится: при
     // общем числе комнат, кратном limit, последняя страница полная.
-    return build(pages: [
-      [room(1)],
-    ]).rooms.listAll().then((all) {
+    return build(
+      pages: [
+        [room(1)],
+      ],
+    ).rooms.listAll().then((all) {
       expect(all.map((r) => r.id), [1]);
     });
   });
@@ -196,19 +198,22 @@ void main() {
     await expectLater(h.rooms.listAll(), throwsA(isA<StateError>()));
   });
 
-  test('второй вызов берётся из TTL-кэша — сервер не дёргается заново', () async {
-    final h = build(
-      pages: [
-        [room(1)],
-        [room(2)],
-      ],
-    );
-    await h.rooms.listAll();
-    final callsAfterFirst = h.pageCalls();
-    await h.rooms.listAll();
+  test(
+    'второй вызов берётся из TTL-кэша — сервер не дёргается заново',
+    () async {
+      final h = build(
+        pages: [
+          [room(1)],
+          [room(2)],
+        ],
+      );
+      await h.rooms.listAll();
+      final callsAfterFirst = h.pageCalls();
+      await h.rooms.listAll();
 
-    expect(h.pageCalls(), callsAfterFirst, reason: 'ни одного лишнего RPC');
-  });
+      expect(h.pageCalls(), callsAfterFirst, reason: 'ни одного лишнего RPC');
+    },
+  );
 
   test('разные фильтры — разные ключи кэша (не выдаём чужой набор)', () async {
     final h = build(
@@ -222,18 +227,21 @@ void main() {
     expect(h.pageCalls(), 2);
   });
 
-  test('старый сервер (курсора нет) → откат на одну страницу, без падения', () async {
-    final h = build(
-      pages: const [],
-      wireFullSync: false,
-      legacyListResult: [room(7)],
-    );
-    expect(h.rooms.fullSyncAvailable, isFalse);
+  test(
+    'старый сервер (курсора нет) → откат на одну страницу, без падения',
+    () async {
+      final h = build(
+        pages: const [],
+        wireFullSync: false,
+        legacyListResult: [room(7)],
+      );
+      expect(h.rooms.fullSyncAvailable, isFalse);
 
-    final all = await h.rooms.listAll();
-    expect(all.map((r) => r.id), [7]);
-    expect(h.listCalls(), 1, reason: 'ушли в обычный list()');
-  });
+      final all = await h.rooms.listAll();
+      expect(all.map((r) => r.id), [7]);
+      expect(h.listCalls(), 1, reason: 'ушли в обычный list()');
+    },
+  );
 
   test('сервер бесконечно обещает продолжение → упираемся в потолок, '
       'а не крутимся вечно', () async {

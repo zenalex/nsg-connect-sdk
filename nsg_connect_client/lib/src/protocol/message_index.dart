@@ -10,6 +10,7 @@
 // ignore_for_file: invalid_use_of_internal_member
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
+
 import 'package:serverpod_client/serverpod_client.dart' as _i1;
 
 /// MessageIndex — серверный поисковый индекс сообщений (B17 phase 3).
@@ -38,6 +39,9 @@ abstract class MessageIndex implements _i1.SerializableModel {
     required this.createdAt,
     bool? deleted,
     this.threadRootEventId,
+    this.replyToEventId,
+    this.crmProposalId,
+    this.editedAt,
   }) : deleted = deleted ?? false;
 
   factory MessageIndex({
@@ -50,6 +54,9 @@ abstract class MessageIndex implements _i1.SerializableModel {
     required DateTime createdAt,
     bool? deleted,
     String? threadRootEventId,
+    String? replyToEventId,
+    int? crmProposalId,
+    DateTime? editedAt,
   }) = _MessageIndexImpl;
 
   factory MessageIndex.fromJson(Map<String, dynamic> jsonSerialization) {
@@ -67,6 +74,11 @@ abstract class MessageIndex implements _i1.SerializableModel {
           ? null
           : _i1.BoolJsonExtension.fromJson(jsonSerialization['deleted']),
       threadRootEventId: jsonSerialization['threadRootEventId'] as String?,
+      replyToEventId: jsonSerialization['replyToEventId'] as String?,
+      crmProposalId: jsonSerialization['crmProposalId'] as int?,
+      editedAt: jsonSerialization['editedAt'] == null
+          ? null
+          : _i1.DateTimeJsonExtension.fromJson(jsonSerialization['editedAt']),
     );
   }
 
@@ -104,6 +116,14 @@ abstract class MessageIndex implements _i1.SerializableModel {
   /// best-effort hook-ах (`sendMessage` / sync), что и остальной индекс.
   String? threadRootEventId;
 
+  /// Verified Matrix reply relation and proposal extension (TASK99).
+  String? replyToEventId;
+
+  int? crmProposalId;
+
+  /// Any valid replacement invalidates confirmation evidence permanently.
+  DateTime? editedAt;
+
   /// Returns a shallow copy of this [MessageIndex]
   /// with some or all fields replaced by the given arguments.
   @_i1.useResult
@@ -117,6 +137,9 @@ abstract class MessageIndex implements _i1.SerializableModel {
     DateTime? createdAt,
     bool? deleted,
     String? threadRootEventId,
+    String? replyToEventId,
+    int? crmProposalId,
+    DateTime? editedAt,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -132,6 +155,9 @@ abstract class MessageIndex implements _i1.SerializableModel {
       'createdAt': createdAt.toJson(),
       'deleted': deleted,
       if (threadRootEventId != null) 'threadRootEventId': threadRootEventId,
+      if (replyToEventId != null) 'replyToEventId': replyToEventId,
+      if (crmProposalId != null) 'crmProposalId': crmProposalId,
+      if (editedAt != null) 'editedAt': editedAt?.toJson(),
     };
   }
 
@@ -154,6 +180,9 @@ class _MessageIndexImpl extends MessageIndex {
     required DateTime createdAt,
     bool? deleted,
     String? threadRootEventId,
+    String? replyToEventId,
+    int? crmProposalId,
+    DateTime? editedAt,
   }) : super._(
          id: id,
          tenantId: tenantId,
@@ -164,6 +193,9 @@ class _MessageIndexImpl extends MessageIndex {
          createdAt: createdAt,
          deleted: deleted,
          threadRootEventId: threadRootEventId,
+         replyToEventId: replyToEventId,
+         crmProposalId: crmProposalId,
+         editedAt: editedAt,
        );
 
   /// Returns a shallow copy of this [MessageIndex]
@@ -180,6 +212,9 @@ class _MessageIndexImpl extends MessageIndex {
     DateTime? createdAt,
     bool? deleted,
     Object? threadRootEventId = _Undefined,
+    Object? replyToEventId = _Undefined,
+    Object? crmProposalId = _Undefined,
+    Object? editedAt = _Undefined,
   }) {
     return MessageIndex(
       id: id is int? ? id : this.id,
@@ -195,6 +230,11 @@ class _MessageIndexImpl extends MessageIndex {
       threadRootEventId: threadRootEventId is String?
           ? threadRootEventId
           : this.threadRootEventId,
+      replyToEventId: replyToEventId is String?
+          ? replyToEventId
+          : this.replyToEventId,
+      crmProposalId: crmProposalId is int? ? crmProposalId : this.crmProposalId,
+      editedAt: editedAt is DateTime? ? editedAt : this.editedAt,
     );
   }
 }

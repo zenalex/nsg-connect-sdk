@@ -42,9 +42,7 @@ void main() {
   });
 
   testWidgets('бот → иконка + текстовая плашка «Бот»', (tester) async {
-    await tester.pumpWidget(
-      wrap(const NsgBotBadge(kind: ParticipantKind.bot)),
-    );
+    await tester.pumpWidget(wrap(const NsgBotBadge(kind: ParticipantKind.bot)));
     expect(find.byIcon(Icons.smart_toy_outlined), findsOneWidget);
     expect(find.text('Бот'), findsOneWidget);
   });

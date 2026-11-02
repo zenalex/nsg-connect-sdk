@@ -4,6 +4,7 @@ import 'package:nsg_connect_client/nsg_connect_client.dart';
 
 import '../i18n/generated/nsg_l10n.dart';
 import '../messenger_runtime.dart';
+import '../nsg_messenger.dart';
 import '../widgets/scroll_more_hint.dart';
 import 'attachments/image_actions.dart';
 import 'chat_message.dart';
@@ -396,6 +397,28 @@ class _MessageActionSheetBody extends StatelessWidget {
                             duration: const Duration(seconds: 3),
                           ),
                         );
+                      }
+                    },
+                  ),
+                // **Жалоба на сообщение** (guideline 1.2). Только на чужие:
+                // жаловаться на себя нечего, а лишний пункт в своём меню
+                // сбивает. Пункта нет вовсе, пока хост не подключил
+                // `NsgMessenger.reportMessageHandler` — SDK не решает за
+                // приложение, куда уходят жалобы.
+                if (!isOwn &&
+                    !message.isDeleted &&
+                    NsgMessenger.reportMessageHandler != null)
+                  ListTile(
+                    leading: const Icon(Icons.flag_outlined),
+                    title: Text(l.messageActionReport),
+                    onTap: () async {
+                      final navigator = Navigator.of(context);
+                      final handler = NsgMessenger.reportMessageHandler!;
+                      navigator.pop();
+                      try {
+                        await handler(navigator.context, message);
+                      } catch (e, st) {
+                        _reportActionFailed(e, st, 'reportMessage');
                       }
                     },
                   ),

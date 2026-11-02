@@ -11,6 +11,7 @@ class OutboxKind {
   OutboxKind._();
   static const String text = 'text';
   static const String attachment = 'attachment';
+  static const String crmActivity = 'crm_activity';
 }
 
 /// **OUTBOX**: статус элемента очереди.

@@ -81,117 +81,124 @@ void main() {
     await store.close();
   });
 
-  test('реальное событие с тем же clientTxnId промоутит баббл (без дубля)',
-      () async {
-    final store = await openStore();
-    await store.enqueueOutbox(
-      OutboxItem(
-        clientTxnId: 'q1',
-        userId: _kSelfUid,
-        roomId: _kRoomId,
-        kind: OutboxKind.text,
-        body: 'queued',
-        createdAt: 1,
-      ),
-    );
-    final events = StreamController<MessengerEvent>.broadcast();
-    final c = makeController(store, events.stream);
-    await c.init();
-    await settle();
-    expect(
-      (c.state as MessagesReady).messages.where((m) => m.clientTxnId == 'q1'),
-      hasLength(1),
-    );
+  test(
+    'реальное событие с тем же clientTxnId промоутит баббл (без дубля)',
+    () async {
+      final store = await openStore();
+      await store.enqueueOutbox(
+        OutboxItem(
+          clientTxnId: 'q1',
+          userId: _kSelfUid,
+          roomId: _kRoomId,
+          kind: OutboxKind.text,
+          body: 'queued',
+          createdAt: 1,
+        ),
+      );
+      final events = StreamController<MessengerEvent>.broadcast();
+      final c = makeController(store, events.stream);
+      await c.init();
+      await settle();
+      expect(
+        (c.state as MessagesReady).messages.where((m) => m.clientTxnId == 'q1'),
+        hasLength(1),
+      );
 
-    // Реальное сообщение приезжает через sync (echo clientTxnId).
-    events.add(
-      _event(_msg(eventId: 'evt-q1', clientTxnId: 'q1', body: 'queued')),
-    );
-    await settle();
+      // Реальное сообщение приезжает через sync (echo clientTxnId).
+      events.add(
+        _event(_msg(eventId: 'evt-q1', clientTxnId: 'q1', body: 'queued')),
+      );
+      await settle();
 
-    final withTxn = (c.state as MessagesReady).messages
-        .where((m) => m.clientTxnId == 'q1')
-        .toList();
-    expect(withTxn, hasLength(1), reason: 'нет дубля');
-    expect(withTxn.single.isSent, isTrue, reason: 'промоутнут в sent');
-    expect(withTxn.single.matrixEventId, 'evt-q1');
+      final withTxn = (c.state as MessagesReady).messages
+          .where((m) => m.clientTxnId == 'q1')
+          .toList();
+      expect(withTxn, hasLength(1), reason: 'нет дубля');
+      expect(withTxn.single.isSent, isTrue, reason: 'промоутнут в sent');
+      expect(withTxn.single.matrixEventId, 'evt-q1');
 
-    // Sender удаляет строку на успехе → sent-баббл остаётся (не снимается).
-    await store.deleteOutbox('q1');
-    await settle();
-    final after = (c.state as MessagesReady).messages
-        .where((m) => m.clientTxnId == 'q1')
-        .toList();
-    expect(after, hasLength(1));
-    expect(after.single.isSent, isTrue);
-    await c.dispose();
-    await events.close();
-    await store.close();
-  });
+      // Sender удаляет строку на успехе → sent-баббл остаётся (не снимается).
+      await store.deleteOutbox('q1');
+      await settle();
+      final after = (c.state as MessagesReady).messages
+          .where((m) => m.clientTxnId == 'q1')
+          .toList();
+      expect(after, hasLength(1));
+      expect(after.single.isSent, isTrue);
+      await c.dispose();
+      await events.close();
+      await store.close();
+    },
+  );
 
-  test('failed-строка рендерится failed-бабблом; discard снимает его',
-      () async {
-    final store = await openStore();
-    await store.enqueueOutbox(
-      OutboxItem(
-        clientTxnId: 'q1',
-        userId: _kSelfUid,
-        roomId: _kRoomId,
-        kind: OutboxKind.text,
-        body: 'boom',
-        status: OutboxStatus.failed,
-        lastError: 'permanent',
-        createdAt: 1,
-      ),
-    );
-    final events = StreamController<MessengerEvent>.broadcast();
-    final c = makeController(store, events.stream);
-    await c.init();
-    await settle();
-    final b = (c.state as MessagesReady).messages
-        .firstWhere((m) => m.clientTxnId == 'q1');
-    expect(b.isFailed, isTrue);
+  test(
+    'failed-строка рендерится failed-бабблом; discard снимает его',
+    () async {
+      final store = await openStore();
+      await store.enqueueOutbox(
+        OutboxItem(
+          clientTxnId: 'q1',
+          userId: _kSelfUid,
+          roomId: _kRoomId,
+          kind: OutboxKind.text,
+          body: 'boom',
+          status: OutboxStatus.failed,
+          lastError: 'permanent',
+          createdAt: 1,
+        ),
+      );
+      final events = StreamController<MessengerEvent>.broadcast();
+      final c = makeController(store, events.stream);
+      await c.init();
+      await settle();
+      final b = (c.state as MessagesReady).messages.firstWhere(
+        (m) => m.clientTxnId == 'q1',
+      );
+      expect(b.isFailed, isTrue);
 
-    // Discard → строка ушла → баббл снимается через outboxRoomChanges.
-    await store.deleteOutbox('q1');
-    await settle();
-    expect(
-      (c.state as MessagesReady).messages.where((m) => m.clientTxnId == 'q1'),
-      isEmpty,
-    );
-    await c.dispose();
-    await events.close();
-    await store.close();
-  });
+      // Discard → строка ушла → баббл снимается через outboxRoomChanges.
+      await store.deleteOutbox('q1');
+      await settle();
+      expect(
+        (c.state as MessagesReady).messages.where((m) => m.clientTxnId == 'q1'),
+        isEmpty,
+      );
+      await c.dispose();
+      await events.close();
+      await store.close();
+    },
+  );
 
-  test('новый enqueue появляется бабблом вживую (подписка на изменения)',
-      () async {
-    final store = await openStore();
-    final events = StreamController<MessengerEvent>.broadcast();
-    final c = makeController(store, events.stream);
-    await c.init();
-    await settle();
-    expect((c.state as MessagesReady).messages, isEmpty);
+  test(
+    'новый enqueue появляется бабблом вживую (подписка на изменения)',
+    () async {
+      final store = await openStore();
+      final events = StreamController<MessengerEvent>.broadcast();
+      final c = makeController(store, events.stream);
+      await c.init();
+      await settle();
+      expect((c.state as MessagesReady).messages, isEmpty);
 
-    await store.enqueueOutbox(
-      OutboxItem(
-        clientTxnId: 'q2',
-        userId: _kSelfUid,
-        roomId: _kRoomId,
-        kind: OutboxKind.text,
-        body: 'live',
-        createdAt: 2,
-      ),
-    );
-    await settle();
-    expect(
-      (c.state as MessagesReady).messages.where((m) => m.clientTxnId == 'q2'),
-      hasLength(1),
-    );
-    await c.dispose();
-    await events.close();
-    await store.close();
-  });
+      await store.enqueueOutbox(
+        OutboxItem(
+          clientTxnId: 'q2',
+          userId: _kSelfUid,
+          roomId: _kRoomId,
+          kind: OutboxKind.text,
+          body: 'live',
+          createdAt: 2,
+        ),
+      );
+      await settle();
+      expect(
+        (c.state as MessagesReady).messages.where((m) => m.clientTxnId == 'q2'),
+        hasLength(1),
+      );
+      await c.dispose();
+      await events.close();
+      await store.close();
+    },
+  );
 }
 
 MessengerMessage _msg({
@@ -263,6 +270,7 @@ class _FakeRpc implements MessagesRpc {
   }) async => const <String>[];
 
   @override
-  Future<List<MessengerMessage>> listPinnedMessages({required int roomId}) async =>
-      const <MessengerMessage>[];
+  Future<List<MessengerMessage>> listPinnedMessages({
+    required int roomId,
+  }) async => const <MessengerMessage>[];
 }

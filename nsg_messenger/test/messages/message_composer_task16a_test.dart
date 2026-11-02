@@ -268,9 +268,7 @@ void main() {
 
     // Изначально reply-режим не активен — поле НЕ сфокусировано.
     await tester.pumpWidget(
-      pumpComposer(
-        onSend: (_, {mentionedMessengerUserIds, albumId}) async {},
-      ),
+      pumpComposer(onSend: (_, {mentionedMessengerUserIds, albumId}) async {}),
     );
     expect(
       tester.widget<TextField>(find.byType(TextField)).focusNode?.hasFocus,

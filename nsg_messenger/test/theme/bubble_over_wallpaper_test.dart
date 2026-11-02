@@ -42,9 +42,7 @@ void main() {
   /// Итоговый цвет пузыря так, как его считает `MessageBubble`.
   Color bubble(NsgMessengerTheme theme, {required bool own}) {
     final scheme = theme.colorScheme!;
-    final raw = own
-        ? scheme.primaryContainer
-        : scheme.surfaceContainerHighest;
+    final raw = own ? scheme.primaryContainer : scheme.surfaceContainerHighest;
     final ink = theme.bubbleTokens?.bubbleInk;
     return ink == null ? raw : Color.alphaBlend(raw, ink);
   }
@@ -76,7 +74,8 @@ void main() {
           expect(
             contrastRatio(text, effective),
             greaterThanOrEqualTo(4.5),
-            reason: '$name own=$own над пятном '
+            reason:
+                '$name own=$own над пятном '
                 '#${spot.toARGB32().toRadixString(16)}',
           );
         }

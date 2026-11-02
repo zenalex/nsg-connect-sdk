@@ -72,13 +72,28 @@ void main() {
   /// method-канала, таймер индикации) и реальное (дисковое I/O плагина
   /// на Windows). Один вид времени по отдельности флоу не дотягивает.
   Future<void> settlePaste(WidgetTester tester) async {
-    for (var i = 0; i < 12; i++) {
+    final elapsed = Stopwatch()..start();
+    bool complete() =>
+        find
+            .descendant(
+              of: find.byType(IconButton),
+              matching: find.byType(CircularProgressIndicator),
+            )
+            .evaluate()
+            .isEmpty &&
+        find.byIcon(Icons.send).evaluate().isNotEmpty;
+    while (!complete() && elapsed.elapsed < const Duration(seconds: 5)) {
       await tester.pump(const Duration(milliseconds: 100));
       await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 30)),
+        () => Future<void>.delayed(const Duration(milliseconds: 20)),
       );
     }
     await tester.pump();
+    expect(
+      complete(),
+      isTrue,
+      reason: 'Paste did not complete within 5 seconds',
+    );
   }
 
   /// Ctrl+V по сфокусированному полю ввода.

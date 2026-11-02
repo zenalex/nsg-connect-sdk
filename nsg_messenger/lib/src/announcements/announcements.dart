@@ -39,9 +39,8 @@ class ClientAnnouncementsRpc implements AnnouncementsRpc {
 
   @override
   Future<void> markSeen(int announcementId) => withAuthRetry(
-    () => _client.messenger.markAnnouncementSeen(
-      announcementId: announcementId,
-    ),
+    () =>
+        _client.messenger.markAnnouncementSeen(announcementId: announcementId),
     MessengerRuntime.instance.sessionManager,
   );
 }

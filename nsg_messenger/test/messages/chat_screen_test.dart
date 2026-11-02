@@ -612,6 +612,7 @@ class _FakeRpc implements MessagesRpc {
     String? forwardedFromEventId,
     // TASK82: тред задачи — фейку достаточно принять параметр.
     String? threadId,
+    int? stickerId,
   }) {
     final h = sendMessageHandler;
     if (h == null) throw StateError('sendMessageHandler not set');

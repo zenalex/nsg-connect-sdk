@@ -42,7 +42,8 @@ AnnouncementView _view({
 
 /// Подменённый url_launcher: тесту важен сам факт запуска и адрес, а не
 /// браузер — его в тестовой среде нет вовсе.
-class _FakeLauncher extends UrlLauncherPlatform with MockPlatformInterfaceMixin {
+class _FakeLauncher extends UrlLauncherPlatform
+    with MockPlatformInterfaceMixin {
   final List<String> launched = [];
 
   @override
@@ -238,9 +239,7 @@ void main() {
       // Открывает ссылку SDK, поэтому и проверяет её здесь: `javascript:`,
       // добравшийся сюда старой строкой в базе, увёл бы человека не туда
       // именно отсюда.
-      final rpc = _FakeRpc([
-        _view(kind: 'link', url: 'javascript:alert(1)'),
-      ]);
+      final rpc = _FakeRpc([_view(kind: 'link', url: 'javascript:alert(1)')]);
       await tester.pumpWidget(
         _host((ctx) => showPendingAnnouncements(ctx, rpcOverride: rpc)),
       );

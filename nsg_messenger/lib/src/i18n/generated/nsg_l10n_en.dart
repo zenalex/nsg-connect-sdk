@@ -132,6 +132,9 @@ class NsgL10nEn extends NsgL10n {
   String get roomActionUnarchive => 'Unarchive';
 
   @override
+  String get roomActionMarkRead => 'Mark as read';
+
+  @override
   String get roomActionDismissSupport => 'Close (until reply)';
 
   @override
@@ -300,6 +303,9 @@ class NsgL10nEn extends NsgL10n {
   String get fileActionSave => 'Save to disk';
 
   @override
+  String get fileShowInFolder => 'Open folder';
+
+  @override
   String fileSavedTo(String path) {
     return 'Saved: $path';
   }
@@ -399,6 +405,66 @@ class NsgL10nEn extends NsgL10n {
 
   @override
   String get emojiInsertTooltip => 'Emoji';
+
+  @override
+  String get stickerTabEmoji => 'Emoji';
+
+  @override
+  String get stickerTabStickers => 'Stickers';
+
+  @override
+  String get stickerPacksEmpty => 'You have no stickers yet';
+
+  @override
+  String get stickerPacksLoadFailed => 'Could not load stickers';
+
+  @override
+  String get stickerPacksTitle => 'My stickers';
+
+  @override
+  String get stickerPacksNoneHint =>
+      'Create a pack and put your own images in it — PNG, WebP or GIF.';
+
+  @override
+  String get stickerPackCreate => 'New pack';
+
+  @override
+  String get stickerPackNameHint => 'Pack name';
+
+  @override
+  String get stickerPackRename => 'Rename';
+
+  @override
+  String get stickerPackDelete => 'Delete pack';
+
+  @override
+  String stickerPackDeleteConfirm(String name) {
+    return 'Delete “$name” together with its stickers?';
+  }
+
+  @override
+  String get stickerAdd => 'Add sticker';
+
+  @override
+  String get stickerNameHint => 'Sticker name';
+
+  @override
+  String get stickerNameHelp =>
+      'Lowercase latin letters, digits and underscore';
+
+  @override
+  String stickerDeleteConfirm(String alias) {
+    return 'Delete sticker :$alias:?';
+  }
+
+  @override
+  String get stickerDelete => 'Delete';
+
+  @override
+  String get stickerSave => 'Save';
+
+  @override
+  String get stickerActionFailed => 'Something went wrong. Try again';
 
   @override
   String get emojiCategorySmileys => 'Smileys & emotion';
@@ -2013,6 +2079,9 @@ class NsgL10nEn extends NsgL10n {
   String get pulseBeatUrlLabel => 'Beat URL';
 
   @override
+  String get pulseBeatTokenLabel => 'Token';
+
+  @override
   String get pulseBeatUrlOnce =>
       'Copy this now — the token is shown only once.';
 
@@ -3225,6 +3294,23 @@ class NsgL10nEn extends NsgL10n {
       'Observations of the previous target are cleared: certificate, thumbprint and dates belonged to it. Incident history and members stay.';
 
   @override
+  String get pulseEditMonitor => 'Edit';
+
+  @override
+  String get pulseEditMonitorTitle => 'Monitor settings';
+
+  @override
+  String get pulseEditMonitorBody =>
+      'New values apply from the next check — nothing needs restarting.';
+
+  @override
+  String get pulseEditMonitorHeartbeatHint =>
+      'The period must match how often the service sends a signal: set it shorter and the monitor turns red over a healthy service.';
+
+  @override
+  String get pulseEditMonitorSave => 'Save';
+
+  @override
   String get pulseProbeHost => 'Address';
 
   @override
@@ -3259,4 +3345,365 @@ class NsgL10nEn extends NsgL10n {
 
   @override
   String get pulsePeriod7d => 'every 7 days';
+
+  @override
+  String get messageActionReport => 'Report';
+
+  @override
+  String get crmTitle => 'CRM';
+
+  @override
+  String get crmSteps => 'My steps';
+
+  @override
+  String get crmPipeline => 'Pipeline';
+
+  @override
+  String get crmCompanies => 'Companies';
+
+  @override
+  String get crmToday => 'Today';
+
+  @override
+  String get crmOverdue => 'Overdue';
+
+  @override
+  String get crmWeek => 'Week';
+
+  @override
+  String get crmPending => 'Clarify';
+
+  @override
+  String get crmDone => 'Done → next';
+
+  @override
+  String get crmReschedule => 'Reschedule';
+
+  @override
+  String get crmAgent => 'Talk to agent';
+
+  @override
+  String get crmUnavailable => 'Could not load. Try again.';
+
+  @override
+  String get crmDenied => 'No access';
+
+  @override
+  String get crmEmpty => 'Nothing here yet';
+
+  @override
+  String get crmConflict => 'Data changed. Refresh the card.';
+
+  @override
+  String get crmMine => 'Mine';
+
+  @override
+  String get crmAll => 'All';
+
+  @override
+  String get crmClosed => 'Closed';
+
+  @override
+  String get crmList => 'List';
+
+  @override
+  String get crmKanban => 'Kanban';
+
+  @override
+  String get crmNewDeal => 'New deal';
+
+  @override
+  String get crmAmount => 'Amount';
+
+  @override
+  String get crmCurrency => 'Currency';
+
+  @override
+  String get crmOwner => 'Owner';
+
+  @override
+  String get crmStage => 'Stage';
+
+  @override
+  String get crmNextStep => 'Next step';
+
+  @override
+  String get crmDue => 'Due';
+
+  @override
+  String get crmContacts => 'Contacts';
+
+  @override
+  String get crmActivities => 'Activities';
+
+  @override
+  String get crmDocuments => 'Documents';
+
+  @override
+  String get crmDealChat => 'Deal chat';
+
+  @override
+  String get crmFutbolistaStub => 'Futbolista · not linked';
+
+  @override
+  String get crmLinkOrganizer => 'Link organizer';
+
+  @override
+  String get crmNotes => 'Notes';
+
+  @override
+  String get crmActivity => 'Activity';
+
+  @override
+  String get crmMeeting => 'Meeting';
+
+  @override
+  String get crmCall => 'Call';
+
+  @override
+  String get crmMessage => 'Conversation';
+
+  @override
+  String get crmNote => 'Note';
+
+  @override
+  String get crmWhen => 'When';
+
+  @override
+  String get crmOutcome => 'Outcome';
+
+  @override
+  String get crmSave => 'Save';
+
+  @override
+  String get crmCancel => 'Cancel';
+
+  @override
+  String get crmYes => 'Yes';
+
+  @override
+  String get crmNo => 'No';
+
+  @override
+  String get crmCloseReason => 'Closing reason';
+
+  @override
+  String get crmSaved => 'Saved';
+
+  @override
+  String get crmQueued => 'Activity queued. Will send when connection returns.';
+
+  @override
+  String get crmOffline => 'Offline · cached copy';
+
+  @override
+  String get crmNewContact => 'New contact';
+
+  @override
+  String get crmCompany => 'Company';
+
+  @override
+  String get crmSegment => 'Segment';
+
+  @override
+  String get crmTitleField => 'Title';
+
+  @override
+  String get crmThroughAgent => 'via agent';
+
+  @override
+  String get crmPersonalAgent => 'CRM agent · just you and agent';
+
+  @override
+  String get crmMore => 'Load more';
+
+  @override
+  String get crmSearch => 'Search';
+
+  @override
+  String get crmPdHidden => 'Personal data hidden';
+
+  @override
+  String crmProposalStatus(String status) {
+    return 'Status: $status';
+  }
+
+  @override
+  String get crmProposed => 'Awaiting confirmation';
+
+  @override
+  String get crmApplied => 'Applied';
+
+  @override
+  String get crmRejected => 'Rejected';
+
+  @override
+  String get crmStale => 'Data changed';
+
+  @override
+  String get crmSuperseded => 'Replaced by a new proposal';
+
+  @override
+  String get crmExpired => 'Expired';
+
+  @override
+  String get crmAgentRoom => 'CRM agent';
+
+  @override
+  String get crmActive => 'Active';
+
+  @override
+  String get crmPaused => 'Paused';
+
+  @override
+  String get crmClosedCompany => 'Closed';
+
+  @override
+  String get crmOrganizer => 'Organizer';
+
+  @override
+  String get crmArena => 'Arena';
+
+  @override
+  String get crmClub => 'Club';
+
+  @override
+  String get crmFederation => 'Federation';
+
+  @override
+  String get crmContest => 'Contest';
+
+  @override
+  String get crmSponsor => 'Sponsor';
+
+  @override
+  String get crmMedia => 'Media';
+
+  @override
+  String get crmForeignPartner => 'External partner';
+
+  @override
+  String get crmOther => 'Other';
+
+  @override
+  String get crmOpenDocument => 'Open';
+
+  @override
+  String get crmOpenDeal => 'Open deal';
+
+  @override
+  String crmProposalTitle(int id) {
+    return 'Proposal #$id';
+  }
+
+  @override
+  String crmExpiresAt(String date) {
+    return 'Expires $date';
+  }
+
+  @override
+  String get crmReplySent => 'Reply sent — waiting for the server';
+
+  @override
+  String get crmYesterday => 'yesterday';
+
+  @override
+  String crmOverdueDays(int days) {
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: '$days days overdue',
+      one: '$days day overdue',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get crmChangeStage => 'Change stage';
+
+  @override
+  String get crmNoCompanies => 'Create a company before adding a deal';
+
+  @override
+  String get crmNewCompany => 'New company';
+
+  @override
+  String get crmNoOpenStages =>
+      'This pipeline has no open stage. Contact your CRM administrator.';
+
+  @override
+  String get crmChooseCompany => 'Choose company';
+
+  @override
+  String crmQueueExpired(int count) {
+    return 'Expired queued activities removed: $count. Please recreate them.';
+  }
+
+  @override
+  String get crmAgentPrivacy => 'only you and the agent · your permissions';
+
+  @override
+  String get crmHeaderSteps => 'steps';
+
+  @override
+  String get crmWhatHappened => 'What happened';
+
+  @override
+  String get crmDoneShort => 'Done';
+
+  @override
+  String get crmLead => 'Owner';
+
+  @override
+  String get crmAssignee => 'Assignee';
+
+  @override
+  String get crmDeals => 'Deals';
+
+  @override
+  String get crmLatestActivities => 'Latest activities';
+
+  @override
+  String get crmPhonePresent => 'phone available';
+
+  @override
+  String get crmEmailPresent => 'email available';
+
+  @override
+  String get crmPdNotice =>
+      'Phone and email require personal data access; every disclosure is audited.';
+
+  @override
+  String crmStageAge(int days) {
+    return '$days days in stage';
+  }
+
+  @override
+  String get crmDragHint =>
+      'Drag between stages to change stage. Won and lost require a reason. Paused and lost are in Closed.';
+
+  @override
+  String get crmOpenTotal => 'in open deals';
+
+  @override
+  String get crmFutbolistaNotice =>
+      'This company is not linked to a Futbolista organizer. Once linked, only tournament, match and player aggregates will appear here.';
+
+  @override
+  String get crmAddDeal => '+ Deal';
+
+  @override
+  String get crmAddContact => '+ Contact';
+
+  @override
+  String get crmTournaments => 'tournaments';
+
+  @override
+  String get crmMatches => 'matches';
+
+  @override
+  String get crmPlayers => 'players';
+
+  @override
+  String get crmAggregatesOnly => 'Aggregates only, no personal data · TASK103';
 }

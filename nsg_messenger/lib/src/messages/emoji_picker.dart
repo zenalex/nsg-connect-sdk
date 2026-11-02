@@ -31,6 +31,10 @@ Future<String?> showEmojiReactionPicker(BuildContext context) =>
 /// Отдельная точка входа, а не флаг у [showEmojiReactionPicker], нужна только
 /// ради заголовка: «Выберите реакцию» над панелью, из которой набирают текст,
 /// сбивает с толку.
+///
+/// **issue #151**: когда у человека есть стикеры, композер открывает не этот
+/// лист, а вкладки (см. `showComposerInsertPicker`) — эмодзи в них та же
+/// самая панель [EmojiPickerBody].
 Future<String?> showEmojiInsertPicker(BuildContext context) =>
     _showEmojiSheet(context, (l) => l.emojiInsertPickerTitle);
 
@@ -43,7 +47,17 @@ Future<String?> _showEmojiSheet(
   return showNsgModalSheet<String>(
     context: context,
     showDragHandle: true,
-    builder: (_) => _EmojiPickerBody(title: title),
+    builder: (ctx) => SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(ctx).size.height * 0.6,
+        ),
+        child: EmojiPickerBody(
+          title: title,
+          onPick: (emoji) => Navigator.of(ctx).pop(emoji),
+        ),
+      ),
+    ),
   );
 }
 
@@ -371,85 +385,88 @@ String _categoryLabel(NsgL10n l, String key) => switch (key) {
   _ => key,
 };
 
-class _EmojiPickerBody extends StatelessWidget {
-  const _EmojiPickerBody({required this.title});
+/// Сама панель эмодзи, без листа вокруг.
+///
+/// Публичная (в пределах пакета) ради вкладок из #151: там панель живёт
+/// внутри `TabBarView`, где своего заголовка у неё нет, а закрывает лист
+/// вызывающая сторона — поэтому и заголовок, и `pop` вынесены наружу
+/// параметрами.
+class EmojiPickerBody extends StatelessWidget {
+  const EmojiPickerBody({super.key, this.title, required this.onPick});
 
-  /// Заголовок листа. Резолвим из [NsgL10n] уже внутри build-а: на момент
+  /// Заголовок панели. Резолвим из [NsgL10n] уже внутри build-а: на момент
   /// вызова `showModalBottomSheet` локализации ещё берутся из контекста
-  /// вызывающей стороны, а лист живёт в другом поддереве.
-  final String Function(NsgL10n l) title;
+  /// вызывающей стороны, а лист живёт в другом поддереве. `null` — заголовка
+  /// нет (во вкладках его роль играет сама вкладка).
+  final String Function(NsgL10n l)? title;
+
+  final void Function(String emoji) onPick;
 
   @override
   Widget build(BuildContext context) {
     final l = NsgL10n.of(context);
-    final maxHeight = MediaQuery.of(context).size.height * 0.6;
-    return SafeArea(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: maxHeight),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-              child: Text(
-                title(l),
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
+    final title = this.title;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (title != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+            child: Text(
+              title(l),
+              style: Theme.of(context).textTheme.titleMedium,
             ),
-            Flexible(
-              child: CustomScrollView(
-                slivers: [
-                  for (final cat in _kCategories) ...[
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            _categoryLabel(l, cat.labelKey),
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurfaceVariant,
-                            ),
-                          ),
+          ),
+        Flexible(
+          child: CustomScrollView(
+            slivers: [
+              for (final cat in _kCategories) ...[
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        _categoryLabel(l, cat.labelKey),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ),
-                    SliverPadding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      sliver: SliverGrid(
-                        gridDelegate:
-                            const SliverGridDelegateWithMaxCrossAxisExtent(
-                              maxCrossAxisExtent: 48,
-                              mainAxisSpacing: 2,
-                              crossAxisSpacing: 2,
-                            ),
-                        delegate: SliverChildBuilderDelegate((ctx, i) {
-                          final emoji = cat.emojis[i];
-                          return InkResponse(
-                            onTap: () => Navigator.of(ctx).pop(emoji),
-                            radius: 22,
-                            child: Center(
-                              child: Text(
-                                emoji,
-                                style: const TextStyle(fontSize: 26),
-                              ),
-                            ),
-                          );
-                        }, childCount: cat.emojis.length),
-                      ),
-                    ),
-                  ],
-                  const SliverToBoxAdapter(child: SizedBox(height: 12)),
-                ],
-              ),
-            ),
-          ],
+                  ),
+                ),
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  sliver: SliverGrid(
+                    gridDelegate:
+                        const SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: 48,
+                          mainAxisSpacing: 2,
+                          crossAxisSpacing: 2,
+                        ),
+                    delegate: SliverChildBuilderDelegate((ctx, i) {
+                      final emoji = cat.emojis[i];
+                      return InkResponse(
+                        onTap: () => onPick(emoji),
+                        radius: 22,
+                        child: Center(
+                          child: Text(
+                            emoji,
+                            style: const TextStyle(fontSize: 26),
+                          ),
+                        ),
+                      );
+                    }, childCount: cat.emojis.length),
+                  ),
+                ),
+              ],
+              const SliverToBoxAdapter(child: SizedBox(height: 12)),
+            ],
+          ),
         ),
-      ),
+      ],
     );
   }
 }

@@ -23,23 +23,21 @@ void main() {
   const stickyKey = Key('chatStickyDate');
 
   Widget wrap(Widget child) => MaterialApp(
-        locale: const Locale('en'),
-        localizationsDelegates: const [
-          NsgL10n.delegate,
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        supportedLocales: NsgL10n.supportedLocales,
-        home: child,
-      );
+    locale: const Locale('en'),
+    localizationsDelegates: const [
+      NsgL10n.delegate,
+      GlobalMaterialLocalizations.delegate,
+      GlobalWidgetsLocalizations.delegate,
+      GlobalCupertinoLocalizations.delegate,
+    ],
+    supportedLocales: NsgL10n.supportedLocales,
+    home: child,
+  );
 
   Future<
-      ({MessagesController controller, StreamController<MessengerEvent> events})>
-      openChat(
-    WidgetTester tester, {
-    required List<MessengerMessage> page,
-  }) async {
+    ({MessagesController controller, StreamController<MessengerEvent> events})
+  >
+  openChat(WidgetTester tester, {required List<MessengerMessage> page}) async {
     final rpc = _FakeRpc(page: page);
     final eventCtrl = StreamController<MessengerEvent>.broadcast();
     final controller = MessagesController(
@@ -76,8 +74,12 @@ void main() {
             body: 'msg on ${day.day} #$i',
             content: ByteData(0),
             // День убывает; внутри дня время тоже убывает.
-            serverTimestamp: DateTime.utc(day.year, day.month, day.day, 12)
-                .subtract(Duration(minutes: i)),
+            serverTimestamp: DateTime.utc(
+              day.year,
+              day.month,
+              day.day,
+              12,
+            ).subtract(Duration(minutes: i)),
           ),
         );
       }
@@ -85,15 +87,13 @@ void main() {
     return out;
   }
 
-  testWidgets('между двумя днями — по одному разделителю; внутри дня их нет',
-      (tester) async {
+  testWidgets('между двумя днями — по одному разделителю; внутри дня их нет', (
+    tester,
+  ) async {
     // День2 (2 сообщения) + День1 (2 сообщения) — всё влезает в 800x600.
     final h = await openChat(
       tester,
-      page: pageFor(
-        [DateTime(2020, 1, 2), DateTime(2020, 1, 1)],
-        perDay: 2,
-      ),
+      page: pageFor([DateTime(2020, 1, 2), DateTime(2020, 1, 1)], perDay: 2),
     );
     addTearDown(() async {
       await h.controller.dispose();
@@ -111,25 +111,28 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('один день — ровно один разделитель, «липкой» плашки в покое нет',
-      (tester) async {
-    final h = await openChat(
-      tester,
-      page: pageFor([DateTime(2020, 3, 5)], perDay: 3),
-    );
-    addTearDown(() async {
-      await h.controller.dispose();
-      await h.events.close();
-    });
+  testWidgets(
+    'один день — ровно один разделитель, «липкой» плашки в покое нет',
+    (tester) async {
+      final h = await openChat(
+        tester,
+        page: pageFor([DateTime(2020, 3, 5)], perDay: 3),
+      );
+      addTearDown(() async {
+        await h.controller.dispose();
+        await h.events.close();
+      });
 
-    expect(find.text('5 March 2020'), findsOneWidget);
-    expect(find.byKey(stickyKey), findsNothing);
+      expect(find.text('5 March 2020'), findsOneWidget);
+      expect(find.byKey(stickyKey), findsNothing);
 
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
 
-  testWidgets('пустая лента — без разделителей и без «липкой» плашки',
-      (tester) async {
+  testWidgets('пустая лента — без разделителей и без «липкой» плашки', (
+    tester,
+  ) async {
     final h = await openChat(tester, page: const []);
     addTearDown(() async {
       await h.controller.dispose();
@@ -143,17 +146,13 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets(
-      '«липкая» дата: появляется при скролле с датой верхней группы, '
+  testWidgets('«липкая» дата: появляется при скролле с датой верхней группы, '
       'гаснет в покое', (tester) async {
     // Два дня по 12 сообщений — лента заведомо длиннее вьюпорта, есть куда
     // скроллить, и верхний день сначала за кромкой.
     final h = await openChat(
       tester,
-      page: pageFor(
-        [DateTime(2020, 1, 2), DateTime(2020, 1, 1)],
-        perDay: 12,
-      ),
+      page: pageFor([DateTime(2020, 1, 2), DateTime(2020, 1, 1)], perDay: 12),
     );
     addTearDown(() async {
       await h.controller.dispose();
@@ -176,7 +175,10 @@ void main() {
     // (самой старой) группы — 1 January 2020.
     expect(find.byKey(stickyKey), findsOneWidget);
     expect(
-      find.descendant(of: find.byKey(stickyKey), matching: find.text('1 January 2020')),
+      find.descendant(
+        of: find.byKey(stickyKey),
+        matching: find.text('1 January 2020'),
+      ),
       findsOneWidget,
       reason: 'наверху видна группа 2020-01-01 — её и показывает липкая дата',
     );

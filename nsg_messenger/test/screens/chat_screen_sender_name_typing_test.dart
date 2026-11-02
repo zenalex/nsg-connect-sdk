@@ -548,6 +548,7 @@ class _FakeRpc implements MessagesRpc {
     String? forwardedFromEventId,
     // TASK82: тред задачи — фейку достаточно принять параметр.
     String? threadId,
+    int? stickerId,
   }) => throw UnimplementedError();
 
   @override

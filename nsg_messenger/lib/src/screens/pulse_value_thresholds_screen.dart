@@ -59,7 +59,10 @@ class _PulseValueThresholdsScreenState
     )?.showSnackBar(SnackBar(content: Text(text)));
   }
 
-  Future<void> _edit({PulseValueThreshold? existing, String? presetName}) async {
+  Future<void> _edit({
+    PulseValueThreshold? existing,
+    String? presetName,
+  }) async {
     final l = NsgL10n.of(context);
     final result = await showDialog<_ThresholdInput>(
       context: context,
@@ -139,10 +142,7 @@ class _PulseValueThresholdsScreenState
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
-                child: Text(
-                  l.pulseValuesEmpty,
-                  textAlign: TextAlign.center,
-                ),
+                child: Text(l.pulseValuesEmpty, textAlign: TextAlign.center),
               ),
             );
           }
@@ -226,11 +226,15 @@ class _ThresholdDialogState extends State<_ThresholdDialog> {
   late final TextEditingController _name = TextEditingController(
     text: widget.existing?.name ?? widget.presetName ?? '',
   );
-  late final TextEditingController _warnBelow = _num(widget.existing?.warnBelow);
+  late final TextEditingController _warnBelow = _num(
+    widget.existing?.warnBelow,
+  );
   late final TextEditingController _errorBelow = _num(
     widget.existing?.errorBelow,
   );
-  late final TextEditingController _warnAbove = _num(widget.existing?.warnAbove);
+  late final TextEditingController _warnAbove = _num(
+    widget.existing?.warnAbove,
+  );
   late final TextEditingController _errorAbove = _num(
     widget.existing?.errorAbove,
   );
@@ -303,10 +307,7 @@ class _ThresholdDialogState extends State<_ThresholdDialog> {
                 spacing: 6,
                 children: [
                   for (final n in widget.knownNames)
-                    ActionChip(
-                      label: Text(n),
-                      onPressed: () => _name.text = n,
-                    ),
+                    ActionChip(label: Text(n), onPressed: () => _name.text = n),
                 ],
               ),
             ],

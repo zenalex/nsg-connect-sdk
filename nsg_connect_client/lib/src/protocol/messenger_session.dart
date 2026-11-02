@@ -10,7 +10,9 @@
 // ignore_for_file: invalid_use_of_internal_member
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
+
 import 'package:serverpod_client/serverpod_client.dart' as _i1;
+import 'package:nsg_connect_client/src/protocol/protocol.dart' as _i2;
 
 /// Серверная сессия, выдаваемая SDK после успешного `session()`.
 /// См. ТЗ §7, TASK05/TASK12.
@@ -28,7 +30,10 @@ abstract class MessengerSession implements _i1.SerializableModel {
     this.displayName,
     this.avatarUrl,
     required this.expiresAt,
-  });
+    bool? crmEnabled,
+    this.crmRoles,
+    this.crmAgentRoomId,
+  }) : crmEnabled = crmEnabled ?? false;
 
   factory MessengerSession({
     required String sessionToken,
@@ -39,6 +44,9 @@ abstract class MessengerSession implements _i1.SerializableModel {
     String? displayName,
     String? avatarUrl,
     required DateTime expiresAt,
+    bool? crmEnabled,
+    List<String>? crmRoles,
+    int? crmAgentRoomId,
   }) = _MessengerSessionImpl;
 
   factory MessengerSession.fromJson(Map<String, dynamic> jsonSerialization) {
@@ -53,6 +61,15 @@ abstract class MessengerSession implements _i1.SerializableModel {
       expiresAt: _i1.DateTimeJsonExtension.fromJson(
         jsonSerialization['expiresAt'],
       ),
+      crmEnabled: jsonSerialization['crmEnabled'] == null
+          ? null
+          : _i1.BoolJsonExtension.fromJson(jsonSerialization['crmEnabled']),
+      crmRoles: jsonSerialization['crmRoles'] == null
+          ? null
+          : _i2.Protocol().deserialize<List<String>>(
+              jsonSerialization['crmRoles'],
+            ),
+      crmAgentRoomId: jsonSerialization['crmAgentRoomId'] as int?,
     );
   }
 
@@ -72,6 +89,13 @@ abstract class MessengerSession implements _i1.SerializableModel {
 
   DateTime expiresAt;
 
+  /// Server-derived CRM module state; input cannot grant a role.
+  bool crmEnabled;
+
+  List<String>? crmRoles;
+
+  int? crmAgentRoomId;
+
   /// Returns a shallow copy of this [MessengerSession]
   /// with some or all fields replaced by the given arguments.
   @_i1.useResult
@@ -84,6 +108,9 @@ abstract class MessengerSession implements _i1.SerializableModel {
     String? displayName,
     String? avatarUrl,
     DateTime? expiresAt,
+    bool? crmEnabled,
+    List<String>? crmRoles,
+    int? crmAgentRoomId,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -97,6 +124,9 @@ abstract class MessengerSession implements _i1.SerializableModel {
       if (displayName != null) 'displayName': displayName,
       if (avatarUrl != null) 'avatarUrl': avatarUrl,
       'expiresAt': expiresAt.toJson(),
+      'crmEnabled': crmEnabled,
+      if (crmRoles != null) 'crmRoles': crmRoles?.toJson(),
+      if (crmAgentRoomId != null) 'crmAgentRoomId': crmAgentRoomId,
     };
   }
 
@@ -118,6 +148,9 @@ class _MessengerSessionImpl extends MessengerSession {
     String? displayName,
     String? avatarUrl,
     required DateTime expiresAt,
+    bool? crmEnabled,
+    List<String>? crmRoles,
+    int? crmAgentRoomId,
   }) : super._(
          sessionToken: sessionToken,
          messengerUserId: messengerUserId,
@@ -127,6 +160,9 @@ class _MessengerSessionImpl extends MessengerSession {
          displayName: displayName,
          avatarUrl: avatarUrl,
          expiresAt: expiresAt,
+         crmEnabled: crmEnabled,
+         crmRoles: crmRoles,
+         crmAgentRoomId: crmAgentRoomId,
        );
 
   /// Returns a shallow copy of this [MessengerSession]
@@ -142,6 +178,9 @@ class _MessengerSessionImpl extends MessengerSession {
     Object? displayName = _Undefined,
     Object? avatarUrl = _Undefined,
     DateTime? expiresAt,
+    bool? crmEnabled,
+    Object? crmRoles = _Undefined,
+    Object? crmAgentRoomId = _Undefined,
   }) {
     return MessengerSession(
       sessionToken: sessionToken ?? this.sessionToken,
@@ -152,6 +191,13 @@ class _MessengerSessionImpl extends MessengerSession {
       displayName: displayName is String? ? displayName : this.displayName,
       avatarUrl: avatarUrl is String? ? avatarUrl : this.avatarUrl,
       expiresAt: expiresAt ?? this.expiresAt,
+      crmEnabled: crmEnabled ?? this.crmEnabled,
+      crmRoles: crmRoles is List<String>?
+          ? crmRoles
+          : this.crmRoles?.map((e0) => e0).toList(),
+      crmAgentRoomId: crmAgentRoomId is int?
+          ? crmAgentRoomId
+          : this.crmAgentRoomId,
     );
   }
 }

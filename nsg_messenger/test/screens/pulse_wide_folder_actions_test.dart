@@ -64,8 +64,7 @@ NsgMessengerPulse _fakePulse() => NsgMessengerPulse.withRpcs(
         required int warnBeforeDays,
         required int errorBeforeDays,
       }) => throw UnimplementedError(),
-  listProbeAllowlistRpc: () async =>
-      const <PulseProbeAllowlistEntry>[],
+  listProbeAllowlistRpc: () async => const <PulseProbeAllowlistEntry>[],
   addProbeAllowlistRpc:
       ({
         required String address,
@@ -73,8 +72,7 @@ NsgMessengerPulse _fakePulse() => NsgMessengerPulse.withRpcs(
         required int port,
         String? note,
       }) => throw UnimplementedError(),
-  removeProbeAllowlistRpc: ({required int id}) =>
-      throw UnimplementedError(),
+  removeProbeAllowlistRpc: ({required int id}) => throw UnimplementedError(),
   listTlsProbesRpc: () async => const <PulseTlsProbe>[],
   getTlsProbeRpc: ({required int monitorId}) => throw UnimplementedError(),
   runProbeNowRpc: ({required int monitorId}) => throw UnimplementedError(),
@@ -89,15 +87,21 @@ NsgMessengerPulse _fakePulse() => NsgMessengerPulse.withRpcs(
         double? warnAbove,
         double? errorAbove,
       }) => throw UnimplementedError(),
-  removeValueThresholdRpc:
-      ({required int monitorId, required String name}) =>
-          throw UnimplementedError(),
+  removeValueThresholdRpc: ({required int monitorId, required String name}) =>
+      throw UnimplementedError(),
   updateProbeTargetRpc:
       ({
         required int monitorId,
         String? connectHost,
         int? port,
         String? serverName,
+      }) => throw UnimplementedError(),
+  updateMonitorRpc:
+      ({
+        required int id,
+        String? name,
+        int? periodSeconds,
+        int? graceSeconds,
       }) => throw UnimplementedError(),
   getExpiryReminderRpc: ({required int monitorId}) =>
       throw UnimplementedError(),
@@ -119,8 +123,7 @@ NsgMessengerPulse _fakePulse() => NsgMessengerPulse.withRpcs(
   deleteRuleRpc: ({required int id}) => throw UnimplementedError(),
   listIncidentsRpc: ({required int monitorId, int? limit}) async =>
       const <PulseIncident>[],
-  ackIncidentRpc: ({required int incidentId}) =>
-      throw UnimplementedError(),
+  ackIncidentRpc: ({required int incidentId}) => throw UnimplementedError(),
   // Владелец папки: только у него в меню есть всё, включая участников.
   listMyAccessRpc: () async => [
     PulseAccessEntry(targetKind: 'folder', targetId: 1, role: 'owner'),
@@ -140,8 +143,9 @@ NsgMessengerPulse _fakePulse() => NsgMessengerPulse.withRpcs(
 );
 
 void main() {
-  testWidgets('широкий экран: у корневой папки есть меню с участниками',
-      (t) async {
+  testWidgets('широкий экран: у корневой папки есть меню с участниками', (
+    t,
+  ) async {
     t.view.physicalSize = const Size(1200, 800);
     t.view.devicePixelRatio = 1.0;
     addTearDown(t.view.resetPhysicalSize);

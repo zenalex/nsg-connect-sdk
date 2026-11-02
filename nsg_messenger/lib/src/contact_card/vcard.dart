@@ -20,7 +20,7 @@ class ContactVCard {
     final lines = <String>[
       'BEGIN:VCARD',
       'VERSION:3.0',
-      'FN:${_esc(fn.isEmpty ? 'Chatista' : fn)}',
+      'FN:${_esc(fn.isEmpty ? _fallbackName(card) : fn)}',
     ];
     if (fn.isNotEmpty) lines.add('N:${_esc(fn)};;;;');
     _add(lines, 'TITLE', card.jobTitle);
@@ -31,6 +31,26 @@ class ContactVCard {
     _add(lines, 'NOTE', card.about);
     lines.add('END:VCARD');
     return lines.join('\r\n');
+  }
+
+  /// Чем подписать карточку без имени. `FN` в vCard 3.0 обязателен, так что
+  /// что-то поставить придётся.
+  ///
+  /// **issue #180.** Раньше здесь стояло имя НАШЕГО приложения, и в чужой
+  /// адресной книге появлялся контакт «CHATista». Неверно вдвойне: SDK
+  /// встраивают другие продукты — их пользователь получал чужой бренд, — и
+  /// само по себе имя приложения не имя человека. Рядом, в [fileName],
+  /// нейтральный запасной вариант стоял с самого начала (`contact.vcf`),
+  /// так что файл и его содержимое ещё и расходились.
+  ///
+  /// Берём то, по чему получатель контакт узнает: телефон, потом почту.
+  /// Нет и их — карточка пуста, и остаётся нейтральное слово.
+  static String _fallbackName(ContactCardInfo card) {
+    final phone = (card.phone ?? '').trim();
+    if (phone.isNotEmpty) return phone;
+    final email = (card.email ?? '').trim();
+    if (email.isNotEmpty) return email;
+    return 'Контакт';
   }
 
   static void _add(List<String> lines, String prop, String? value) {

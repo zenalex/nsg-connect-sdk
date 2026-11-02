@@ -319,6 +319,12 @@ abstract class NsgL10n {
   /// **'Unarchive'**
   String get roomActionUnarchive;
 
+  /// #188: action в room-action-sheet — пометить чат прочитанным, не открывая его. Показывается, только когда есть непрочитанные.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark as read'**
+  String get roomActionMarkRead;
+
   /// TASK75: action в room-action-sheet для support-комнат. Оператор скрывает чат у себя до следующего сообщения заявителя (тикет не закрывается).
   ///
   /// In en, this message translates to:
@@ -595,6 +601,12 @@ abstract class NsgL10n {
   /// **'Save to disk'**
   String get fileActionSave;
 
+  /// issue #146/#169: кнопка в снекбаре после сохранения — открыть каталог загрузок в файловом менеджере.
+  ///
+  /// In en, this message translates to:
+  /// **'Open folder'**
+  String get fileShowInFolder;
+
   /// issue #69: snackbar после сохранения на десктопе — показываем полный путь, иначе файл «исчезает».
   ///
   /// In en, this message translates to:
@@ -786,6 +798,114 @@ abstract class NsgL10n {
   /// In en, this message translates to:
   /// **'Emoji'**
   String get emojiInsertTooltip;
+
+  /// issue #151: вкладка «Эмодзи» в панели вставки. Появляется только рядом со вкладкой стикеров — без неё панель одна и заголовок у неё свой.
+  ///
+  /// In en, this message translates to:
+  /// **'Emoji'**
+  String get stickerTabEmoji;
+
+  /// issue #151: вкладка «Стикеры» в панели вставки.
+  ///
+  /// In en, this message translates to:
+  /// **'Stickers'**
+  String get stickerTabStickers;
+
+  /// issue #151: у человека нет ни одного своего набора.
+  ///
+  /// In en, this message translates to:
+  /// **'You have no stickers yet'**
+  String get stickerPacksEmpty;
+
+  /// issue #151: список наборов не загрузился (сеть/сервер). Рядом — кнопка «Повторить» (commonRetry).
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load stickers'**
+  String get stickerPacksLoadFailed;
+
+  /// issue #151: заголовок экрана управления наборами. Он же — надпись кнопки, ведущей на него из пикера.
+  ///
+  /// In en, this message translates to:
+  /// **'My stickers'**
+  String get stickerPacksTitle;
+
+  /// issue #151: подсказка на пустом экране управления. На пустой ВКЛАДКЕ пикера её нет — там короткое stickerPacksEmpty и кнопка.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a pack and put your own images in it — PNG, WebP or GIF.'**
+  String get stickerPacksNoneHint;
+
+  /// issue #151: создать набор.
+  ///
+  /// In en, this message translates to:
+  /// **'New pack'**
+  String get stickerPackCreate;
+
+  /// issue #151: поле имени набора.
+  ///
+  /// In en, this message translates to:
+  /// **'Pack name'**
+  String get stickerPackNameHint;
+
+  /// issue #151: переименовать набор.
+  ///
+  /// In en, this message translates to:
+  /// **'Rename'**
+  String get stickerPackRename;
+
+  /// issue #151: удалить набор.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete pack'**
+  String get stickerPackDelete;
+
+  /// issue #151: подтверждение удаления набора. Стикеры уходят вместе с ним — об этом сказано прямо.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete “{name}” together with its stickers?'**
+  String stickerPackDeleteConfirm(String name);
+
+  /// issue #151: добавить картинку в набор.
+  ///
+  /// In en, this message translates to:
+  /// **'Add sticker'**
+  String get stickerAdd;
+
+  /// issue #151: поле имени стикера (без двоеточий).
+  ///
+  /// In en, this message translates to:
+  /// **'Sticker name'**
+  String get stickerNameHint;
+
+  /// issue #151: правило имени. Полный отказ приходит с сервера готовым текстом — здесь только подсказка ДО отправки.
+  ///
+  /// In en, this message translates to:
+  /// **'Lowercase latin letters, digits and underscore'**
+  String get stickerNameHelp;
+
+  /// issue #151: подтверждение удаления стикера.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete sticker :{alias}:?'**
+  String stickerDeleteConfirm(String alias);
+
+  /// issue #151: кнопка подтверждения удаления.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get stickerDelete;
+
+  /// issue #151: кнопка подтверждения в диалогах имени.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get stickerSave;
+
+  /// issue #151: действие не удалось по причине, которую сервер не объяснил (сеть, 500). Отказы политики приходят готовым текстом в StickerRejectedException.detail и показываются как есть.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong. Try again'**
+  String get stickerActionFailed;
 
   /// F2 ч.1: категория эмодзи — смайлы.
   ///
@@ -3493,6 +3613,12 @@ abstract class NsgL10n {
   /// **'Beat URL'**
   String get pulseBeatUrlLabel;
 
+  /// issue #143: токен показывается отдельным полем — в адрес он больше не входит.
+  ///
+  /// In en, this message translates to:
+  /// **'Token'**
+  String get pulseBeatTokenLabel;
+
   /// TASK60: предупреждение, что beat-токен показывается один раз.
   ///
   /// In en, this message translates to:
@@ -5647,6 +5773,36 @@ abstract class NsgL10n {
   /// **'Observations of the previous target are cleared: certificate, thumbprint and dates belonged to it. Incident history and members stay.'**
   String get pulseProbeEditTargetBody;
 
+  /// issue #187: button on the monitor card — edit name, period and grace.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get pulseEditMonitor;
+
+  /// issue #187: title of the edit dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Monitor settings'**
+  String get pulseEditMonitorTitle;
+
+  /// issue #187: what happens after saving.
+  ///
+  /// In en, this message translates to:
+  /// **'New values apply from the next check — nothing needs restarting.'**
+  String get pulseEditMonitorBody;
+
+  /// issue #187: heartbeat only — the period is the sender's schedule, not a free setting.
+  ///
+  /// In en, this message translates to:
+  /// **'The period must match how often the service sends a signal: set it shorter and the monitor turns red over a healthy service.'**
+  String get pulseEditMonitorHeartbeatHint;
+
+  /// issue #187: confirm button of the edit dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get pulseEditMonitorSave;
+
   /// issue #108: поле адреса цели.
   ///
   /// In en, this message translates to:
@@ -5700,6 +5856,684 @@ abstract class NsgL10n {
   /// In en, this message translates to:
   /// **'every 7 days'**
   String get pulsePeriod7d;
+
+  /// No description provided for @messageActionReport.
+  ///
+  /// In en, this message translates to:
+  /// **'Report'**
+  String get messageActionReport;
+
+  /// No description provided for @crmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'CRM'**
+  String get crmTitle;
+
+  /// No description provided for @crmSteps.
+  ///
+  /// In en, this message translates to:
+  /// **'My steps'**
+  String get crmSteps;
+
+  /// No description provided for @crmPipeline.
+  ///
+  /// In en, this message translates to:
+  /// **'Pipeline'**
+  String get crmPipeline;
+
+  /// No description provided for @crmCompanies.
+  ///
+  /// In en, this message translates to:
+  /// **'Companies'**
+  String get crmCompanies;
+
+  /// No description provided for @crmToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get crmToday;
+
+  /// No description provided for @crmOverdue.
+  ///
+  /// In en, this message translates to:
+  /// **'Overdue'**
+  String get crmOverdue;
+
+  /// No description provided for @crmWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'Week'**
+  String get crmWeek;
+
+  /// No description provided for @crmPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Clarify'**
+  String get crmPending;
+
+  /// No description provided for @crmDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Done → next'**
+  String get crmDone;
+
+  /// No description provided for @crmReschedule.
+  ///
+  /// In en, this message translates to:
+  /// **'Reschedule'**
+  String get crmReschedule;
+
+  /// No description provided for @crmAgent.
+  ///
+  /// In en, this message translates to:
+  /// **'Talk to agent'**
+  String get crmAgent;
+
+  /// No description provided for @crmUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load. Try again.'**
+  String get crmUnavailable;
+
+  /// No description provided for @crmDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'No access'**
+  String get crmDenied;
+
+  /// No description provided for @crmEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing here yet'**
+  String get crmEmpty;
+
+  /// No description provided for @crmConflict.
+  ///
+  /// In en, this message translates to:
+  /// **'Data changed. Refresh the card.'**
+  String get crmConflict;
+
+  /// No description provided for @crmMine.
+  ///
+  /// In en, this message translates to:
+  /// **'Mine'**
+  String get crmMine;
+
+  /// No description provided for @crmAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get crmAll;
+
+  /// No description provided for @crmClosed.
+  ///
+  /// In en, this message translates to:
+  /// **'Closed'**
+  String get crmClosed;
+
+  /// No description provided for @crmList.
+  ///
+  /// In en, this message translates to:
+  /// **'List'**
+  String get crmList;
+
+  /// No description provided for @crmKanban.
+  ///
+  /// In en, this message translates to:
+  /// **'Kanban'**
+  String get crmKanban;
+
+  /// No description provided for @crmNewDeal.
+  ///
+  /// In en, this message translates to:
+  /// **'New deal'**
+  String get crmNewDeal;
+
+  /// No description provided for @crmAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Amount'**
+  String get crmAmount;
+
+  /// No description provided for @crmCurrency.
+  ///
+  /// In en, this message translates to:
+  /// **'Currency'**
+  String get crmCurrency;
+
+  /// No description provided for @crmOwner.
+  ///
+  /// In en, this message translates to:
+  /// **'Owner'**
+  String get crmOwner;
+
+  /// No description provided for @crmStage.
+  ///
+  /// In en, this message translates to:
+  /// **'Stage'**
+  String get crmStage;
+
+  /// No description provided for @crmNextStep.
+  ///
+  /// In en, this message translates to:
+  /// **'Next step'**
+  String get crmNextStep;
+
+  /// No description provided for @crmDue.
+  ///
+  /// In en, this message translates to:
+  /// **'Due'**
+  String get crmDue;
+
+  /// No description provided for @crmContacts.
+  ///
+  /// In en, this message translates to:
+  /// **'Contacts'**
+  String get crmContacts;
+
+  /// No description provided for @crmActivities.
+  ///
+  /// In en, this message translates to:
+  /// **'Activities'**
+  String get crmActivities;
+
+  /// No description provided for @crmDocuments.
+  ///
+  /// In en, this message translates to:
+  /// **'Documents'**
+  String get crmDocuments;
+
+  /// No description provided for @crmDealChat.
+  ///
+  /// In en, this message translates to:
+  /// **'Deal chat'**
+  String get crmDealChat;
+
+  /// No description provided for @crmFutbolistaStub.
+  ///
+  /// In en, this message translates to:
+  /// **'Futbolista · not linked'**
+  String get crmFutbolistaStub;
+
+  /// No description provided for @crmLinkOrganizer.
+  ///
+  /// In en, this message translates to:
+  /// **'Link organizer'**
+  String get crmLinkOrganizer;
+
+  /// No description provided for @crmNotes.
+  ///
+  /// In en, this message translates to:
+  /// **'Notes'**
+  String get crmNotes;
+
+  /// No description provided for @crmActivity.
+  ///
+  /// In en, this message translates to:
+  /// **'Activity'**
+  String get crmActivity;
+
+  /// No description provided for @crmMeeting.
+  ///
+  /// In en, this message translates to:
+  /// **'Meeting'**
+  String get crmMeeting;
+
+  /// No description provided for @crmCall.
+  ///
+  /// In en, this message translates to:
+  /// **'Call'**
+  String get crmCall;
+
+  /// No description provided for @crmMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Conversation'**
+  String get crmMessage;
+
+  /// No description provided for @crmNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Note'**
+  String get crmNote;
+
+  /// No description provided for @crmWhen.
+  ///
+  /// In en, this message translates to:
+  /// **'When'**
+  String get crmWhen;
+
+  /// No description provided for @crmOutcome.
+  ///
+  /// In en, this message translates to:
+  /// **'Outcome'**
+  String get crmOutcome;
+
+  /// No description provided for @crmSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get crmSave;
+
+  /// No description provided for @crmCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get crmCancel;
+
+  /// No description provided for @crmYes.
+  ///
+  /// In en, this message translates to:
+  /// **'Yes'**
+  String get crmYes;
+
+  /// No description provided for @crmNo.
+  ///
+  /// In en, this message translates to:
+  /// **'No'**
+  String get crmNo;
+
+  /// No description provided for @crmCloseReason.
+  ///
+  /// In en, this message translates to:
+  /// **'Closing reason'**
+  String get crmCloseReason;
+
+  /// No description provided for @crmSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved'**
+  String get crmSaved;
+
+  /// No description provided for @crmQueued.
+  ///
+  /// In en, this message translates to:
+  /// **'Activity queued. Will send when connection returns.'**
+  String get crmQueued;
+
+  /// No description provided for @crmOffline.
+  ///
+  /// In en, this message translates to:
+  /// **'Offline · cached copy'**
+  String get crmOffline;
+
+  /// No description provided for @crmNewContact.
+  ///
+  /// In en, this message translates to:
+  /// **'New contact'**
+  String get crmNewContact;
+
+  /// No description provided for @crmCompany.
+  ///
+  /// In en, this message translates to:
+  /// **'Company'**
+  String get crmCompany;
+
+  /// No description provided for @crmSegment.
+  ///
+  /// In en, this message translates to:
+  /// **'Segment'**
+  String get crmSegment;
+
+  /// No description provided for @crmTitleField.
+  ///
+  /// In en, this message translates to:
+  /// **'Title'**
+  String get crmTitleField;
+
+  /// No description provided for @crmThroughAgent.
+  ///
+  /// In en, this message translates to:
+  /// **'via agent'**
+  String get crmThroughAgent;
+
+  /// No description provided for @crmPersonalAgent.
+  ///
+  /// In en, this message translates to:
+  /// **'CRM agent · just you and agent'**
+  String get crmPersonalAgent;
+
+  /// No description provided for @crmMore.
+  ///
+  /// In en, this message translates to:
+  /// **'Load more'**
+  String get crmMore;
+
+  /// No description provided for @crmSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Search'**
+  String get crmSearch;
+
+  /// No description provided for @crmPdHidden.
+  ///
+  /// In en, this message translates to:
+  /// **'Personal data hidden'**
+  String get crmPdHidden;
+
+  /// No description provided for @crmProposalStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Status: {status}'**
+  String crmProposalStatus(String status);
+
+  /// No description provided for @crmProposed.
+  ///
+  /// In en, this message translates to:
+  /// **'Awaiting confirmation'**
+  String get crmProposed;
+
+  /// No description provided for @crmApplied.
+  ///
+  /// In en, this message translates to:
+  /// **'Applied'**
+  String get crmApplied;
+
+  /// No description provided for @crmRejected.
+  ///
+  /// In en, this message translates to:
+  /// **'Rejected'**
+  String get crmRejected;
+
+  /// No description provided for @crmStale.
+  ///
+  /// In en, this message translates to:
+  /// **'Data changed'**
+  String get crmStale;
+
+  /// No description provided for @crmSuperseded.
+  ///
+  /// In en, this message translates to:
+  /// **'Replaced by a new proposal'**
+  String get crmSuperseded;
+
+  /// No description provided for @crmExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'Expired'**
+  String get crmExpired;
+
+  /// No description provided for @crmAgentRoom.
+  ///
+  /// In en, this message translates to:
+  /// **'CRM agent'**
+  String get crmAgentRoom;
+
+  /// No description provided for @crmActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get crmActive;
+
+  /// No description provided for @crmPaused.
+  ///
+  /// In en, this message translates to:
+  /// **'Paused'**
+  String get crmPaused;
+
+  /// No description provided for @crmClosedCompany.
+  ///
+  /// In en, this message translates to:
+  /// **'Closed'**
+  String get crmClosedCompany;
+
+  /// No description provided for @crmOrganizer.
+  ///
+  /// In en, this message translates to:
+  /// **'Organizer'**
+  String get crmOrganizer;
+
+  /// No description provided for @crmArena.
+  ///
+  /// In en, this message translates to:
+  /// **'Arena'**
+  String get crmArena;
+
+  /// No description provided for @crmClub.
+  ///
+  /// In en, this message translates to:
+  /// **'Club'**
+  String get crmClub;
+
+  /// No description provided for @crmFederation.
+  ///
+  /// In en, this message translates to:
+  /// **'Federation'**
+  String get crmFederation;
+
+  /// No description provided for @crmContest.
+  ///
+  /// In en, this message translates to:
+  /// **'Contest'**
+  String get crmContest;
+
+  /// No description provided for @crmSponsor.
+  ///
+  /// In en, this message translates to:
+  /// **'Sponsor'**
+  String get crmSponsor;
+
+  /// No description provided for @crmMedia.
+  ///
+  /// In en, this message translates to:
+  /// **'Media'**
+  String get crmMedia;
+
+  /// No description provided for @crmForeignPartner.
+  ///
+  /// In en, this message translates to:
+  /// **'External partner'**
+  String get crmForeignPartner;
+
+  /// No description provided for @crmOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Other'**
+  String get crmOther;
+
+  /// No description provided for @crmOpenDocument.
+  ///
+  /// In en, this message translates to:
+  /// **'Open'**
+  String get crmOpenDocument;
+
+  /// No description provided for @crmOpenDeal.
+  ///
+  /// In en, this message translates to:
+  /// **'Open deal'**
+  String get crmOpenDeal;
+
+  /// No description provided for @crmProposalTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Proposal #{id}'**
+  String crmProposalTitle(int id);
+
+  /// No description provided for @crmExpiresAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Expires {date}'**
+  String crmExpiresAt(String date);
+
+  /// No description provided for @crmReplySent.
+  ///
+  /// In en, this message translates to:
+  /// **'Reply sent — waiting for the server'**
+  String get crmReplySent;
+
+  /// No description provided for @crmYesterday.
+  ///
+  /// In en, this message translates to:
+  /// **'yesterday'**
+  String get crmYesterday;
+
+  /// No description provided for @crmOverdueDays.
+  ///
+  /// In en, this message translates to:
+  /// **'{days, plural, one{{days} day overdue} other{{days} days overdue}}'**
+  String crmOverdueDays(int days);
+
+  /// No description provided for @crmChangeStage.
+  ///
+  /// In en, this message translates to:
+  /// **'Change stage'**
+  String get crmChangeStage;
+
+  /// No description provided for @crmNoCompanies.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a company before adding a deal'**
+  String get crmNoCompanies;
+
+  /// No description provided for @crmNewCompany.
+  ///
+  /// In en, this message translates to:
+  /// **'New company'**
+  String get crmNewCompany;
+
+  /// No description provided for @crmNoOpenStages.
+  ///
+  /// In en, this message translates to:
+  /// **'This pipeline has no open stage. Contact your CRM administrator.'**
+  String get crmNoOpenStages;
+
+  /// No description provided for @crmChooseCompany.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose company'**
+  String get crmChooseCompany;
+
+  /// No description provided for @crmQueueExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'Expired queued activities removed: {count}. Please recreate them.'**
+  String crmQueueExpired(int count);
+
+  /// No description provided for @crmAgentPrivacy.
+  ///
+  /// In en, this message translates to:
+  /// **'only you and the agent · your permissions'**
+  String get crmAgentPrivacy;
+
+  /// No description provided for @crmHeaderSteps.
+  ///
+  /// In en, this message translates to:
+  /// **'steps'**
+  String get crmHeaderSteps;
+
+  /// No description provided for @crmWhatHappened.
+  ///
+  /// In en, this message translates to:
+  /// **'What happened'**
+  String get crmWhatHappened;
+
+  /// No description provided for @crmDoneShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get crmDoneShort;
+
+  /// No description provided for @crmLead.
+  ///
+  /// In en, this message translates to:
+  /// **'Owner'**
+  String get crmLead;
+
+  /// No description provided for @crmAssignee.
+  ///
+  /// In en, this message translates to:
+  /// **'Assignee'**
+  String get crmAssignee;
+
+  /// No description provided for @crmDeals.
+  ///
+  /// In en, this message translates to:
+  /// **'Deals'**
+  String get crmDeals;
+
+  /// No description provided for @crmLatestActivities.
+  ///
+  /// In en, this message translates to:
+  /// **'Latest activities'**
+  String get crmLatestActivities;
+
+  /// No description provided for @crmPhonePresent.
+  ///
+  /// In en, this message translates to:
+  /// **'phone available'**
+  String get crmPhonePresent;
+
+  /// No description provided for @crmEmailPresent.
+  ///
+  /// In en, this message translates to:
+  /// **'email available'**
+  String get crmEmailPresent;
+
+  /// No description provided for @crmPdNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'Phone and email require personal data access; every disclosure is audited.'**
+  String get crmPdNotice;
+
+  /// No description provided for @crmStageAge.
+  ///
+  /// In en, this message translates to:
+  /// **'{days} days in stage'**
+  String crmStageAge(int days);
+
+  /// No description provided for @crmDragHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Drag between stages to change stage. Won and lost require a reason. Paused and lost are in Closed.'**
+  String get crmDragHint;
+
+  /// No description provided for @crmOpenTotal.
+  ///
+  /// In en, this message translates to:
+  /// **'in open deals'**
+  String get crmOpenTotal;
+
+  /// No description provided for @crmFutbolistaNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'This company is not linked to a Futbolista organizer. Once linked, only tournament, match and player aggregates will appear here.'**
+  String get crmFutbolistaNotice;
+
+  /// No description provided for @crmAddDeal.
+  ///
+  /// In en, this message translates to:
+  /// **'+ Deal'**
+  String get crmAddDeal;
+
+  /// No description provided for @crmAddContact.
+  ///
+  /// In en, this message translates to:
+  /// **'+ Contact'**
+  String get crmAddContact;
+
+  /// No description provided for @crmTournaments.
+  ///
+  /// In en, this message translates to:
+  /// **'tournaments'**
+  String get crmTournaments;
+
+  /// No description provided for @crmMatches.
+  ///
+  /// In en, this message translates to:
+  /// **'matches'**
+  String get crmMatches;
+
+  /// No description provided for @crmPlayers.
+  ///
+  /// In en, this message translates to:
+  /// **'players'**
+  String get crmPlayers;
+
+  /// No description provided for @crmAggregatesOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Aggregates only, no personal data · TASK103'**
+  String get crmAggregatesOnly;
 }
 
 class _NsgL10nDelegate extends LocalizationsDelegate<NsgL10n> {

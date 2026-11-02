@@ -34,10 +34,7 @@ void main() {
         'conf:-callId, наш partyId)', () async {
       final harness = _Harness();
       // В конференции уже Alice и Bob; мы joined последними.
-      harness.confRpc.members = [
-        member(1, 'pa', 1),
-        member(2, 'pb', 2),
-      ];
+      harness.confRpc.members = [member(1, 'pa', 1), member(2, 'pb', 2)];
       await harness.controller.join(roomId: kRoomId);
       await pump();
 
@@ -122,9 +119,7 @@ void main() {
       await pump();
 
       expect(
-        harness.callRpc.sent.where(
-          (e) => e.eventType == CallEventType.invite,
-        ),
+        harness.callRpc.sent.where((e) => e.eventType == CallEventType.invite),
         isEmpty,
         reason: 'зовёт поздний — то есть Carol, а не мы',
       );
@@ -160,9 +155,7 @@ void main() {
       await pump();
 
       expect(
-        harness.callRpc.sent.where(
-          (e) => e.eventType == CallEventType.invite,
-        ),
+        harness.callRpc.sent.where((e) => e.eventType == CallEventType.invite),
         isEmpty,
         reason: 'tie-break: 0 < 1 — зовёт Alice',
       );
@@ -175,8 +168,9 @@ void main() {
       harness.confRpc.members = [member(1, 'pa', 1)];
       await harness.controller.join(roomId: kRoomId);
       await pump();
-      final ourInvite = harness.callRpc.sent
-          .firstWhere((e) => e.eventType == CallEventType.invite);
+      final ourInvite = harness.callRpc.sent.firstWhere(
+        (e) => e.eventType == CallEventType.invite,
+      );
 
       // Alice присылает встречный invite нам с callId, лексикографически
       // МЕНЬШИМ нашего ('conf:...:id-1' vs 'conf:...:  ~ zz...' — задаём
@@ -188,11 +182,7 @@ void main() {
       );
       expect(aliceCallId.compareTo(ourInvite.callId) < 0, isTrue);
       harness.emit(
-        harness.confInvite(
-          roomId: kRoomId,
-          callId: aliceCallId,
-          partyId: 'pa',
-        ),
+        harness.confInvite(roomId: kRoomId, callId: aliceCallId, partyId: 'pa'),
       );
       await pump();
 
@@ -256,57 +246,60 @@ void main() {
       await harness.dispose();
     });
 
-    test('accept: отвечает на скопившиеся invite-ы и зовёт остальных',
-        () async {
-      final harness = _Harness();
-      // Ринг стартует событием состава: Alice + Bob.
-      harness.emit(
-        harness.confUpdated(
-          roomId: kRoomId,
+    test(
+      'accept: отвечает на скопившиеся invite-ы и зовёт остальных',
+      () async {
+        final harness = _Harness();
+        // Ринг стартует событием состава: Alice + Bob.
+        harness.emit(
+          harness.confUpdated(
+            roomId: kRoomId,
+            confId: harness.confRpc.confId,
+            members: [member(1, 'pa', 1), member(2, 'pb', 5)],
+          ),
+        );
+        await pump();
+        // За время ринга Alice успела прислать pairwise-invite.
+        final aliceCallId = ConferencePairCallId.build(
           confId: harness.confRpc.confId,
-          members: [member(1, 'pa', 1), member(2, 'pb', 5)],
-        ),
-      );
-      await pump();
-      // За время ринга Alice успела прислать pairwise-invite.
-      final aliceCallId = ConferencePairCallId.build(
-        confId: harness.confRpc.confId,
-        inviteeMessengerUserId: kSelfUserId,
-        pairId: 'pair-alice',
-      );
-      harness.emit(
-        harness.confInvite(
-          roomId: kRoomId,
-          callId: aliceCallId,
-          partyId: 'pa',
-        ),
-      );
-      await pump();
-      expect(harness.controller.state, isA<ConferenceIncomingRinging>());
+          inviteeMessengerUserId: kSelfUserId,
+          pairId: 'pair-alice',
+        );
+        harness.emit(
+          harness.confInvite(
+            roomId: kRoomId,
+            callId: aliceCallId,
+            partyId: 'pa',
+          ),
+        );
+        await pump();
+        expect(harness.controller.state, isA<ConferenceIncomingRinging>());
 
-      harness.confRpc.members = [member(1, 'pa', 1), member(2, 'pb', 5)];
-      await harness.controller.accept();
-      await pump();
+        harness.confRpc.members = [member(1, 'pa', 1), member(2, 'pb', 5)];
+        await harness.controller.accept();
+        await pump();
 
-      expect(harness.confRpc.joinCount, 1);
-      expect(harness.controller.state, isA<ConferenceActive>());
-      // Alice — answer на её callId; Bob — наш invite.
-      final answers = harness.callRpc.sent
-          .where((e) => e.eventType == CallEventType.answer)
-          .toList();
-      expect(answers.length, 1);
-      expect(answers.single.callId, aliceCallId);
-      final invites = harness.callRpc.sent
-          .where((e) => e.eventType == CallEventType.invite)
-          .toList();
-      expect(invites.length, 1);
-      expect(
-        ConferencePairCallId.tryParse(invites.single.callId)!
-            .inviteeMessengerUserId,
-        2,
-      );
-      await harness.dispose();
-    });
+        expect(harness.confRpc.joinCount, 1);
+        expect(harness.controller.state, isA<ConferenceActive>());
+        // Alice — answer на её callId; Bob — наш invite.
+        final answers = harness.callRpc.sent
+            .where((e) => e.eventType == CallEventType.answer)
+            .toList();
+        expect(answers.length, 1);
+        expect(answers.single.callId, aliceCallId);
+        final invites = harness.callRpc.sent
+            .where((e) => e.eventType == CallEventType.invite)
+            .toList();
+        expect(invites.length, 1);
+        expect(
+          ConferencePairCallId.tryParse(
+            invites.single.callId,
+          )!.inviteeMessengerUserId,
+          2,
+        );
+        await harness.dispose();
+      },
+    );
 
     test('decline: ничего не шлём, состояние сброшено, повторные invite-ы '
         'той же конференции больше не звонят', () async {
@@ -407,9 +400,7 @@ void main() {
       await harness.controller.join(roomId: kRoomId);
       await pump();
 
-      harness.emit(
-        harness.confUpdated(roomId: kRoomId, members: const []),
-      );
+      harness.emit(harness.confUpdated(roomId: kRoomId, members: const []));
       await pump();
 
       expect(harness.controller.state, isA<ConferenceCallEnded>());
@@ -449,11 +440,7 @@ void main() {
         pairId: 'pair-carol',
       );
       harness.emit(
-        harness.confInvite(
-          roomId: kRoomId,
-          callId: carolCallId,
-          partyId: 'pc',
-        ),
+        harness.confInvite(roomId: kRoomId, callId: carolCallId, partyId: 'pc'),
       );
       await pump();
 
@@ -493,30 +480,32 @@ void main() {
   });
 
   group('ConferenceCallController — leave', () {
-    test('leave: hangup всем парам + leaveConference + Ended(localLeave)',
-        () async {
-      final harness = _Harness();
-      harness.confRpc.members = [member(1, 'pa', 1), member(2, 'pb', 2)];
-      await harness.controller.join(roomId: kRoomId);
-      await pump();
+    test(
+      'leave: hangup всем парам + leaveConference + Ended(localLeave)',
+      () async {
+        final harness = _Harness();
+        harness.confRpc.members = [member(1, 'pa', 1), member(2, 'pb', 2)];
+        await harness.controller.join(roomId: kRoomId);
+        await pump();
 
-      await harness.controller.leave();
-      await pump();
+        await harness.controller.leave();
+        await pump();
 
-      expect(harness.controller.state, isA<ConferenceCallEnded>());
-      expect(
-        (harness.controller.state as ConferenceCallEnded).reason,
-        ConferenceEndReason.localLeave,
-      );
-      final hangups = harness.callRpc.sent
-          .where((e) => e.eventType == CallEventType.hangup)
-          .toList();
-      expect(hangups.length, 2, reason: 'по hangup на каждую пару');
-      expect(harness.confRpc.leaveCount, 1);
-      expect(harness.webrtc.pcs.every((pc) => pc.closed), isTrue);
-      expect(harness.webrtc.streams.single.disposed, isTrue);
-      await harness.dispose();
-    });
+        expect(harness.controller.state, isA<ConferenceCallEnded>());
+        expect(
+          (harness.controller.state as ConferenceCallEnded).reason,
+          ConferenceEndReason.localLeave,
+        );
+        final hangups = harness.callRpc.sent
+            .where((e) => e.eventType == CallEventType.hangup)
+            .toList();
+        expect(hangups.length, 2, reason: 'по hangup на каждую пару');
+        expect(harness.confRpc.leaveCount, 1);
+        expect(harness.webrtc.pcs.every((pc) => pc.closed), isTrue);
+        expect(harness.webrtc.streams.single.disposed, isTrue);
+        await harness.dispose();
+      },
+    );
   });
 
   group('ConferenceCallController — heartbeat', () {
@@ -595,8 +584,7 @@ void main() {
       await harness.dispose();
     });
 
-    test('toggleSpeaker: маршрут применяется, состояние обновляется',
-        () async {
+    test('toggleSpeaker: маршрут применяется, состояние обновляется', () async {
       final harness = _Harness();
       harness.confRpc.members = [];
       await harness.controller.join(roomId: kRoomId);
@@ -668,9 +656,7 @@ void main() {
         );
         expect(harness.controller.state, isA<ConferenceActive>());
         final s = harness.controller.state as ConferenceActive;
-        final alice = s.participants.firstWhere(
-          (p) => p.messengerUserId == 1,
-        );
+        final alice = s.participants.firstWhere((p) => p.messengerUserId == 1);
         expect(alice.phase, ConferencePairPhase.failed);
         final bob = s.participants.firstWhere((p) => p.messengerUserId == 2);
         expect(
@@ -700,79 +686,84 @@ void main() {
   });
 
   group('ConferenceCallController — сигналинг пар', () {
-    test('answer на наш invite применяется; кандидаты буферятся до answer',
-        () async {
-      final harness = _Harness();
-      harness.confRpc.members = [member(1, 'pa', 1)];
-      await harness.controller.join(roomId: kRoomId);
-      await pump();
-      final invite = harness.callRpc.sent
-          .firstWhere((e) => e.eventType == CallEventType.invite);
-      final pc = harness.pcForInvitee(1);
+    test(
+      'answer на наш invite применяется; кандидаты буферятся до answer',
+      () async {
+        final harness = _Harness();
+        harness.confRpc.members = [member(1, 'pa', 1)];
+        await harness.controller.join(roomId: kRoomId);
+        await pump();
+        final invite = harness.callRpc.sent.firstWhere(
+          (e) => e.eventType == CallEventType.invite,
+        );
+        final pc = harness.pcForInvitee(1);
 
-      // Кандидаты ДО answer → буфер (WebRTC требует remote SDP сперва).
-      harness.emit(
-        harness.callEvent(
-          MessengerEventType.callCandidates,
-          roomId: kRoomId,
-          callId: invite.callId,
-          partyId: 'pa',
-          candidates: [CallIceCandidate(candidate: 'cand-1')],
-        ),
-      );
-      await pump();
-      expect(pc.addedIce, isEmpty);
+        // Кандидаты ДО answer → буфер (WebRTC требует remote SDP сперва).
+        harness.emit(
+          harness.callEvent(
+            MessengerEventType.callCandidates,
+            roomId: kRoomId,
+            callId: invite.callId,
+            partyId: 'pa',
+            candidates: [CallIceCandidate(candidate: 'cand-1')],
+          ),
+        );
+        await pump();
+        expect(pc.addedIce, isEmpty);
 
-      harness.emit(
-        harness.callEvent(
-          MessengerEventType.callAnswer,
-          roomId: kRoomId,
-          callId: invite.callId,
-          partyId: 'pa',
-          sdp: 'answer-remote',
-        ),
-      );
-      await pump();
-      expect(
-        pc.remoteDescriptions.map((d) => d.sdp),
-        contains('answer-remote'),
-      );
-      expect(pc.addedIce.length, 1, reason: 'буфер слит после answer');
-      await harness.dispose();
-    });
+        harness.emit(
+          harness.callEvent(
+            MessengerEventType.callAnswer,
+            roomId: kRoomId,
+            callId: invite.callId,
+            partyId: 'pa',
+            sdp: 'answer-remote',
+          ),
+        );
+        await pump();
+        expect(
+          pc.remoteDescriptions.map((d) => d.sdp),
+          contains('answer-remote'),
+        );
+        expect(pc.addedIce.length, 1, reason: 'буфер слит после answer');
+        await harness.dispose();
+      },
+    );
 
-    test('hangup пары → пара закрыта и помечена failed, конференция живёт',
-        () async {
-      final harness = _Harness();
-      harness.confRpc.members = [member(1, 'pa', 1), member(2, 'pb', 2)];
-      await harness.controller.join(roomId: kRoomId);
-      await pump();
-      final invite = harness.callRpc.sent.firstWhere(
-        (e) =>
-            e.eventType == CallEventType.invite &&
-            ConferencePairCallId.tryParse(e.callId)!.inviteeMessengerUserId ==
-                1,
-      );
+    test(
+      'hangup пары → пара закрыта и помечена failed, конференция живёт',
+      () async {
+        final harness = _Harness();
+        harness.confRpc.members = [member(1, 'pa', 1), member(2, 'pb', 2)];
+        await harness.controller.join(roomId: kRoomId);
+        await pump();
+        final invite = harness.callRpc.sent.firstWhere(
+          (e) =>
+              e.eventType == CallEventType.invite &&
+              ConferencePairCallId.tryParse(e.callId)!.inviteeMessengerUserId ==
+                  1,
+        );
 
-      harness.emit(
-        harness.callEvent(
-          MessengerEventType.callHangup,
-          roomId: kRoomId,
-          callId: invite.callId,
-          partyId: 'pa',
-        ),
-      );
-      await pump();
+        harness.emit(
+          harness.callEvent(
+            MessengerEventType.callHangup,
+            roomId: kRoomId,
+            callId: invite.callId,
+            partyId: 'pa',
+          ),
+        );
+        await pump();
 
-      expect(harness.pcForInvitee(1).closed, isTrue);
-      expect(harness.controller.state, isA<ConferenceActive>());
-      final s = harness.controller.state as ConferenceActive;
-      expect(
-        s.participants.firstWhere((p) => p.messengerUserId == 1).phase,
-        ConferencePairPhase.failed,
-      );
-      await harness.dispose();
-    });
+        expect(harness.pcForInvitee(1).closed, isTrue);
+        expect(harness.controller.state, isA<ConferenceActive>());
+        final s = harness.controller.state as ConferenceActive;
+        expect(
+          s.participants.firstWhere((p) => p.messengerUserId == 1).phase,
+          ConferencePairPhase.failed,
+        );
+        await harness.dispose();
+      },
+    );
   });
 
   group('ConferenceCallController — карта живых конференций комнат '
@@ -806,19 +797,22 @@ void main() {
       await harness.dispose();
     });
 
-    test('пустой состав (смерть конференции) убирает комнату из карты', () async {
-      final harness = _Harness();
-      harness.emit(
-        harness.confUpdated(roomId: 900, members: [member(10, 'px', 1)]),
-      );
-      await pump();
-      expect(harness.controller.liveConferenceInRoom(900), isNotNull);
+    test(
+      'пустой состав (смерть конференции) убирает комнату из карты',
+      () async {
+        final harness = _Harness();
+        harness.emit(
+          harness.confUpdated(roomId: 900, members: [member(10, 'px', 1)]),
+        );
+        await pump();
+        expect(harness.controller.liveConferenceInRoom(900), isNotNull);
 
-      harness.emit(harness.confUpdated(roomId: 900, members: []));
-      await pump();
-      expect(harness.controller.liveConferenceInRoom(900), isNull);
-      await harness.dispose();
-    });
+        harness.emit(harness.confUpdated(roomId: 900, members: []));
+        await pump();
+        expect(harness.controller.liveConferenceInRoom(900), isNull);
+        await harness.dispose();
+      },
+    );
 
     test('refreshRoomConference: getConference → карта наполняется; '
         'null-ответ → комната очищается', () async {
@@ -947,10 +941,7 @@ void main() {
       expect(s.selfPresenting, isTrue);
       expect(s.presenterMessengerUserId, kSelfUserId);
       expect(s.screenSharePending, isFalse);
-      expect(
-        s.participants.firstWhere((p) => p.isSelf).isPresenting,
-        isTrue,
-      );
+      expect(s.participants.firstWhere((p) => p.isSelf).isPresenting, isTrue);
       await h.dispose();
     });
 
@@ -1014,8 +1005,7 @@ void main() {
       await h.dispose();
     });
 
-    test('повторный старт во время показа игнорируется (один показ)',
-        () async {
+    test('повторный старт во время показа игнорируется (один показ)', () async {
       final h = await activeWithTwoPeers();
       await h.controller.startScreenShare(sourceId: 'screen:0');
       await pump();
@@ -1095,7 +1085,11 @@ void main() {
         isTrue,
       );
       final negs = negotiates(h).where((e) => e.callId == callId).toList();
-      expect(negs.length, 1, reason: 'unified-plan: m-line в answer не добавить');
+      expect(
+        negs.length,
+        1,
+        reason: 'unified-plan: m-line в answer не добавить',
+      );
       expect(negs.single.sdpType, 'offer');
       await h.dispose();
     });

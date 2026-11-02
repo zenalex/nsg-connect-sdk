@@ -44,25 +44,23 @@ void main() {
         participantKind: ParticipantKind.user,
       );
 
-  RoomDetails details({
-    required RoomType roomType,
-    required int total,
-  }) => RoomDetails(
-    id: 7,
-    matrixRoomId: '!r:t',
-    name: 'Команда',
-    unreadCount: 0,
-    archived: false,
-    muted: false,
-    roomType: roomType,
-    participants: [
-      participant(kSelf, '@self:t'),
-      participant(99, '@peer:t', displayName: 'Пётр'),
-    ],
-    totalParticipants: total,
-    viewerRole: RoomMemberRole.member,
-    canEscalateSupport: false,
-  );
+  RoomDetails details({required RoomType roomType, required int total}) =>
+      RoomDetails(
+        id: 7,
+        matrixRoomId: '!r:t',
+        name: 'Команда',
+        unreadCount: 0,
+        archived: false,
+        muted: false,
+        roomType: roomType,
+        participants: [
+          participant(kSelf, '@self:t'),
+          participant(99, '@peer:t', displayName: 'Пётр'),
+        ],
+        totalParticipants: total,
+        viewerRole: RoomMemberRole.member,
+        canEscalateSupport: false,
+      );
 
   Future<void> pumpChat(WidgetTester tester, RoomDetails roomDetails) async {
     final rpc = _FakeRpc();

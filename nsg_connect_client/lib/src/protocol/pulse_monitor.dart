@@ -35,6 +35,7 @@ abstract class PulseMonitor implements _i1.SerializableModel {
     this.statusText,
     this.lastBeatAt,
     this.lastValuesJson,
+    this.lastValuesAt,
     this.lastChangeAt,
     this.lastEvaluatedAt,
     bool? paused,
@@ -57,6 +58,7 @@ abstract class PulseMonitor implements _i1.SerializableModel {
     String? statusText,
     DateTime? lastBeatAt,
     String? lastValuesJson,
+    DateTime? lastValuesAt,
     DateTime? lastChangeAt,
     DateTime? lastEvaluatedAt,
     bool? paused,
@@ -80,6 +82,11 @@ abstract class PulseMonitor implements _i1.SerializableModel {
           ? null
           : _i1.DateTimeJsonExtension.fromJson(jsonSerialization['lastBeatAt']),
       lastValuesJson: jsonSerialization['lastValuesJson'] as String?,
+      lastValuesAt: jsonSerialization['lastValuesAt'] == null
+          ? null
+          : _i1.DateTimeJsonExtension.fromJson(
+              jsonSerialization['lastValuesAt'],
+            ),
       lastChangeAt: jsonSerialization['lastChangeAt'] == null
           ? null
           : _i1.DateTimeJsonExtension.fromJson(
@@ -148,6 +155,21 @@ abstract class PulseMonitor implements _i1.SerializableModel {
   /// плагинов-мониторов). Графики за год — другой продукт.
   String? lastValuesJson;
 
+  /// **issue #176**: когда этот снимок получен.
+  ///
+  /// Значения живут до следующего beat-а, В КОТОРОМ они есть — правило
+  /// осознанное («не измеряли» и «стало нулём» это разное). Ломается оно
+  /// на СМЕНЕ ОТПРАВИТЕЛЯ: старые числа перестают быть чьим-либо
+  /// измерением, но выглядят так же, потому что возраста у снимка не было.
+  ///
+  /// Полевой случай: монитор каналов ботов неделю показывал `tunnels_up: 5`
+  /// рядом со свежей отметкой сигнала — туннели разобрали 22.08 вместе со
+  /// скриптом, который их считал, а новый отправитель чисел не слал вовсе.
+  ///
+  /// `null` — чисел не присылали ни разу (или снимок из времён до этого
+  /// поля).
+  DateTime? lastValuesAt;
+
   DateTime? lastChangeAt;
 
   /// **issue #131**: когда сервер в последний раз ПЕРЕСЧИТЫВАЛ статус
@@ -186,6 +208,7 @@ abstract class PulseMonitor implements _i1.SerializableModel {
     String? statusText,
     DateTime? lastBeatAt,
     String? lastValuesJson,
+    DateTime? lastValuesAt,
     DateTime? lastChangeAt,
     DateTime? lastEvaluatedAt,
     bool? paused,
@@ -208,6 +231,7 @@ abstract class PulseMonitor implements _i1.SerializableModel {
       if (statusText != null) 'statusText': statusText,
       if (lastBeatAt != null) 'lastBeatAt': lastBeatAt?.toJson(),
       if (lastValuesJson != null) 'lastValuesJson': lastValuesJson,
+      if (lastValuesAt != null) 'lastValuesAt': lastValuesAt?.toJson(),
       if (lastChangeAt != null) 'lastChangeAt': lastChangeAt?.toJson(),
       if (lastEvaluatedAt != null) 'lastEvaluatedAt': lastEvaluatedAt?.toJson(),
       'paused': paused,
@@ -238,6 +262,7 @@ class _PulseMonitorImpl extends PulseMonitor {
     String? statusText,
     DateTime? lastBeatAt,
     String? lastValuesJson,
+    DateTime? lastValuesAt,
     DateTime? lastChangeAt,
     DateTime? lastEvaluatedAt,
     bool? paused,
@@ -256,6 +281,7 @@ class _PulseMonitorImpl extends PulseMonitor {
          statusText: statusText,
          lastBeatAt: lastBeatAt,
          lastValuesJson: lastValuesJson,
+         lastValuesAt: lastValuesAt,
          lastChangeAt: lastChangeAt,
          lastEvaluatedAt: lastEvaluatedAt,
          paused: paused,
@@ -280,6 +306,7 @@ class _PulseMonitorImpl extends PulseMonitor {
     Object? statusText = _Undefined,
     Object? lastBeatAt = _Undefined,
     Object? lastValuesJson = _Undefined,
+    Object? lastValuesAt = _Undefined,
     Object? lastChangeAt = _Undefined,
     Object? lastEvaluatedAt = _Undefined,
     bool? paused,
@@ -301,6 +328,9 @@ class _PulseMonitorImpl extends PulseMonitor {
       lastValuesJson: lastValuesJson is String?
           ? lastValuesJson
           : this.lastValuesJson,
+      lastValuesAt: lastValuesAt is DateTime?
+          ? lastValuesAt
+          : this.lastValuesAt,
       lastChangeAt: lastChangeAt is DateTime?
           ? lastChangeAt
           : this.lastChangeAt,

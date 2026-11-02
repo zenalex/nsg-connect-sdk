@@ -49,8 +49,7 @@ void main() {
   test('isPlatformAdmin: ответ сервера проходит насквозь', () async {
     expect(await makeAdmin().isPlatformAdmin(), isTrue);
     expect(
-      await makeAdmin(isPlatformAdminRpc: () async => false)
-          .isPlatformAdmin(),
+      await makeAdmin(isPlatformAdminRpc: () async => false).isPlatformAdmin(),
       isFalse,
     );
   });
@@ -65,7 +64,10 @@ void main() {
 
   test('listTenants: отдаёт статусы сервера', () async {
     final admin = makeAdmin(
-      listTenantsRpc: () async => [status('nsg'), status('t112', enabled: false)],
+      listTenantsRpc: () async => [
+        status('nsg'),
+        status('t112', enabled: false),
+      ],
     );
     final tenants = await admin.listTenants();
     expect(tenants.map((t) => t.tenantExternalKey), ['nsg', 't112']);
@@ -87,7 +89,10 @@ void main() {
         return 'cst_fresh';
       },
     );
-    expect(await admin.enableAndGenerate(tenantExternalKey: 'nsg'), 'cst_fresh');
+    expect(
+      await admin.enableAndGenerate(tenantExternalKey: 'nsg'),
+      'cst_fresh',
+    );
     expect(seenKey, 'nsg');
   });
 
@@ -102,20 +107,22 @@ void main() {
     );
   });
 
-  test('rotateSecret: минуты конвертируются в секунды; дефолт 5 мин = 300 с',
-      () async {
-    final seen = <int?>[];
-    final admin = makeAdmin(
-      rotateSecretRpc:
-          ({required String tenantExternalKey, int? graceSeconds}) async {
-            seen.add(graceSeconds);
-            return 'cst_rotated';
-          },
-    );
-    expect(await admin.rotateSecret(tenantExternalKey: 'nsg'), 'cst_rotated');
-    await admin.rotateSecret(tenantExternalKey: 'nsg', graceMinutes: 30);
-    expect(seen, [300, 1800]);
-  });
+  test(
+    'rotateSecret: минуты конвертируются в секунды; дефолт 5 мин = 300 с',
+    () async {
+      final seen = <int?>[];
+      final admin = makeAdmin(
+        rotateSecretRpc:
+            ({required String tenantExternalKey, int? graceSeconds}) async {
+              seen.add(graceSeconds);
+              return 'cst_rotated';
+            },
+      );
+      expect(await admin.rotateSecret(tenantExternalKey: 'nsg'), 'cst_rotated');
+      await admin.rotateSecret(tenantExternalKey: 'nsg', graceMinutes: 30);
+      expect(seen, [300, 1800]);
+    },
+  );
 
   test('listAuditEvents: дефолтный limit 50 доходит до RPC', () async {
     int? seenLimit;

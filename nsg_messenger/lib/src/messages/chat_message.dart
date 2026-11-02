@@ -6,7 +6,10 @@ import 'package:nsg_connect_client/nsg_connect_client.dart';
 import 'attachments/attachment_mime_types.dart';
 import 'forward_source.dart';
 import 'status_card_data.dart';
+import 'sticker_data.dart';
 import 'shared_contact_data.dart';
+
+int? _positiveId(Object? value) => value is int && value > 0 ? value : null;
 
 /// UI-side представление сообщения в чате (TASK15).
 ///
@@ -60,10 +63,13 @@ class ChatMessage {
     this.forwardedFromMessengerUserId,
     this.forwardedSource,
     this.statusCard,
+    this.sticker,
     this.sharedContact,
     this.sharedContactList,
     this.localImageBytes,
     this.localMimeType,
+    this.crmProposalId,
+    this.crmEventDealId,
   });
 
   /// Идентификатор для optimistic dedup. Обязателен для собственных
@@ -81,6 +87,8 @@ class ChatMessage {
   final int? senderMessengerUserId;
 
   final String body;
+  final int? crmProposalId;
+  final int? crmEventDealId;
   final String msgType;
   final DateTime serverTimestamp;
   final String? threadId;
@@ -221,6 +229,11 @@ class ChatMessage {
   /// body; null → обычный fallback на body (в т.ч. если поле не распарсилось).
   final StatusCardData? statusCard;
 
+  /// **issue #151**: стикер — своя разметка в content-е
+  /// (`nsg.sticker`) при `msgType == 'nsg.sticker'`. Картинка едет
+  /// обычным вложением, здесь только имя и набор.
+  final StickerData? sticker;
+
   /// **Поделиться контактом**: карточка человека, приезжающая в
   /// custom-поле `nsg.contact_card` (см. [SharedContactData.tryParse]).
   /// Non-null → пузырь рисует карточку с кнопкой «Добавить» вместо
@@ -315,6 +328,13 @@ class ChatMessage {
       // **TASK58**: статус-карточка автопоста — тот же passthrough из
       // сырого content-а, что album_id/forwarded_from.
       statusCard: StatusCardData.tryParse(content),
+      crmProposalId: content?['app.nsg.crm_proposal'] is Map
+          ? _positiveId((content!['app.nsg.crm_proposal'] as Map)['proposalId'])
+          : null,
+      crmEventDealId: content?['app.nsg.crm_event'] is Map
+          ? _positiveId((content!['app.nsg.crm_event'] as Map)['dealId'])
+          : null,
+      sticker: StickerData.tryParse(content),
       sharedContact: SharedContactData.tryParse(content),
       sharedContactList: SharedContactListData.tryParse(content),
       localImageBytes: overrideLocalImageBytes,
@@ -364,6 +384,10 @@ class ChatMessage {
     ForwardSource? forwardedSource,
     Uint8List? localImageBytes,
     String? localMimeType,
+
+    /// **issue #151**: разметка стикера — оптимистичный пузырь рисуется
+    /// стикером сразу, не дожидаясь эха с сервера.
+    StickerData? sticker,
   }) => ChatMessage(
     clientTxnId: clientTxnId,
     matrixEventId: null,
@@ -383,6 +407,7 @@ class ChatMessage {
     forwardedSource: forwardedSource,
     localImageBytes: localImageBytes,
     localMimeType: localMimeType,
+    sticker: sticker,
   );
 
   /// Перевести pending → failed (retainable retry-state). Сохраняет
@@ -390,6 +415,8 @@ class ChatMessage {
   ChatMessage failed(Object error) => ChatMessage(
     clientTxnId: clientTxnId,
     matrixEventId: matrixEventId,
+    crmProposalId: crmProposalId,
+    crmEventDealId: crmEventDealId,
     senderMatrixUserId: senderMatrixUserId,
     senderMessengerUserId: senderMessengerUserId,
     body: body,
@@ -415,6 +442,7 @@ class ChatMessage {
     forwardedFromMessengerUserId: forwardedFromMessengerUserId,
     forwardedSource: forwardedSource,
     statusCard: statusCard,
+    sticker: sticker,
     sharedContact: sharedContact,
     sharedContactList: sharedContactList,
     localImageBytes: localImageBytes,
@@ -426,6 +454,8 @@ class ChatMessage {
   ChatMessage retrying() => ChatMessage(
     clientTxnId: clientTxnId,
     matrixEventId: matrixEventId,
+    crmProposalId: crmProposalId,
+    crmEventDealId: crmEventDealId,
     senderMatrixUserId: senderMatrixUserId,
     senderMessengerUserId: senderMessengerUserId,
     body: body,
@@ -450,6 +480,7 @@ class ChatMessage {
     forwardedFromMessengerUserId: forwardedFromMessengerUserId,
     forwardedSource: forwardedSource,
     statusCard: statusCard,
+    sticker: sticker,
     sharedContact: sharedContact,
     sharedContactList: sharedContactList,
     localImageBytes: localImageBytes,
@@ -464,6 +495,8 @@ class ChatMessage {
   ChatMessage withUploadedAttachment(AttachmentRef ref) => ChatMessage(
     clientTxnId: clientTxnId,
     matrixEventId: matrixEventId,
+    crmProposalId: crmProposalId,
+    crmEventDealId: crmEventDealId,
     senderMatrixUserId: senderMatrixUserId,
     senderMessengerUserId: senderMessengerUserId,
     body: body,
@@ -487,6 +520,11 @@ class ChatMessage {
     forwardedFromName: forwardedFromName,
     forwardedFromMessengerUserId: forwardedFromMessengerUserId,
     forwardedSource: forwardedSource,
+    // **issue #151**: разметка стикера обязана пережить привязку
+    // загруженной картинки — иначе стикер превращается в обычную
+    // картинку ровно в тот момент, когда аплоад закончился.
+    statusCard: statusCard,
+    sticker: sticker,
     localImageBytes: localImageBytes,
     localMimeType: localMimeType,
   );
@@ -506,6 +544,8 @@ class ChatMessage {
   }) => ChatMessage(
     clientTxnId: clientTxnId,
     matrixEventId: matrixEventId,
+    crmProposalId: crmProposalId,
+    crmEventDealId: crmEventDealId,
     senderMatrixUserId: senderMatrixUserId,
     senderMessengerUserId: senderMessengerUserId,
     body: body,
@@ -534,6 +574,7 @@ class ChatMessage {
     forwardedFromMessengerUserId: forwardedFromMessengerUserId,
     forwardedSource: forwardedSource,
     statusCard: statusCard,
+    sticker: sticker,
     sharedContact: sharedContact,
     sharedContactList: sharedContactList,
     localImageBytes: localImageBytes,
@@ -550,6 +591,8 @@ class ChatMessage {
   }) => ChatMessage(
     clientTxnId: clientTxnId,
     matrixEventId: matrixEventId,
+    crmProposalId: crmProposalId,
+    crmEventDealId: crmEventDealId,
     senderMatrixUserId: senderMatrixUserId,
     senderMessengerUserId: senderMessengerUserId,
     body: newBody,
@@ -574,6 +617,7 @@ class ChatMessage {
     forwardedFromMessengerUserId: forwardedFromMessengerUserId,
     forwardedSource: forwardedSource,
     statusCard: statusCard,
+    sticker: sticker,
     sharedContact: sharedContact,
     sharedContactList: sharedContactList,
     localImageBytes: localImageBytes,
@@ -585,6 +629,7 @@ class ChatMessage {
   ChatMessage withDelete({required DateTime deletedAt}) => ChatMessage(
     clientTxnId: clientTxnId,
     matrixEventId: matrixEventId,
+
     senderMatrixUserId: senderMatrixUserId,
     senderMessengerUserId: senderMessengerUserId,
     body: '',
@@ -633,7 +678,21 @@ class ChatMessage {
         // перерисовывался бы до перезахода.
         other.taskStage == taskStage &&
         other.taskThreadRootEventId == taskThreadRootEventId &&
-        other.taskUrl == taskUrl;
+        other.taskUrl == taskUrl &&
+        // **issue #174**: «вложение уже загружено» — тоже видимое различие,
+        // и ровно по той же причине, что и значок задачи выше.
+        //
+        // Аплоад заканчивается сменой ОДНОГО поля: `attachment` с null на
+        // ссылку. Пока его здесь не было, `_patchUploaded` честно строил
+        // новое состояние, а `ValueNotifier` его молча ронял — новое
+        // значение равнялось старому. Плитка так и оставалась под блюром с
+        // крутилкой, хотя фотография давно на сервере. Видно это было
+        // только при небыстрой отправке: обычно следом приходил промоут в
+        // `sent`, менял `status` — и обновление проходило уже по нему.
+        //
+        // Сравниваем `mxcUrl`, а не сам объект: у него нет своего `==`, и
+        // по ссылке каждое перечитывание истории выглядело бы изменением.
+        other.attachment?.mxcUrl == attachment?.mxcUrl;
   }
 
   @override
@@ -646,6 +705,7 @@ class ChatMessage {
     taskStage,
     taskThreadRootEventId,
     taskUrl,
+    attachment?.mxcUrl,
   );
 
   @override

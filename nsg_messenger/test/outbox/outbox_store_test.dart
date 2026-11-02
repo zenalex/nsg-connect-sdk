@@ -29,7 +29,11 @@ void main() {
       namespace: namespace,
       userId: userId,
     );
-    expect(store, isNotNull, reason: 'ffi-фабрика должна открыть БД на desktop');
+    expect(
+      store,
+      isNotNull,
+      reason: 'ffi-фабрика должна открыть БД на desktop',
+    );
     return store!;
   }
 
@@ -93,53 +97,66 @@ void main() {
     await store.close();
   });
 
-  test('outboxDue — исключает sending, failed и будущий nextAttemptAt', () async {
-    final store = await open(7);
-    await store.enqueueOutbox(textItem('due', createdAt: 1, nextAttemptAt: 0));
-    await store.enqueueOutbox(
-      textItem('future', createdAt: 2, nextAttemptAt: 9999999999999),
-    );
-    await store.enqueueOutbox(textItem('sending', createdAt: 3));
-    await store.markOutboxSending('sending');
-    await store.enqueueOutbox(textItem('failed', createdAt: 4));
-    await store.markOutboxFailed('failed');
+  test(
+    'outboxDue — исключает sending, failed и будущий nextAttemptAt',
+    () async {
+      final store = await open(7);
+      await store.enqueueOutbox(
+        textItem('due', createdAt: 1, nextAttemptAt: 0),
+      );
+      await store.enqueueOutbox(
+        textItem('future', createdAt: 2, nextAttemptAt: 9999999999999),
+      );
+      await store.enqueueOutbox(textItem('sending', createdAt: 3));
+      await store.markOutboxSending('sending');
+      await store.enqueueOutbox(textItem('failed', createdAt: 4));
+      await store.markOutboxFailed('failed');
 
-    final due = await store.outboxDue(1000);
-    expect(due.map((e) => e.clientTxnId), ['due']);
-    await store.close();
-  });
+      final due = await store.outboxDue(1000);
+      expect(due.map((e) => e.clientTxnId), ['due']);
+      await store.close();
+    },
+  );
 
-  test('markOutboxBackoff → pending с attempts/nextAttemptAt/lastError', () async {
-    final store = await open(7);
-    await store.enqueueOutbox(textItem('t', createdAt: 1));
-    await store.markOutboxSending('t');
-    await store.markOutboxBackoff(
-      't',
-      attempts: 3,
-      nextAttemptAt: 5000,
-      lastError: 'net',
-    );
-    final r = (await store.outboxForRoom(1)).single;
-    expect(r.status, OutboxStatus.pending);
-    expect(r.attempts, 3);
-    expect(r.nextAttemptAt, 5000);
-    expect(r.lastError, 'net');
-    await store.close();
-  });
+  test(
+    'markOutboxBackoff → pending с attempts/nextAttemptAt/lastError',
+    () async {
+      final store = await open(7);
+      await store.enqueueOutbox(textItem('t', createdAt: 1));
+      await store.markOutboxSending('t');
+      await store.markOutboxBackoff(
+        't',
+        attempts: 3,
+        nextAttemptAt: 5000,
+        lastError: 'net',
+      );
+      final r = (await store.outboxForRoom(1)).single;
+      expect(r.status, OutboxStatus.pending);
+      expect(r.attempts, 3);
+      expect(r.nextAttemptAt, 5000);
+      expect(r.lastError, 'net');
+      await store.close();
+    },
+  );
 
-  test('markOutboxFailed → failed + resetOutboxForRetry → pending nextAt=0', () async {
-    final store = await open(7);
-    await store.enqueueOutbox(textItem('t', createdAt: 1, nextAttemptAt: 8000));
-    await store.markOutboxFailed('t', lastError: 'boom');
-    expect((await store.outboxForRoom(1)).single.status, OutboxStatus.failed);
+  test(
+    'markOutboxFailed → failed + resetOutboxForRetry → pending nextAt=0',
+    () async {
+      final store = await open(7);
+      await store.enqueueOutbox(
+        textItem('t', createdAt: 1, nextAttemptAt: 8000),
+      );
+      await store.markOutboxFailed('t', lastError: 'boom');
+      expect((await store.outboxForRoom(1)).single.status, OutboxStatus.failed);
 
-    await store.resetOutboxForRetry('t');
-    final r = (await store.outboxForRoom(1)).single;
-    expect(r.status, OutboxStatus.pending);
-    expect(r.nextAttemptAt, 0);
-    expect(r.lastError, isNull);
-    await store.close();
-  });
+      await store.resetOutboxForRetry('t');
+      final r = (await store.outboxForRoom(1)).single;
+      expect(r.status, OutboxStatus.pending);
+      expect(r.nextAttemptAt, 0);
+      expect(r.lastError, isNull);
+      await store.close();
+    },
+  );
 
   test('deleteOutbox убирает строку', () async {
     final store = await open(7);
@@ -164,7 +181,9 @@ void main() {
 
   test('очередь скоуплена по userId (мультиаккаунт)', () async {
     final storeA = await open(7);
-    await storeA.enqueueOutbox(textItem('a', roomId: 1, createdAt: 1, userId: 7));
+    await storeA.enqueueOutbox(
+      textItem('a', roomId: 1, createdAt: 1, userId: 7),
+    );
     await storeA.close();
     // Другой пользователь той же БД (namespace) — своей очереди пусто.
     final storeB = await open(8);

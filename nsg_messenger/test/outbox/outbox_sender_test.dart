@@ -40,15 +40,14 @@ void main() {
     MessengerCacheStore store,
     _FakeRpc rpc, {
     int? maxAttempts,
-  }) =>
-      OutboxSender(
-        store: store,
-        rpc: rpc,
-        // Быстрый бэкофф для теста (не влияет на классификацию).
-        backoffSchedule: const [Duration(milliseconds: 1)],
-        maxAttempts: maxAttempts,
-        directoryResolver: () async => outboxDir,
-      );
+  }) => OutboxSender(
+    store: store,
+    rpc: rpc,
+    // Быстрый бэкофф для теста (не влияет на классификацию).
+    backoffSchedule: const [Duration(milliseconds: 1)],
+    maxAttempts: maxAttempts,
+    directoryResolver: () async => outboxDir,
+  );
 
   test('текст: успех → sendMessage(clientTxnId) + строка удалена', () async {
     final store = await openStore();
@@ -74,33 +73,35 @@ void main() {
     await store.close();
   });
 
-  test('транзиентная ошибка → pending + attempts++ + бэкофф (строка живёт)',
-      () async {
-    final store = await openStore();
-    final rpc = _FakeRpc()..sendError = TimeoutException('net down');
-    final sender = makeSender(store, rpc);
+  test(
+    'транзиентная ошибка → pending + attempts++ + бэкофф (строка живёт)',
+    () async {
+      final store = await openStore();
+      final rpc = _FakeRpc()..sendError = TimeoutException('net down');
+      final sender = makeSender(store, rpc);
 
-    await store.enqueueOutbox(
-      OutboxItem(
-        clientTxnId: 'txt1',
-        userId: 7,
-        roomId: 1,
-        kind: OutboxKind.text,
-        body: 'hi',
-        createdAt: 1,
-      ),
-    );
-    await sender.flush();
+      await store.enqueueOutbox(
+        OutboxItem(
+          clientTxnId: 'txt1',
+          userId: 7,
+          roomId: 1,
+          kind: OutboxKind.text,
+          body: 'hi',
+          createdAt: 1,
+        ),
+      );
+      await sender.flush();
 
-    final rows = await store.outboxForRoom(1);
-    expect(rows, hasLength(1), reason: 'транзиент не удаляет строку');
-    expect(rows.single.status, OutboxStatus.pending);
-    expect(rows.single.attempts, 1);
-    expect(rows.single.nextAttemptAt, greaterThan(0));
-    expect(rows.single.lastError, contains('net down'));
-    await sender.dispose();
-    await store.close();
-  });
+      final rows = await store.outboxForRoom(1);
+      expect(rows, hasLength(1), reason: 'транзиент не удаляет строку');
+      expect(rows.single.status, OutboxStatus.pending);
+      expect(rows.single.attempts, 1);
+      expect(rows.single.nextAttemptAt, greaterThan(0));
+      expect(rows.single.lastError, contains('net down'));
+      await sender.dispose();
+      await store.close();
+    },
+  );
 
   test('транзиент сверх лимита попыток → failed (не ретраим вечно)', () async {
     final store = await openStore();
@@ -163,42 +164,44 @@ void main() {
     await store.close();
   });
 
-  test('вложение: файл → upload → send(attachment, albumId) + файл удалён',
-      () async {
-    final store = await openStore();
-    final rpc = _FakeRpc();
-    final sender = makeSender(store, rpc);
+  test(
+    'вложение: файл → upload → send(attachment, albumId) + файл удалён',
+    () async {
+      final store = await openStore();
+      final rpc = _FakeRpc();
+      final sender = makeSender(store, rpc);
 
-    // Персистентная копия файла (как после enqueueFile).
-    final f = File('${outboxDir.path}/img1.jpg');
-    await f.writeAsBytes([1, 2, 3, 4]);
+      // Персистентная копия файла (как после enqueueFile).
+      final f = File('${outboxDir.path}/img1.jpg');
+      await f.writeAsBytes([1, 2, 3, 4]);
 
-    await store.enqueueOutbox(
-      OutboxItem(
-        clientTxnId: 'img1',
-        userId: 7,
-        roomId: 1,
-        kind: OutboxKind.attachment,
-        body: 'img.jpg',
-        msgType: 'm.image',
-        attachmentPath: f.path,
-        mimeType: 'image/jpeg',
-        originalFilename: 'img.jpg',
-        albumId: 'album-9',
-        createdAt: 1,
-      ),
-    );
-    await sender.flush();
+      await store.enqueueOutbox(
+        OutboxItem(
+          clientTxnId: 'img1',
+          userId: 7,
+          roomId: 1,
+          kind: OutboxKind.attachment,
+          body: 'img.jpg',
+          msgType: 'm.image',
+          attachmentPath: f.path,
+          mimeType: 'image/jpeg',
+          originalFilename: 'img.jpg',
+          albumId: 'album-9',
+          createdAt: 1,
+        ),
+      );
+      await sender.flush();
 
-    expect(rpc.uploadCount, 1);
-    expect(rpc.sentTxnIds, ['img1']);
-    expect(rpc.sentAlbumIds, ['album-9']);
-    expect(rpc.lastAttachment, isNotNull);
-    expect(await store.outboxForRoom(1), isEmpty);
-    expect(await f.exists(), isFalse, reason: 'файл удаляется на успехе');
-    await sender.dispose();
-    await store.close();
-  });
+      expect(rpc.uploadCount, 1);
+      expect(rpc.sentTxnIds, ['img1']);
+      expect(rpc.sentAlbumIds, ['album-9']);
+      expect(rpc.lastAttachment, isNotNull);
+      expect(await store.outboxForRoom(1), isEmpty);
+      expect(await f.exists(), isFalse, reason: 'файл удаляется на успехе');
+      await sender.dispose();
+      await store.close();
+    },
+  );
 
   test('enqueueFile копирует источник в персистентный каталог', () async {
     final store = await openStore();
@@ -297,6 +300,7 @@ class _FakeRpc implements MessagesRpc {
     String? forwardedFromEventId,
     // TASK82: тред задачи — фейку достаточно принять параметр.
     String? threadId,
+    int? stickerId,
   }) async {
     if (sendError != null) throw sendError!;
     sentBodies.add(body);
@@ -335,6 +339,7 @@ class _FakeRpc implements MessagesRpc {
   }) async => const <String>[];
 
   @override
-  Future<List<MessengerMessage>> listPinnedMessages({required int roomId}) async =>
-      const <MessengerMessage>[];
+  Future<List<MessengerMessage>> listPinnedMessages({
+    required int roomId,
+  }) async => const <MessengerMessage>[];
 }

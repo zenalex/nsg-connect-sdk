@@ -237,6 +237,7 @@ class _FakeRpc implements MessagesRpc {
   }) async => const <String>[];
 
   @override
-  Future<List<MessengerMessage>> listPinnedMessages({required int roomId}) async =>
-      const <MessengerMessage>[];
+  Future<List<MessengerMessage>> listPinnedMessages({
+    required int roomId,
+  }) async => const <MessengerMessage>[];
 }

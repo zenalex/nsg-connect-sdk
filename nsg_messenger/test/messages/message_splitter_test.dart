@@ -25,8 +25,7 @@ void main() {
       for (final p in parts) {
         expect(p.length, lessThanOrEqualTo(100));
       }
-      expect(parts.join(' ').split(RegExp(r'\s+')),
-          text.split(RegExp(r'\s+')));
+      expect(parts.join(' ').split(RegExp(r'\s+')), text.split(RegExp(r'\s+')));
     });
 
     test('рез по абзацу, когда абзац влезает целиком', () {
@@ -64,10 +63,16 @@ void main() {
       final parts = splitMessageBody('```dart\n$code\n```', limit: 120);
       expect(parts.length, greaterThan(1));
       for (final p in parts) {
-        expect(p.trimLeft().startsWith('```dart'), isTrue,
-            reason: 'каждая часть начинается блоком: $p');
-        expect(p.trimRight().endsWith('```'), isTrue,
-            reason: 'и закрывается: $p');
+        expect(
+          p.trimLeft().startsWith('```dart'),
+          isTrue,
+          reason: 'каждая часть начинается блоком: $p',
+        );
+        expect(
+          p.trimRight().endsWith('```'),
+          isTrue,
+          reason: 'и закрывается: $p',
+        );
         // Чётное число ограждений = блок в части сбалансирован.
         expect('```'.allMatches(p).length.isEven, isTrue);
       }
@@ -90,10 +95,7 @@ void main() {
     });
 
     test('части не длиннее лимита даже с переоткрытием блока', () {
-      final parts = splitMessageBody(
-        '```python\n${'a' * 500}\n```',
-        limit: 64,
-      );
+      final parts = splitMessageBody('```python\n${'a' * 500}\n```', limit: 64);
       for (final p in parts) {
         expect(p.length, lessThanOrEqualTo(64), reason: p);
       }

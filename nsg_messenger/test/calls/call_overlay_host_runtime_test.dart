@@ -66,25 +66,22 @@ void main() {
     expect(find.byKey(const Key('callIncomingAcceptButton')), findsNothing);
   });
 
-  testWidgets(
-    'РЕГРЕСС issue #47: окно teardown/reinit (isInitialized == true, '
-    'calls == null) — билд НЕ бросает StateError',
-    (tester) async {
-      // initDemo даёт ровно состояние «окна»: рантайм считается
-      // инициализированным (rooms/eventBus есть), а CallController — нет.
-      // До фикса _resolveController гейтился по isInitialized и дёргал
-      // бросающий геттер calls → красный экран.
-      await NsgMessenger.initDemo(rooms: const []);
-      expect(MessengerRuntime.instance.isInitialized, isTrue);
-      expect(MessengerRuntime.instance.callsOrNull, isNull);
+  testWidgets('РЕГРЕСС issue #47: окно teardown/reinit (isInitialized == true, '
+      'calls == null) — билд НЕ бросает StateError', (tester) async {
+    // initDemo даёт ровно состояние «окна»: рантайм считается
+    // инициализированным (rooms/eventBus есть), а CallController — нет.
+    // До фикса _resolveController гейтился по isInitialized и дёргал
+    // бросающий геттер calls → красный экран.
+    await NsgMessenger.initDemo(rooms: const []);
+    expect(MessengerRuntime.instance.isInitialized, isTrue);
+    expect(MessengerRuntime.instance.callsOrNull, isNull);
 
-      await tester.pumpWidget(host());
-      await tester.pump();
+    await tester.pumpWidget(host());
+    await tester.pump();
 
-      expect(tester.takeException(), isNull);
-      expect(find.byKey(const Key('appBody')), findsOneWidget);
-    },
-  );
+    expect(tester.takeException(), isNull);
+    expect(find.byKey(const Key('appBody')), findsOneWidget);
+  });
 
   testWidgets(
     'reinit: рантайм появился ПОСЛЕ монтирования хоста → по session-state '

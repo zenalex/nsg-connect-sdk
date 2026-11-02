@@ -1,5 +1,6 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -237,12 +238,51 @@ Future<List<PickedAttachment>> showAttachmentPicker({
   return outcome.picked;
 }
 
+/// **issue #168: платформенный выбор — ресурс ОДИН на приложение.**
+///
+/// `image_picker` отвечает `PlatformException(multiple_request)`, когда
+/// новый запрос приходит, пока предыдущий не завершён, и при этом ОТМЕНЯЕТ
+/// первый — законный. Такое случается от обычного двойного тапа: системный
+/// лист открывается не мгновенно.
+///
+/// Флаг здесь модульный, а не в состоянии виджета, и это не небрежность:
+/// он описывает не виджет, а платформу, у которой выбор физически один.
+/// Два разных листа (композер и профиль) обязаны видеть один и тот же
+/// признак занятости.
+bool _pickInFlight = false;
+
+/// Идёт ли выбор прямо сейчас. Для UI: пока `true`, повторные нажатия
+/// игнорируются.
+bool get isPickInFlight => _pickInFlight;
+
+/// Сбросить признак — только для тестов.
+@visibleForTesting
+void resetPickInFlightForTesting() => _pickInFlight = false;
+
+/// Ошибка «выбор уже идёт», а не «выбрать не удалось».
+///
+/// Разница существенная: на провале лист закрывается с пустым результатом,
+/// а здесь закрывать нельзя — первый, законный выбор ещё жив (точнее, был
+/// жив: плагин его отменил, и повторное закрытие отняло бы у человека и
+/// вторую попытку).
+bool isConcurrentPickError(Object e) =>
+    e is PlatformException && e.code == 'multiple_request';
+
+/// Бросается вместо «пустого результата», когда выбор уже шёл.
+/// Вызывающий обязан просто ничего не делать: лист остаётся открытым.
+class ConcurrentPickException implements Exception {
+  const ConcurrentPickException();
+  @override
+  String toString() => 'ConcurrentPickException: выбор уже выполняется';
+}
+
 /// Выбор произвольного файла (issue #54 п.2). Мультивыбор — как
 /// у галереи; [limit] ограничивает сверху числом свободных слотов
 /// черновика.
 Future<AttachmentPickOutcome> pickFilesAttachment({int? limit}) async {
   final FilePickerResult? result;
   try {
+    _pickInFlight = true;
     result = await FilePicker.platform.pickFiles(
       allowMultiple: true,
       // `withData` только на web: там у файла нет пути и байты — это
@@ -253,8 +293,12 @@ Future<AttachmentPickOutcome> pickFilesAttachment({int? limit}) async {
       withData: kIsWeb,
     );
   } catch (e, st) {
+    // «Выбор уже идёт» — не провал: закрывать лист нельзя (#168).
+    if (isConcurrentPickError(e)) throw const ConcurrentPickException();
     _reportPickFailure('pickFiles', e, st);
     return AttachmentPickOutcome.empty; // плагин недоступен / отказ ОС
+  } finally {
+    _pickInFlight = false;
   }
   if (result == null || result.files.isEmpty) {
     return AttachmentPickOutcome.empty; // cancel
@@ -283,10 +327,14 @@ Future<PickedAttachment?> pickImageAttachment(
 ) async {
   final XFile? file;
   try {
+    _pickInFlight = true;
     file = await picker.pickImage(source: source);
   } catch (e, st) {
+    if (isConcurrentPickError(e)) throw const ConcurrentPickException();
     _reportPickFailure('pickImage($source)', e, st);
     return null;
+  } finally {
+    _pickInFlight = false;
   }
   if (file == null) return null; // user cancelled
   final bytes = await file.readAsBytes();
@@ -309,10 +357,14 @@ Future<List<PickedAttachment>> pickImagesAttachment(
 }) async {
   final List<XFile> files;
   try {
+    _pickInFlight = true;
     files = await picker.pickMultiImage(limit: limit);
   } catch (e, st) {
+    if (isConcurrentPickError(e)) throw const ConcurrentPickException();
     _reportPickFailure('pickMultiImage', e, st);
     return const <PickedAttachment>[];
+  } finally {
+    _pickInFlight = false;
   }
   if (files.isEmpty) return const <PickedAttachment>[];
   final result = <PickedAttachment>[];
@@ -336,6 +388,31 @@ class _AttachmentPickerSheet extends StatelessWidget {
   final ImagePicker picker;
   final int? galleryLimit;
 
+  /// **issue #168**: один вход для всех трёх пунктов.
+  ///
+  /// Делает три вещи, которых по отдельности не хватало:
+  ///
+  ///   * **игнорирует нажатие, пока выбор идёт** — системный лист
+  ///     открывается не мгновенно, и второй тап отменял первый;
+  ///   * **не закрывает лист** на `ConcurrentPickException`: «выбор уже
+  ///     идёт» — не повод отнимать у человека и вторую попытку;
+  ///   * закрывает лист результатом только тогда, когда выбор реально
+  ///     завершился.
+  Future<void> _pick(
+    BuildContext context,
+    Future<AttachmentPickOutcome> Function() run,
+  ) async {
+    if (isPickInFlight) return;
+    final AttachmentPickOutcome outcome;
+    try {
+      outcome = await run();
+    } on ConcurrentPickException {
+      return; // лист остаётся открытым
+    }
+    if (!context.mounted) return;
+    Navigator.of(context).pop(outcome);
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = NsgL10n.of(context);
@@ -355,20 +432,17 @@ class _AttachmentPickerSheet extends StatelessWidget {
             ListTile(
               leading: const Icon(Icons.photo_camera_outlined),
               title: Text(l.attachActionCamera),
-              onTap: () async {
+              onTap: () => _pick(context, () async {
                 // Камера — одна картинка; оборачиваем в список для единого
                 // контракта showAttachmentPicker → List.
                 final result = await pickImageAttachment(
                   picker,
                   ImageSource.camera,
                 );
-                if (!context.mounted) return;
-                Navigator.of(context).pop(
-                  result == null
-                      ? AttachmentPickOutcome.empty
-                      : partitionBySizeLimit([result]),
-                );
-              },
+                return result == null
+                    ? AttachmentPickOutcome.empty
+                    : partitionBySizeLimit([result]);
+              }),
             ),
           ListTile(
             leading: const Icon(Icons.photo_library_outlined),
@@ -378,25 +452,21 @@ class _AttachmentPickerSheet extends StatelessWidget {
             title: Text(
               _hasCameraSource ? l.attachActionGallery : l.attachActionImage,
             ),
-            onTap: () async {
+            onTap: () => _pick(context, () async {
               // Галерея — мультивыбор (Telegram-style альбом).
               final result = await pickImagesAttachment(
                 picker,
                 limit: galleryLimit,
               );
-              if (!context.mounted) return;
-              Navigator.of(context).pop(partitionBySizeLimit(result));
-            },
+              return partitionBySizeLimit(result);
+            }),
           ),
           // Issue #54 п.2: произвольный файл (документ, архив, видео…).
           ListTile(
             leading: const Icon(Icons.insert_drive_file_outlined),
             title: Text(l.attachActionFile),
-            onTap: () async {
-              final outcome = await pickFilesAttachment(limit: galleryLimit);
-              if (!context.mounted) return;
-              Navigator.of(context).pop(outcome);
-            },
+            onTap: () =>
+                _pick(context, () => pickFilesAttachment(limit: galleryLimit)),
           ),
         ],
       ),

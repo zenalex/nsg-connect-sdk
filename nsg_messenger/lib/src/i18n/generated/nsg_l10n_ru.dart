@@ -134,6 +134,9 @@ class NsgL10nRu extends NsgL10n {
   String get roomActionUnarchive => 'Из архива';
 
   @override
+  String get roomActionMarkRead => 'Пометить как прочитанное';
+
+  @override
   String get roomActionDismissSupport => 'Закрыть (до ответа)';
 
   @override
@@ -306,6 +309,9 @@ class NsgL10nRu extends NsgL10n {
   String get fileActionSave => 'Сохранить на диск';
 
   @override
+  String get fileShowInFolder => 'Открыть папку';
+
+  @override
   String fileSavedTo(String path) {
     return 'Сохранено: $path';
   }
@@ -406,6 +412,66 @@ class NsgL10nRu extends NsgL10n {
 
   @override
   String get emojiInsertTooltip => 'Эмодзи';
+
+  @override
+  String get stickerTabEmoji => 'Эмодзи';
+
+  @override
+  String get stickerTabStickers => 'Стикеры';
+
+  @override
+  String get stickerPacksEmpty => 'Своих стикеров пока нет';
+
+  @override
+  String get stickerPacksLoadFailed => 'Не удалось загрузить стикеры';
+
+  @override
+  String get stickerPacksTitle => 'Мои стикеры';
+
+  @override
+  String get stickerPacksNoneHint =>
+      'Создайте набор и положите в него свои картинки — PNG, WebP или GIF.';
+
+  @override
+  String get stickerPackCreate => 'Создать набор';
+
+  @override
+  String get stickerPackNameHint => 'Имя набора';
+
+  @override
+  String get stickerPackRename => 'Переименовать';
+
+  @override
+  String get stickerPackDelete => 'Удалить набор';
+
+  @override
+  String stickerPackDeleteConfirm(String name) {
+    return 'Удалить «$name» вместе со стикерами?';
+  }
+
+  @override
+  String get stickerAdd => 'Добавить стикер';
+
+  @override
+  String get stickerNameHint => 'Имя стикера';
+
+  @override
+  String get stickerNameHelp =>
+      'Строчные латинские буквы, цифры и подчёркивание';
+
+  @override
+  String stickerDeleteConfirm(String alias) {
+    return 'Удалить стикер :$alias:?';
+  }
+
+  @override
+  String get stickerDelete => 'Удалить';
+
+  @override
+  String get stickerSave => 'Сохранить';
+
+  @override
+  String get stickerActionFailed => 'Не получилось. Попробуйте ещё раз';
 
   @override
   String get emojiCategorySmileys => 'Смайлы и эмоции';
@@ -2054,6 +2120,9 @@ class NsgL10nRu extends NsgL10n {
   String get pulseBeatUrlLabel => 'URL для сигналов';
 
   @override
+  String get pulseBeatTokenLabel => 'Токен';
+
+  @override
   String get pulseBeatUrlOnce =>
       'Скопируйте сейчас — токен показывается только один раз.';
 
@@ -3266,6 +3335,23 @@ class NsgL10nRu extends NsgL10n {
       'Наблюдения прежней цели сбрасываются: сертификат, отпечаток и сроки принадлежали ей. История инцидентов и участники остаются.';
 
   @override
+  String get pulseEditMonitor => 'Изменить';
+
+  @override
+  String get pulseEditMonitorTitle => 'Параметры монитора';
+
+  @override
+  String get pulseEditMonitorBody =>
+      'Новые значения действуют со следующей проверки — перезапускать ничего не нужно.';
+
+  @override
+  String get pulseEditMonitorHeartbeatHint =>
+      'Период должен совпадать с тем, как часто сервис присылает сигнал: если сделать его короче, монитор покраснеет над здоровым сервисом.';
+
+  @override
+  String get pulseEditMonitorSave => 'Сохранить';
+
+  @override
   String get pulseProbeHost => 'Адрес';
 
   @override
@@ -3300,4 +3386,369 @@ class NsgL10nRu extends NsgL10n {
 
   @override
   String get pulsePeriod7d => 'раз в неделю';
+
+  @override
+  String get messageActionReport => 'Пожаловаться';
+
+  @override
+  String get crmTitle => 'CRM';
+
+  @override
+  String get crmSteps => 'Мои шаги';
+
+  @override
+  String get crmPipeline => 'Воронка';
+
+  @override
+  String get crmCompanies => 'Компании';
+
+  @override
+  String get crmToday => 'Сегодня';
+
+  @override
+  String get crmOverdue => 'Просрочено';
+
+  @override
+  String get crmWeek => 'Неделя';
+
+  @override
+  String get crmPending => 'Уточнить';
+
+  @override
+  String get crmDone => 'Готово → следующий';
+
+  @override
+  String get crmReschedule => 'Перенести';
+
+  @override
+  String get crmAgent => 'Сказать агенту';
+
+  @override
+  String get crmUnavailable => 'Не удалось загрузить. Повторите попытку.';
+
+  @override
+  String get crmDenied => 'Нет доступа';
+
+  @override
+  String get crmEmpty => 'Здесь пока ничего нет';
+
+  @override
+  String get crmConflict => 'Данные изменились. Обновите карточку.';
+
+  @override
+  String get crmMine => 'Мои';
+
+  @override
+  String get crmAll => 'Все';
+
+  @override
+  String get crmClosed => 'Закрытые';
+
+  @override
+  String get crmList => 'Список';
+
+  @override
+  String get crmKanban => 'Канбан';
+
+  @override
+  String get crmNewDeal => 'Новая сделка';
+
+  @override
+  String get crmAmount => 'Сумма';
+
+  @override
+  String get crmCurrency => 'Валюта';
+
+  @override
+  String get crmOwner => 'Ответственный';
+
+  @override
+  String get crmStage => 'Этап';
+
+  @override
+  String get crmNextStep => 'Следующий шаг';
+
+  @override
+  String get crmDue => 'Срок';
+
+  @override
+  String get crmContacts => 'Контакты';
+
+  @override
+  String get crmActivities => 'Касания';
+
+  @override
+  String get crmDocuments => 'Документы';
+
+  @override
+  String get crmDealChat => 'Чат сделки';
+
+  @override
+  String get crmFutbolistaStub => 'Futbolista · не привязано';
+
+  @override
+  String get crmLinkOrganizer => 'Привязать организатора';
+
+  @override
+  String get crmNotes => 'Заметки';
+
+  @override
+  String get crmActivity => 'Касание';
+
+  @override
+  String get crmMeeting => 'Встреча';
+
+  @override
+  String get crmCall => 'Звонок';
+
+  @override
+  String get crmMessage => 'Переписка';
+
+  @override
+  String get crmNote => 'Заметка';
+
+  @override
+  String get crmWhen => 'Когда';
+
+  @override
+  String get crmOutcome => 'Итог';
+
+  @override
+  String get crmSave => 'Сохранить';
+
+  @override
+  String get crmCancel => 'Отмена';
+
+  @override
+  String get crmYes => 'Да';
+
+  @override
+  String get crmNo => 'Нет';
+
+  @override
+  String get crmCloseReason => 'Причина закрытия';
+
+  @override
+  String get crmSaved => 'Сохранено';
+
+  @override
+  String get crmQueued =>
+      'Касание в очереди. Отправим после восстановления сети.';
+
+  @override
+  String get crmOffline => 'Нет сети · сохранённая копия';
+
+  @override
+  String get crmNewContact => 'Новый контакт';
+
+  @override
+  String get crmCompany => 'Компания';
+
+  @override
+  String get crmSegment => 'Сегмент';
+
+  @override
+  String get crmTitleField => 'Название';
+
+  @override
+  String get crmThroughAgent => 'через агента';
+
+  @override
+  String get crmPersonalAgent => 'Агент CRM · только вы и агент';
+
+  @override
+  String get crmMore => 'Загрузить ещё';
+
+  @override
+  String get crmSearch => 'Поиск';
+
+  @override
+  String get crmPdHidden => 'ПДн скрыты';
+
+  @override
+  String crmProposalStatus(String status) {
+    return 'Статус: $status';
+  }
+
+  @override
+  String get crmProposed => 'Ждёт подтверждения';
+
+  @override
+  String get crmApplied => 'Применено';
+
+  @override
+  String get crmRejected => 'Отклонено';
+
+  @override
+  String get crmStale => 'Данные изменились';
+
+  @override
+  String get crmSuperseded => 'Заменено новым предложением';
+
+  @override
+  String get crmExpired => 'Срок истёк';
+
+  @override
+  String get crmAgentRoom => 'Агент CRM';
+
+  @override
+  String get crmActive => 'Активна';
+
+  @override
+  String get crmPaused => 'Пауза';
+
+  @override
+  String get crmClosedCompany => 'Закрыта';
+
+  @override
+  String get crmOrganizer => 'Организатор';
+
+  @override
+  String get crmArena => 'Арена';
+
+  @override
+  String get crmClub => 'Клуб';
+
+  @override
+  String get crmFederation => 'Федерация';
+
+  @override
+  String get crmContest => 'Турнир';
+
+  @override
+  String get crmSponsor => 'Спонсор';
+
+  @override
+  String get crmMedia => 'Медиа';
+
+  @override
+  String get crmForeignPartner => 'Внешний партнёр';
+
+  @override
+  String get crmOther => 'Другое';
+
+  @override
+  String get crmOpenDocument => 'Открыть';
+
+  @override
+  String get crmOpenDeal => 'Открыть сделку';
+
+  @override
+  String crmProposalTitle(int id) {
+    return 'Предложение №$id';
+  }
+
+  @override
+  String crmExpiresAt(String date) {
+    return 'Действует до $date';
+  }
+
+  @override
+  String get crmReplySent => 'Ответ отправлен — ждём сервер';
+
+  @override
+  String get crmYesterday => 'вчера';
+
+  @override
+  String crmOverdueDays(int days) {
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: 'просрочено $days дня',
+      many: 'просрочено $days дней',
+      few: 'просрочено $days дня',
+      one: 'просрочено $days день',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get crmChangeStage => 'Изменить этап';
+
+  @override
+  String get crmNoCompanies => 'Сначала создайте компанию для сделки';
+
+  @override
+  String get crmNewCompany => 'Новая компания';
+
+  @override
+  String get crmNoOpenStages =>
+      'В воронке нет открытого этапа. Обратитесь к администратору CRM.';
+
+  @override
+  String get crmChooseCompany => 'Выбрать компанию';
+
+  @override
+  String crmQueueExpired(int count) {
+    return 'Удалено просроченных касаний из очереди: $count. Создайте их заново.';
+  }
+
+  @override
+  String get crmAgentPrivacy => 'только вы и агент · ваши права';
+
+  @override
+  String get crmHeaderSteps => 'шаги';
+
+  @override
+  String get crmWhatHappened => 'Что было';
+
+  @override
+  String get crmDoneShort => 'Готово';
+
+  @override
+  String get crmLead => 'Ведёт';
+
+  @override
+  String get crmAssignee => 'Исполнитель';
+
+  @override
+  String get crmDeals => 'Сделки';
+
+  @override
+  String get crmLatestActivities => 'Последние касания';
+
+  @override
+  String get crmPhonePresent => 'телефон есть';
+
+  @override
+  String get crmEmailPresent => 'почта есть';
+
+  @override
+  String get crmPdNotice =>
+      'Телефон и почта видны только с правом на ПДн; каждое раскрытие пишется в журнал.';
+
+  @override
+  String crmStageAge(int days) {
+    return '$days дн. на этапе';
+  }
+
+  @override
+  String get crmDragHint =>
+      'Перетаскивание между этапами — как смена этапа: для отказа и выигрыша потребуется причина. Пауза и отказ — в фильтре «Закрытые».';
+
+  @override
+  String get crmOpenTotal => 'в открытых';
+
+  @override
+  String get crmFutbolistaNotice =>
+      'Компания не связана с организатором в Futbolista. После привязки здесь появятся турниры, матчи и игроки — только агрегаты.';
+
+  @override
+  String get crmAddDeal => '+ Сделка';
+
+  @override
+  String get crmAddContact => '+ Контакт';
+
+  @override
+  String get crmTournaments => 'турниров';
+
+  @override
+  String get crmMatches => 'матчей';
+
+  @override
+  String get crmPlayers => 'игроков';
+
+  @override
+  String get crmAggregatesOnly =>
+      'Только агрегаты, без персональных данных · TASK103';
 }

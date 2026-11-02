@@ -52,9 +52,8 @@ Future<void> _pump(
     listDeliveryHealthRpc: list,
     enableAndGenerateRpc: ({required String tenantExternalKey}) =>
         throw UnimplementedError(),
-    rotateSecretRpc:
-        ({required String tenantExternalKey, int? graceSeconds}) =>
-            throw UnimplementedError(),
+    rotateSecretRpc: ({required String tenantExternalKey, int? graceSeconds}) =>
+        throw UnimplementedError(),
     disableRpc: ({required String tenantExternalKey}) =>
         throw UnimplementedError(),
     statusRpc: ({required String tenantExternalKey}) =>
@@ -91,9 +90,7 @@ void main() {
     // мы у себя. Один общий «красный» отправил бы разбираться не туда.
     await _pump(
       t,
-      () async => [
-        _health(key: 'titan_lk', verdict: 'noCredentials', fcm: 3),
-      ],
+      () async => [_health(key: 'titan_lk', verdict: 'noCredentials', fcm: 3)],
     );
     expect(find.textContaining('нет ключей'), findsOneWidget);
     expect(find.textContaining('ключей нет'), findsOneWidget);

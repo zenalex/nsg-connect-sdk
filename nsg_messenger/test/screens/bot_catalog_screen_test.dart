@@ -84,8 +84,9 @@ void main() {
       expect(find.textContaining('No public bots yet'), findsOneWidget);
     });
 
-    testWidgets('запись каталога показывает режим чтения, команды и описание',
-        (tester) async {
+    testWidgets('запись каталога показывает режим чтения, команды и описание', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         wrapL10n(
           BotCatalogScreen(
@@ -114,8 +115,9 @@ void main() {
       expect(find.textContaining('/deploy'), findsOneWidget);
     });
 
-    testWidgets('«читает ВСЕ сообщения» показано и подсвечено error-цветом',
-        (tester) async {
+    testWidgets('«читает ВСЕ сообщения» показано и подсвечено error-цветом', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         wrapL10n(
           BotCatalogScreen(
@@ -141,8 +143,9 @@ void main() {
       );
     });
 
-    testWidgets('«Подключить» зовёт addBotToMyRoom с (botId, roomId)',
-        (tester) async {
+    testWidgets('«Подключить» зовёт addBotToMyRoom с (botId, roomId)', (
+      tester,
+    ) async {
       (int, int)? seen;
       await tester.pumpWidget(
         wrapL10n(
@@ -162,8 +165,9 @@ void main() {
       expect(seen, (7, 42));
     });
 
-    testWidgets('бот уже в чате → кнопки подключения нет, стоит метка',
-        (tester) async {
+    testWidgets('бот уже в чате → кнопки подключения нет, стоит метка', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         wrapL10n(
           BotCatalogScreen(
@@ -203,9 +207,7 @@ void main() {
         wrapL10n(
           BotCatalogScreen(
             roomId: 5,
-            catalogOverride: makeCatalog(
-              onList: (_) async => [availableBot()],
-            ),
+            catalogOverride: makeCatalog(onList: (_) async => [availableBot()]),
           ),
         ),
       );
@@ -218,8 +220,9 @@ void main() {
   });
 
   group('BotCardScreen', () {
-    testWidgets('карточка: владелец, описание, команды и режим чтения крупно',
-        (tester) async {
+    testWidgets('карточка: владелец, описание, команды и режим чтения крупно', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         wrapL10n(
           BotCardScreen(
@@ -249,8 +252,9 @@ void main() {
       );
     });
 
-    testWidgets('владелец без отображаемого имени → показываем email',
-        (tester) async {
+    testWidgets('владелец без отображаемого имени → показываем email', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         wrapL10n(
           BotCardScreen(
@@ -263,8 +267,9 @@ void main() {
       expect(find.text('Owner: owner@test.local'), findsOneWidget);
     });
 
-    testWidgets('бот не виден caller-у (null) → честное «недоступен»',
-        (tester) async {
+    testWidgets('бот не виден caller-у (null) → честное «недоступен»', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         wrapL10n(
           BotCardScreen(
@@ -277,8 +282,9 @@ void main() {
       expect(find.textContaining('not available'), findsOneWidget);
     });
 
-    testWidgets('нет чатов, где caller админ → кнопок управления нет',
-        (tester) async {
+    testWidgets('нет чатов, где caller админ → кнопок управления нет', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         wrapL10n(
           BotCardScreen(
@@ -301,8 +307,9 @@ void main() {
       );
     });
 
-    testWidgets('caller админ этого чата и бот в нём → есть «отключить»',
-        (tester) async {
+    testWidgets('caller админ этого чата и бот в нём → есть «отключить»', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         wrapL10n(
           BotCardScreen(
@@ -321,8 +328,9 @@ void main() {
       expect(find.text('Disconnect from this chat'), findsOneWidget);
     });
 
-    testWidgets('бот в чате есть, но caller там не админ → «отключить» скрыт',
-        (tester) async {
+    testWidgets('бот в чате есть, но caller там не админ → «отключить» скрыт', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         wrapL10n(
           BotCardScreen(
@@ -343,32 +351,34 @@ void main() {
       expect(find.text('Disconnect from this chat'), findsNothing);
     });
 
-    testWidgets('«отключить» требует подтверждения и зовёт RPC с (botId, room)',
-        (tester) async {
-      (int, int)? seen;
-      await tester.pumpWidget(
-        wrapL10n(
-          BotCardScreen(
-            botMessengerUserId: 108,
-            roomId: 5,
-            initialBot: availableBot(botId: 8, inRoom: true),
-            catalogOverride: makeCatalog(
-              onAdminRooms: () async => [room(5, 'Моя группа')],
-              onCard: (_) async => availableBot(botId: 8),
-              onRemove: (botId, roomId) async => seen = (botId, roomId),
+    testWidgets(
+      '«отключить» требует подтверждения и зовёт RPC с (botId, room)',
+      (tester) async {
+        (int, int)? seen;
+        await tester.pumpWidget(
+          wrapL10n(
+            BotCardScreen(
+              botMessengerUserId: 108,
+              roomId: 5,
+              initialBot: availableBot(botId: 8, inRoom: true),
+              catalogOverride: makeCatalog(
+                onAdminRooms: () async => [room(5, 'Моя группа')],
+                onCard: (_) async => availableBot(botId: 8),
+                onRemove: (botId, roomId) async => seen = (botId, roomId),
+              ),
             ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
+        );
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Disconnect from this chat'));
-      await tester.pumpAndSettle();
-      // Диалог открыт — RPC ещё не звали.
-      expect(seen, isNull);
-      await tester.tap(find.text('Disconnect').last);
-      await tester.pumpAndSettle();
-      expect(seen, (8, 5));
-    });
+        await tester.tap(find.text('Disconnect from this chat'));
+        await tester.pumpAndSettle();
+        // Диалог открыт — RPC ещё не звали.
+        expect(seen, isNull);
+        await tester.tap(find.text('Disconnect').last);
+        await tester.pumpAndSettle();
+        expect(seen, (8, 5));
+      },
+    );
   });
 }

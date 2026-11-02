@@ -64,7 +64,10 @@ void main() {
     // Пропустить её значит разрешить пробам ходить не туда, куда думал
     // человек.
     expect(parseProbeAllowlistPaste('10.0.0.1/64:443').targets, isEmpty);
-    expect(parseProbeAllowlistPaste('[2001:db8::]/64:443').targets, hasLength(1));
+    expect(
+      parseProbeAllowlistPaste('[2001:db8::]/64:443').targets,
+      hasLength(1),
+    );
   });
 
   test('порт вне диапазона — отказ, а не молчаливое усечение', () {

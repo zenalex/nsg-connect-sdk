@@ -80,4 +80,64 @@ void main() {
       );
     });
   });
+
+  /// **issue #180 — чем подписан экран входящего звонка.**
+  ///
+  /// На iOS это `CXProviderConfiguration.localizedName`: система пишет им
+  /// «через <имя>». Здесь было зашито имя нашего приложения, а SDK
+  /// встраивают чужие продукты — их пользователь видел чужой бренд на
+  /// одном из самых заметных системных экранов.
+  group('CallPushPresenter.resolveAppName', () {
+    setUp(() {
+      CallPushPresenter.appNameOverride = null;
+      CallPushPresenter.resetAppNameCache();
+    });
+    tearDown(() {
+      CallPushPresenter.appNameOverride = null;
+      CallPushPresenter.resetAppNameCache();
+    });
+
+    test('хост назвался сам — берём его слово', () async {
+      CallPushPresenter.appNameOverride = 'Титан ЛК';
+      final name = await CallPushPresenter.resolveAppName(
+        platformName: () async => 'не должно спрашиваться',
+      );
+      expect(name, 'Титан ЛК');
+    });
+
+    test('хост молчит — спрашиваем платформу', () async {
+      final name = await CallPushPresenter.resolveAppName(
+        platformName: () async => 'CHATista',
+      );
+      expect(name, 'CHATista');
+    });
+
+    // Плагины в фоновом изоляте могли не подняться. Пропущенный звонок —
+    // цена несопоставимо большая, чем неподписанный экран.
+    test('платформа не отвечает — null, но не исключение', () async {
+      final name = await CallPushPresenter.resolveAppName(
+        platformName: () async => throw StateError('нет плагина'),
+      );
+      expect(name, isNull);
+    });
+
+    test('второй раз платформу не дёргаем', () async {
+      var calls = 0;
+      Future<String> probe() async {
+        calls++;
+        return 'CHATista';
+      }
+
+      await CallPushPresenter.resolveAppName(platformName: probe);
+      await CallPushPresenter.resolveAppName(platformName: probe);
+      expect(calls, 1, reason: 'звонок не должен ждать повторного опроса');
+    });
+
+    test('пустое имя от платформы — тоже null', () async {
+      final name = await CallPushPresenter.resolveAppName(
+        platformName: () async => '   ',
+      );
+      expect(name, isNull);
+    });
+  });
 }

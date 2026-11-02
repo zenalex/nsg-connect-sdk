@@ -36,7 +36,11 @@ void main() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, null);
     for (final f in tempFiles) {
-      if (f.existsSync()) f.deleteSync();
+      // Терпимо: чтение файла из буфера может ещё не отпустить дескриптор,
+      // и падение уборки маскировало бы настоящую причину провала теста.
+      try {
+        if (f.existsSync()) f.deleteSync();
+      } catch (_) {}
     }
     tempFiles.clear();
   });
@@ -86,7 +90,26 @@ void main() {
   /// Дождаться конца вставки: чередует управляемое время (таймеры композера)
   /// и реальное (дисковое I/O при чтении файла из буфера). Один вид времени
   /// по отдельности флоу не дотягивает.
-  Future<void> settlePaste(WidgetTester tester) async {
+  Future<void> settlePaste(
+    WidgetTester tester, {
+    bool Function()? until,
+  }) async {
+    if (until != null) {
+      final elapsed = Stopwatch()..start();
+      while (!until() && elapsed.elapsed < const Duration(seconds: 5)) {
+        await tester.pump(const Duration(milliseconds: 100));
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 20)),
+        );
+      }
+      await tester.pump();
+      expect(
+        until(),
+        isTrue,
+        reason: 'Paste did not complete within 5 seconds',
+      );
+      return;
+    }
     for (var i = 0; i < 12; i++) {
       await tester.pump(const Duration(milliseconds: 100));
       await tester.runAsync(
@@ -176,7 +199,10 @@ void main() {
     );
 
     await pressCtrlV(tester);
-    await settlePaste(tester);
+    await settlePaste(
+      tester,
+      until: () => find.byIcon(Icons.send).evaluate().isNotEmpty,
+    );
     await tester.pump();
 
     // Проверяем через отправку, а не через миниатюру: декод картинки в
@@ -187,11 +213,110 @@ void main() {
       reason: 'вложение в черновике включает кнопку «Отправить»',
     );
     await tester.tap(find.byIcon(Icons.send));
-    await settlePaste(tester);
+    await settlePaste(tester, until: () => sent.length == 1);
 
     expect(sent, hasLength(1));
     expect(sent.single.mimeType, 'image/png');
     expect(sent.single.bytes, pngBytes);
+    expect(
+      sent.single.originalFilename,
+      endsWith('.png'),
+      reason: 'у файла из проводника есть настоящее имя — его и берём',
+    );
+    expect(sent.single.originalFilename, contains('nsg_paste_hdrop_'));
     expect(find.byType(SnackBar), findsNothing);
+  });
+
+  // Отбор по расширению оставлял немую дыру ровно того же рода, из-за которой
+  // и завели #83: человек копировал в проводнике pdf, жал Ctrl+V — и не
+  // происходило НИЧЕГО. При этом тот же файл, брошенный в окно мышью,
+  // прикреплялся штатно. Две двери в одну комнату вели себя по-разному.
+  testWidgets('в буфере файл НЕ картинка — тоже прикрепляется', (tester) async {
+    final tmp = File(
+      '${Directory.systemTemp.path}/nsg_paste_doc_'
+      '${DateTime.now().microsecondsSinceEpoch}.pdf',
+    );
+    tmp.writeAsBytesSync(const [0x25, 0x50, 0x44, 0x46]); // «%PDF»
+    tempFiles.add(tmp);
+    mockPasteboard(onImage: () => null, files: [tmp.path]);
+
+    final sent = <PickedAttachment>[];
+    await tester.pumpWidget(
+      composer(onSendAttachment: (p) async => sent.add(p)),
+    );
+
+    await pressCtrlV(tester);
+    await settlePaste(
+      tester,
+      until: () => find.byIcon(Icons.send).evaluate().isNotEmpty,
+    );
+    await tester.pump();
+    await tester.tap(find.byIcon(Icons.send));
+    await settlePaste(tester, until: () => sent.length == 1);
+
+    expect(sent, hasLength(1));
+    expect(sent.single.mimeType, 'application/pdf');
+    expect(sent.single.originalFilename, endsWith('.pdf'));
+    expect(find.byType(SnackBar), findsNothing);
+  });
+
+  testWidgets('в буфере несколько файлов — прикрепляются все', (tester) async {
+    final stamp = DateTime.now().microsecondsSinceEpoch;
+    final paths = <String>[];
+    for (final ext in const ['png', 'txt', 'pdf']) {
+      final f = File('${Directory.systemTemp.path}/nsg_paste_many_$stamp.$ext');
+      f.writeAsBytesSync(ext == 'png' ? pngBytes : const [1, 2, 3]);
+      tempFiles.add(f);
+      paths.add(f.path);
+    }
+    mockPasteboard(onImage: () => null, files: paths);
+
+    final sent = <PickedAttachment>[];
+    await tester.pumpWidget(
+      composer(onSendAttachment: (p) async => sent.add(p)),
+    );
+
+    await pressCtrlV(tester);
+    // Кнопка появляется после чтения всей пачки, независимо от скорости диска.
+    await settlePaste(
+      tester,
+      until: () => find.byIcon(Icons.send).evaluate().isNotEmpty,
+    );
+    await tester.pump();
+    await tester.tap(find.byIcon(Icons.send));
+    await settlePaste(tester, until: () => sent.length == 3);
+
+    expect(sent, hasLength(3));
+    expect(
+      sent.map((p) => p.mimeType),
+      containsAll(<String>['image/png', 'text/plain', 'application/pdf']),
+    );
+  });
+
+  // Путь буфера обязан вести себя как перетаскивание и в отказе: слишком
+  // большой файл не исчезает молча, его называют по имени.
+  testWidgets('файл в буфере больше потолка — назван поимённо', (tester) async {
+    final tmp = File(
+      '${Directory.systemTemp.path}/nsg_paste_big_'
+      '${DateTime.now().microsecondsSinceEpoch}.bin',
+    );
+    // Размер задаём `truncate`, а не записью байтов: отказ считается по
+    // `stat`, до чтения, и гонять 50 МБ через память теста незачем.
+    final raf = tmp.openSync(mode: FileMode.write);
+    raf.truncateSync(kMaxAttachmentBytes + 1);
+    raf.closeSync();
+    tempFiles.add(tmp);
+    mockPasteboard(onImage: () => null, files: [tmp.path]);
+
+    await tester.pumpWidget(composer());
+    await pressCtrlV(tester);
+    await settlePaste(
+      tester,
+      until: () => find.byType(SnackBar).evaluate().isNotEmpty,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SnackBar), findsOneWidget);
+    expect(find.textContaining('nsg_paste_big_'), findsOneWidget);
   });
 }

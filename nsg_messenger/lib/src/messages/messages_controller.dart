@@ -1,3 +1,4 @@
+import '../crm/crm_room_controller.dart';
 import 'dart:async';
 import 'dart:io' show File;
 import 'dart:math' as math;
@@ -15,6 +16,7 @@ import 'attachments/attachment_mime_types.dart';
 import 'attachments/attachment_transport.dart';
 import 'attachments/attachment_picker.dart';
 import 'chat_message.dart';
+import 'sticker_data.dart';
 import 'composer_album_edit.dart';
 import 'forward_source.dart';
 import 'messages_rpc.dart';
@@ -105,6 +107,7 @@ String? readBoundaryOf({
 }
 
 class MessagesController {
+  final crmRoom = CrmRoomController();
   MessagesController({
     required int roomId,
     required MessagesRpc rpc,
@@ -1097,6 +1100,67 @@ class MessagesController {
     return txnId;
   }
 
+  /// **issue #151**: отправить стикер из своего набора.
+  ///
+  /// На сервер уходит ТОЛЬКО идентификатор — картинку, имя и набор он
+  /// берёт из своей базы. Пузырь при этом рисуется сразу и целиком:
+  /// `mxc` стикера у нас уже есть (пикер получил его вместе с набором),
+  /// поэтому ждать серверного echo, чтобы показать картинку, не нужно.
+  ///
+  /// Возвращает `clientTxnId` — тот же, что у пузыря.
+  Future<String> sendSticker(
+    Sticker sticker, {
+    String? replyToMatrixEventId,
+  }) async {
+    final txnId = _txnIdGenerator();
+    if (_disposed) return txnId;
+    final stickerId = sticker.id;
+    if (stickerId == null) return txnId;
+
+    final optimistic = ChatMessage.optimistic(
+      clientTxnId: txnId,
+      senderMatrixUserId: _selfMatrixUserId,
+      senderMessengerUserId: _selfMessengerUserId,
+      // Тот же запасной текст, что соберёт сервер: иначе пузырь на
+      // промоуте дёрнулся бы с одного текста на другой.
+      body: ':${sticker.alias}:',
+      msgType: kStickerMsgType,
+      attachment: AttachmentRef(
+        mxcUrl: sticker.mxcUrl,
+        mimeType: sticker.mimeType,
+        sizeBytes: sticker.sizeBytes,
+        // Имя файла у стикера служебное — человеку оно не показывается.
+        originalFilename:
+            '${sticker.alias}.${sticker.mimeType.split('/').last}',
+        width: sticker.width,
+        height: sticker.height,
+        // Миниатюрой служит сама картинка: стикер и так маленький.
+        thumbnailMxcUrl: sticker.mxcUrl,
+      ),
+      sticker: StickerData(
+        alias: sticker.alias,
+        id: stickerId,
+        packId: sticker.packId,
+      ),
+      replyToMessageId: replyToMatrixEventId,
+      threadId: _threadRootEventId,
+    );
+    _insertLocalPending(optimistic);
+    if (replyToMatrixEventId != null) {
+      clearReplyTarget();
+    }
+
+    await _shootSendRpc(
+      clientTxnId: txnId,
+      body: optimistic.body,
+      msgType: kStickerMsgType,
+      attachment: optimistic.attachment,
+      replyToMatrixEventId: replyToMatrixEventId,
+      stickerId: stickerId,
+    );
+    return txnId;
+  }
+
   /// **TASK19 Chunk 3**: upload media bytes + send как attachment в
   /// одном flow. Используется `MessageComposer.onSendAttachment`
   /// callback. Returns clientTxnId; UI ничего с ним не делает,
@@ -1682,6 +1746,10 @@ class MessagesController {
       replyToMatrixEventId: failedMsg.replyToMessageId,
       mentionedMessengerUserIds: failedMsg.mentionedMessengerUserIds,
       albumId: failedMsg.albumId,
+      // **issue #151**: повтор стикера должен уйти стикером. Без id
+      // сервер принял бы присланное вложение как обычную картинку —
+      // пузырь после повтора сменил бы вид прямо на глазах.
+      stickerId: failedMsg.sticker?.id,
     );
   }
 
@@ -2009,6 +2077,7 @@ class MessagesController {
     await _outboxSub?.cancel();
     _outboxSub = null;
     _initBuffer = null;
+    crmRoom.dispose();
     _state.dispose();
     _replyTarget.dispose();
     _typingPeers.dispose();
@@ -2082,6 +2151,7 @@ class MessagesController {
 
     final m = event.message;
     if (m == null) return;
+    if (event.roomId == _roomId) crmRoom.messageChanged(m.content);
 
     // **TASK37**: type-switch на messageUpdated / messageDeleted ПЕРЕД
     // `_acceptIncomingInto`. Эти events содержат `MessengerMessage` с
@@ -2341,6 +2411,9 @@ class MessagesController {
     String? replyToMatrixEventId,
     List<int>? mentionedMessengerUserIds,
     String? albumId,
+    // **issue #151**: стикер. Не null → сервер соберёт содержимое сам по
+    // своей строке набора, игнорируя присланные body/attachment.
+    int? stickerId,
   }) async {
     // **B10**: retry-loop с backoff для transient ошибок (network,
     // timeout, 5xx). Идемпотентность гарантирует server-side dedup по
@@ -2369,6 +2442,7 @@ class MessagesController {
           // сервер вешает `m.relates_to {rel_type: m.thread}` и зеркалит
           // его комментарием в связанный GitHub issue.
           threadId: _threadRootEventId,
+          stickerId: stickerId,
         );
         if (_disposed) return;
         // Layer-1 promote pending → sent. Use _acceptIncomingInto на

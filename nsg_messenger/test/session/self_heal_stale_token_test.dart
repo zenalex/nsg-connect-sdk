@@ -102,7 +102,8 @@ void main() {
       final manager = MessengerSessionManager.attachWithRpcs(
         sessionRpc: (c) async =>
             sessionFor(token: 'live', validFor: const Duration(hours: 24)),
-        refreshRpc: (c, {previousToken}) async => throw StateError('refresh must NOT be called'),
+        refreshRpc: (c, {previousToken}) async =>
+            throw StateError('refresh must NOT be called'),
         authTokenProvider: _FakeProvider([ctx()]),
         store: InMemoryAuthTokenStore(),
         errorReporter: null,
@@ -424,7 +425,8 @@ void main() {
       final manager = MessengerSessionManager.attachWithRpcs(
         sessionRpc: (c) async =>
             sessionFor(token: 'live', validFor: const Duration(hours: 24)),
-        refreshRpc: (c, {previousToken}) async => throw const SocketException('offline'),
+        refreshRpc: (c, {previousToken}) async =>
+            throw const SocketException('offline'),
         authTokenProvider: _FakeProvider([ctx(), ctx()]),
         store: store,
         errorReporter: null,
@@ -459,7 +461,8 @@ void main() {
         final manager = MessengerSessionManager.attachWithRpcs(
           sessionRpc: (c) async =>
               sessionFor(token: 'live', validFor: const Duration(hours: 24)),
-          refreshRpc: (c, {previousToken}) async => throw InvalidTokenException(reason: 'dead'),
+          refreshRpc: (c, {previousToken}) async =>
+              throw InvalidTokenException(reason: 'dead'),
           authTokenProvider: _FakeProvider([ctx(), ctx()]),
           store: InMemoryAuthTokenStore(),
           errorReporter: null,

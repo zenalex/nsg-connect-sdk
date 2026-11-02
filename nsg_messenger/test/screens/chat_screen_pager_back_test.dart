@@ -73,40 +73,50 @@ void main() {
     return controller;
   }
 
-  testWidgets('canNavigateBack=true: back зовёт onNavigateBack, экран остаётся',
-      (tester) async {
-    var backCalls = 0;
-    await pushChatScreen(
-      tester,
-      canNavigateBack: true,
-      onNavigateBack: () => backCalls++,
-    );
+  testWidgets(
+    'canNavigateBack=true: back зовёт onNavigateBack, экран остаётся',
+    (tester) async {
+      var backCalls = 0;
+      await pushChatScreen(
+        tester,
+        canNavigateBack: true,
+        onNavigateBack: () => backCalls++,
+      );
 
-    final handled = await tester.binding.handlePopRoute();
-    await tester.pumpAndSettle();
+      final handled = await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
 
-    expect(handled, isTrue, reason: 'back перехвачен');
-    expect(backCalls, 1, reason: 'возврат в предыдущий чат набора');
-    expect(find.byType(ChatScreen), findsOneWidget,
-        reason: 'экран пейджера не покинут');
-  });
+      expect(handled, isTrue, reason: 'back перехвачен');
+      expect(backCalls, 1, reason: 'возврат в предыдущий чат набора');
+      expect(
+        find.byType(ChatScreen),
+        findsOneWidget,
+        reason: 'экран пейджера не покинут',
+      );
+    },
+  );
 
-  testWidgets('canNavigateBack=false: back покидает экран, onNavigateBack молчит',
-      (tester) async {
-    var backCalls = 0;
-    await pushChatScreen(
-      tester,
-      canNavigateBack: false,
-      onNavigateBack: () => backCalls++,
-    );
+  testWidgets(
+    'canNavigateBack=false: back покидает экран, onNavigateBack молчит',
+    (tester) async {
+      var backCalls = 0;
+      await pushChatScreen(
+        tester,
+        canNavigateBack: false,
+        onNavigateBack: () => backCalls++,
+      );
 
-    await tester.binding.handlePopRoute();
-    await tester.pumpAndSettle();
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
 
-    expect(backCalls, 0, reason: 'в корне истории back не перехватывается');
-    expect(find.byType(ChatScreen), findsNothing,
-        reason: 'экран пейджера покинут (выход в список)');
-  });
+      expect(backCalls, 0, reason: 'в корне истории back не перехватывается');
+      expect(
+        find.byType(ChatScreen),
+        findsNothing,
+        reason: 'экран пейджера покинут (выход в список)',
+      );
+    },
+  );
 }
 
 class _FakeRpc implements MessagesRpc {
@@ -154,6 +164,7 @@ class _FakeRpc implements MessagesRpc {
   }) async => const <String>[];
 
   @override
-  Future<List<MessengerMessage>> listPinnedMessages({required int roomId}) async =>
-      const <MessengerMessage>[];
+  Future<List<MessengerMessage>> listPinnedMessages({
+    required int roomId,
+  }) async => const <MessengerMessage>[];
 }

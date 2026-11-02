@@ -401,13 +401,27 @@ It takes two sides. Neither works alone:
 |---|---|
 | add `nsg_messenger_push`, wire Firebase into the app, pass `pushTokenProvider` at init | mount your Firebase service-account JSON and set `PUSH_FCM_<PRODUCT>` |
 | pass `productExternalKey` so devices are scoped to your product | route wake-ups only to devices of that product |
-| upload your APNs key to **your** Firebase console (iOS) | — we never see the `.p8` |
+| upload your APNs key to **your** Firebase console (iOS) | — we never see the `.p8` for ordinary notifications |
 | RuStore build: send the RuStore project credentials | set `PUSH_RUSTORE_<PRODUCT>` |
+
+> **Incoming calls are the exception to the row above.** Ordinary iOS
+> notifications ride FCM, so your `.p8` stays in your Firebase console and we
+> never touch it. A ringing call does not: PushKit tokens are not FCM tokens,
+> and our server signs VoIP pushes itself and sends them straight to
+> `api.push.apple.com`. For calls we therefore *do* need your `.p8`, its Key ID,
+> your Team ID and your bundle id. See
+> [Incoming calls on iOS](#incoming-calls-on-ios-a-separate-key-and-a-separate-token) below —
+> today this is configured for one bundle id only, so do not plan iOS calls
+> without asking us first.
 
 **How to verify it landed.** Ask us to check the delivery-health screen: it
 shows, per product, how many devices are registered, when a registration was
 last refreshed and whether the sending keys are configured. Verdicts are
 worded, not coloured — `no devices` is your side, `no keys` is ours.
+
+That screen deliberately counts only FCM and RuStore devices, so it stays
+green for a product whose iOS calls cannot ring at all — see the box above.
+Judge calls by the presence of `voip` registrations, not by push health.
 
 Also worth knowing: a device registration is refreshed on every app start and
 on token rotation, so a stale timestamp means nobody has opened the app —
@@ -431,6 +445,58 @@ Notes:
 - For tests / static-token scenarios use `InMemoryPushTokenProvider` exported from `nsg_messenger` core.
 - `firebase_core`/`firebase_messaging` version compatibility matrix: see `sdk/nsg_messenger_push/README.md` (the package declares wide ranges — your host app's Firebase pins win).
 - Server-side push body localization is keyed off `DeviceRegistration.locale` — no extra host work needed.
+
+### Incoming calls on iOS: a separate key and a separate token
+
+An iPhone with the app closed cannot be woken for a call by an FCM
+notification — Apple requires PushKit, and a PushKit token is a different
+token from the FCM one. Two things follow, and both are easy to miss because
+a call that never rings produces no error anywhere.
+
+**Your side.** Wire native PushKit in the iOS host app and hand us every
+token it issues:
+
+```dart
+// from your PushKit delegate (didUpdatePushCredentials), and again on rotation
+await NsgMessenger.registerVoipToken(token);
+// PushKit revoked the token:
+await NsgMessenger.registerVoipToken(null);
+```
+
+This creates a second `DeviceRegistration` alongside the FCM one, with
+`pushService = voip`. Calling it before `init()` finishes is fine — the token
+is held and registered as soon as the client exists.
+
+**Our side.** We sign the VoIP push ourselves and send it directly to
+`api.push.apple.com`, so we need, for **your** bundle id:
+
+* the APNs auth key `AuthKey_XXXXXXXXXX.p8` (PKCS#8 EC),
+* its 10-character Key ID,
+* your 10-character Apple Team ID,
+* the bundle id itself — the APNs topic is `<bundle id>.voip`.
+
+> **Not yet available per product.** Unlike FCM and RuStore credentials, which
+> are keyed by product (`PUSH_FCM_<PRODUCT>`), the APNs VoIP configuration is
+> currently a single global one — one key, one Team ID, one bundle id for the
+> whole installation. A second product's iOS calls therefore need work on our
+> side before your `.p8` is of any use. Ask before promising calls on iOS.
+
+Android has no equivalent gap: calls there ride the same FCM registration as
+ordinary notifications.
+
+### Incoming-call screen: whose name is on it
+
+On iOS the incoming-call screen is drawn by CallKit, and the system labels it with `CXProviderConfiguration.localizedName` — the "via &lt;name&gt;" line in Recents and on the call itself. **The SDK takes that name from your app**, not from ours: `android:label` in the manifest / `CFBundleDisplayName` in `Info.plist`. Nothing to wire — the platform already knows what your app is called.
+
+Override it only if the bundle name is not what you want shown:
+
+```dart
+CallPushPresenter.appNameOverride = 'Titan LK';
+```
+
+Set it in **both** entry points — `main()` and your FCM background handler. They are different isolates and statics do not travel between them. Forgetting it is safe: the platform lookup takes over.
+
+> This used to be a hard-coded literal with our own brand — an embedded host's users saw it on their call screen (issue #180).
 
 ## Theming (optional)
 

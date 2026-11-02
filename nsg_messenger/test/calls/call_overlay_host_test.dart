@@ -505,27 +505,28 @@ void main() {
       expect(player.log, ['play:connecting'], reason: 'без повторного play');
     });
 
-    testWidgets('входящий звонок НЕ трогает ringback-плеер (только исходящий)', (
-      tester,
-    ) async {
-      final player = _FakeRingbackPlayer();
-      final c = await pumpWithRingback(
-        tester,
-        player,
-        initial: const CallIncomingRinging(
-          callId: 'c1',
-          roomId: 1,
-          callerMatrixUserId: '@bob:home',
-        ),
-      );
-      // Для входящего desired=null и плеер даже не создаётся из-за дедупа —
-      // никаких play/stop.
-      expect(player.log, isEmpty);
-      // Гасим incoming-рингтон-таймер (SystemSound) перед концом теста, чтобы
-      // не осталось pending-периодиков (enableRingtone=true).
-      c.emit(const CallIdle());
-      await tester.pump();
-    });
+    testWidgets(
+      'входящий звонок НЕ трогает ringback-плеер (только исходящий)',
+      (tester) async {
+        final player = _FakeRingbackPlayer();
+        final c = await pumpWithRingback(
+          tester,
+          player,
+          initial: const CallIncomingRinging(
+            callId: 'c1',
+            roomId: 1,
+            callerMatrixUserId: '@bob:home',
+          ),
+        );
+        // Для входящего desired=null и плеер даже не создаётся из-за дедупа —
+        // никаких play/stop.
+        expect(player.log, isEmpty);
+        // Гасим incoming-рингтон-таймер (SystemSound) перед концом теста, чтобы
+        // не осталось pending-периодиков (enableRingtone=true).
+        c.emit(const CallIdle());
+        await tester.pump();
+      },
+    );
   });
 
   testWidgets('смена состояния перерисовывает overlay '

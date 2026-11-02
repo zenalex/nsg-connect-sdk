@@ -4,6 +4,8 @@ import 'dart:io' show Directory, File;
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:nsg_connect_client/nsg_connect_client.dart'
+    show CrmVersionConflict;
 
 import '../cache/messenger_cache_store.dart';
 import '../messages/attachments/attachment_mime_types.dart';
@@ -58,6 +60,7 @@ class OutboxSender {
   OutboxSender({
     required MessengerCacheStore store,
     required MessagesRpc rpc,
+    this.sendCrmActivity,
     List<Duration>? backoffSchedule,
     int? maxAttempts,
     Duration pollInterval = const Duration(seconds: 20),
@@ -71,6 +74,26 @@ class OutboxSender {
 
   final MessengerCacheStore _store;
   final MessagesRpc _rpc;
+  final Future<void> Function(OutboxItem item)? sendCrmActivity;
+
+  /// Uses the same persistent, account-scoped queue as chat sends.
+  Future<void> enqueueCrmActivity({
+    required String key,
+    required String payload,
+  }) async {
+    await _store.enqueueOutbox(
+      OutboxItem(
+        clientTxnId: key,
+        userId: _store.userId,
+        roomId: 0,
+        kind: OutboxKind.crmActivity,
+        body: payload,
+        createdAt: DateTime.now().millisecondsSinceEpoch,
+      ),
+    );
+    kick();
+  }
+
   final List<Duration> _backoff;
   final int _maxAttempts;
   final Duration _pollInterval;
@@ -79,6 +102,7 @@ class OutboxSender {
   Future<void>? _active;
   bool _disposed = false;
   Timer? _timer;
+  Timer? _retentionTimer;
 
   /// Дефолтный каталог персистентных копий вложений:
   /// `getApplicationSupportDirectory()/outbox`.
@@ -194,6 +218,9 @@ class OutboxSender {
     // Повторная попытка — на следующий kick / тик таймера.
     final attempted = <String>{};
     try {
+      await _store.purgeFailedCrmActivities(
+        DateTime.now().millisecondsSinceEpoch,
+      );
       while (!_disposed) {
         final now = DateTime.now().millisecondsSinceEpoch;
         final due = await _store.outboxDue(now);
@@ -217,7 +244,11 @@ class OutboxSender {
   Future<void> _sendOne(OutboxItem item) async {
     await _store.markOutboxSending(item.clientTxnId);
     try {
-      if (item.isAttachment) {
+      if (item.kind == OutboxKind.crmActivity) {
+        final send = sendCrmActivity;
+        if (send == null) throw StateError('CRM sender unavailable');
+        await send(item);
+      } else if (item.isAttachment) {
         await _sendAttachment(item);
       } else {
         await _rpc.sendMessage(
@@ -249,9 +280,11 @@ class OutboxSender {
           item.clientTxnId,
           attempts: attempts,
           nextAttemptAt: nextAt,
-          lastError: e.toString(),
+          lastError: item.kind == OutboxKind.crmActivity
+              ? 'temporary_unavailable'
+              : e.toString(),
         );
-        if (kDebugMode) {
+        if (kDebugMode && item.kind != OutboxKind.crmActivity) {
           debugPrint(
             '[OutboxSender] transient (txn=${item.clientTxnId}) '
             'attempt=$attempts/$_maxAttempts retry in ${delay.inSeconds}s: $e',
@@ -262,14 +295,23 @@ class OutboxSender {
         // → failed (UI: retry/discard).
         await _store.markOutboxFailed(
           item.clientTxnId,
-          lastError: exhausted
+          lastError: item.kind == OutboxKind.crmActivity
+              ? (e is CrmVersionConflict
+                    ? 'crm_version_conflict'
+                    : 'crm_send_failed')
+              : exhausted
               ? 'исчерпан лимит попыток ($attempts): $e'
               : e.toString(),
           // Только для сдачи по лимиту: перманентный отказ с первого раза
           // счётчик не трогает (попытка была одна, и она не «потрачена»).
           attempts: exhausted ? attempts : null,
+          retentionDeadline: item.kind == OutboxKind.crmActivity
+              ? DateTime.now()
+                    .add(const Duration(days: 7))
+                    .millisecondsSinceEpoch
+              : null,
         );
-        if (kDebugMode) {
+        if (kDebugMode && item.kind != OutboxKind.crmActivity) {
           debugPrint(
             '[OutboxSender] ${exhausted ? 'giving up after $attempts attempts' : 'permanent fail'} '
             '(txn=${item.clientTxnId}): $e\n$st',
@@ -354,6 +396,27 @@ class OutboxSender {
       return;
     }
     final hasPending = all.any((i) => i.status == OutboxStatus.pending);
+    _retentionTimer?.cancel();
+    _retentionTimer = null;
+    final failedCrm = all.where(
+      (i) => i.kind == OutboxKind.crmActivity && i.isFailed,
+    );
+    if (failedCrm.isNotEmpty) {
+      final deadline = failedCrm
+          .map((i) {
+            final legacyDeadline =
+                i.createdAt + const Duration(days: 7).inMilliseconds;
+            return i.nextAttemptAt >= legacyDeadline
+                ? i.nextAttemptAt
+                : legacyDeadline;
+          })
+          .reduce((a, b) => a < b ? a : b);
+      final delay = deadline - DateTime.now().millisecondsSinceEpoch;
+      _retentionTimer = Timer(
+        Duration(milliseconds: delay > 0 ? delay : 1),
+        kick,
+      );
+    }
     if (hasPending) {
       _timer ??= Timer.periodic(_pollInterval, (_) => kick());
     } else {
@@ -366,5 +429,7 @@ class OutboxSender {
     _disposed = true;
     _timer?.cancel();
     _timer = null;
+    _retentionTimer?.cancel();
+    _retentionTimer = null;
   }
 }

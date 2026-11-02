@@ -162,7 +162,8 @@ void main() {
       expect(
         h.rpc.markReadCalls,
         ['first'],
-        reason: 'юзер не видел сообщение — «прочитано» слать нельзя '
+        reason:
+            'юзер не видел сообщение — «прочитано» слать нельзя '
             '(вторая половина issue #55: молчаливое прочтение под профилем)',
       );
 
@@ -170,41 +171,39 @@ void main() {
     },
   );
 
-  testWidgets(
-    'pop обратно в чат → presence комнаты возвращается, отложенный '
-    'markRead дожимается',
-    (tester) async {
-      final h = await openChat(tester);
-      addTearDown(() async {
-        await h.controller.dispose();
-        await h.events.close();
-      });
-      expect(h.rpc.markReadCalls, ['first']);
+  testWidgets('pop обратно в чат → presence комнаты возвращается, отложенный '
+      'markRead дожимается', (tester) async {
+    final h = await openChat(tester);
+    addTearDown(() async {
+      await h.controller.dispose();
+      await h.events.close();
+    });
+    expect(h.rpc.markReadCalls, ['first']);
 
-      await pushCover(tester, h.navKey);
-      h.events.add(_eventForRoom(1, _msg(eventId: 'covered-1')));
-      await tester.pump();
-      h.events.add(_eventForRoom(1, _msg(eventId: 'covered-2')));
-      await tester.pump(const Duration(milliseconds: 900));
-      expect(h.rpc.markReadCalls, ['first'], reason: 'под профилем — молчим');
+    await pushCover(tester, h.navKey);
+    h.events.add(_eventForRoom(1, _msg(eventId: 'covered-1')));
+    await tester.pump();
+    h.events.add(_eventForRoom(1, _msg(eventId: 'covered-2')));
+    await tester.pump(const Duration(milliseconds: 900));
+    expect(h.rpc.markReadCalls, ['first'], reason: 'под профилем — молчим');
 
-      await popCover(tester, h.navKey);
-      await tester.pump();
+    await popCover(tester, h.navKey);
+    await tester.pump();
 
-      // Возврат presence: сервер снова знает «юзер в комнате 1».
-      expect(h.presenceCalls.last.currentRoomId, 1);
-      expect(h.presenceCalls.last.foreground, isTrue);
-      // Догон: накопившееся помечено одним вызовом с newest event id.
-      expect(
-        h.rpc.markReadCalls,
-        ['first', 'covered-2'],
-        reason: 'юзер вернулся и смотрит на ленту — теперь «прочитано» '
-            'честное',
-      );
+    // Возврат presence: сервер снова знает «юзер в комнате 1».
+    expect(h.presenceCalls.last.currentRoomId, 1);
+    expect(h.presenceCalls.last.foreground, isTrue);
+    // Догон: накопившееся помечено одним вызовом с newest event id.
+    expect(
+      h.rpc.markReadCalls,
+      ['first', 'covered-2'],
+      reason:
+          'юзер вернулся и смотрит на ленту — теперь «прочитано» '
+          'честное',
+    );
 
-      await tester.pumpWidget(const SizedBox.shrink());
-    },
-  );
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
   testWidgets(
     'host НЕ зарегистрировал observer → прежнее поведение (без исключений, '
@@ -228,7 +227,8 @@ void main() {
       expect(
         h.rpc.markReadCalls,
         ['first', 'legacy'],
-        reason: 'без observer-а SDK не видит перекрытие — сохраняем '
+        reason:
+            'без observer-а SDK не видит перекрытие — сохраняем '
             'прежнее (пусть и небезупречное) поведение, а не ломаемся',
       );
 
@@ -254,7 +254,8 @@ void main() {
       expect(
         h.presenceCalls,
         isEmpty,
-        reason: 'мы presence не держали — и отпускать (null) нечего: null '
+        reason:
+            'мы presence не держали — и отпускать (null) нечего: null '
             'стёр бы заявку чата, активного в другой панели',
       );
 
@@ -263,7 +264,8 @@ void main() {
       expect(
         h.presenceCalls,
         isEmpty,
-        reason: 'didPopNext в неактивной вкладке НЕ заявляет комнату — '
+        reason:
+            'didPopNext в неактивной вкладке НЕ заявляет комнату — '
             'это сделает didUpdateWidget, когда вкладка станет активной',
       );
       expect(h.rpc.markReadCalls, isEmpty, reason: 'гейт active — как был');
@@ -302,11 +304,10 @@ void main() {
       h.events.add(_eventForRoom(1, _msg(eventId: 'under-sheet')));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 900));
-      expect(
-        h.rpc.markReadCalls,
-        ['first', 'under-sheet'],
-        reason: 'лента видна за шитом — «прочитано» честное',
-      );
+      expect(h.rpc.markReadCalls, [
+        'first',
+        'under-sheet',
+      ], reason: 'лента видна за шитом — «прочитано» честное');
 
       await tester.pumpWidget(const SizedBox.shrink());
     },
@@ -401,6 +402,7 @@ class _FakeRpc implements MessagesRpc {
     String? forwardedFromEventId,
     // TASK82: тред задачи — фейку достаточно принять параметр.
     String? threadId,
+    int? stickerId,
   }) => throw UnimplementedError();
 
   @override

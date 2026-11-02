@@ -107,31 +107,37 @@ void main() {
     await events.close();
   });
 
-  test('pinnedMessagesChanged с ТЕМ ЖЕ набором (эхо) → без лишнего reload',
-      () async {
-    final rpc = _PinFakeRpc()..pinnedResult = [msg('\$a')];
-    final events = StreamController<MessengerEvent>.broadcast();
-    final ctrl = make(rpc, events.stream);
-    await ctrl.init();
-    await Future<void>.delayed(Duration.zero);
-    final callsAfterInit = rpc.listPinnedCalls;
+  test(
+    'pinnedMessagesChanged с ТЕМ ЖЕ набором (эхо) → без лишнего reload',
+    () async {
+      final rpc = _PinFakeRpc()..pinnedResult = [msg('\$a')];
+      final events = StreamController<MessengerEvent>.broadcast();
+      final ctrl = make(rpc, events.stream);
+      await ctrl.init();
+      await Future<void>.delayed(Duration.zero);
+      final callsAfterInit = rpc.listPinnedCalls;
 
-    // Эхо собственного pin: набор совпадает с уже загруженным → no-op.
-    events.add(
-      MessengerEvent(
-        eventType: MessengerEventType.pinnedMessagesChanged,
-        serverTimestamp: DateTime.utc(2026, 1, 2),
-        roomId: roomId,
-        matrixRoomId: '!r:test',
-        pinnedEventIds: ['\$a'],
-      ),
-    );
-    await Future<void>.delayed(Duration.zero);
+      // Эхо собственного pin: набор совпадает с уже загруженным → no-op.
+      events.add(
+        MessengerEvent(
+          eventType: MessengerEventType.pinnedMessagesChanged,
+          serverTimestamp: DateTime.utc(2026, 1, 2),
+          roomId: roomId,
+          matrixRoomId: '!r:test',
+          pinnedEventIds: ['\$a'],
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
 
-    expect(rpc.listPinnedCalls, callsAfterInit, reason: 'эхо не должно reload-ить');
-    await ctrl.dispose();
-    await events.close();
-  });
+      expect(
+        rpc.listPinnedCalls,
+        callsAfterInit,
+        reason: 'эхо не должно reload-ить',
+      );
+      await ctrl.dispose();
+      await events.close();
+    },
+  );
 
   test('событие другой комнаты игнорируется', () async {
     final rpc = _PinFakeRpc();
@@ -191,7 +197,9 @@ class _PinFakeRpc implements MessagesRpc {
       const <MessengerEvent>[];
 
   @override
-  Future<List<MessengerMessage>> listPinnedMessages({required int roomId}) async {
+  Future<List<MessengerMessage>> listPinnedMessages({
+    required int roomId,
+  }) async {
     listPinnedCalls += 1;
     return pinnedResult;
   }

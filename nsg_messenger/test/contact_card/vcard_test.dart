@@ -70,14 +70,32 @@ void main() {
       expect(v, contains(r'NOTE:строка1\nстрока2'));
     });
 
-    test('пустое имя → FN fallback Chatista, N опускается', () {
+    // **issue #180.** Раньше здесь стояло имя нашего приложения, и в чужой
+    // адресной книге появлялся контакт «CHATista». Неверно вдвойне: SDK
+    // встраивают другие продукты, и само по себе имя приложения — не имя
+    // человека. Подписываем тем, по чему контакт узна́ют.
+    test('имени нет → подписываем телефоном', () {
+      final v = ContactVCard.build(card(name: null, phone: '+7 900 000-00-00'));
+      expect(v, contains('FN:+7 900 000-00-00'));
+      expect(v, isNot(contains('CHATista')));
+    });
+
+    test('нет ни имени, ни телефона → почта', () {
+      final v = ContactVCard.build(card(name: null, email: 'a@b.test'));
+      expect(v, contains('FN:a@b.test'));
+    });
+
+    test('карточка пуста → нейтральное слово, а не бренд', () {
       final v = ContactVCard.build(card(name: null));
-      expect(v, contains('FN:Chatista'));
-      expect(v, isNot(contains('\nN:')));
+      expect(v, contains('FN:Контакт'));
+      expect(v, isNot(contains('CHATista')));
     });
 
     test('fileName безопасен', () {
-      expect(ContactVCard.fileName(card(name: 'Иван Петров')), 'Иван_Петров.vcf');
+      expect(
+        ContactVCard.fileName(card(name: 'Иван Петров')),
+        'Иван_Петров.vcf',
+      );
       expect(ContactVCard.fileName(card(name: 'a/b:c*d')), 'a_b_c_d.vcf');
     });
   });

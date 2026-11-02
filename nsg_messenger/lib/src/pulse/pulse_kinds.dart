@@ -23,6 +23,13 @@ abstract final class PulseMonitorKinds {
   /// Монитор-проба? Неизвестный род пробой НЕ считаем — так же, как на
   /// сервере: ошибиться в сторону heartbeat безопаснее.
   static bool isProbe(String? kind) => kind == tlsProbe;
+
+  /// **issue #187**: можно ли человеку править имя, период и допуск.
+  /// Зеркало `PulseMonitorKind.isUserEditable` на сервере: только то, что
+  /// человек и заводил. У мониторов, которые ведёт сервер, период совпадает
+  /// с расписанием его воркера — кнопку им не показываем, сервер откажет.
+  static bool isUserEditable(String? kind) =>
+      kind == heartbeat || kind == tlsProbe;
 }
 
 /// Режим валидации сертификата (`PulseTlsProbe.validationMode`).

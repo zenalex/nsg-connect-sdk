@@ -14,7 +14,10 @@ library;
 import 'dart:async';
 import 'dart:math' show Random;
 
+import 'package:flutter/widgets.dart' show AppLifecycleState;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nsg_connect_client/nsg_connect_client.dart'
+    show ServerpodClientException;
 import 'package:nsg_messenger/nsg_messenger.dart';
 import 'package:nsg_messenger/src/runtime/messenger_event_bus.dart';
 
@@ -88,37 +91,39 @@ void main() {
     await t.bus.dispose();
   });
 
-  test('рестарт сервера: серия неудач за секунду — молчим (issue #118)',
-      () async {
-    // Прежний порог считался в попытках: третья наступала через полторы
-    // секунды, а столько длится ЛЮБОЙ наш деплой. В сутки набегало полторы
-    // сотни «связь моргнула» — по событию на каждого подключённого клиента
-    // на каждую выкатку, и настоящие поломки в этом тонули.
-    //
-    // Порог теперь по длительности, поэтому серия быстрых неудач молчит.
-    final t = makeBus(
-      slots: 8,
-      disconnectedAfter: 2,
-      outageReportAfter: const Duration(seconds: 5),
-    );
-    final sub = t.bus.events.listen((_) {});
-    await pump();
-
-    for (var i = 0; i < 4; i++) {
-      t.controllers[i].addError(StateError('рестарт $i'), StackTrace.current);
+  test(
+    'рестарт сервера: серия неудач за секунду — молчим (issue #118)',
+    () async {
+      // Прежний порог считался в попытках: третья наступала через полторы
+      // секунды, а столько длится ЛЮБОЙ наш деплой. В сутки набегало полторы
+      // сотни «связь моргнула» — по событию на каждого подключённого клиента
+      // на каждую выкатку, и настоящие поломки в этом тонули.
+      //
+      // Порог теперь по длительности, поэтому серия быстрых неудач молчит.
+      final t = makeBus(
+        slots: 8,
+        disconnectedAfter: 2,
+        outageReportAfter: const Duration(seconds: 5),
+      );
+      final sub = t.bus.events.listen((_) {});
       await pump();
-    }
 
-    expect(
-      t.reported,
-      isEmpty,
-      reason: 'связь лежит секунду — это ещё не новость для трекера',
-    );
-    // Человеку при этом уже сказано: состояние баннера не ждёт порога.
-    expect(t.bus.connectionState, MessengerConnectionState.disconnected);
-    await sub.cancel();
-    await t.bus.dispose();
-  });
+      for (var i = 0; i < 4; i++) {
+        t.controllers[i].addError(StateError('рестарт $i'), StackTrace.current);
+        await pump();
+      }
+
+      expect(
+        t.reported,
+        isEmpty,
+        reason: 'связь лежит секунду — это ещё не новость для трекера',
+      );
+      // Человеку при этом уже сказано: состояние баннера не ждёт порога.
+      expect(t.bus.connectionState, MessengerConnectionState.disconnected);
+      await sub.cancel();
+      await t.bus.dispose();
+    },
+  );
 
   test('сообщаем один раз, когда признали, что связи нет', () async {
     final t = makeBus(slots: 6, disconnectedAfter: 2);
@@ -203,5 +208,63 @@ void main() {
     expect(text, isNot(contains(':0/')));
     await sub.cancel();
     await t.bus.dispose();
+  });
+
+  group('присутствие', () {
+    // Присутствие — украшение: телефон ушёл в карман, приложение свернулось
+    // в лифте, обновление «онлайн/офлайн» не доехало. Чинить нечего,
+    // следующее переключение перепишет состояние. В трекер это уезжало
+    // `TimeoutException after 0:00:08` — двадцать с лишним событий с iOS за
+    // неделю, тот же шум, ради которого в #118 отложили отчёт о пропаже.
+    Future<List<Object>> reportAfterPresenceFailure(Object error) async {
+      final stateCtl = StreamController<MessengerSessionState>.broadcast();
+      final upstream = StreamController<MessengerEvent>.broadcast();
+      final reported = <Object>[];
+      final bus = MessengerEventBus.attachWithFactory(
+        streamFactory: () => upstream.stream,
+        setPresence: ({int? currentRoomId, required bool foreground}) async =>
+            throw error,
+        sessionStateStream: stateCtl.stream,
+        onError: (e, _) => reported.add(e),
+      );
+      final sub = bus.events.listen((_) {});
+      await pump();
+      bus.onAppLifecycleChanged(AppLifecycleState.paused);
+      await pump();
+      await sub.cancel();
+      await bus.dispose();
+      await upstream.close();
+      await stateCtl.close();
+      return reported;
+    }
+
+    test('тайм-аут присутствия в трекер не уезжает', () async {
+      expect(
+        await reportAfterPresenceFailure(
+          TimeoutException('after 0:00:08', const Duration(seconds: 8)),
+        ),
+        isEmpty,
+      );
+    });
+
+    test('обрыв связи на присутствии — тоже молчим', () async {
+      // Так это приезжает с живого клиента: Serverpod заворачивает
+      // сетевые сбои в свой тип со статусом -1.
+      expect(
+        await reportAfterPresenceFailure(
+          const ServerpodClientException('нет связи', -1),
+        ),
+        isEmpty,
+      );
+    });
+
+    test('неожиданный отказ — сообщаем', () async {
+      // Не транспорт — значит сломался договор, а не связь: об этом
+      // молчать нельзя, иначе правка контракта уедет незамеченной.
+      final reported = await reportAfterPresenceFailure(
+        StateError('сервер ответил ерундой'),
+      );
+      expect(reported.single, isA<StateError>());
+    });
   });
 }

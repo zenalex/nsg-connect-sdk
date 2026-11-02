@@ -1,3 +1,4 @@
+import '../support/eventually.dart';
 import 'dart:async';
 import 'dart:math' show Random;
 
@@ -196,7 +197,7 @@ void main() {
       expect(q.calls(), 1, reason: 'живое соединение рвать нельзя');
 
       // Сокет умирает молча: контроллер НЕ закрываем и ошибку НЕ шлём.
-      await pump(120);
+      await eventually(() => q.calls() >= 2);
 
       expect(
         q.calls(),

@@ -23,18 +23,17 @@ import 'package:nsg_messenger/src/screens/chat_screen.dart';
 /// перейти» (история исчерпана): он доказывает, что попытка была.
 const _room = 1;
 
-MessengerMessage _msg(String eventId, {String body = 'hi'}) =>
-    MessengerMessage(
-      matrixEventId: eventId,
-      roomId: _room,
-      matrixRoomId: '!r:t',
-      senderMessengerUserId: 2, // peer (self=42)
-      senderMatrixUserId: '@peer:t',
-      msgType: 'm.text',
-      body: body,
-      serverTimestamp: DateTime.utc(2026, 1, 1, 12),
-      senderDisplayName: 'Peer',
-    );
+MessengerMessage _msg(String eventId, {String body = 'hi'}) => MessengerMessage(
+  matrixEventId: eventId,
+  roomId: _room,
+  matrixRoomId: '!r:t',
+  senderMessengerUserId: 2, // peer (self=42)
+  senderMatrixUserId: '@peer:t',
+  msgType: 'm.text',
+  body: body,
+  serverTimestamp: DateTime.utc(2026, 1, 1, 12),
+  senderDisplayName: 'Peer',
+);
 
 class _FakeRpc implements MessagesRpc {
   List<MessengerMessage> page = [];
@@ -152,8 +151,11 @@ void main() {
     await pumpChat(tester, controller, target: r'$missing');
     await tester.pumpAndSettle();
 
-    expect(find.text(_tooFar), findsOneWidget,
-        reason: 'didUpdateWidget обязан снять защёлку и прыгнуть заново');
+    expect(
+      find.text(_tooFar),
+      findsOneWidget,
+      reason: 'didUpdateWidget обязан снять защёлку и прыгнуть заново',
+    );
   });
 
   testWidgets('та же цель повторно — прыжок НЕ перезапускается', (

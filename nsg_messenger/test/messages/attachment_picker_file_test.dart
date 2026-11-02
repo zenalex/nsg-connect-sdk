@@ -28,17 +28,14 @@ void main() {
     test(
       'превышение НЕ отбрасывается молча — имя попадает в rejectedOversize',
       () async {
-        final outcome = await buildAttachmentsFromCandidates(
-          [
-            AttachmentCandidate(name: 'ok.pdf', size: 10, path: '/ok.pdf'),
-            AttachmentCandidate(
-              name: 'huge.mkv',
-              size: kMaxAttachmentBytes + 1,
-              path: '/huge.mkv',
-            ),
-          ],
-          readBytes: (p) async => bytes(10),
-        );
+        final outcome = await buildAttachmentsFromCandidates([
+          AttachmentCandidate(name: 'ok.pdf', size: 10, path: '/ok.pdf'),
+          AttachmentCandidate(
+            name: 'huge.mkv',
+            size: kMaxAttachmentBytes + 1,
+            path: '/huge.mkv',
+          ),
+        ], readBytes: (p) async => bytes(10));
         expect(outcome.picked.map((p) => p.originalFilename), ['ok.pdf']);
         expect(outcome.rejectedOversize, ['huge.mkv']);
       },
@@ -67,10 +64,9 @@ void main() {
     });
 
     test('совравший size ловится повторной проверкой по факту', () async {
-      final outcome = await buildAttachmentsFromCandidates(
-        [AttachmentCandidate(name: 'liar.bin', size: 10, path: '/liar.bin')],
-        readBytes: (p) async => bytes(kMaxAttachmentBytes + 1),
-      );
+      final outcome = await buildAttachmentsFromCandidates([
+        AttachmentCandidate(name: 'liar.bin', size: 10, path: '/liar.bin'),
+      ], readBytes: (p) async => bytes(kMaxAttachmentBytes + 1));
       expect(outcome.picked, isEmpty);
       expect(outcome.rejectedOversize, ['liar.bin']);
     });
@@ -95,16 +91,9 @@ void main() {
 
   group('сборка вложений', () {
     test('файл даёт PickedAttachment с верными mime/именем/байтами', () async {
-      final outcome = await buildAttachmentsFromCandidates(
-        [
-          AttachmentCandidate(
-            name: 'отчёт.pdf',
-            size: 3,
-            path: '/tmp/отчёт.pdf',
-          ),
-        ],
-        readBytes: (p) async => Uint8List.fromList([1, 2, 3]),
-      );
+      final outcome = await buildAttachmentsFromCandidates([
+        AttachmentCandidate(name: 'отчёт.pdf', size: 3, path: '/tmp/отчёт.pdf'),
+      ], readBytes: (p) async => Uint8List.fromList([1, 2, 3]));
       final a = outcome.picked.single;
       expect(a.originalFilename, 'отчёт.pdf');
       expect(a.mimeType, 'application/pdf');
@@ -188,14 +177,11 @@ void main() {
     });
 
     test('порядок выбора сохраняется', () async {
-      final outcome = await buildAttachmentsFromCandidates(
-        [
-          AttachmentCandidate(name: 'z.txt', size: 1, path: '/z'),
-          AttachmentCandidate(name: 'a.txt', size: 1, path: '/a'),
-          AttachmentCandidate(name: 'm.txt', size: 1, path: '/m'),
-        ],
-        readBytes: (p) async => bytes(1),
-      );
+      final outcome = await buildAttachmentsFromCandidates([
+        AttachmentCandidate(name: 'z.txt', size: 1, path: '/z'),
+        AttachmentCandidate(name: 'a.txt', size: 1, path: '/a'),
+        AttachmentCandidate(name: 'm.txt', size: 1, path: '/m'),
+      ], readBytes: (p) async => bytes(1));
       expect(outcome.picked.map((p) => p.originalFilename), [
         'z.txt',
         'a.txt',
@@ -207,7 +193,11 @@ void main() {
   group('MIME-фолбэк по расширению', () {
     test('документы / архивы / медиа', () {
       expect(guessMimeFromExtension('a.pdf'), 'application/pdf');
-      expect(guessMimeFromExtension('A.PDF'), 'application/pdf', reason: 'case');
+      expect(
+        guessMimeFromExtension('A.PDF'),
+        'application/pdf',
+        reason: 'case',
+      );
       expect(guessMimeFromExtension('a.zip'), 'application/zip');
       expect(guessMimeFromExtension('a.mp3'), 'audio/mpeg');
       expect(guessMimeFromExtension('a.mov'), 'video/quicktime');

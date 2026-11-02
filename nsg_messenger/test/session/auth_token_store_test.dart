@@ -90,4 +90,15 @@ void main() {
       expect(round.session.avatarUrl, 'https://example.com/a.png');
     });
   });
+
+  // Страж решения владельца (10.09.2026), а не детали: переносимый класс
+  // снова сделает новый айфон клоном сессии старого, а дефолтный
+  // `WhenUnlocked` вернёт отказ Keychain при заблокированном экране — ради
+  // обхода которого сессия и перешла на `first_unlock` (TASK56).
+  test('сессия читается после первой разблокировки и не переезжает', () {
+    expect(
+      SecureAuthTokenStore.iosOptionsForTest.toMap()['accessibility'],
+      'first_unlock_this_device',
+    );
+  });
 }

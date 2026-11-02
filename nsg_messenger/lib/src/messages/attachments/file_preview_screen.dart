@@ -81,6 +81,7 @@ class _FilePreviewScreenState extends State<FilePreviewScreen> {
               context,
               () => widget.actions.saveToDisk(widget.attachment),
               onSavedPath: true,
+              revealInFolder: widget.actions.revealInFolder,
             ),
           ),
         ],

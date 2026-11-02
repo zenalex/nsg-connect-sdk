@@ -89,10 +89,26 @@ class SecureAuthTokenStore implements AuthTokenStore {
   /// **Миграция уже залогиненных** случится при следующей записи токена
   /// (refresh/re-login), а не сразу: `SecItemUpdate` менять accessibility не
   /// умеет, а вот [write] ниже делает `delete`+`write` → `SecItemAdd`, и он
-  /// accessibility проставляет.
+  /// accessibility проставляет. Сессия пишется при каждом refresh, то есть
+  /// не реже раза в сутки, — отдельной миграции ей не нужно.
+  ///
+  /// **`_this_device` (решение владельца 10.09.2026)**: при переносе на
+  /// новый айфон iOS копирует элементы Keychain без `ThisDeviceOnly`, и
+  /// новый телефон становился клоном сессии старого — одна сессия на два
+  /// устройства, отозвать одно без другого нельзя. Теперь сессия с
+  /// телефоном не переезжает. Доступность «после первой разблокировки»,
+  /// ради которой всё затевалось (часы, фон), та же.
+  ///
+  /// В приложении Chatista так же защищены ростер и legacy-конверт
+  /// (`credentialStorageIosOptions`) — иначе email-токен всё равно уехал
+  /// бы на новый телефон и открыл бы там сессию без входа.
   static const _iosOptions = IOSOptions(
-    accessibility: KeychainAccessibility.first_unlock,
+    accessibility: KeychainAccessibility.first_unlock_this_device,
   );
+
+  /// Для стража в тестах: класс защиты — решение, а не деталь реализации.
+  @visibleForTesting
+  static IOSOptions get iosOptionsForTest => _iosOptions;
 
   final FlutterSecureStorage _storage;
 

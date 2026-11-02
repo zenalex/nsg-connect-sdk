@@ -26,11 +26,16 @@ void main() {
     required String mxcUrl,
     int? width,
     int? height,
-  }) async =>
-      AttachmentBytes(bytes: ByteData.sublistView(_tinyPng), contentType: 'image/png');
+  }) async => AttachmentBytes(
+    bytes: ByteData.sublistView(_tinyPng),
+    contentType: 'image/png',
+  );
 
   Future<AttachmentBytes> noopFull({required String mxcUrl}) async =>
-      AttachmentBytes(bytes: ByteData.sublistView(_tinyPng), contentType: 'image/png');
+      AttachmentBytes(
+        bytes: ByteData.sublistView(_tinyPng),
+        contentType: 'image/png',
+      );
 
   final images = <AttachmentRef>[
     AttachmentRef(

@@ -130,6 +130,14 @@ await NsgMessenger.init(
 
 SDK проксирует свои внутренние ошибки в `errorReporter.reportError(...)`. Если не передать — ошибки уходят в `debugPrint`. Реализация `SentryErrorReporter` — на стороне host-app или в дочернем пакете `nsg_messenger_sentry` (не входит в TASK11).
 
+### Голосовые сообщения в браузере
+
+Веб-композер записывает Opus/WebM: `record.stop()` возвращает `blob:` URL,
+который SDK читает браузерным API и освобождает через `revokeObjectURL` после
+отправки, отмены или закрытия композера. Нельзя использовать для веб-записи
+`path_provider` и `dart:io File`, даже если доступ к микрофону уже разрешён.
+На нативных платформах сохраняются временный файл, AAC/M4A и `audio/mp4`.
+
 ## Архитектурные решения
 
 - **`messengerUserId` скрыт от host-app.** Серверные RPC (Serverpod) пока требуют его явно как параметр; SDK подставляет внутри `MessengerRuntime`. На TASK12 server-side derive из аутентифицированной session уберёт нужность пробрасывать его, и публичный API SDK не изменится.

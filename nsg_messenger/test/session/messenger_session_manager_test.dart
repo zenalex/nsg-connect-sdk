@@ -164,7 +164,8 @@ void main() {
           sessionCalls++;
           throw StateError('не должно вызываться');
         },
-        refreshRpc: (c, {previousToken}) async => throw StateError('не должно вызываться'),
+        refreshRpc: (c, {previousToken}) async =>
+            throw StateError('не должно вызываться'),
         authTokenProvider: provider,
         store: store,
         errorReporter: null,
@@ -203,7 +204,8 @@ void main() {
             validFor: const Duration(hours: 24),
           );
         },
-        refreshRpc: (c, {previousToken}) async => throw StateError('не должно вызываться'),
+        refreshRpc: (c, {previousToken}) async =>
+            throw StateError('не должно вызываться'),
         authTokenProvider: _FakeProvider([ctx()]),
         store: store,
         errorReporter: null,
@@ -248,7 +250,8 @@ void main() {
             validFor: const Duration(hours: 24),
           );
         },
-        refreshRpc: (c, {previousToken}) async => throw StateError('не должно вызываться'),
+        refreshRpc: (c, {previousToken}) async =>
+            throw StateError('не должно вызываться'),
         authTokenProvider: _FakeProvider([ctx()]),
         store: store,
         errorReporter: null,
@@ -477,7 +480,8 @@ void main() {
           validFor: const Duration(hours: 24),
         );
       },
-      refreshRpc: (c, {previousToken}) async => throw StateError('не должно вызываться'),
+      refreshRpc: (c, {previousToken}) async =>
+          throw StateError('не должно вызываться'),
       authTokenProvider: _FakeProvider([ctx(), ctx()]),
       store: store,
       errorReporter: null,
@@ -495,108 +499,95 @@ void main() {
 
   // ───────── TASK47: офлайн-boot на stale-сессии ─────────
 
-  test(
-    'init офлайн: кэш протух + session RPC сетевая ошибка → '
-    'stale-деградация (active, токен из кэша, БЕЗ throw)',
-    () async {
-      final fp = authContextFingerprint(ctx());
-      // Протухла: expiresAt в прошлом (заведомо за lead-time).
-      final stale = sessionFor(
-        token: 'stale-tok',
-        validFor: const Duration(minutes: -10),
-      );
-      final store = InMemoryAuthTokenStore();
-      await store.write(
-        StoredMessengerSession(
-          fingerprint: fp,
-          session: stale,
-          storedAt: DateTime.now().toUtc(),
-        ),
-      );
+  test('init офлайн: кэш протух + session RPC сетевая ошибка → '
+      'stale-деградация (active, токен из кэша, БЕЗ throw)', () async {
+    final fp = authContextFingerprint(ctx());
+    // Протухла: expiresAt в прошлом (заведомо за lead-time).
+    final stale = sessionFor(
+      token: 'stale-tok',
+      validFor: const Duration(minutes: -10),
+    );
+    final store = InMemoryAuthTokenStore();
+    await store.write(
+      StoredMessengerSession(
+        fingerprint: fp,
+        session: stale,
+        storedAt: DateTime.now().toUtc(),
+      ),
+    );
 
-      final states = <MessengerSessionState>[];
-      final manager = MessengerSessionManager.attachWithRpcs(
-        sessionRpc: (c) async =>
-            throw const _FakeSocketException('offline boot'),
-        refreshRpc: (c, {previousToken}) async =>
-            throw const _FakeSocketException('offline refresh'),
-        authTokenProvider: _FakeProvider([ctx()]),
-        store: store,
-        errorReporter: null,
-        emitState: states.add,
-      );
+    final states = <MessengerSessionState>[];
+    final manager = MessengerSessionManager.attachWithRpcs(
+      sessionRpc: (c) async => throw const _FakeSocketException('offline boot'),
+      refreshRpc: (c, {previousToken}) async =>
+          throw const _FakeSocketException('offline refresh'),
+      authTokenProvider: _FakeProvider([ctx()]),
+      store: store,
+      errorReporter: null,
+      emitState: states.add,
+    );
 
-      // Главное: init НЕ бросает (раньше офлайн-boot падал в error-экран).
-      await manager.init();
-      expect(manager.session?.sessionToken, 'stale-tok');
-      expect(states, contains(MessengerSessionState.active));
-      // Auth-header выставлен stale-токеном — RPC уйдут с ним, а при
-      // возврате сети reactive self-heal обновит по типизированному 401.
-      expect(
-        await manager.currentAuthHeaderValueForTest,
-        wrapAsBearerAuthHeaderValue('stale-tok'),
-      );
-      // Кэш НЕ стёрт (красная линия: чистка только на типизированном auth).
-      expect(await store.read(), isNotNull);
-      await manager.dispose();
-    },
-  );
+    // Главное: init НЕ бросает (раньше офлайн-boot падал в error-экран).
+    await manager.init();
+    expect(manager.session?.sessionToken, 'stale-tok');
+    expect(states, contains(MessengerSessionState.active));
+    // Auth-header выставлен stale-токеном — RPC уйдут с ним, а при
+    // возврате сети reactive self-heal обновит по типизированному 401.
+    expect(
+      await manager.currentAuthHeaderValueForTest,
+      wrapAsBearerAuthHeaderValue('stale-tok'),
+    );
+    // Кэш НЕ стёрт (красная линия: чистка только на типизированном auth).
+    expect(await store.read(), isNotNull);
+    await manager.dispose();
+  });
 
-  test(
-    'init офлайн: кэш протух + типизированный auth-отказ → rethrow '
-    '(stale-деградация ЗАПРЕЩЕНА — сервер явно отверг)',
-    () async {
-      final fp = authContextFingerprint(ctx());
-      final stale = sessionFor(
-        token: 'stale-tok',
-        validFor: const Duration(minutes: -10),
-      );
-      final store = InMemoryAuthTokenStore();
-      await store.write(
-        StoredMessengerSession(
-          fingerprint: fp,
-          session: stale,
-          storedAt: DateTime.now().toUtc(),
-        ),
-      );
+  test('init офлайн: кэш протух + типизированный auth-отказ → rethrow '
+      '(stale-деградация ЗАПРЕЩЕНА — сервер явно отверг)', () async {
+    final fp = authContextFingerprint(ctx());
+    final stale = sessionFor(
+      token: 'stale-tok',
+      validFor: const Duration(minutes: -10),
+    );
+    final store = InMemoryAuthTokenStore();
+    await store.write(
+      StoredMessengerSession(
+        fingerprint: fp,
+        session: stale,
+        storedAt: DateTime.now().toUtc(),
+      ),
+    );
 
-      final manager = MessengerSessionManager.attachWithRpcs(
-        sessionRpc: (c) async => throw InvalidTokenException(
-          reason: 'revoked',
-        ),
-        refreshRpc: (c, {previousToken}) async => throw StateError('не должно вызываться'),
-        authTokenProvider: _FakeProvider([ctx()]),
-        store: store,
-        errorReporter: null,
-        emitState: (_) {},
-      );
+    final manager = MessengerSessionManager.attachWithRpcs(
+      sessionRpc: (c) async => throw InvalidTokenException(reason: 'revoked'),
+      refreshRpc: (c, {previousToken}) async =>
+          throw StateError('не должно вызываться'),
+      authTokenProvider: _FakeProvider([ctx()]),
+      store: store,
+      errorReporter: null,
+      emitState: (_) {},
+    );
 
-      await expectLater(manager.init(), throwsA(isA<InvalidTokenException>()));
-      await manager.dispose();
-    },
-  );
+    await expectLater(manager.init(), throwsA(isA<InvalidTokenException>()));
+    await manager.dispose();
+  });
 
-  test(
-    'init офлайн: кэша НЕТ + сетевая ошибка → rethrow (первый запуск '
-    'офлайн — деградировать не на что, прежнее поведение)',
-    () async {
-      final manager = MessengerSessionManager.attachWithRpcs(
-        sessionRpc: (c) async =>
-            throw const _FakeSocketException('offline first launch'),
-        refreshRpc: (c, {previousToken}) async => throw StateError('не должно вызываться'),
-        authTokenProvider: _FakeProvider([ctx()]),
-        store: InMemoryAuthTokenStore(),
-        errorReporter: null,
-        emitState: (_) {},
-      );
+  test('init офлайн: кэша НЕТ + сетевая ошибка → rethrow (первый запуск '
+      'офлайн — деградировать не на что, прежнее поведение)', () async {
+    final manager = MessengerSessionManager.attachWithRpcs(
+      sessionRpc: (c) async =>
+          throw const _FakeSocketException('offline first launch'),
+      refreshRpc: (c, {previousToken}) async =>
+          throw StateError('не должно вызываться'),
+      authTokenProvider: _FakeProvider([ctx()]),
+      store: InMemoryAuthTokenStore(),
+      errorReporter: null,
+      emitState: (_) {},
+    );
 
-      await expectLater(
-        manager.init(),
-        throwsA(isA<_FakeSocketException>()),
-      );
-      await manager.dispose();
-    },
-  );
+    await expectLater(manager.init(), throwsA(isA<_FakeSocketException>()));
+    await manager.dispose();
+  });
 }
 
 /// Простейший AuthTokenProvider, отдающий заранее заданные ctx-ы по

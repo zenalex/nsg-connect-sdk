@@ -81,7 +81,8 @@ NsgMessengerPulse _fake(List<PulseValueThreshold> thresholds) =>
             required int port,
             String? note,
           }) => throw UnimplementedError(),
-      removeProbeAllowlistRpc: ({required int id}) => throw UnimplementedError(),
+      removeProbeAllowlistRpc: ({required int id}) =>
+          throw UnimplementedError(),
       getTlsProbeRpc: ({required int monitorId}) => throw UnimplementedError(),
       runProbeNowRpc: ({required int monitorId}) => throw UnimplementedError(),
       listValueThresholdsRpc: ({required int monitorId}) async => thresholds,
@@ -94,7 +95,9 @@ NsgMessengerPulse _fake(List<PulseValueThreshold> thresholds) =>
             double? warnAbove,
             double? errorAbove,
           }) async {
-            _saved.add('$name w<$warnBelow e<$errorBelow w>$warnAbove e>$errorAbove');
+            _saved.add(
+              '$name w<$warnBelow e<$errorBelow w>$warnAbove e>$errorAbove',
+            );
             return _t(name: name);
           },
       removeValueThresholdRpc:
@@ -106,6 +109,13 @@ NsgMessengerPulse _fake(List<PulseValueThreshold> thresholds) =>
             String? connectHost,
             int? port,
             String? serverName,
+          }) => throw UnimplementedError(),
+      updateMonitorRpc:
+          ({
+            required int id,
+            String? name,
+            int? periodSeconds,
+            int? graceSeconds,
           }) => throw UnimplementedError(),
       getExpiryReminderRpc: ({required int monitorId}) =>
           throw UnimplementedError(),
@@ -179,8 +189,9 @@ void main() {
     expect(find.textContaining('порога нет'), findsOneWidget);
   });
 
-  testWidgets('порог без числа тоже показан — имя могли написать с ошибкой',
-      (t) async {
+  testWidgets('порог без числа тоже показан — имя могли написать с ошибкой', (
+    t,
+  ) async {
     // Порог на `tempc`, а датчик шлёт `temp_c`: молча спрятать такую строку
     // значит оставить человека с правилом, которое никогда не сработает.
     await _pump(

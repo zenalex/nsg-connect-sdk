@@ -44,8 +44,7 @@ void main() {
           required String readMode,
         }) => throw UnimplementedError(),
     rotateTokenRpc: ({required int botId}) async => bot(token: 'bot_new'),
-    setEnabledRpc: ({required int botId, required bool enabled}) async =>
-        bot(),
+    setEnabledRpc: ({required int botId, required bool enabled}) async => bot(),
     setDiscoverableRpc:
         setDiscoverableRpc ??
         ({required int botId, required bool discoverable}) async => bot(),
@@ -183,27 +182,29 @@ void main() {
     });
   });
 
-  test('setDiscoverable / removeFromRoom: botId+флаг/roomId — насквозь',
-      () async {
-    (int, bool)? discSeen;
-    (int, int)? removeSeen;
-    final myBots = make(
-      setDiscoverableRpc:
-          ({required int botId, required bool discoverable}) async {
-            discSeen = (botId, discoverable);
-            return bot(id: botId);
-          },
-      removeFromRoomRpc: ({required int botId, required int roomId}) async {
-        removeSeen = (botId, roomId);
-      },
-    );
+  test(
+    'setDiscoverable / removeFromRoom: botId+флаг/roomId — насквозь',
+    () async {
+      (int, bool)? discSeen;
+      (int, int)? removeSeen;
+      final myBots = make(
+        setDiscoverableRpc:
+            ({required int botId, required bool discoverable}) async {
+              discSeen = (botId, discoverable);
+              return bot(id: botId);
+            },
+        removeFromRoomRpc: ({required int botId, required int roomId}) async {
+          removeSeen = (botId, roomId);
+        },
+      );
 
-    await myBots.setDiscoverable(botId: 7, discoverable: true);
-    expect(discSeen, (7, true));
+      await myBots.setDiscoverable(botId: 7, discoverable: true);
+      expect(discSeen, (7, true));
 
-    await myBots.removeFromRoom(botId: 7, roomId: 42);
-    expect(removeSeen, (7, 42));
-  });
+      await myBots.removeFromRoom(botId: 7, roomId: 42);
+      expect(removeSeen, (7, 42));
+    },
+  );
 
   test('listRooms / listAuditEvents: результат RPC не переупаковывается, '
       'дефолтный limit журнала — 100', () async {

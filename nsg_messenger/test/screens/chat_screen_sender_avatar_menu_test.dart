@@ -47,7 +47,12 @@ void main() {
     final list = [
       participant(id: 42, mxid: selfMxid, name: 'Self'),
       participant(id: 3, mxid: peerMxid, name: 'Мария'),
-      participant(id: 2, mxid: botMxid, name: 'Помощник', kind: ParticipantKind.bot),
+      participant(
+        id: 2,
+        mxid: botMxid,
+        name: 'Помощник',
+        kind: ParticipantKind.bot,
+      ),
     ];
     return RoomDetails(
       id: 7,
@@ -130,7 +135,10 @@ void main() {
   /// Аватар рядом с сообщением [body]. Аватаров на экране несколько,
   /// поэтому ищем строго внутри того пузыря, где лежит нужный текст.
   Finder avatarNextTo(String body) => find.descendant(
-    of: find.ancestor(of: find.text(body), matching: find.byType(MessageBubble)),
+    of: find.ancestor(
+      of: find.text(body),
+      matching: find.byType(MessageBubble),
+    ),
     matching: find.byType(NsgAvatarImage),
   );
 
@@ -168,7 +176,8 @@ void main() {
     expect(
       find.text('Bot card'),
       findsOneWidget,
-      reason: 'у программы нет ни визитки, ни заметок — им место в карточке '
+      reason:
+          'у программы нет ни визитки, ни заметок — им место в карточке '
           'бота, тот же выбор, что в списке участников и заголовке чата',
     );
   });
@@ -236,6 +245,7 @@ class _FakeRpc implements MessagesRpc {
     int? forwardedFromRoomId,
     String? forwardedFromEventId,
     String? threadId,
+    int? stickerId,
   }) => throw UnimplementedError();
 
   @override

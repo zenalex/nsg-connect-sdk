@@ -179,7 +179,9 @@ void main() {
     await h.rooms.get(1); // наполнили диск
     expect(await waitDisk(h.cache, 1), isNotNull);
 
-    h.rooms.invalidate(roomId: 1); // сбрасываем in-memory → следующий get на сеть
+    h.rooms.invalidate(
+      roomId: 1,
+    ); // сбрасываем in-memory → следующий get на сеть
     h.setThrow(true); // сеть офлайн
     final offline = await h.rooms.get(1);
     expect(offline.name, 'Cached 1'); // из дискового кэша, не исключение

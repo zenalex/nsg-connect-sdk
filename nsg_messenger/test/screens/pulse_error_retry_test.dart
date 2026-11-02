@@ -107,6 +107,13 @@ NsgMessengerPulse _fake(Future<List<PulseMonitor>> Function() listMonitors) =>
             int? port,
             String? serverName,
           }) => throw UnimplementedError(),
+      updateMonitorRpc:
+          ({
+            required int id,
+            String? name,
+            int? periodSeconds,
+            int? graceSeconds,
+          }) => throw UnimplementedError(),
       getExpiryReminderRpc: ({required int monitorId}) =>
           throw UnimplementedError(),
       setExpiryThresholdsRpc:

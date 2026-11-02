@@ -116,9 +116,5 @@ ParsedProbeTarget? _parseLine(String line) {
     final max = address.contains(':') ? 128 : 32;
     if (prefix == null || prefix < 0 || prefix > max) return null;
   }
-  return ParsedProbeTarget(
-    address: address,
-    port: port,
-    prefixLength: prefix,
-  );
+  return ParsedProbeTarget(address: address, port: port, prefixLength: prefix);
 }

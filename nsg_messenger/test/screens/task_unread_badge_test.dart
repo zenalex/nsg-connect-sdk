@@ -10,20 +10,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nsg_messenger/src/widgets/unread_pill.dart';
 
-Widget _host(Widget child) =>
-    MaterialApp(home: Scaffold(body: Center(child: child)));
+Widget _host(Widget child) => MaterialApp(
+  home: Scaffold(body: Center(child: child)),
+);
 
 void main() {
   testWidgets('есть непрочитанное — число стоит ПЕРЕД стадией', (t) async {
     // Порядок не косметика: счётчик про «сейчас», и глаз должен цеплять его
     // первым. Стадия отвечает на другой вопрос и никуда не денется.
     await t.pumpWidget(
-      _host(
-        const UnreadThenStage(
-          unreadCount: 3,
-          stage: Text('В работе'),
-        ),
-      ),
+      _host(const UnreadThenStage(unreadCount: 3, stage: Text('В работе'))),
     );
     expect(find.text('3'), findsOneWidget);
     expect(
@@ -36,9 +32,7 @@ void main() {
     // Пустой кружок читается как значок, и список прочитанных задач выглядел
     // бы засыпанным метками.
     await t.pumpWidget(
-      _host(
-        const UnreadThenStage(unreadCount: 0, stage: Text('Принято')),
-      ),
+      _host(const UnreadThenStage(unreadCount: 0, stage: Text('Принято'))),
     );
     expect(find.byType(UnreadPill), findsNothing);
     expect(find.text('Принято'), findsOneWidget);

@@ -188,9 +188,18 @@ void main() {
       ),
       roomDetails: details(),
     );
-    expect(find.byKey(const Key('conferenceParticipantTile_10')), findsOneWidget);
-    expect(find.byKey(const Key('conferenceParticipantTile_1')), findsOneWidget);
-    expect(find.byKey(const Key('conferenceParticipantTile_2')), findsOneWidget);
+    expect(
+      find.byKey(const Key('conferenceParticipantTile_10')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('conferenceParticipantTile_1')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('conferenceParticipantTile_2')),
+      findsOneWidget,
+    );
     // Имена из RoomDetails; своя плитка — с пометкой «Вы».
     expect(find.text('Я Сам (Вы)'), findsOneWidget);
     expect(find.text('Алиса'), findsOneWidget);
@@ -362,8 +371,9 @@ void main() {
     expect(find.byKey(const Key('conferenceSourcePicker')), findsNothing);
   });
 
-  testWidgets('desktop-путь: свой список источников → выбор запускает показ',
-      (tester) async {
+  testWidgets('desktop-путь: свой список источников → выбор запускает показ', (
+    tester,
+  ) async {
     final c = await pump(
       tester,
       initial: active(screenShareSupported: true),
@@ -418,10 +428,7 @@ void main() {
       initial: active(screenShareSupported: true, deniedBy: 1),
       roomDetails: details(),
     );
-    expect(
-      find.byKey(const Key('conferenceShareBusyBanner')),
-      findsOneWidget,
-    );
+    expect(find.byKey(const Key('conferenceShareBusyBanner')), findsOneWidget);
     expect(find.textContaining('Алиса'), findsWidgets);
   });
 
@@ -436,10 +443,7 @@ void main() {
     expect(find.byKey(const Key('conferenceScreenSurface')), findsOneWidget);
     expect(find.byKey(const Key('fakeScreenView')), findsOneWidget);
     expect(find.byKey(const Key('conferencePresenterLabel')), findsOneWidget);
-    expect(
-      find.byKey(const Key('conferenceParticipantTile_1')),
-      findsNothing,
-    );
+    expect(find.byKey(const Key('conferenceParticipantTile_1')), findsNothing);
 
     await tester.tap(find.byKey(const Key('conferenceScreenToggleButton')));
     await tester.pump();
@@ -459,8 +463,9 @@ void main() {
     expect(find.byKey(const Key('conferenceScreenSurface')), findsOneWidget);
   });
 
-  testWidgets('показ кончился → кнопки переключения нет, вернулись к сетке',
-      (tester) async {
+  testWidgets('показ кончился → кнопки переключения нет, вернулись к сетке', (
+    tester,
+  ) async {
     final c = await pump(
       tester,
       initial: active(presenter: 1),
@@ -472,10 +477,7 @@ void main() {
     );
     c.emit(active());
     await tester.pump();
-    expect(
-      find.byKey(const Key('conferenceScreenToggleButton')),
-      findsNothing,
-    );
+    expect(find.byKey(const Key('conferenceScreenToggleButton')), findsNothing);
     expect(
       find.byKey(const Key('conferenceParticipantTile_1')),
       findsOneWidget,
@@ -585,8 +587,7 @@ class _FakeConferenceController extends ConferenceCallController {
   bool get screenShareNeedsSourcePicker => fakeNeedsSourcePicker;
 
   @override
-  Future<List<ScreenShareSource>> listScreenShareSources() async =>
-      fakeSources;
+  Future<List<ScreenShareSource>> listScreenShareSources() async => fakeSources;
 
   @override
   RtcVideoRenderer? get screenShareRenderer => fakeRenderer;

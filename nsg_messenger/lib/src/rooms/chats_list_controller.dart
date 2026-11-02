@@ -509,6 +509,15 @@ class ChatsListController extends ChangeNotifier {
     rpc: () => _rooms.leaveRoom(roomId),
   );
 
+  /// **#188**: «Пометить как прочитанное» из меню чата — счётчик гаснет
+  /// сразу, квитанция уходит следом.
+  Future<void> markRoomRead(int roomId) => _withOptimistic(
+    roomId: roomId,
+    mutate: (r) => r.copyWith(unreadCount: 0),
+    removeFromList: false,
+    rpc: () => _rooms.markRoomRead(roomId),
+  );
+
   /// **TASK75 §3**: «закрыть» support-чат у оператора — optimistic скрыть
   /// из списка (removeFromList) + RPC `dismissRoom`. Возврат чата —
   /// реактивно при сообщении заявителя (сервер эмитит

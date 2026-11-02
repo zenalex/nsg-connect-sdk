@@ -13,7 +13,6 @@ library;
 
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -36,7 +35,14 @@ AttachmentRef _att({
 void main() {
   group('isTextPreviewable', () {
     test('текстовые расширения — показываем внутри', () {
-      for (final n in ['a.md', 'b.txt', 'c.json', 'd.log', 'e.yaml', 'f.dart']) {
+      for (final n in [
+        'a.md',
+        'b.txt',
+        'c.json',
+        'd.log',
+        'e.yaml',
+        'f.dart',
+      ]) {
         expect(
           isTextPreviewable(filename: n, mimeType: '', sizeBytes: 10),
           isTrue,
@@ -104,7 +110,11 @@ void main() {
     late List<String> opened;
     late List<List<XFile>> shared;
 
-    FileActions build(TargetPlatform platform, {bool isWeb = false, bool ok = true}) {
+    FileActions build(
+      TargetPlatform platform, {
+      bool isWeb = false,
+      bool ok = true,
+    }) {
       opened = [];
       shared = [];
       return FileActions(
@@ -144,37 +154,64 @@ void main() {
       expect(opened, isEmpty);
     });
 
-    test('ОС не нашла программу → отдельная ошибка, не «сбой загрузки»',
-        () async {
-      final a = build(TargetPlatform.windows, ok: false);
-      await expectLater(
-        a.openExternally(_att(name: 'weird.xyz', mime: 'application/x-xyz')),
-        throwsA(isA<NoHandlerForFileException>()),
+    test('issue #169: «открыть папку» ведёт в КАТАЛОГ, а не в файл', () async {
+      // Жалоба оператора: «файл скачивается в папку загрузки, но кнопки
+      // открыть папку нет». Открывать сам файл нельзя: он откроется
+      // программой, а человек просил показать, куда файл лёг.
+      final a = build(TargetPlatform.windows);
+      expect(
+        await a.revealInFolder(p.join('C:', 'Users', 'x', 'report.md')),
+        isTrue,
       );
+      expect(opened.single, p.join('C:', 'Users', 'x'));
     });
+
+    test('issue #169: на мобильных открывать нечего', () async {
+      // Там сохраняет системный лист, каталога у нас нет — кнопка не
+      // должна ни появляться, ни притворяться, что сработала.
+      final a = build(TargetPlatform.android);
+      expect(await a.revealInFolder('/data/report.md'), isFalse);
+      expect(opened, isEmpty);
+    });
+
+    test(
+      'ОС не нашла программу → отдельная ошибка, не «сбой загрузки»',
+      () async {
+        final a = build(TargetPlatform.windows, ok: false);
+        await expectLater(
+          a.openExternally(_att(name: 'weird.xyz', mime: 'application/x-xyz')),
+          throwsA(isA<NoHandlerForFileException>()),
+        );
+      },
+    );
   });
 
   group('сохранение', () {
-    test('десктоп: пишет в «Загрузки» и не затирает существующий файл',
-        () async {
-      final dir = await Directory.systemTemp.createTemp('nsg-dl-');
-      addTearDown(() => dir.delete(recursive: true));
-      File(p.join(dir.path, 'report.md')).writeAsStringSync('чужое');
+    test(
+      'десктоп: пишет в «Загрузки» и не затирает существующий файл',
+      () async {
+        final dir = await Directory.systemTemp.createTemp('nsg-dl-');
+        addTearDown(() => dir.delete(recursive: true));
+        File(p.join(dir.path, 'report.md')).writeAsStringSync('чужое');
 
-      final a = FileActions(
-        loadBytes: (_) async => Uint8List.fromList(utf8.encode('моё')),
-        downloadsDir: () async => dir.path,
-        writeTempFile: (name, bytes) async => p.join(dir.path, 'tmp-$name'),
-        platformOverride: TargetPlatform.windows,
-        isWebOverride: false,
-      );
-      final path = await a.saveToDisk(_att());
+        final a = FileActions(
+          loadBytes: (_) async => Uint8List.fromList(utf8.encode('моё')),
+          downloadsDir: () async => dir.path,
+          writeTempFile: (name, bytes) async => p.join(dir.path, 'tmp-$name'),
+          platformOverride: TargetPlatform.windows,
+          isWebOverride: false,
+        );
+        final path = await a.saveToDisk(_att());
 
-      expect(p.basename(path!), 'report (1).md');
-      expect(File(p.join(dir.path, 'report.md')).readAsStringSync(), 'чужое',
-          reason: 'чужой файл в «Загрузках» не наш — перезаписывать нельзя');
-      expect(File(path).readAsStringSync(), 'моё');
-    });
+        expect(p.basename(path!), 'report (1).md');
+        expect(
+          File(p.join(dir.path, 'report.md')).readAsStringSync(),
+          'чужое',
+          reason: 'чужой файл в «Загрузках» не наш — перезаписывать нельзя',
+        );
+        expect(File(path).readAsStringSync(), 'моё');
+      },
+    );
 
     test('mobile: отдаёт системе, пути не возвращает', () async {
       final shared = <List<XFile>>[];
@@ -193,12 +230,11 @@ void main() {
 
   group('safeName', () {
     test('путь в имени от отправителя обрезается до имени файла', () {
+      expect(FileActions.safeName(_att(name: '../../../etc/passwd')), 'passwd');
       expect(
-        FileActions.safeName(_att(name: '../../../etc/passwd')),
-        'passwd',
+        FileActions.safeName(_att(name: r'C:\Windows\evil.exe')),
+        'evil.exe',
       );
-      expect(FileActions.safeName(_att(name: r'C:\Windows\evil.exe')),
-          'evil.exe');
     });
 
     test('пустое имя → file.bin, запрещённые символы → _', () {

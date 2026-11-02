@@ -81,8 +81,7 @@ typedef RemoveTenantSupportRpc =
 typedef ListTenantsRpc = Future<List<ConnectTenantStatus>> Function();
 
 /// **issue #120**: здоровье доставки уведомлений по продуктам.
-typedef ListDeliveryHealthRpc =
-    Future<List<ProductDeliveryHealth>> Function();
+typedef ListDeliveryHealthRpc = Future<List<ProductDeliveryHealth>> Function();
 typedef EnableAndGenerateRpc =
     Future<String> Function({required String tenantExternalKey});
 typedef RotateTenantSecretRpc =

@@ -99,15 +99,21 @@ NsgMessengerPulse _fake({
         double? warnAbove,
         double? errorAbove,
       }) => throw UnimplementedError(),
-  removeValueThresholdRpc:
-      ({required int monitorId, required String name}) =>
-          throw UnimplementedError(),
+  removeValueThresholdRpc: ({required int monitorId, required String name}) =>
+      throw UnimplementedError(),
   updateProbeTargetRpc:
       ({
         required int monitorId,
         String? connectHost,
         int? port,
         String? serverName,
+      }) => throw UnimplementedError(),
+  updateMonitorRpc:
+      ({
+        required int id,
+        String? name,
+        int? periodSeconds,
+        int? graceSeconds,
       }) => throw UnimplementedError(),
   getExpiryReminderRpc: ({required int monitorId}) =>
       throw UnimplementedError(),
@@ -164,10 +170,7 @@ void main() {
   });
 
   testWidgets('список показывает адрес, маску и порт', (t) async {
-    await _pump(
-      t,
-      _fake(list: () async => [_entry(1, '78.37.191.63', 8896)]),
-    );
+    await _pump(t, _fake(list: () async => [_entry(1, '78.37.191.63', 8896)]));
     expect(find.text('78.37.191.63:8896'), findsOneWidget);
     expect(find.text('пилот'), findsOneWidget);
   });
@@ -181,10 +184,7 @@ void main() {
   });
 
   testWidgets('удаление предупреждает, что мониторы не гаснут', (t) async {
-    await _pump(
-      t,
-      _fake(list: () async => [_entry(1, '78.37.191.63', 8896)]),
-    );
+    await _pump(t, _fake(list: () async => [_entry(1, '78.37.191.63', 8896)]));
     await t.tap(find.byIcon(Icons.delete_outline));
     await t.pumpAndSettle();
     expect(find.textContaining('не гасятся'), findsOneWidget);
@@ -202,14 +202,11 @@ void main() {
 
     await t.tap(find.byIcon(Icons.playlist_add));
     await t.pumpAndSettle();
-    await t.enterText(
-      find.byType(TextField).first,
-      '''
+    await t.enterText(find.byType(TextField).first, '''
 78.37.191.63:5077
 78.37.191.63:8895
 нежданчик
-78.37.191.63:5077''',
-    );
+78.37.191.63:5077''');
     await t.pumpAndSettle();
 
     // Разбор виден ДО отправки: две цели, одна битая строка, один дубль.
@@ -246,12 +243,9 @@ void main() {
 
     await t.tap(find.byIcon(Icons.playlist_add));
     await t.pumpAndSettle();
-    await t.enterText(
-      find.byType(TextField).first,
-      '''
+    await t.enterText(find.byType(TextField).first, '''
 127.0.0.1:443
-78.37.191.63:8895''',
-    );
+78.37.191.63:8895''');
     await t.pumpAndSettle();
     await t.tap(find.text('Создать'));
     await t.pumpAndSettle();

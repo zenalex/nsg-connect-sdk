@@ -94,13 +94,21 @@ void main() {
   group('dateSeparatorLabel — RU', () {
     test('сегодня / вчера', () {
       expect(
-        dateSeparatorLabel(DateTime(2026, 7, 23, 9),
-            now: now, l10n: ru, locale: localeRu),
+        dateSeparatorLabel(
+          DateTime(2026, 7, 23, 9),
+          now: now,
+          l10n: ru,
+          locale: localeRu,
+        ),
         'Сегодня',
       );
       expect(
-        dateSeparatorLabel(DateTime(2026, 7, 22, 9),
-            now: now, l10n: ru, locale: localeRu),
+        dateSeparatorLabel(
+          DateTime(2026, 7, 22, 9),
+          now: now,
+          l10n: ru,
+          locale: localeRu,
+        ),
         'Вчера',
       );
     });
@@ -108,24 +116,36 @@ void main() {
     test('день недели — с заглавной («Понедельник»)', () {
       // 2026-07-20 — понедельник, 3 дня назад.
       expect(
-        dateSeparatorLabel(DateTime(2026, 7, 20, 9),
-            now: now, l10n: ru, locale: localeRu),
+        dateSeparatorLabel(
+          DateTime(2026, 7, 20, 9),
+          now: now,
+          l10n: ru,
+          locale: localeRu,
+        ),
         'Понедельник',
       );
     });
 
     test('этот год — «день месяц»', () {
       expect(
-        dateSeparatorLabel(DateTime(2026, 2, 15, 9),
-            now: now, l10n: ru, locale: localeRu),
+        dateSeparatorLabel(
+          DateTime(2026, 2, 15, 9),
+          now: now,
+          l10n: ru,
+          locale: localeRu,
+        ),
         '15 февраля',
       );
     });
 
     test('старше — «день месяц год», без суффикса « г.»', () {
       expect(
-        dateSeparatorLabel(DateTime(2025, 2, 15, 9),
-            now: now, l10n: ru, locale: localeRu),
+        dateSeparatorLabel(
+          DateTime(2025, 2, 15, 9),
+          now: now,
+          l10n: ru,
+          locale: localeRu,
+        ),
         '15 февраля 2025',
       );
     });
@@ -134,37 +154,57 @@ void main() {
   group('dateSeparatorLabel — EN', () {
     test('today / yesterday', () {
       expect(
-        dateSeparatorLabel(DateTime(2026, 7, 23, 9),
-            now: now, l10n: en, locale: localeEn),
+        dateSeparatorLabel(
+          DateTime(2026, 7, 23, 9),
+          now: now,
+          l10n: en,
+          locale: localeEn,
+        ),
         'Today',
       );
       expect(
-        dateSeparatorLabel(DateTime(2026, 7, 22, 9),
-            now: now, l10n: en, locale: localeEn),
+        dateSeparatorLabel(
+          DateTime(2026, 7, 22, 9),
+          now: now,
+          l10n: en,
+          locale: localeEn,
+        ),
         'Yesterday',
       );
     });
 
     test('weekday — full name («Monday»)', () {
       expect(
-        dateSeparatorLabel(DateTime(2026, 7, 20, 9),
-            now: now, l10n: en, locale: localeEn),
+        dateSeparatorLabel(
+          DateTime(2026, 7, 20, 9),
+          now: now,
+          l10n: en,
+          locale: localeEn,
+        ),
         'Monday',
       );
     });
 
     test('this year — «d MMMM»', () {
       expect(
-        dateSeparatorLabel(DateTime(2026, 2, 15, 9),
-            now: now, l10n: en, locale: localeEn),
+        dateSeparatorLabel(
+          DateTime(2026, 2, 15, 9),
+          now: now,
+          l10n: en,
+          locale: localeEn,
+        ),
         '15 February',
       );
     });
 
     test('older — «d MMMM y»', () {
       expect(
-        dateSeparatorLabel(DateTime(2025, 2, 15, 9),
-            now: now, l10n: en, locale: localeEn),
+        dateSeparatorLabel(
+          DateTime(2025, 2, 15, 9),
+          now: now,
+          l10n: en,
+          locale: localeEn,
+        ),
         '15 February 2025',
       );
     });

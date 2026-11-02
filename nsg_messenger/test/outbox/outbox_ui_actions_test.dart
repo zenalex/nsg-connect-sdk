@@ -101,7 +101,8 @@ void main() {
     expect(
       rpc.sentBodies,
       isEmpty,
-      reason: 'мимо очереди ничего не отправлено (раньше улетал голый текст '
+      reason:
+          'мимо очереди ничего не отправлено (раньше улетал голый текст '
           '«contract.pdf» без вложения)',
     );
     await c.dispose();
@@ -149,8 +150,7 @@ void main() {
     await store.close();
   });
 
-  test('discardOutbox снимает баббл, строку и локальную копию файла',
-      () async {
+  test('discardOutbox снимает баббл, строку и локальную копию файла', () async {
     final store = await openStore();
     final file = File('${tmp.path}/photo.jpg')..writeAsBytesSync([1, 2, 3]);
     await store.enqueueOutbox(
@@ -206,55 +206,57 @@ void main() {
     await store.close();
   });
 
-  test('isOutboxTxn: только для строк очереди и только при живом sender-е',
-      () async {
-    final store = await openStore();
-    await store.enqueueOutbox(
-      OutboxItem(
-        clientTxnId: 'q1',
-        userId: _kSelfUid,
+  test(
+    'isOutboxTxn: только для строк очереди и только при живом sender-е',
+    () async {
+      final store = await openStore();
+      await store.enqueueOutbox(
+        OutboxItem(
+          clientTxnId: 'q1',
+          userId: _kSelfUid,
+          roomId: _kRoomId,
+          kind: OutboxKind.text,
+          body: 'queued',
+          createdAt: 1,
+        ),
+      );
+      final rpc = _FakeRpc();
+      final events = StreamController<MessengerEvent>.broadcast();
+
+      // Без sender-а: строка видна бабблом, но retry/discard были бы no-op —
+      // значит и признак false (иначе UI показал бы мёртвые кнопки).
+      final noSender = MessagesController(
         roomId: _kRoomId,
-        kind: OutboxKind.text,
-        body: 'queued',
-        createdAt: 1,
-      ),
-    );
-    final rpc = _FakeRpc();
-    final events = StreamController<MessengerEvent>.broadcast();
+        rpc: rpc,
+        events: events.stream,
+        selfMessengerUserId: _kSelfUid,
+        selfMatrixUserId: _kSelfMxid,
+        cache: store,
+      );
+      await noSender.init();
+      await settle();
+      expect(noSender.isOutboxTxn('q1'), isFalse);
+      await noSender.dispose();
 
-    // Без sender-а: строка видна бабблом, но retry/discard были бы no-op —
-    // значит и признак false (иначе UI показал бы мёртвые кнопки).
-    final noSender = MessagesController(
-      roomId: _kRoomId,
-      rpc: rpc,
-      events: events.stream,
-      selfMessengerUserId: _kSelfUid,
-      selfMatrixUserId: _kSelfMxid,
-      cache: store,
-    );
-    await noSender.init();
-    await settle();
-    expect(noSender.isOutboxTxn('q1'), isFalse);
-    await noSender.dispose();
-
-    final c = MessagesController(
-      roomId: _kRoomId,
-      rpc: rpc,
-      events: events.stream,
-      selfMessengerUserId: _kSelfUid,
-      selfMatrixUserId: _kSelfMxid,
-      cache: store,
-      outbox: _SpyOutbox(store: store, rpc: rpc),
-    );
-    await c.init();
-    await settle();
-    expect(c.isOutboxTxn('q1'), isTrue);
-    expect(c.isOutboxTxn('unknown'), isFalse);
-    expect(c.isOutboxTxn(null), isFalse);
-    await c.dispose();
-    await events.close();
-    await store.close();
-  });
+      final c = MessagesController(
+        roomId: _kRoomId,
+        rpc: rpc,
+        events: events.stream,
+        selfMessengerUserId: _kSelfUid,
+        selfMatrixUserId: _kSelfMxid,
+        cache: store,
+        outbox: _SpyOutbox(store: store, rpc: rpc),
+      );
+      await c.init();
+      await settle();
+      expect(c.isOutboxTxn('q1'), isTrue);
+      expect(c.isOutboxTxn('unknown'), isFalse);
+      expect(c.isOutboxTxn(null), isFalse);
+      await c.dispose();
+      await events.close();
+      await store.close();
+    },
+  );
 
   // ─────────────────────────────────────────────────── UI ──
 
@@ -458,6 +460,7 @@ class _FakeRpc implements MessagesRpc {
     String? forwardedFromEventId,
     // TASK82: тред задачи — фейку достаточно принять параметр.
     String? threadId,
+    int? stickerId,
   }) async {
     sentBodies.add(body);
     return MessengerMessage(

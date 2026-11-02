@@ -128,9 +128,7 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('тап по кнопке → conferenceCalls.join(roomId=7)', (
-    tester,
-  ) async {
+  testWidgets('тап по кнопке → conferenceCalls.join(roomId=7)', (tester) async {
     final conf = await pumpChat(
       tester,
       roomDetails: details(roomType: RoomType.group),
@@ -152,9 +150,7 @@ void main() {
   });
 
   testWidgets('живая конференция в комнате → плашка с числом участников и '
-      '«Присоединиться»; смерть конференции → плашка исчезает', (
-    tester,
-  ) async {
+      '«Присоединиться»; смерть конференции → плашка исчезает', (tester) async {
     final conf = await pumpChat(
       tester,
       roomDetails: details(roomType: RoomType.group),

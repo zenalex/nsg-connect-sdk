@@ -67,6 +67,10 @@ void main() {
   group('ChatMessage — оптимистичный альбом (localImageBytes)', () {
     final bytes = Uint8List.fromList([1, 2, 3, 4]);
 
+    // Время фиксируем: без него `optimistic` подставляет `DateTime.now()`,
+    // два вызова фикстуры расходятся на микросекунды, а `serverTimestamp`
+    // законно участвует в `==`. Иначе тесты на равенство проверяли бы не то,
+    // что заявлено в их названии.
     ChatMessage uploading() => ChatMessage.optimistic(
       clientTxnId: 't-up',
       senderMatrixUserId: '@a:t',
@@ -76,6 +80,7 @@ void main() {
       attachment: null,
       localImageBytes: bytes,
       albumId: 'alb-1',
+      serverTimestamp: DateTime.utc(2026, 1, 1),
     );
 
     AttachmentRef ref() => AttachmentRef(
@@ -172,6 +177,31 @@ void main() {
         serverTimestamp: a.serverTimestamp,
       );
       expect(a, equals(b), reason: 'разные байты не ломают равенство');
+      expect(a.hashCode, b.hashCode);
+    });
+
+    test('issue #174: загруженное вложение — видимое различие', () {
+      // Аплоад заканчивается сменой ОДНОГО поля. Если оно не входит в
+      // равенство, `ValueNotifier` роняет обновление как «ничего не
+      // изменилось», и человек видит вечную крутилку на фотографии,
+      // которая давно на сервере.
+      final before = uploading();
+      final after = before.withUploadedAttachment(ref());
+      expect(
+        after,
+        isNot(equals(before)),
+        reason: 'иначе состояние с расблюренной плиткой не доедет до экрана',
+      );
+      expect(after.hashCode, isNot(before.hashCode));
+    });
+
+    test('одно и то же вложение равенство не ломает', () {
+      // Сравниваем mxc, а не объект: у `AttachmentRef` нет своего `==`, и
+      // по ссылке каждое перечитывание истории выглядело бы изменением —
+      // лента перерисовывалась бы на ровном месте.
+      final a = uploading().withUploadedAttachment(ref());
+      final b = uploading().withUploadedAttachment(ref());
+      expect(a, equals(b));
       expect(a.hashCode, b.hashCode);
     });
   });

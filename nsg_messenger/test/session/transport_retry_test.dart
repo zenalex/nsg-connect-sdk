@@ -58,8 +58,10 @@ void main() {
       // Текст сообщения приходит от ОС и от браузера, он разный на каждой
       // платформе и локали. `-1` клиент ставит ровно в двух местах, и оба
       // — обёртки транспорта; настоящий HTTP-статус там невозможен.
-      expect(isTransportFailure(ServerpodClientException('что угодно', -1)),
-          isTrue);
+      expect(
+        isTransportFailure(ServerpodClientException('что угодно', -1)),
+        isTrue,
+      );
       expect(isTransportFailure(ServerpodClientException('', -1)), isTrue);
     });
 
@@ -67,7 +69,10 @@ void main() {
       // Опора: иначе `-1` разъехался бы в «любой ServerpodClientException»,
       // и мы повторяли бы 5xx — то есть били по больному серверу вдвое.
       expect(isTransportFailure(ServerpodClientException('500', 500)), isFalse);
-      expect(isTransportFailure(ServerpodClientException('boom', 502)), isFalse);
+      expect(
+        isTransportFailure(ServerpodClientException('boom', 502)),
+        isFalse,
+      );
       expect(isTransportFailure(ServerpodClientUnauthorized()), isFalse);
     });
   });
@@ -101,7 +106,10 @@ void main() {
     test('500 — НЕ сюда: там подробность помогает поддержке', () {
       // 500 означает, что обработчик до сервера дошёл и сломался внутри.
       // Скрыв причину, мы отняли бы у поддержки единственную зацепку.
-      expect(isServerUnavailable(ServerpodClientException('boom', 500)), isFalse);
+      expect(
+        isServerUnavailable(ServerpodClientException('boom', 500)),
+        isFalse,
+      );
       expect(isUnreachable(ServerpodClientException('boom', 500)), isFalse);
     });
 
@@ -198,7 +206,10 @@ void main() {
         withTransportRetry(() async {
           calls++;
           if (calls == 1) {
-            throw ServerpodClientException('ClientException: Failed to fetch', -1);
+            throw ServerpodClientException(
+              'ClientException: Failed to fetch',
+              -1,
+            );
           }
           return 'ответ';
         }, delay: Duration.zero),

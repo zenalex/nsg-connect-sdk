@@ -88,6 +88,12 @@ abstract class MessagesRpc {
     // сообщение комментарием в issue. Параметр опциональный именно ради
     // обратной совместимости: обычная отправка в комнату его не передаёт.
     String? threadId,
+
+    /// **issue #151**: отправить стикер из своего набора. Передаётся ТОЛЬКО
+    /// идентификатор: картинку, имя и набор сервер берёт из своей базы —
+    /// иначе стикером можно было бы назвать что угодно и подписать чужим
+    /// набором.
+    int? stickerId,
   });
 
   /// **TASK19 Chunk 3**: upload media bytes в Matrix media repo через
@@ -289,6 +295,7 @@ class ClientMessagesRpc implements MessagesRpc, AttachmentUrlRpc {
     int? forwardedFromRoomId,
     String? forwardedFromEventId,
     String? threadId,
+    int? stickerId,
   }) => withAuthRetry(
     () => _client.messenger.sendMessage(
       roomId: roomId,
@@ -304,6 +311,7 @@ class ClientMessagesRpc implements MessagesRpc, AttachmentUrlRpc {
       forwardedFromRoomId: forwardedFromRoomId,
       forwardedFromEventId: forwardedFromEventId,
       threadId: threadId,
+      stickerId: stickerId,
     ),
     _session,
   );

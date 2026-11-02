@@ -52,8 +52,7 @@ void main() {
   /// переопределяются.
   NsgMessengerMyBots makeMyBots({
     Future<List<Bot>> Function()? onList,
-    Future<Bot> Function(String name, String caps, bool discoverable)?
-        onCreate,
+    Future<Bot> Function(String name, String caps, bool discoverable)? onCreate,
     Future<Bot> Function(int botId)? onRotate,
     Future<Bot> Function(int botId, bool discoverable)? onSetDiscoverable,
     // TASK77 итер.2: смена режима чтения. TASK77 итер.3: ответ несёт ещё и
@@ -91,10 +90,9 @@ void main() {
             unboundSubscriptionCount: 0,
           ),
         ),
-    setDescriptionRpc:
-        ({required int botId, required String description}) =>
-            onSetDescription?.call(botId, description) ??
-            Future.value(bot(description: description)),
+    setDescriptionRpc: ({required int botId, required String description}) =>
+        onSetDescription?.call(botId, description) ??
+        Future.value(bot(description: description)),
     listRoomsRpc: ({required int botId}) =>
         onListRooms?.call(botId) ?? Future.value(const <RoomSummary>[]),
     removeFromRoomRpc: ({required int botId, required int roomId}) =>
@@ -229,8 +227,9 @@ void main() {
 
   // **TASK77 итер.3**: описание — тот самый текст, который прочитают в
   // каталоге ботов, решая, пускать ли программу в свою группу.
-  testWidgets('описание: отсутствие видно в тайле, диалог сохраняет текст',
-      (tester) async {
+  testWidgets('описание: отсутствие видно в тайле, диалог сохраняет текст', (
+    tester,
+  ) async {
     (int, String)? seen;
     await tester.pumpWidget(
       wrapL10n(
@@ -326,8 +325,9 @@ void main() {
     expect(find.textContaining('Shown once'), findsOneWidget);
   });
 
-  testWidgets('лимит: BotLimitExceededException → человекочитаемый снекбар',
-      (tester) async {
+  testWidgets('лимит: BotLimitExceededException → человекочитаемый снекбар', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       wrapL10n(
         MyBotsScreen(
@@ -454,9 +454,7 @@ void main() {
   testWidgets('комнаты бота: пустое состояние', (tester) async {
     await tester.pumpWidget(
       wrapL10n(
-        MyBotsScreen(
-          myBotsOverride: makeMyBots(onList: () async => [bot()]),
-        ),
+        MyBotsScreen(myBotsOverride: makeMyBots(onList: () async => [bot()])),
       ),
     );
     await tester.pumpAndSettle();

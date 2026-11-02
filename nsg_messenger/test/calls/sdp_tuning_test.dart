@@ -159,10 +159,7 @@ void main() {
 
     test('существующий потолок перезаписывается, повторный вызов не '
         'плодит строк (идемпотентность)', () {
-      final once = capVideoBitrateSdp(
-        avSdp(withBandwidth: true),
-        maxKbps: 800,
-      );
+      final once = capVideoBitrateSdp(avSdp(withBandwidth: true), maxKbps: 800);
       final twice = capVideoBitrateSdp(once, maxKbps: 800);
       expect(twice, once);
       expect(lines(twice).where((l) => l.startsWith('b=AS:')).length, 1);

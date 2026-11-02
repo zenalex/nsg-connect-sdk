@@ -2260,6 +2260,49 @@ void main() {
       },
     );
 
+    test('issue #174: аплоад закончился — плитка расблюривается, не дожидаясь '
+        'отправки', () async {
+      // Жалоба: «повторил отправку — подпись ушла, а фото крутится».
+      // Аплоад заканчивается сменой ОДНОГО поля (`attachment`), и пока
+      // оно не входило в равенство сообщений, `ValueNotifier` ронял это
+      // обновление как «ничего не изменилось». Пузырь оставался под
+      // блюром с прогрессом, хотя фотография уже на сервере.
+      //
+      // Видно это только при небыстрой отправке: обычно следом приходит
+      // промоут в `sent`, он меняет `status` — и обновление проходит уже
+      // по нему. Поэтому здесь send ДЕРЖИМ.
+      final rpc = _FakeRpc();
+      rpc.listMessagesHandler = (_, _, _) async => _page(messages: []);
+      rpc.uploadAttachmentHandler = (_, _, _) async => uploadedRef('u');
+      final sendGate = Completer<MessengerMessage>();
+      rpc.sendMessageHandler = (_, _, _, _, _) => sendGate.future;
+      final eventCtrl = StreamController<MessengerEvent>.broadcast();
+      final controller = _make(rpc: rpc, events: eventCtrl.stream);
+      await controller.init();
+
+      controller.sendAlbumOptimistic(images: [picked('a')]);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      final m = (controller.state as MessagesReady).messages[0];
+      expect(
+        m.attachment,
+        isNotNull,
+        reason: 'аплоад завершён — ссылка обязана быть у пузыря',
+      );
+      expect(
+        m.isUploadingImage,
+        isFalse,
+        reason: 'иначе человек видит вечный прогресс на уже загруженном фото',
+      );
+      expect(m.isPending, isTrue, reason: 'отправка ещё идёт — это нормально');
+
+      sendGate.complete(
+        await echoSend(1, 'a.jpg', 'm.image', m.clientTxnId!, m.attachment),
+      );
+      await controller.dispose();
+      await eventCtrl.close();
+    });
+
     test('только подпись без картинок → обычное текстовое сообщение', () async {
       final rpc = _FakeRpc();
       rpc.listMessagesHandler = (_, _, _) async => _page(messages: []);
@@ -2447,7 +2490,9 @@ void main() {
               messages: [_msg(eventId: 'reply-2', threadId: root)],
               nextToken: 'tok-1',
             )
-          : _page(messages: [_msg(eventId: 'reply-1', threadId: root)]);
+          : _page(
+              messages: [_msg(eventId: 'reply-1', threadId: root)],
+            );
       final eventCtrl = StreamController<MessengerEvent>.broadcast();
       final controller = _make(
         rpc: rpc,
@@ -2531,10 +2576,7 @@ void main() {
 
       // Ответ В треде — сервер шлёт его обычным messageCreated.
       eventCtrl.add(
-        _eventForRoom(
-          _kRoomId,
-          _msg(eventId: 'thread-reply', threadId: root),
-        ),
+        _eventForRoom(_kRoomId, _msg(eventId: 'thread-reply', threadId: root)),
       );
       // Обычное сообщение комнаты — должно пройти.
       eventCtrl.add(_eventForRoom(_kRoomId, _msg(eventId: 'plain')));
@@ -2588,26 +2630,28 @@ void main() {
       await eventCtrl.close();
     });
 
-    test('сводка треда с якоря доезжает до ChatMessage (бейдж «Обсуждение N»)',
-        () async {
-      final rpc = _FakeRpc();
-      rpc.listMessagesHandler = (roomId, fromToken, limit) async => _page(
-        messages: [
-          _msg(eventId: root, threadReplyCount: 3),
-          _msg(eventId: 'plain'),
-        ],
-      );
-      final eventCtrl = StreamController<MessengerEvent>.broadcast();
-      final controller = _make(rpc: rpc, events: eventCtrl.stream);
-      await controller.init();
+    test(
+      'сводка треда с якоря доезжает до ChatMessage (бейдж «Обсуждение N»)',
+      () async {
+        final rpc = _FakeRpc();
+        rpc.listMessagesHandler = (roomId, fromToken, limit) async => _page(
+          messages: [
+            _msg(eventId: root, threadReplyCount: 3),
+            _msg(eventId: 'plain'),
+          ],
+        );
+        final eventCtrl = StreamController<MessengerEvent>.broadcast();
+        final controller = _make(rpc: rpc, events: eventCtrl.stream);
+        await controller.init();
 
-      final msgs = (controller.state as MessagesReady).messages;
-      expect(msgs.first.threadReplyCount, 3);
-      expect(msgs.last.threadReplyCount, isNull);
+        final msgs = (controller.state as MessagesReady).messages;
+        expect(msgs.first.threadReplyCount, 3);
+        expect(msgs.last.threadReplyCount, isNull);
 
-      await controller.dispose();
-      await eventCtrl.close();
-    });
+        await controller.dispose();
+        await eventCtrl.close();
+      },
+    );
   });
 }
 
@@ -2675,6 +2719,7 @@ class _CapturingSendRpc implements MessagesRpc {
     int? forwardedFromRoomId,
     String? forwardedFromEventId,
     String? threadId,
+    int? stickerId,
   }) async {
     lastReplyTo = replyToMatrixEventId;
     lastMentions = mentionedMessengerUserIds;
@@ -2697,8 +2742,7 @@ class _CapturingSendRpc implements MessagesRpc {
     required int roomId,
     required String matrixEventId,
     String? threadRootEventId,
-  }) =>
-      _inner.markRead(roomId: roomId, matrixEventId: matrixEventId);
+  }) => _inner.markRead(roomId: roomId, matrixEventId: matrixEventId);
 
   @override
   Future<AttachmentRef> uploadAttachment({
@@ -3018,6 +3062,7 @@ class _FakeRpc implements MessagesRpc {
     int? forwardedFromRoomId,
     String? forwardedFromEventId,
     String? threadId,
+    int? stickerId,
   }) {
     sentMessages.add((body: body, albumId: albumId, attachment: attachment));
     lastThreadId = threadId;

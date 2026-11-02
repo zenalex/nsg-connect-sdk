@@ -129,11 +129,17 @@ void main() {
 
 // ── issue #70: оформление выделения как кода ─────────────────────────────
 void _codeFormattingTests() {
-  Widget wrap(Widget child) =>
-      wrapL10n(Column(children: [const Spacer(), child]), locale: const Locale('ru'));
+  Widget wrap(Widget child) => wrapL10n(
+    Column(children: [const Spacer(), child]),
+    locale: const Locale('ru'),
+  );
 
-  Future<TextEditingController> pumpWith(WidgetTester tester, String text,
-      {required int start, required int end}) async {
+  Future<TextEditingController> pumpWith(
+    WidgetTester tester,
+    String text, {
+    required int start,
+    required int end,
+  }) async {
     late TextEditingController ctl;
     await tester.pumpWidget(
       wrap(

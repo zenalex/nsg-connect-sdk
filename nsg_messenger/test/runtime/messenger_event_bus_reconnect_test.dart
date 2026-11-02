@@ -1,3 +1,4 @@
+import '../support/eventually.dart';
 import 'dart:async';
 import 'dart:math' show Random;
 
@@ -375,7 +376,12 @@ void main() {
     // НИ ОДНОГО event-а (тихий аккаунт) — раньше баннер висел бы вечно.
     // Ждём > confirm-delay: sub жив → transport восстановлен → healthy.
     q.controllers[0].addError(StateError('blip'));
-    await pumpAsync(120);
+    await eventually(
+      () =>
+          bus.connectionState == MessengerConnectionState.healthy &&
+          transitions.contains(MessengerConnectionState.reconnecting) &&
+          transitions.last == MessengerConnectionState.healthy,
+    );
     expect(
       bus.connectionState,
       MessengerConnectionState.healthy,

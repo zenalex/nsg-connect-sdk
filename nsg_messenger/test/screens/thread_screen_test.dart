@@ -83,6 +83,7 @@ class _FakeRpc implements MessagesRpc {
     int? forwardedFromRoomId,
     String? forwardedFromEventId,
     String? threadId,
+    int? stickerId,
   }) async {
     lastSentThreadId = threadId;
     lastSentBody = body;

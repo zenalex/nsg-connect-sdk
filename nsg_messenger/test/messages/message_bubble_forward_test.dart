@@ -54,9 +54,7 @@ void main() {
 
   testWidgets('не пересланное → нет шапки', (tester) async {
     await tester.pumpWidget(
-      wrapL10n(
-        MessageBubble(message: msg(), isOwn: false, onRetry: (_) {}),
-      ),
+      wrapL10n(MessageBubble(message: msg(), isOwn: false, onRetry: (_) {})),
     );
     expect(find.textContaining('Forwarded from'), findsNothing);
   });

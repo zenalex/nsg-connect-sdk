@@ -121,16 +121,16 @@ void main() {
       expect(find.text('Инженер'), findsNothing);
     });
 
-    testWidgets('photo без runtime деградирует в градиент (не падает)',
-        (tester) async {
+    testWidgets('photo без runtime деградирует в градиент (не падает)', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Center(
             child: SizedBox(
               width: 300,
               child: ContactCardView(
-                card: info(template: 'photo')
-                  ..backgroundMxc = 'mxc://srv/abc',
+                card: info(template: 'photo')..backgroundMxc = 'mxc://srv/abc',
               ),
             ),
           ),

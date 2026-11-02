@@ -79,6 +79,7 @@ class _ForwardFakeRpc implements MessagesRpc {
     String? forwardedFromEventId,
     // TASK82: тред задачи — фейку достаточно принять параметр.
     String? threadId,
+    int? stickerId,
   }) async {
     sent.add(
       _Sent(
@@ -146,8 +147,9 @@ class _ForwardFakeRpc implements MessagesRpc {
   }) async => const <String>[];
 
   @override
-  Future<List<MessengerMessage>> listPinnedMessages({required int roomId}) async =>
-      const <MessengerMessage>[];
+  Future<List<MessengerMessage>> listPinnedMessages({
+    required int roomId,
+  }) async => const <MessengerMessage>[];
 }
 
 MessengerMessage _img(String ev, String mxc, int minute) => MessengerMessage(
@@ -228,41 +230,44 @@ void main() {
     await c.dispose();
   });
 
-  test('forward одиночной картинки (не альбом) → mxc переиспользован', () async {
-    final rpc = _ForwardFakeRpc()
-      ..page = [
-        MessengerMessage(
-          matrixEventId: 'p1',
-          roomId: _srcRoom,
-          matrixRoomId: '!r:t',
-          senderMatrixUserId: '@alice:t',
-          senderMessengerUserId: 2,
-          msgType: 'm.image',
-          body: 'pic.jpg',
-          serverTimestamp: DateTime.utc(2026, 1, 1),
-          attachment: AttachmentRef(
-            mxcUrl: 'mxc://server/solo',
-            mimeType: 'image/jpeg',
-            sizeBytes: 5,
-            originalFilename: 'pic.jpg',
+  test(
+    'forward одиночной картинки (не альбом) → mxc переиспользован',
+    () async {
+      final rpc = _ForwardFakeRpc()
+        ..page = [
+          MessengerMessage(
+            matrixEventId: 'p1',
+            roomId: _srcRoom,
+            matrixRoomId: '!r:t',
+            senderMatrixUserId: '@alice:t',
+            senderMessengerUserId: 2,
+            msgType: 'm.image',
+            body: 'pic.jpg',
+            serverTimestamp: DateTime.utc(2026, 1, 1),
+            attachment: AttachmentRef(
+              mxcUrl: 'mxc://server/solo',
+              mimeType: 'image/jpeg',
+              sizeBytes: 5,
+              originalFilename: 'pic.jpg',
+            ),
+            senderDisplayName: 'Alice',
           ),
-          senderDisplayName: 'Alice',
-        ),
-      ];
-    final c = await _build(rpc);
-    final anchor = (c.state as MessagesReady).messages.single;
+        ];
+      final c = await _build(rpc);
+      final anchor = (c.state as MessagesReady).messages.single;
 
-    await c.forwardMessage(targetRoomId: _dstRoom, message: anchor);
+      await c.forwardMessage(targetRoomId: _dstRoom, message: anchor);
 
-    expect(rpc.sent.length, 1);
-    final s = rpc.sent.single;
-    expect(s.roomId, _dstRoom);
-    expect(s.albumId, isNull);
-    expect(s.msgType, 'm.image');
-    expect(s.attachment?.mxcUrl, 'mxc://server/solo');
-    expect(s.fwdName, 'Alice');
-    await c.dispose();
-  });
+      expect(rpc.sent.length, 1);
+      final s = rpc.sent.single;
+      expect(s.roomId, _dstRoom);
+      expect(s.albumId, isNull);
+      expect(s.msgType, 'm.image');
+      expect(s.attachment?.mxcUrl, 'mxc://server/solo');
+      expect(s.fwdName, 'Alice');
+      await c.dispose();
+    },
+  );
 
   test(
     'forward альбома → новый albumId, картинки перед подписью, mxc reuse',

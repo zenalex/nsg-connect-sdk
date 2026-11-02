@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_callkit_incoming/entities/entities.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import 'call_push.dart';
 
@@ -36,6 +37,65 @@ class CallPushPresenter {
   /// Последний показанный CallKit-id и когда (см. [shouldSkipDuplicateShow]).
   static String? _lastShownId;
   static DateTime? _lastShownAt;
+
+  /// **issue #180 — имя приложения на экране входящего звонка.**
+  ///
+  /// На iOS это `CXProviderConfiguration.localizedName`: система пишет им
+  /// «через <имя>» в списке вызовов и на самом экране звонка. Здесь было
+  /// зашито имя нашего приложения — а SDK встраивают чужие продукты, и их
+  /// пользователю показывался чужой бренд. Ровно то, что мы обещаем не
+  /// делать: «UI под ваш бренд».
+  ///
+  /// Хост может назвать себя сам ([appNameOverride]); если не назвал —
+  /// спрашиваем ПЛАТФОРМУ. Имя приложения там уже есть и всегда верное:
+  /// `android:label` в манифесте и `CFBundleDisplayName` в Info.plist.
+  /// Никакой проводки от хоста для этого не нужно, а значит и забыть её
+  /// нельзя.
+  static String? _cachedAppName;
+
+  /// Имя приложения, если хост хочет назвать себя явно.
+  ///
+  /// Ставить нужно В ОБОИХ входах: в `main()` и в фоновом обработчике
+  /// пушей — это разные изоляты, и статика между ними не переезжает.
+  /// Не поставили — сработает опрос платформы, поэтому «забыли» здесь
+  /// не ломает ничего.
+  static String? appNameOverride;
+
+  /// Сбросить кэш имени — для тестов.
+  @visibleForTesting
+  static void resetAppNameCache() => _cachedAppName = null;
+
+  /// Чем подписать звонок. `null` — узнать не удалось; тогда поле в
+  /// [CallKitParams] не ставим вовсе и пусть решает платформа.
+  ///
+  /// Опрос платформы обёрнут в try: фоновый isolate мог не поднять
+  /// плагины, и падение здесь стоило бы человеку пропущенного звонка —
+  /// цена несопоставима с ценой неподписанного экрана.
+  @visibleForTesting
+  static Future<String?> resolveAppName({
+    Future<String> Function()? platformName,
+  }) async {
+    final override = appNameOverride?.trim();
+    if (override != null && override.isNotEmpty) return override;
+    final cached = _cachedAppName;
+    if (cached != null) return cached.isEmpty ? null : cached;
+    try {
+      final name = (await (platformName ?? _platformAppName)()).trim();
+      _cachedAppName = name;
+      return name.isEmpty ? null : name;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[CallPushPresenter] имя приложения не спросить: $e');
+      }
+      // Пустая строка в кэше — «спрашивали, не вышло»: второй раз в том же
+      // изоляте не ходим, звонок ждать не должен.
+      _cachedAppName = '';
+      return null;
+    }
+  }
+
+  static Future<String> _platformAppName() async =>
+      (await PackageInfo.fromPlatform()).appName;
 
   /// **Гард от повторного «входящего»** — чистая логика (без плагина).
   ///
@@ -113,7 +173,8 @@ class CallPushPresenter {
     final params = CallKitParams(
       id: callKitId,
       nameCaller: nameCaller,
-      appName: 'Chatista',
+      // Не литерал: SDK встраивают чужие продукты (issue #180).
+      appName: await resolveAppName(),
       handle: handle,
       // 0 — аудио-звонок (голосовой 1:1, video пока нет).
       type: 0,
@@ -123,7 +184,9 @@ class CallPushPresenter {
       // дальше система сама снимет нотификацию (missed).
       missedCallNotification: NotificationParams(
         showNotification: true,
-        subtitle: isConf ? 'Пропущенный групповой звонок' : 'Пропущенный звонок',
+        subtitle: isConf
+            ? 'Пропущенный групповой звонок'
+            : 'Пропущенный звонок',
       ),
       duration: 60000,
       // Прокидываем контекст в extra — host-app восстановит из

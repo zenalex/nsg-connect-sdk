@@ -51,8 +51,8 @@ void main() {
     setPausedRpc: ({required int id, required bool paused}) =>
         throw UnimplementedError(),
     moveMonitorRpc: ({required int id, int? folderId}) =>
-      throw UnimplementedError(),
-  deleteMonitorRpc: ({required int id}) => throw UnimplementedError(),
+        throw UnimplementedError(),
+    deleteMonitorRpc: ({required int id}) => throw UnimplementedError(),
     // TASK94: экран участников проб не касается — заглушки должны
     // ПАДАТЬ, а не возвращать пустоту: молчаливый ответ спрятал бы
     // случайный вызов вместо того, чтобы показать его.
@@ -72,8 +72,7 @@ void main() {
           required int warnBeforeDays,
           required int errorBeforeDays,
         }) => throw UnimplementedError(),
-    listProbeAllowlistRpc: () async =>
-        const <PulseProbeAllowlistEntry>[],
+    listProbeAllowlistRpc: () async => const <PulseProbeAllowlistEntry>[],
     addProbeAllowlistRpc:
         ({
           required String address,
@@ -81,10 +80,9 @@ void main() {
           required int port,
           String? note,
         }) => throw UnimplementedError(),
-    removeProbeAllowlistRpc: ({required int id}) =>
-        throw UnimplementedError(),
+    removeProbeAllowlistRpc: ({required int id}) => throw UnimplementedError(),
     listTlsProbesRpc: () async => const <PulseTlsProbe>[],
-  getTlsProbeRpc: ({required int monitorId}) => throw UnimplementedError(),
+    getTlsProbeRpc: ({required int monitorId}) => throw UnimplementedError(),
     runProbeNowRpc: ({required int monitorId}) => throw UnimplementedError(),
     listValueThresholdsRpc: ({required int monitorId}) async =>
         const <PulseValueThreshold>[],
@@ -97,15 +95,21 @@ void main() {
           double? warnAbove,
           double? errorAbove,
         }) => throw UnimplementedError(),
-    removeValueThresholdRpc:
-        ({required int monitorId, required String name}) =>
-            throw UnimplementedError(),
+    removeValueThresholdRpc: ({required int monitorId, required String name}) =>
+        throw UnimplementedError(),
     updateProbeTargetRpc:
         ({
           required int monitorId,
           String? connectHost,
           int? port,
           String? serverName,
+        }) => throw UnimplementedError(),
+    updateMonitorRpc:
+        ({
+          required int id,
+          String? name,
+          int? periodSeconds,
+          int? graceSeconds,
         }) => throw UnimplementedError(),
     getExpiryReminderRpc: ({required int monitorId}) =>
         throw UnimplementedError(),

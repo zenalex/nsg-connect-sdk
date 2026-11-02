@@ -9,9 +9,8 @@ import '../test_helpers.dart';
 /// задачи (`total > 0`); при активных (`active > 0`) — бейдж с числом; нет
 /// данных / нет задач → иконки нет (не пустой список по тапу).
 void main() {
-  Widget button(RoomTaskStats? stats, {VoidCallback? onTap}) => wrapL10n(
-    TasksHeaderButton(stats: stats, onTap: onTap ?? () {}),
-  );
+  Widget button(RoomTaskStats? stats, {VoidCallback? onTap}) =>
+      wrapL10n(TasksHeaderButton(stats: stats, onTap: onTap ?? () {}));
 
   testWidgets('нет данных (null) → иконки нет', (tester) async {
     await tester.pumpWidget(button(null));

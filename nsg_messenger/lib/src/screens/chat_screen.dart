@@ -1,7 +1,11 @@
+import '../crm/crm_components.dart';
+import '../crm/crm_room_controller.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import '../crm/crm_deal_banner.dart';
+import '../crm/crm_rpc.dart';
 
 import 'pane_load_queue.dart';
 import 'package:flutter/rendering.dart' show RenderAbstractViewport;
@@ -27,7 +31,10 @@ import 'package:nsg_connect_client/nsg_connect_client.dart'
         // автора, а не отсутствие человека.
         PeerUnavailableException,
         AttachmentRejectedException,
-        AttachmentRejectReason;
+        AttachmentRejectReason,
+        // **issue #151**: стикеры — наборы для панели вставки и сам стикер.
+        Sticker,
+        StickerPackView;
 
 import '../contact_card/contact_card_view.dart';
 import '../i18n/connection_lost_banner.dart';
@@ -64,6 +71,7 @@ import '../session/auth_retry.dart' show withAuthRetry;
 import '../runtime/active_room.dart';
 import '../runtime/messenger_connection_state.dart';
 import '../utils/relative_time.dart' show dateSeparatorLabel, localDayKey;
+import '../stickers/sticker_packs_screen.dart';
 import '../theme/highlight_surface.dart';
 import '../theme/messenger_theme_scope.dart';
 import '../theme/nsg_messenger_theme.dart' show NsgMessageBubbleTokens;
@@ -1376,7 +1384,9 @@ class _ChatScreenState extends State<ChatScreen>
   void _updateStickyDate() {
     if (!_scrollController.hasClients) return;
     final vpObj = _listViewportKey.currentContext?.findRenderObject();
-    if (vpObj is! RenderBox || !vpObj.hasSize) return;
+    // GlitchTip 5407: отцепленный от дерева RenderBox (смена чата/пересборка
+    // ленты) роняет localToGlobal на null-check в getTransformTo.
+    if (vpObj is! RenderBox || !vpObj.attached || !vpObj.hasSize) return;
     final vTop = vpObj.localToGlobal(Offset.zero).dy;
     DateTime? current; // плашка с наибольшим top <= vTop (искомая полоса)
     double currentTop = double.negativeInfinity;
@@ -1384,7 +1394,7 @@ class _ChatScreenState extends State<ChatScreen>
     double topmostTop = double.infinity;
     _separatorKeys.forEach((day, key) {
       final obj = key.currentContext?.findRenderObject();
-      if (obj is! RenderBox || !obj.hasSize) return;
+      if (obj is! RenderBox || !obj.attached || !obj.hasSize) return;
       final top = obj.localToGlobal(Offset.zero).dy;
       if (top < topmostTop) {
         topmostTop = top;
@@ -1794,6 +1804,32 @@ class _ChatScreenState extends State<ChatScreen>
         ),
       );
     }
+  }
+
+  /// **issue #151**: наборы стикеров для панели вставки.
+  ///
+  /// Методом, а не обращением к рантайму прямо в `build`: бросок оттуда —
+  /// отказ сборки кадра (см. сторож `runtime_in_build_guard_test`). Здесь
+  /// это путь ДЕЙСТВИЯ — панель открыли, — и отказ человек видит текстом
+  /// «не удалось загрузить», а не чёрным экраном.
+  Future<List<StickerPackView>> _loadStickerPacks() =>
+      MessengerRuntime.instance.stickers.listMyPacks();
+
+  /// **issue #151**: открыть управление наборами. Экран живёт в SDK, но
+  /// переход делает экран чата: композер про навигацию ничего не знает.
+  Future<void> _manageStickers() => Navigator.of(
+    context,
+  ).push(MaterialPageRoute<void>(builder: (_) => const StickerPacksScreen()));
+
+  /// **issue #151**: отправить стикер. Отдельным сообщением: пузырь виден
+  /// сразу (mxc уже известен пикеру), сеть догоняет.
+  Future<void> _sendSticker(Sticker sticker) async {
+    await _controller.sendSticker(
+      sticker,
+      // Стикером отвечают так же, как текстом: цитата в композере уже
+      // выбрана — терять её при отправке стикера было бы неожиданно.
+      replyToMatrixEventId: _controller.replyTarget?.matrixEventId,
+    );
   }
 
   /// **Issue #54**: единственная точка, где ошибка отправки становится
@@ -2987,7 +3023,12 @@ class _ChatScreenState extends State<ChatScreen>
               // не вызывается — `_roomDetails` остаётся null. Показываем
               // plain fallback вместо вечного spinner-а, чтобы существующие
               // chat_screen-widget-тесты не ломались.
-              title: widget.controllerOverride != null && _roomDetails == null
+              title: _roomDetails?.productEntityType == 'crm_agent'
+                  ? CrmAgentHeader(
+                      title: NsgL10n.of(context).crmAgentRoom,
+                      subtitle: NsgL10n.of(context).crmAgentPrivacy,
+                    )
+                  : widget.controllerOverride != null && _roomDetails == null
                   ? Text('Room #${widget.roomId}')
                   : _RoomTitle(
                       details: _roomDetails,
@@ -3109,6 +3150,13 @@ class _ChatScreenState extends State<ChatScreen>
         sink: _dropSink,
         child: Column(
           children: [
+            if (_roomDetails?.productEntityType == 'crm_deal' &&
+                int.tryParse(_roomDetails?.productEntityId ?? '') != null)
+              CrmDealBanner(
+                dealId: int.parse(_roomDetails!.productEntityId!),
+                rpc: CrmRpc(MessengerRuntime.instance.client.crm),
+                room: _controller.crmRoom,
+              ),
             if (_searchResults.isNotEmpty)
               _SearchNavBar(
                 query: _lastSearchQuery,
@@ -3168,6 +3216,13 @@ class _ChatScreenState extends State<ChatScreen>
                           selfMessengerUserId: _controller.selfMessengerUserId,
                           onScroll: _onScroll,
                           onRetry: _retry,
+                          crmRoom: _controller.crmRoom,
+                          onCrmReply: (text, eventId) async {
+                            await _controller.sendMessage(
+                              body: text,
+                              replyToMatrixEventId: eventId,
+                            );
+                          },
                           onLongPressMessage: _onLongPressMessage,
                           // **Пересылка (мультивыбор)**: режим выбора + тоггл.
                           selectionMode: _inSelection,
@@ -3353,12 +3408,22 @@ class _ChatScreenState extends State<ChatScreen>
                                               ?.displayName ??
                                           replyTarget.senderMatrixUserId);
                                 return MessageComposer(
+                                  // **issue #129**: композер должен знать
+                                  // свою комнату — по ней он отличает
+                                  // «вставили сюда» от «вставили в
+                                  // соседний открытый чат».
+                                  roomId: widget.roomId,
                                   dropSink: _dropSink,
                                   onSend: _send,
                                   enabled: state is MessagesReady,
                                   initialText: widget.initialDraft,
                                   onSendAttachment: _sendAttachment,
                                   onSendAlbum: _sendAlbum,
+                                  // **issue #151**: вкладка стикеров в
+                                  // панели вставки.
+                                  loadStickerPacks: _loadStickerPacks,
+                                  onSendSticker: _sendSticker,
+                                  onManageStickers: _manageStickers,
                                   // Reply hidden когда композер в edit /
                                   // album-edit режиме — они не сосуществуют.
                                   replyTarget:
@@ -3679,6 +3744,8 @@ class _DateSeparatorLabel extends StatelessWidget {
 
 class _Body extends StatelessWidget {
   const _Body({
+    this.onCrmReply,
+    this.crmRoom,
     required this.state,
     required this.selfMessengerUserId,
     required this.onScroll,
@@ -3730,6 +3797,8 @@ class _Body extends StatelessWidget {
   /// без зависимости от `MessengerRuntime`.
   final int selfMessengerUserId;
   final bool Function(ScrollNotification) onScroll;
+  final Future<void> Function(String, String)? onCrmReply;
+  final CrmRoomController? crmRoom;
   final void Function(ChatMessage) onRetry;
   final void Function(ChatMessage, bool isOwn) onLongPressMessage;
   final DownloadAttachmentThumbnailRpc thumbnailRpc;
@@ -3805,6 +3874,8 @@ class _Body extends StatelessWidget {
                 selfMessengerUserId: selfMessengerUserId,
                 onScroll: onScroll,
                 onRetry: onRetry,
+                onCrmReply: onCrmReply,
+                crmRoom: crmRoom,
                 onLongPressMessage: onLongPressMessage,
                 thumbnailRpc: thumbnailRpc,
                 fullSizeRpc: fullSizeRpc,
@@ -3837,6 +3908,8 @@ class _Body extends StatelessWidget {
         selfMessengerUserId: selfMessengerUserId,
         onScroll: onScroll,
         onRetry: onRetry,
+        onCrmReply: onCrmReply,
+        crmRoom: crmRoom,
         onLongPressMessage: onLongPressMessage,
         thumbnailRpc: thumbnailRpc,
         fullSizeRpc: fullSizeRpc,
@@ -3869,6 +3942,8 @@ class _Body extends StatelessWidget {
 
 class _Loaded extends StatelessWidget {
   const _Loaded({
+    this.onCrmReply,
+    this.crmRoom,
     required this.ready,
     required this.selfMessengerUserId,
     required this.onScroll,
@@ -3910,6 +3985,8 @@ class _Loaded extends StatelessWidget {
   final ContactCardInfo? introCard;
   final int selfMessengerUserId;
   final bool Function(ScrollNotification) onScroll;
+  final Future<void> Function(String, String)? onCrmReply;
+  final CrmRoomController? crmRoom;
   final void Function(ChatMessage) onRetry;
   final void Function(ChatMessage, bool isOwn) onLongPressMessage;
   final DownloadAttachmentThumbnailRpc thumbnailRpc;
@@ -4132,6 +4209,8 @@ class _Loaded extends StatelessWidget {
                             message: m,
                             isOwn: isOwn,
                             onRetry: onRetry,
+                            onCrmReply: onCrmReply,
+                            crmRoom: crmRoom,
                             // **issue #90**: карточка превью первой ссылки.
                             // До init-а (тесты, host без SDK) — null, и
                             // ссылка остаётся обычным текстом.

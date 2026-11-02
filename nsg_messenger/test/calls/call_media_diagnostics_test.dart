@@ -5,7 +5,8 @@ import 'package:nsg_messenger/src/calls/call_media_diagnostics.dart';
 /// («соединились, звука нет»): сводка SDP + форматирование RTP-статов.
 void main() {
   group('summarizeSdp', () {
-    const audioSdp = 'v=0\r\n'
+    const audioSdp =
+        'v=0\r\n'
         'o=- 1 2 IN IP4 127.0.0.1\r\n'
         's=-\r\n'
         't=0 0\r\n'
@@ -39,7 +40,8 @@ void main() {
     });
 
     test('opus отсутствует → маркер НЕТ (сигнал проблемы кодека)', () {
-      const noOpus = 'm=audio 9 UDP/TLS/RTP/SAVPF 8\r\n'
+      const noOpus =
+          'm=audio 9 UDP/TLS/RTP/SAVPF 8\r\n'
           'a=rtpmap:8 PCMA/8000\r\n'
           'a=sendrecv\r\n';
       expect(summarizeSdp(noOpus), contains('opus=НЕТ'));
@@ -106,7 +108,9 @@ void main() {
     test('connected, но 0 принятых пакетов → no_rtp_received', () {
       final c = CallMediaCollector()
         ..wasConnected = true
-        ..addStats(const CallStatsSnapshot(packetsSent: 500, packetsReceived: 0));
+        ..addStats(
+          const CallStatsSnapshot(packetsSent: 500, packetsReceived: 0),
+        );
       expect(c.verdict, 'no_rtp_received');
     });
 

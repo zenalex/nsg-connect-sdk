@@ -41,10 +41,7 @@ void main() {
           value: '/tmp/b.mp4',
           mimeType: 'video/mp4',
         ),
-        SharedInboundItem(
-          kind: SharedInboundKind.file,
-          value: '/tmp/c.pdf',
-        ),
+        SharedInboundItem(kind: SharedInboundKind.file, value: '/tmp/c.pdf'),
       ]);
       expect(p.text, isNull);
       expect(p.files.length, 3);
@@ -168,20 +165,17 @@ void main() {
     });
 
     test('MIME выводится из расширения, если не задан', () {
-      expect(
-        shareFileIsImage(const SharedFile(path: '/photo.jpg')),
-        isTrue,
-      );
-      expect(
-        shareFileIsImage(const SharedFile(path: '/doc.pdf')),
-        isFalse,
-      );
+      expect(shareFileIsImage(const SharedFile(path: '/photo.jpg')), isTrue);
+      expect(shareFileIsImage(const SharedFile(path: '/doc.pdf')), isFalse);
     });
 
     test('два image-файла без MIME (по расширению) → общий albumId', () {
       final id = shareAlbumIdForPayload(
         const SharedPayload(
-          files: [SharedFile(path: '/a.jpg'), SharedFile(path: '/b.png')],
+          files: [
+            SharedFile(path: '/a.jpg'),
+            SharedFile(path: '/b.png'),
+          ],
         ),
         genId: genId,
       );
@@ -206,12 +200,15 @@ void main() {
       expect(slot.take(), isNull);
     });
 
-    test('второй store перезаписывает (последний важнее, очередь не в MVP)', () {
-      final slot = SharePendingSlot();
-      slot.store(const SharedPayload(text: 'first'));
-      slot.store(const SharedPayload(text: 'second'));
-      expect(slot.take()?.text, 'second');
-    });
+    test(
+      'второй store перезаписывает (последний важнее, очередь не в MVP)',
+      () {
+        final slot = SharePendingSlot();
+        slot.store(const SharedPayload(text: 'first'));
+        slot.store(const SharedPayload(text: 'second'));
+        expect(slot.take()?.text, 'second');
+      },
+    );
 
     test('clear сбрасывает слот без выдачи', () {
       final slot = SharePendingSlot();

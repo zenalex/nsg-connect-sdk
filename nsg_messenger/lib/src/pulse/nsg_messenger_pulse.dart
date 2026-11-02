@@ -49,6 +49,15 @@ typedef RotatePulseTokenRpc =
     Future<PulseMonitorCreated> Function({required int id});
 typedef SetPulsePausedRpc =
     Future<PulseMonitor> Function({required int id, required bool paused});
+
+/// **issue #187**: правка имени, периода и допуска у созданного монитора.
+typedef UpdatePulseMonitorRpc =
+    Future<PulseMonitor> Function({
+      required int id,
+      String? name,
+      int? periodSeconds,
+      int? graceSeconds,
+    });
 typedef MovePulseMonitorRpc =
     Future<PulseMonitor> Function({required int id, int? folderId});
 typedef DeletePulseMonitorRpc = Future<void> Function({required int id});
@@ -185,6 +194,7 @@ class NsgMessengerPulse {
     required CreatePulseMonitorRpc createMonitorRpc,
     required RotatePulseTokenRpc rotateTokenRpc,
     required SetPulsePausedRpc setPausedRpc,
+    required UpdatePulseMonitorRpc updateMonitorRpc,
     required MovePulseMonitorRpc moveMonitorRpc,
     required DeletePulseMonitorRpc deleteMonitorRpc,
     required CreatePulseTlsProbeRpc createTlsProbeRpc,
@@ -218,6 +228,7 @@ class NsgMessengerPulse {
        _createMonitorRpc = createMonitorRpc,
        _rotateTokenRpc = rotateTokenRpc,
        _setPausedRpc = setPausedRpc,
+       _updateMonitorRpc = updateMonitorRpc,
        _moveMonitorRpc = moveMonitorRpc,
        _deleteMonitorRpc = deleteMonitorRpc,
        _createTlsProbeRpc = createTlsProbeRpc,
@@ -252,6 +263,7 @@ class NsgMessengerPulse {
   final CreatePulseMonitorRpc _createMonitorRpc;
   final RotatePulseTokenRpc _rotateTokenRpc;
   final SetPulsePausedRpc _setPausedRpc;
+  final UpdatePulseMonitorRpc _updateMonitorRpc;
   final MovePulseMonitorRpc _moveMonitorRpc;
   final DeletePulseMonitorRpc _deleteMonitorRpc;
   final CreatePulseTlsProbeRpc _createTlsProbeRpc;
@@ -324,6 +336,21 @@ class NsgMessengerPulse {
         () => client.pulse.setPaused(id: id, paused: paused),
         session(),
       ),
+      updateMonitorRpc:
+          ({
+            required int id,
+            String? name,
+            int? periodSeconds,
+            int? graceSeconds,
+          }) => withAuthRetry(
+            () => client.pulse.updateMonitor(
+              id: id,
+              name: name,
+              periodSeconds: periodSeconds,
+              graceSeconds: graceSeconds,
+            ),
+            session(),
+          ),
       moveMonitorRpc: ({required int id, int? folderId}) => withAuthRetry(
         () => client.pulse.moveMonitor(id: id, folderId: folderId),
         session(),
@@ -438,8 +465,8 @@ class NsgMessengerPulse {
             ),
             session(),
           ),
-      removeValueThresholdRpc: ({required int monitorId, required String name}) =>
-          withAuthRetry(
+      removeValueThresholdRpc:
+          ({required int monitorId, required String name}) => withAuthRetry(
             () => client.pulse.removeValueThreshold(
               monitorId: monitorId,
               name: name,
@@ -542,6 +569,7 @@ class NsgMessengerPulse {
     required CreatePulseMonitorRpc createMonitorRpc,
     required RotatePulseTokenRpc rotateTokenRpc,
     required SetPulsePausedRpc setPausedRpc,
+    required UpdatePulseMonitorRpc updateMonitorRpc,
     required MovePulseMonitorRpc moveMonitorRpc,
     required DeletePulseMonitorRpc deleteMonitorRpc,
     required CreatePulseTlsProbeRpc createTlsProbeRpc,
@@ -576,6 +604,7 @@ class NsgMessengerPulse {
     createMonitorRpc: createMonitorRpc,
     rotateTokenRpc: rotateTokenRpc,
     setPausedRpc: setPausedRpc,
+    updateMonitorRpc: updateMonitorRpc,
     moveMonitorRpc: moveMonitorRpc,
     deleteMonitorRpc: deleteMonitorRpc,
     createTlsProbeRpc: createTlsProbeRpc,
@@ -773,6 +802,24 @@ class NsgMessengerPulse {
   /// Пауза/возобновление (обслуживание/деплой): свипер и алерты пропускают.
   Future<PulseMonitor> setPaused({required int id, required bool paused}) =>
       _setPausedRpc(id: id, paused: paused);
+
+  /// **issue #187**: изменить имя, период и допуск созданного монитора.
+  ///
+  /// Право — `admin+`, как у паузы. Только heartbeat и TLS-проба
+  /// ([PulseMonitorKinds.isUserEditable]): у мониторов, которые ведёт сервер,
+  /// период совпадает с расписанием его воркера. Не переданное поле не
+  /// меняется. Новые значения действуют со следующей проверки дедлайна.
+  Future<PulseMonitor> updateMonitor({
+    required int id,
+    String? name,
+    int? periodSeconds,
+    int? graceSeconds,
+  }) => _updateMonitorRpc(
+    id: id,
+    name: name,
+    periodSeconds: periodSeconds,
+    graceSeconds: graceSeconds,
+  );
 
   Future<void> deleteMonitor({required int id}) => _deleteMonitorRpc(id: id);
 

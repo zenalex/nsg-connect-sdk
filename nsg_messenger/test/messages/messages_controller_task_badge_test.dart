@@ -62,54 +62,63 @@ void main() {
     return (controller, events);
   }
 
-  test('taskBadgeUpdated обновляет значок сообщения-носителя в ленте', () async {
-    final (controller, events) = await boot([seededMsg(r'$carrier')]);
-    addTearDown(() async {
-      await controller.dispose();
-      await events.close();
-    });
+  test(
+    'taskBadgeUpdated обновляет значок сообщения-носителя в ленте',
+    () async {
+      final (controller, events) = await boot([seededMsg(r'$carrier')]);
+      addTearDown(() async {
+        await controller.dispose();
+        await events.close();
+      });
 
-    // До события — значка нет.
-    var msg = (controller.state as MessagesReady).messages.single;
-    expect(msg.hasTaskBadge, isFalse);
+      // До события — значка нет.
+      var msg = (controller.state as MessagesReady).messages.single;
+      expect(msg.hasTaskBadge, isFalse);
 
-    events.add(
-      badgeEvent(
-        carrierEventId: r'$carrier',
-        stage: 'in_progress',
-        threadRoot: r'$anchor',
-        url: 'https://x/64',
-      ),
-    );
-    await Future<void>.delayed(Duration.zero);
+      events.add(
+        badgeEvent(
+          carrierEventId: r'$carrier',
+          stage: 'in_progress',
+          threadRoot: r'$anchor',
+          url: 'https://x/64',
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
 
-    msg = (controller.state as MessagesReady).messages.single;
-    expect(msg.hasTaskBadge, isTrue);
-    expect(msg.taskStage, 'in_progress');
-    expect(msg.taskThreadRootEventId, r'$anchor');
-    expect(msg.taskUrl, 'https://x/64');
-    // Остальное сообщение не тронуто.
-    expect(msg.body, 'завёл заявку #64');
-    expect(msg.matrixEventId, r'$carrier');
-  });
+      msg = (controller.state as MessagesReady).messages.single;
+      expect(msg.hasTaskBadge, isTrue);
+      expect(msg.taskStage, 'in_progress');
+      expect(msg.taskThreadRootEventId, r'$anchor');
+      expect(msg.taskUrl, 'https://x/64');
+      // Остальное сообщение не тронуто.
+      expect(msg.body, 'завёл заявку #64');
+      expect(msg.matrixEventId, r'$carrier');
+    },
+  );
 
-  test('нет сообщения-носителя в памяти → no-op (не падает, ничего не меняет)',
-      () async {
-    final (controller, events) = await boot([seededMsg(r'$other')]);
-    addTearDown(() async {
-      await controller.dispose();
-      await events.close();
-    });
+  test(
+    'нет сообщения-носителя в памяти → no-op (не падает, ничего не меняет)',
+    () async {
+      final (controller, events) = await boot([seededMsg(r'$other')]);
+      addTearDown(() async {
+        await controller.dispose();
+        await events.close();
+      });
 
-    events.add(
-      badgeEvent(carrierEventId: r'$missing', stage: 'new', url: 'https://x/1'),
-    );
-    await Future<void>.delayed(Duration.zero);
+      events.add(
+        badgeEvent(
+          carrierEventId: r'$missing',
+          stage: 'new',
+          url: 'https://x/1',
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
 
-    final msg = (controller.state as MessagesReady).messages.single;
-    expect(msg.matrixEventId, r'$other');
-    expect(msg.hasTaskBadge, isFalse);
-  });
+      final msg = (controller.state as MessagesReady).messages.single;
+      expect(msg.matrixEventId, r'$other');
+      expect(msg.hasTaskBadge, isFalse);
+    },
+  );
 
   test('перекраска new→accepted: последнее событие побеждает', () async {
     final (controller, events) = await boot([seededMsg(r'$carrier')]);

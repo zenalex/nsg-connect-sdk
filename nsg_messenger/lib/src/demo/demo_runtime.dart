@@ -387,6 +387,7 @@ class _DemoMessagesRpc implements MessagesRpc {
     int? forwardedFromRoomId,
     String? forwardedFromEventId,
     String? threadId,
+    int? stickerId,
   }) {
     throw UnimplementedError(
       'NsgMessenger.initDemo: sendMessage is disabled in demo mode.',

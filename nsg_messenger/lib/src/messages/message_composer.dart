@@ -12,13 +12,14 @@ import 'package:flutter/foundation.dart'
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:nsg_connect_client/nsg_connect_client.dart'
-    show BotCommand, RoomBotCommands, RoomParticipant;
+    show BotCommand, RoomBotCommands, RoomParticipant, Sticker;
 import 'package:pasteboard/pasteboard.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 // ignore: unnecessary_import
 import 'package:uuid/uuid.dart';
 
+import '../runtime/active_room.dart';
 import '../i18n/generated/nsg_l10n.dart';
 import '../messenger_runtime.dart';
 import '../theme/highlight_surface.dart';
@@ -34,8 +35,11 @@ import 'attachments/mxc_image_provider.dart';
 import 'chat_message.dart';
 import 'code_paste_detector.dart';
 import 'composer_album_edit.dart';
-import 'emoji_picker.dart';
+import '../stickers/sticker_picker_panel.dart' show StickerPacksLoader;
+import 'insert_picker.dart';
 import 'message_splitter.dart' show splitMessageBody;
+import 'voice_recording_blob.dart';
+import 'voice_recording_format.dart';
 
 /// True на mobile-платформах (iOS/Android). На desktop / web Enter
 /// обрабатываем через `HardwareKeyboard.addHandler` + Shortcuts, и
@@ -197,7 +201,7 @@ TextEditingValue insertEmojiAtCaret(TextEditingValue value, String emoji) {
   );
 }
 
-/// Чем закончилась попытка достать картинку из системного буфера (Ctrl+V).
+/// Чем закончилась попытка достать вложение из системного буфера (Ctrl+V).
 ///
 /// **Зачем отдельный тип (issue #83).** Раньше исход был один — «ничего не
 /// вышло», и композер молчал во всех случаях сразу. Из-за этого вставка
@@ -208,27 +212,40 @@ TextEditingValue insertEmojiAtCaret(TextEditingValue value, String emoji) {
 ///
 /// Но и шуметь на каждый Ctrl+V нельзя: обычная вставка ТЕКСТА идёт по тому
 /// же коду. Поэтому исходов четыре:
-///   * [nothing] — в буфере нечего брать (текст, пусто, чужой файл) → тишина;
-///   * [image] — байты картинки получены;
-///   * [failed] — картинка в буфере БЫЛА, а достать её не вышло → сказать
-///     человеку;
-///   * [oversize] — картинка есть, но она больше потолка вложения → сказать
-///     человеку отдельным, точным текстом.
+///   * [nothing] — в буфере нечего брать (текст, пусто) → тишина;
+///   * [image] — байты картинки получены (снимок экрана, «Ножницы»);
+///   * [files] — в буфере были ссылки на файлы (копия из проводника);
+///     вложения уже собраны, а не влезшие по размеру перечислены в
+///     [oversizeNames] — их называют человеку поимённо;
+///   * [failed] — брать было что, а достать не вышло → сказать человеку.
 @immutable
 class _ClipboardPaste {
-  const _ClipboardPaste._(this.bytes, this.failed, this.oversizeName);
+  const _ClipboardPaste._({
+    this.bytes,
+    this.files = const [],
+    this.failed = false,
+    this.oversizeNames = const [],
+  });
 
-  const _ClipboardPaste.nothing() : this._(null, false, null);
+  const _ClipboardPaste.nothing() : this._();
 
-  const _ClipboardPaste.image(Uint8List bytes) : this._(bytes, false, null);
+  /// Картинка лежала в буфере КАК ИЗОБРАЖЕНИЕ (снимок экрана, «Ножницы»):
+  /// имени у неё нет, тип придётся определять по байтам.
+  const _ClipboardPaste.image(Uint8List bytes) : this._(bytes: bytes);
 
-  const _ClipboardPaste.failed() : this._(null, true, null);
+  /// В буфере лежали ССЫЛКИ НА ФАЙЛЫ (копирование в проводнике/Finder) —
+  /// вложения уже собраны, с настоящими именами и типами.
+  const _ClipboardPaste.files(
+    List<PickedAttachment> files, {
+    List<String> oversizeNames = const [],
+  }) : this._(files: files, oversizeNames: oversizeNames);
 
-  const _ClipboardPaste.oversize(String name) : this._(null, false, name);
+  const _ClipboardPaste.failed() : this._(failed: true);
 
   final Uint8List? bytes;
+  final List<PickedAttachment> files;
   final bool failed;
-  final String? oversizeName;
+  final List<String> oversizeNames;
 }
 
 /// Имя файла из пути — для текста ошибки. Отдельная функция, потому что
@@ -263,8 +280,12 @@ class MessageComposer extends StatefulWidget {
     this.onCancelAlbumEdit,
     this.albumThumbnailRpc,
     this.albumFullSizeRpc,
+    this.loadStickerPacks,
+    this.onSendSticker,
+    this.onManageStickers,
     this.mentionInsertRequests,
     this.botCommands,
+    this.roomId,
   });
 
   /// **TASK16-A**: signature расширена `mentionedMessengerUserIds`.
@@ -401,12 +422,34 @@ class MessageComposer extends StatefulWidget {
   /// [MxcImageProvider], если thumbnail недоступен).
   final DownloadAttachmentRpc? albumFullSizeRpc;
 
+  /// **issue #151**: откуда взять наборы стикеров. `null` — стикеры хостом не
+  /// подключены, и вкладки в панели вставки нет.
+  ///
+  /// Картинки стикеров грузятся теми же [albumThumbnailRpc]/
+  /// [albumFullSizeRpc]: это обычная загрузка по `mxc`, заводить ради стикеров
+  /// вторую пару параметров с тем же телом смысла нет. Без них вкладка тоже не
+  /// появится — рисовать её нечем.
+  final StickerPacksLoader? loadStickerPacks;
+
+  /// Отправить выбранный стикер. Отдельным сообщением, а не вставкой в текст:
+  /// стикер это и есть сообщение.
+  final Future<void> Function(Sticker sticker)? onSendSticker;
+
+  /// Открыть управление наборами. `null` — строки «Мои стикеры» в панели не
+  /// будет: переход делает хост, композер не знает про навигацию.
+  final VoidCallback? onManageStickers;
+
   /// **TASK69 2C**: внешний источник «упоминаний из контекста». Каждое
   /// событие — участник, которого надо упомянуть: композер вставляет
   /// `@имя ` в позицию курсора и добавляет его messengerUserId в
   /// mention-flow. ChatScreen эмитит сюда на «Ответить с упоминанием»
   /// (action-sheet) и на тап по аватару собеседника. `null` → фича off.
   final Stream<RoomParticipant>? mentionInsertRequests;
+
+  /// Комната этого композера. Нужна ровно для одного решения — чья это
+  /// вставка из буфера (issue #129); `null` — хост её не сообщил, и тогда
+  /// вставка принимается как раньше.
+  final int? roomId;
 
   /// **TASK77 итер.1**: команды ботов этой комнаты (`messenger
   /// .listRoomBotCommands`) — источник данных для «/»-typeahead. `null`,
@@ -679,14 +722,26 @@ class _MessageComposerState extends State<MessageComposer> {
     final rec = _recorder;
     if (rec != null) {
       // Best-effort: stop + dispose. Ignore errors на shutdown path.
-      unawaited(
-        rec.stop().catchError((_) => null).whenComplete(() => rec.dispose()),
-      );
+      if (kIsWeb) {
+        unawaited(
+          rec
+              .stop()
+              .then((url) {
+                if (url != null) releaseVoiceRecordingBlob(url);
+              })
+              .catchError((_) {})
+              .whenComplete(() => rec.dispose()),
+        );
+      } else {
+        unawaited(
+          rec.stop().catchError((_) => null).whenComplete(() => rec.dispose()),
+        );
+      }
       _recorder = null;
     }
     final path = _recordPath;
     if (path != null) {
-      File(path).delete().catchError((_) => File(path));
+      _discardVoiceRecording(path);
       _recordPath = null;
     }
     _typingIdleTimer?.cancel();
@@ -1062,17 +1117,46 @@ class _MessageComposerState extends State<MessageComposer> {
     if (!_focus.hasFocus) _focus.requestFocus();
   }
 
+  /// **issue #151**: есть ли чем показать вкладку стикеров. Нужны и наборы,
+  /// и отправка, и загрузка картинок — без любого из трёх вкладка была бы
+  /// пустой или мёртвой.
+  bool get _hasStickers =>
+      widget.loadStickerPacks != null &&
+      widget.onSendSticker != null &&
+      widget.albumThumbnailRpc != null &&
+      widget.albumFullSizeRpc != null;
+
   /// **Issue #85**: открыть панель эмодзи и вставить выбранный в текст.
   ///
   /// Каретку снимаем ДО открытия панели: модальный лист забирает фокус у поля,
   /// а `onTapOutside` композера на тап по кнопке ещё и делает `unfocus()`.
   /// Читать `_ctl.selection` после закрытия листа поздно — смайлик уехал бы в
   /// конец текста, ровно мимо задачи «поставить в середину фразы».
-  Future<void> _pickEmoji() async {
+  Future<void> _pickInsertion() async {
     if (!widget.enabled || _uploading) return;
     final caret = _ctl.selection;
-    final emoji = await showEmojiInsertPicker(context);
-    if (!mounted || emoji == null) return;
+    final picked = await showComposerInsertPicker(
+      context,
+      // На мобильном кнопки эмодзи нет вовсе (её роль играет системная
+      // клавиатура) — там панель открывается только ради стикеров.
+      withEmoji: _needsEmojiButton,
+      loadStickerPacks: _hasStickers ? widget.loadStickerPacks : null,
+      thumbnailRpc: widget.albumThumbnailRpc,
+      fullSizeRpc: widget.albumFullSizeRpc,
+      withManage: widget.onManageStickers != null,
+    );
+    if (!mounted || picked == null) return;
+    if (picked is ManageStickersRequested) {
+      widget.onManageStickers?.call();
+      return;
+    }
+    if (picked is StickerInsertion) {
+      // Стикер уходит сразу: это законченное сообщение, вставлять его
+      // некуда. Ошибку показывает хост — как и у остальных отправок.
+      await widget.onSendSticker?.call(picked.sticker);
+      return;
+    }
+    final emoji = (picked as EmojiInsertion).emoji;
     // Берём АКТУАЛЬНЫЙ текст со снятой кареткой (а не снимок целиком): если
     // текст всё же успел смениться, подрезка границ в [insertEmojiAtCaret]
     // спасёт от исключения, а вот откат текста снимком — потеря набранного.
@@ -1223,7 +1307,7 @@ class _MessageComposerState extends State<MessageComposer> {
       // картинка, текст-вставка обычно no-op, конфликтов нет. Web
       // покрыт отдельным listener-ом (`ClipboardImageListener`).
       if (key == LogicalKeyboardKey.keyV && !isShift) {
-        unawaited(_tryPasteImageDesktop());
+        unawaited(_tryPasteFromClipboardDesktop());
         // **issue #70**: вставили код — оформляем блоком. Событие НЕ
         // перехватываем: вставку делает сам TextField, а мы разбираемся
         // уже с результатом (решение «код или нет» требует чтения буфера,
@@ -1246,9 +1330,17 @@ class _MessageComposerState extends State<MessageComposer> {
       // выполняется в Flutter's keyboard-pipeline microtask, и
       // setState/text-controller операции в нём могут конфликтовать
       // с in-flight key dispatch.
-      if (_ctl.text.trim().isNotEmpty && widget.enabled && !_uploading) {
+      //
+      // **issue #179**: текст снимаем ЗДЕСЬ, синхронно с нажатием, и его же
+      // потом отправляем. Пока `_submit` читал поле сам, между Enter-ом и
+      // отложенным вызовом успевал прилететь следующий символ — он уходил
+      // в ЧУЖОЕ сообщение и пропадал из своего. На проде это видно
+      // дословно: набранное «фф ыы вв аа пп рр» ушло как «ффы», «ыв»,
+      // «ва», «ап», «пр» — граница каждого сообщения сдвинута на символ.
+      final raw = _ctl.text;
+      if (raw.trim().isNotEmpty && widget.enabled && !_uploading) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _submit();
+          if (mounted) _submit(rawAtKeyDown: raw);
         });
       }
       return true; // intercept — НЕ дать TextField вставить \n
@@ -1346,7 +1438,30 @@ class _MessageComposerState extends State<MessageComposer> {
     );
   }
 
-  void _submit() {
+  /// Убрать из поля РОВНО то, что ушло, — и ни символом больше.
+  ///
+  /// **issue #179**: раньше здесь стоял `_ctl.clear()`, и всё, что человек
+  /// успел напечатать после Enter, стиралось вместе с отправленным. При
+  /// быстром наборе это выглядело как перемешивание букв между соседними
+  /// сообщениями.
+  ///
+  /// Если поле уже не начинается с отправленного (успели стереть, вставить,
+  /// выбрать упоминание) — чистим целиком: гадать, что там осталось, хуже,
+  /// чем честно очистить.
+  void _clearSubmitted(String sentRaw) {
+    final rest = _ctl.text.startsWith(sentRaw)
+        ? _ctl.text.substring(sentRaw.length)
+        : '';
+    _ctl.value = TextEditingValue(
+      text: rest,
+      selection: TextSelection.collapsed(offset: rest.length),
+    );
+  }
+
+  /// [rawAtKeyDown] — текст, снятый в момент нажатия Enter (desktop).
+  /// Кнопка «Отправить» снимок не передаёт: там между нажатием и вызовом
+  /// ничего напечатать нельзя, и поле читается прямо здесь.
+  void _submit({String? rawAtKeyDown}) {
     if (!widget.enabled || _uploading) return;
 
     // **Редактирование альбома**: save диффа — приоритет над обычным edit/send.
@@ -1356,7 +1471,8 @@ class _MessageComposerState extends State<MessageComposer> {
       return;
     }
 
-    final trimmed = _ctl.text.trim();
+    final raw = rawAtKeyDown ?? _ctl.text;
+    final trimmed = raw.trim();
     // Отправлять нечего только если и текст пуст, и вложений нет.
     if (trimmed.isEmpty && _pending.isEmpty) return;
     // **issue #57**: в лимит вписываемся РАЗБИВКОЙ, а не отсечением.
@@ -1388,7 +1504,7 @@ class _MessageComposerState extends State<MessageComposer> {
         );
         return;
       }
-      _ctl.clear();
+      _clearSubmitted(raw);
       _pendingMentions.clear();
       _hideTypeahead();
       _hasTextVN.value = false;
@@ -1404,7 +1520,7 @@ class _MessageComposerState extends State<MessageComposer> {
     //     (со спиннером).
     if (_pending.isNotEmpty) {
       final pending = List<PickedAttachment>.of(_pending);
-      _ctl.clear();
+      _clearSubmitted(raw);
       _pendingMentions.clear();
       _hideTypeahead();
       _hasTextVN.value = false;
@@ -1421,14 +1537,14 @@ class _MessageComposerState extends State<MessageComposer> {
       return;
     }
     if (tail.isEmpty) {
-      _ctl.clear();
+      _clearSubmitted(raw);
       _pendingMentions.clear();
       _hideTypeahead();
       _hasTextVN.value = false;
       widget.onSend(body, mentionedMessengerUserIds: mentions);
       return;
     }
-    unawaited(_sendSplit(parts, mentions));
+    unawaited(_sendSplit(parts, mentions, raw: raw));
   }
 
   /// **issue #57**: текст не влез в одно сообщение — шлём частями.
@@ -1437,12 +1553,16 @@ class _MessageComposerState extends State<MessageComposer> {
   /// части при вставке — обычное дело, и диалог там мешал бы работе, а вот
   /// «сейчас улетит десять сообщений» пользователь должен узнать заранее.
   /// Отказ ничего не отправляет и НЕ чистит поле: текст остаётся у автора.
-  Future<void> _sendSplit(List<String> parts, List<int>? mentions) async {
+  Future<void> _sendSplit(
+    List<String> parts,
+    List<int>? mentions, {
+    required String raw,
+  }) async {
     if (parts.length > kSplitConfirmThreshold) {
       final ok = await _confirmSplit(parts.length);
       if (!ok || !mounted) return;
     }
-    _ctl.clear();
+    _clearSubmitted(raw);
     _pendingMentions.clear();
     _hideTypeahead();
     _hasTextVN.value = false;
@@ -1587,17 +1707,21 @@ class _MessageComposerState extends State<MessageComposer> {
     }
   }
 
-  /// **Desktop (2026-07-13)**: прочитать картинку из системного буфера
-  /// (pasteboard: Windows/macOS/Linux) и добавить во вложения. Web — не
+  /// **Desktop (2026-07-13)**: прочитать вложение из системного буфера
+  /// (pasteboard: Windows/macOS/Linux) и добавить в черновик. Web — не
   /// здесь (там paste-событие браузера, см. [ClipboardImageListener]);
   /// mobile — физического Ctrl+V нет.
+  ///
+  /// Источника два, и путать их нельзя: картинка лежит в буфере КАК
+  /// ИЗОБРАЖЕНИЕ (снимок экрана — имени нет, тип по байтам), а копия из
+  /// проводника — как ССЫЛКА НА ФАЙЛ (имя и тип настоящие, читать лениво).
   ///
   /// **issue #83**: раньше метод выходил молча на ЛЮБОМ неудачном исходе.
   /// Пользователь вставлял скриншот, ничего не происходило, и он решил,
   /// что мессенджер требует обязательный комментарий к фото, — хотя
   /// картинка просто не прикрепилась. Теперь исходов четыре (см.
   /// [_ClipboardPaste]) и «не смогли» доходит до человека снекбаром.
-  Future<void> _tryPasteImageDesktop() async {
+  Future<void> _tryPasteFromClipboardDesktop() async {
     if (kIsWeb) return;
     if (!(Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
       return;
@@ -1621,13 +1745,22 @@ class _MessageComposerState extends State<MessageComposer> {
       if (mounted && _pasting) setState(() => _pasting = false);
     }
     if (!mounted) return;
-    final oversize = read.oversizeName;
-    if (oversize != null) {
-      _showComposerSnack(NsgL10n.of(context).attachFileTooLarge(oversize));
-      return;
-    }
     if (read.failed) {
       _showComposerSnack(NsgL10n.of(context).composerPasteImageFailed);
+      return;
+    }
+    // Файлы из проводника — как перетаскивание: прикрепляем все, что влезли,
+    // и отдельно говорим про слишком большие. Порядок важен: сначала
+    // прикрепить, потом ругаться, иначе снекбар выглядит как отказ целиком.
+    if (read.files.isNotEmpty || read.oversizeNames.isNotEmpty) {
+      for (final picked in read.files) {
+        _onPastedImage(picked);
+      }
+      if (read.oversizeNames.isNotEmpty && mounted) {
+        _showComposerSnack(
+          NsgL10n.of(context).attachFileTooLarge(read.oversizeNames.join(', ')),
+        );
+      }
       return;
     }
     final bytes = read.bytes;
@@ -1669,17 +1802,31 @@ class _MessageComposerState extends State<MessageComposer> {
       return const _ClipboardPaste.failed();
     }
     if (bytes != null && bytes.isNotEmpty) return _ClipboardPaste.image(bytes);
-    return _readClipboardImageFile();
+    return _readClipboardFiles();
   }
 
-  /// Картинки «как изображения» в буфере нет — но там может лежать ССЫЛКА
-  /// НА ФАЙЛ.
+  /// Картинки «как изображения» в буфере нет — но там могут лежать ССЫЛКИ
+  /// НА ФАЙЛЫ.
   ///
-  /// Так копируют картинку в проводнике/Finder: Windows кладёт CF_HDROP,
-  /// а CF_DIB не появляется вовсе, и `Pasteboard.image` честно отдаёт
+  /// Так копируют файл в проводнике/Finder: Windows кладёт CF_HDROP, а
+  /// CF_DIB не появляется вовсе, и `Pasteboard.image` честно отдаёт
   /// пустоту. До issue #83 такая вставка не делала ничего и ничего не
   /// говорила.
-  Future<_ClipboardPaste> _readClipboardImageFile() async {
+  ///
+  /// **Берём файл ЛЮБОГО типа, а не только картинку.** Отбор по расширению
+  /// оставлял немую дыру ровно того же рода, из-за которой и завели #83:
+  /// человек копировал в проводнике pdf или docx, жал Ctrl+V — и не
+  /// происходило ничего. При этом ТОТ ЖЕ файл, бро́шенный в окно мышью,
+  /// прикреплялся штатно: путь перетаскивания никаких типов не разбирает.
+  /// Две двери в одну комнату вели себя по-разному, и у более узкой не было
+  /// ни причины, ни объяснения человеку.
+  ///
+  /// Сборку отдаём [buildAttachmentsFromCandidates] — той же функции, что
+  /// работает на перетаскивании: она отсекает по размеру ДО чтения байтов,
+  /// соблюдает потолок черновика и определяет MIME по имени. Поэтому здесь
+  /// нужен только размер (`stat`), а не содержимое: ссылка на фильм в
+  /// несколько гигабайт в память не попадёт.
+  Future<_ClipboardPaste> _readClipboardFiles() async {
     List<String> paths;
     try {
       paths = await Pasteboard.files();
@@ -1692,32 +1839,39 @@ class _MessageComposerState extends State<MessageComposer> {
       );
       return const _ClipboardPaste.nothing();
     }
+    final candidates = <AttachmentCandidate>[];
     for (final filePath in paths) {
-      // Расширение смотрим ДО чтения: в буфере может лежать ссылка на фильм
-      // в несколько гигабайт, и втягивать его в память ради проверки «а
-      // вдруг картинка» нельзя.
-      if (!guessMimeFromExtension(filePath).startsWith('image/')) continue;
       final file = File(filePath);
       // macOS отдаёт сюда любые URL, включая ссылку из браузера: у
       // «https://site/pic.png» и расширение картиночное, и файла такого на
       // диске нет. Несуществующий путь — не наша потеря, молчим.
       if (!await file.exists()) continue;
       try {
-        final length = await file.length();
-        if (!isAttachmentSizeAllowed(length)) {
-          return _ClipboardPaste.oversize(_basename(filePath));
-        }
-        final fileBytes = await file.readAsBytes();
-        if (fileBytes.isEmpty) continue;
-        return _ClipboardPaste.image(fileBytes);
+        candidates.add(
+          AttachmentCandidate(
+            name: _basename(filePath),
+            size: await file.length(),
+            path: filePath,
+          ),
+        );
       } catch (e) {
-        // Файл на месте, расширение картиночное, а прочитать не смогли —
-        // ровно то молчание, из-за которого завели issue #83.
+        // Файл на месте, а размер не отдался (нет прав, сетевой диск отвалился)
+        // — ровно то молчание, из-за которого завели issue #83.
         debugPrint('[MessageComposer] Ctrl+V: файл $filePath не прочитан ($e)');
         return const _ClipboardPaste.failed();
       }
     }
-    return const _ClipboardPaste.nothing();
+    if (candidates.isEmpty) return const _ClipboardPaste.nothing();
+    final remaining = _maxPending - _pending.length;
+    if (remaining <= 0) return const _ClipboardPaste.nothing();
+    final outcome = await buildAttachmentsFromCandidates(
+      candidates,
+      limit: remaining,
+    );
+    return _ClipboardPaste.files(
+      outcome.picked,
+      oversizeNames: outcome.rejectedOversize,
+    );
   }
 
   /// Сообщить человеку о неудаче вставки. Снекбар, как у остальных ошибок
@@ -1771,9 +1925,31 @@ class _MessageComposerState extends State<MessageComposer> {
 
   /// Картинка вставлена из буфера (Ctrl+V, web). Игнорируем, если composer
   /// выключен/занят загрузкой или host-app не подключил media-flow.
+  /// Тестовый вход в обработчик вставки: web-событие документа в
+  /// widget-тесте не поднять, а правило отбора комнаты проверять надо.
+  @visibleForTesting
+  void handlePastedImageForTest(PickedAttachment picked) =>
+      _onPastedImage(picked);
+
+  /// Сколько вложений сейчас в черновике — для тех же тестов.
+  @visibleForTesting
+  int get pendingCountForTest => _pending.length;
+
   void _onPastedImage(PickedAttachment picked) {
     if (!mounted || !widget.enabled || _uploading) return;
     if (widget.onSendAttachment == null) return;
+    // **issue #129**: на вебе вставка прилетает событием DOCUMENT-а, и его
+    // получают ВСЕ живые композеры разом — у каждой открытой комнаты свой,
+    // и держатся они живыми намеренно (черновик, прокрутка). Без этого
+    // гарда одно нажатие Ctrl+V клало картинку в каждый открытый чат:
+    // человек переходил в соседний и видел там вложение, которого не
+    // прикреплял. Отправить его оттуда — одно нажатие, и файл ушёл не тому.
+    //
+    // Берём только композер видимой комнаты: `ActiveRoom` знает её точно —
+    // на десктопной раскладке заявку держит активная панель.
+    final room = widget.roomId;
+    final active = ActiveRoom.current;
+    if (room != null && active != null && room != active) return;
     _addPending(picked);
   }
 
@@ -1875,6 +2051,14 @@ class _MessageComposerState extends State<MessageComposer> {
 
   // ============== B-voice: voice recording ==============
 
+  Future<void> _discardVoiceRecording(String path) async {
+    if (kIsWeb) {
+      releaseVoiceRecordingBlob(path);
+    } else {
+      await File(path).delete().catchError((_) => File(path));
+    }
+  }
+
   /// Long-press start на mic-button. Запрашиваем permission, открываем
   /// recorder и сохраняем в tmp file. UI переключается в recording-mode
   /// через `setState(_recording = true)`.
@@ -1896,19 +2080,21 @@ class _MessageComposerState extends State<MessageComposer> {
         _recorder = null;
         return;
       }
-      final dir = await getTemporaryDirectory();
-      final path =
-          '${dir.path}/nsg_voice_${DateTime.now().microsecondsSinceEpoch}.m4a';
-      await recorder.start(const RecordConfig(), path: path);
+      const format = VoiceRecordingFormat(isWeb: kIsWeb);
+      final path = await format.recordingPath(() async {
+        final dir = await getTemporaryDirectory();
+        return '${dir.path}/nsg_voice_${DateTime.now().microsecondsSinceEpoch}.m4a';
+      });
+      await recorder.start(format.config, path: path);
       _recordPath = path;
       _recordStartedAt = DateTime.now();
       if (!mounted) {
         // Composer unmounted между start permission и start recording —
         // best-effort cleanup.
-        await recorder.stop().catchError((_) => null);
+        final stoppedPath = await recorder.stop().catchError((_) => null);
         await recorder.dispose();
         _recorder = null;
-        File(path).delete().catchError((_) => File(path));
+        _discardVoiceRecording(kIsWeb ? stoppedPath ?? path : path);
         _recordPath = null;
         return;
       }
@@ -1968,13 +2154,14 @@ class _MessageComposerState extends State<MessageComposer> {
     }
     final startedAt = _recordStartedAt;
     _recordStartedAt = null;
-    final recordedPath = path ?? _recordPath;
+    // Only stop() owns the browser blob URL; the start path is empty on web.
+    final recordedPath = kIsWeb ? path : path ?? _recordPath;
     _recordPath = null;
     if (mounted) setState(() => _recording = false);
 
     if (cancel || recordedPath == null) {
       if (recordedPath != null) {
-        File(recordedPath).delete().catchError((_) => File(recordedPath));
+        _discardVoiceRecording(recordedPath);
       }
       return;
     }
@@ -1983,7 +2170,7 @@ class _MessageComposerState extends State<MessageComposer> {
         ? DateTime.now().difference(startedAt)
         : Duration.zero;
     if (duration < _kMinRecordDuration) {
-      File(recordedPath).delete().catchError((_) => File(recordedPath));
+      _discardVoiceRecording(recordedPath);
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -1995,17 +2182,19 @@ class _MessageComposerState extends State<MessageComposer> {
     // Reads bytes → send как attachment. Cleanup tmp file после.
     final onSendAttachment = widget.onSendAttachment;
     if (onSendAttachment == null) {
-      File(recordedPath).delete().catchError((_) => File(recordedPath));
+      _discardVoiceRecording(recordedPath);
       return;
     }
     try {
-      final f = File(recordedPath);
-      final bytes = await f.readAsBytes();
+      const format = VoiceRecordingFormat(isWeb: kIsWeb);
+      final bytes = kIsWeb
+          ? await readVoiceRecordingBlob(recordedPath)
+          : await File(recordedPath).readAsBytes();
       final ts = DateTime.now().millisecondsSinceEpoch;
       final picked = PickedAttachment(
         bytes: bytes,
-        mimeType: 'audio/mp4',
-        originalFilename: 'voice-$ts.m4a',
+        mimeType: format.mimeType,
+        originalFilename: 'voice-$ts.${format.extension}',
       );
       if (!mounted) return;
       setState(() => _uploading = true);
@@ -2015,7 +2204,7 @@ class _MessageComposerState extends State<MessageComposer> {
         // Host-app сам показывает snackbar.
       } finally {
         if (mounted) setState(() => _uploading = false);
-        await f.delete().catchError((_) => f);
+        if (!kIsWeb) await _discardVoiceRecording(recordedPath);
       }
     } catch (e, st) {
       // Голосовое не ушло, а в release-сборке следов не оставалось вообще:
@@ -2035,6 +2224,9 @@ class _MessageComposerState extends State<MessageComposer> {
           context,
         ).showSnackBar(SnackBar(content: Text(l.voiceRecordError)));
       }
+    } finally {
+      // Also release on read failure or an unmounted composer before upload.
+      if (kIsWeb) releaseVoiceRecordingBlob(recordedPath);
     }
   }
 
@@ -2125,12 +2317,16 @@ class _MessageComposerState extends State<MessageComposer> {
                   // **Issue #85**: эмодзи — рядом со скрепкой, слева от поля:
                   // обе кнопки про «вложить что-то в сообщение». Во время
                   // записи голосового поля ввода нет вовсе — вставлять некуда.
-                  if (_needsEmojiButton && !_recording)
+                  // **issue #151**: на мобильном кнопка появляется ради
+                  // стикеров — их системная клавиатура не даёт.
+                  if ((_needsEmojiButton || _hasStickers) && !_recording)
                     IconButton(
                       key: kComposerEmojiButtonKey,
                       icon: const Icon(Icons.emoji_emotions_outlined),
-                      tooltip: l.emojiInsertTooltip,
-                      onPressed: canInsertEmoji ? _pickEmoji : null,
+                      tooltip: _needsEmojiButton
+                          ? l.emojiInsertTooltip
+                          : l.stickerTabStickers,
+                      onPressed: canInsertEmoji ? _pickInsertion : null,
                     ),
                   Expanded(
                     child: _recording

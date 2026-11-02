@@ -69,7 +69,10 @@ void main() {
       // Две различимые стадии обратного сигнала: пока идёт setup (TURN-fetch
       // держим гейтом) — «дозвон до сервера»; после доставки invite —
       // «звонит на устройстве».
-      final harness = _Harness(idSeq: ['party-self', 'call-1'], blockTurn: true);
+      final harness = _Harness(
+        idSeq: ['party-self', 'call-1'],
+        blockTurn: true,
+      );
       final c = harness.controller;
       final startFuture = c.startCall(roomId: kRoomId, peerMessengerUserId: 42);
       await pump();
@@ -99,7 +102,10 @@ void main() {
         'outgoingRinging', () async {
       // Если answer прилетит, пока invite ещё «в полёте», бамп reachedPeer
       // не должен вернуть нас из connecting обратно в outgoing.
-      final harness = _Harness(idSeq: ['party-self', 'call-1'], blockTurn: true);
+      final harness = _Harness(
+        idSeq: ['party-self', 'call-1'],
+        blockTurn: true,
+      );
       final c = harness.controller;
       final startFuture = c.startCall(roomId: kRoomId);
       await pump();
@@ -731,23 +737,26 @@ void main() {
       await harness.dispose();
     });
 
-    test('входящий accept: маршрут применён (не только на исходящем)', () async {
-      final harness = _Harness(idSeq: ['party-self']);
-      harness.emit(
-        _callEvent(
-          MessengerEventType.callInvite,
-          roomId: kRoomId,
-          callId: 'call-in',
-          sdp: 'offer-sdp',
-        ),
-      );
-      await pump();
-      await harness.controller.accept();
-      await pump();
+    test(
+      'входящий accept: маршрут применён (не только на исходящем)',
+      () async {
+        final harness = _Harness(idSeq: ['party-self']);
+        harness.emit(
+          _callEvent(
+            MessengerEventType.callInvite,
+            roomId: kRoomId,
+            callId: 'call-in',
+            sdp: 'offer-sdp',
+          ),
+        );
+        await pump();
+        await harness.controller.accept();
+        await pump();
 
-      expect(harness.webrtc.speakerRoutes, contains(false));
-      await harness.dispose();
-    });
+        expect(harness.webrtc.speakerRoutes, contains(false));
+        await harness.dispose();
+      },
+    );
 
     test('connected переприменяет маршрут (активация сессии сбрасывает '
         'его на умолчание платформы)', () async {
@@ -906,30 +915,33 @@ void main() {
       await harness.dispose();
     });
 
-    test('select_answer с НАШИМ partyId → продолжаем звонить (выбрали нас)', () async {
-      final harness = _Harness(idSeq: ['party-self']);
-      harness.emit(
-        _callEvent(
-          MessengerEventType.callInvite,
-          roomId: kRoomId,
-          callId: 'call-in',
-          sdp: 'offer-sdp-remote',
-        ),
-      );
-      await pump();
+    test(
+      'select_answer с НАШИМ partyId → продолжаем звонить (выбрали нас)',
+      () async {
+        final harness = _Harness(idSeq: ['party-self']);
+        harness.emit(
+          _callEvent(
+            MessengerEventType.callInvite,
+            roomId: kRoomId,
+            callId: 'call-in',
+            sdp: 'offer-sdp-remote',
+          ),
+        );
+        await pump();
 
-      harness.emit(
-        _callEvent(
-          MessengerEventType.callSelectAnswer,
-          roomId: kRoomId,
-          callId: 'call-in',
-          selectedPartyId: 'party-self',
-        ),
-      );
-      await pump();
-      expect(harness.controller.state, isA<CallIncomingRinging>());
-      await harness.dispose();
-    });
+        harness.emit(
+          _callEvent(
+            MessengerEventType.callSelectAnswer,
+            roomId: kRoomId,
+            callId: 'call-in',
+            selectedPartyId: 'party-self',
+          ),
+        );
+        await pump();
+        expect(harness.controller.state, isA<CallIncomingRinging>());
+        await harness.dispose();
+      },
+    );
 
     test('РЕГРЕСС: reject от ДРУГОГО устройства собеседника НЕ обрывает '
         'живой разговор', () async {
@@ -999,10 +1011,7 @@ void main() {
       );
       await pump();
       expect(c.state, isA<CallEnded>());
-      expect(
-        (c.state as CallEnded).reason,
-        CallEndReason.remoteHangup,
-      );
+      expect((c.state as CallEnded).reason, CallEndReason.remoteHangup);
       await harness.dispose();
     });
 
@@ -1039,26 +1048,28 @@ void main() {
   });
 
   group('CallController — guard конференц-сигналинга (TASK51)', () {
-    test('invite с conf:-callId игнорируется — 1:1-контроллер не звонит',
-        () async {
-      // Pairwise-invite mesh-конференции ходит той же шиной (m.call.*).
-      // Без guard-а он зазвонил бы здесь как обычный входящий 1:1.
-      final harness = _Harness(idSeq: ['party-self']);
-      harness.emit(
-        _callEvent(
-          MessengerEventType.callInvite,
-          roomId: kRoomId,
-          callId: 'conf:conf_ab12cd:42:pair-uuid-1',
-          sdp: 'offer-remote',
-          partyId: 'party-peer',
-        ),
-      );
-      await pump();
-      expect(harness.controller.state, isA<CallIdle>());
-      // И ничего не отправили (в т.ч. busy-reject).
-      expect(harness.rpc.sent, isEmpty);
-      await harness.dispose();
-    });
+    test(
+      'invite с conf:-callId игнорируется — 1:1-контроллер не звонит',
+      () async {
+        // Pairwise-invite mesh-конференции ходит той же шиной (m.call.*).
+        // Без guard-а он зазвонил бы здесь как обычный входящий 1:1.
+        final harness = _Harness(idSeq: ['party-self']);
+        harness.emit(
+          _callEvent(
+            MessengerEventType.callInvite,
+            roomId: kRoomId,
+            callId: 'conf:conf_ab12cd:42:pair-uuid-1',
+            sdp: 'offer-remote',
+            partyId: 'party-peer',
+          ),
+        );
+        await pump();
+        expect(harness.controller.state, isA<CallIdle>());
+        // И ничего не отправили (в т.ч. busy-reject).
+        expect(harness.rpc.sent, isEmpty);
+        await harness.dispose();
+      },
+    );
 
     test('conf:-invite при нашем активном исходящем в той же комнате '
         'НЕ запускает glare и не сворачивает 1:1-звонок', () async {
@@ -1816,7 +1827,11 @@ class _RecordingReporter implements ErrorReporter {
   reports = [];
 
   @override
-  void reportError(Object error, StackTrace? stack, {Map<String, String>? tags}) {
+  void reportError(
+    Object error,
+    StackTrace? stack, {
+    Map<String, String>? tags,
+  }) {
     reports.add((error: error, stack: stack, tags: tags));
   }
 }
@@ -1897,7 +1912,8 @@ class _FakeWebRtc implements WebRtcAdapter {
   final List<bool> speakerRoutes = [];
 
   @override
-  Future<void> setSpeakerphone(bool enabled) async => speakerRoutes.add(enabled);
+  Future<void> setSpeakerphone(bool enabled) async =>
+      speakerRoutes.add(enabled);
 
   @override
   Future<RtcPeerConnection> createPeerConnection(

@@ -10,7 +10,9 @@
 // ignore_for_file: invalid_use_of_internal_member
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
+
 import 'package:serverpod_client/serverpod_client.dart' as _i1;
+import 'package:nsg_connect_client/src/protocol/protocol.dart' as _i2;
 
 /// **TASK20-Phase2 Chunk 4**: per-user notification settings DTO.
 /// Возвращается из `getNotificationSettings`, передаётся в
@@ -31,7 +33,10 @@ abstract class NotificationSettings implements _i1.SerializableModel {
     this.whoCanMessageMe,
     this.showCardsOnCall,
     this.presenceHidden,
-  });
+    bool? crmEnabled,
+    this.crmRoles,
+    this.crmAgentRoomId,
+  }) : crmEnabled = crmEnabled ?? false;
 
   factory NotificationSettings({
     required bool showMessagePreview,
@@ -40,6 +45,9 @@ abstract class NotificationSettings implements _i1.SerializableModel {
     String? whoCanMessageMe,
     bool? showCardsOnCall,
     bool? presenceHidden,
+    bool? crmEnabled,
+    List<String>? crmRoles,
+    int? crmAgentRoomId,
   }) = _NotificationSettingsImpl;
 
   factory NotificationSettings.fromJson(
@@ -66,6 +74,15 @@ abstract class NotificationSettings implements _i1.SerializableModel {
       presenceHidden: jsonSerialization['presenceHidden'] == null
           ? null
           : _i1.BoolJsonExtension.fromJson(jsonSerialization['presenceHidden']),
+      crmEnabled: jsonSerialization['crmEnabled'] == null
+          ? null
+          : _i1.BoolJsonExtension.fromJson(jsonSerialization['crmEnabled']),
+      crmRoles: jsonSerialization['crmRoles'] == null
+          ? null
+          : _i2.Protocol().deserialize<List<String>>(
+              jsonSerialization['crmRoles'],
+            ),
+      crmAgentRoomId: jsonSerialization['crmAgentRoomId'] as int?,
     );
   }
 
@@ -99,6 +116,13 @@ abstract class NotificationSettings implements _i1.SerializableModel {
   /// privacy-toggle-ами, меньше поверхности API).
   bool? presenceHidden;
 
+  /// Server-derived CRM module state; input cannot grant a role.
+  bool crmEnabled;
+
+  List<String>? crmRoles;
+
+  int? crmAgentRoomId;
+
   /// Returns a shallow copy of this [NotificationSettings]
   /// with some or all fields replaced by the given arguments.
   @_i1.useResult
@@ -109,6 +133,9 @@ abstract class NotificationSettings implements _i1.SerializableModel {
     String? whoCanMessageMe,
     bool? showCardsOnCall,
     bool? presenceHidden,
+    bool? crmEnabled,
+    List<String>? crmRoles,
+    int? crmAgentRoomId,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -120,6 +147,9 @@ abstract class NotificationSettings implements _i1.SerializableModel {
       if (whoCanMessageMe != null) 'whoCanMessageMe': whoCanMessageMe,
       if (showCardsOnCall != null) 'showCardsOnCall': showCardsOnCall,
       if (presenceHidden != null) 'presenceHidden': presenceHidden,
+      'crmEnabled': crmEnabled,
+      if (crmRoles != null) 'crmRoles': crmRoles?.toJson(),
+      if (crmAgentRoomId != null) 'crmAgentRoomId': crmAgentRoomId,
     };
   }
 
@@ -139,6 +169,9 @@ class _NotificationSettingsImpl extends NotificationSettings {
     String? whoCanMessageMe,
     bool? showCardsOnCall,
     bool? presenceHidden,
+    bool? crmEnabled,
+    List<String>? crmRoles,
+    int? crmAgentRoomId,
   }) : super._(
          showMessagePreview: showMessagePreview,
          sendReadReceipts: sendReadReceipts,
@@ -146,6 +179,9 @@ class _NotificationSettingsImpl extends NotificationSettings {
          whoCanMessageMe: whoCanMessageMe,
          showCardsOnCall: showCardsOnCall,
          presenceHidden: presenceHidden,
+         crmEnabled: crmEnabled,
+         crmRoles: crmRoles,
+         crmAgentRoomId: crmAgentRoomId,
        );
 
   /// Returns a shallow copy of this [NotificationSettings]
@@ -159,6 +195,9 @@ class _NotificationSettingsImpl extends NotificationSettings {
     Object? whoCanMessageMe = _Undefined,
     Object? showCardsOnCall = _Undefined,
     Object? presenceHidden = _Undefined,
+    bool? crmEnabled,
+    Object? crmRoles = _Undefined,
+    Object? crmAgentRoomId = _Undefined,
   }) {
     return NotificationSettings(
       showMessagePreview: showMessagePreview ?? this.showMessagePreview,
@@ -175,6 +214,13 @@ class _NotificationSettingsImpl extends NotificationSettings {
       presenceHidden: presenceHidden is bool?
           ? presenceHidden
           : this.presenceHidden,
+      crmEnabled: crmEnabled ?? this.crmEnabled,
+      crmRoles: crmRoles is List<String>?
+          ? crmRoles
+          : this.crmRoles?.map((e0) => e0).toList(),
+      crmAgentRoomId: crmAgentRoomId is int?
+          ? crmAgentRoomId
+          : this.crmAgentRoomId,
     );
   }
 }
