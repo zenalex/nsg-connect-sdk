@@ -548,6 +548,14 @@ class _MessageComposerState extends State<MessageComposer> {
   DateTime? _recordStartedAt;
   Timer? _recordTickTimer;
   String? _recordPath;
+  // #4182: `_startRecording` асинхронный (разрешение, tmp-каталог, старт
+  // плагина). Палец могут отпустить раньше, чем он закончится, — в первый
+  // раз это происходит всегда: системный запрос доступа к микрофону
+  // уводит касание. Без флагов `_stopRecording` останавливал ещё не
+  // начатую запись и освобождал рекордер, а затем старт продолжался на
+  // освобождённом — и запись висела без пальца на кнопке.
+  bool _recordStartInFlight = false;
+  bool _recordReleasedDuringStart = false;
   // Минимальная длина записи. Press мгновенный (UX «жмётся-сразу-
   // отпустил») считается accidental tap — cancel со snackbar.
   static const Duration _kMinRecordDuration = Duration(seconds: 1);
@@ -2063,8 +2071,35 @@ class _MessageComposerState extends State<MessageComposer> {
   /// recorder и сохраняем в tmp file. UI переключается в recording-mode
   /// через `setState(_recording = true)`.
   Future<void> _startRecording() async {
-    if (_recording || _uploading || !widget.enabled) return;
+    if (_recording || _recordStartInFlight || _uploading || !widget.enabled) {
+      return;
+    }
     if (widget.onSendAttachment == null) return;
+    _recordStartInFlight = true;
+    _recordReleasedDuringStart = false;
+    try {
+      await _startRecordingInner();
+    } finally {
+      _recordStartInFlight = false;
+    }
+    // Отпустили, пока запись поднималась: сразу закрываем её обычным
+    // путём — короче секунды, так что это «слишком коротко», а не
+    // отправка и не висящая запись.
+    if (_recordReleasedDuringStart) {
+      _recordReleasedDuringStart = false;
+      if (_recorder != null && mounted) await _stopRecording();
+    }
+  }
+
+  /// Короткий тап по микрофону: запись идёт только по удержанию —
+  /// подсказываем, раз встроенный tooltip на касании отключён (#4182).
+  void _showVoiceHoldHint(NsgL10n l) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(l.voiceRecordTooltip)));
+  }
+
+  Future<void> _startRecordingInner() async {
     final l = NsgL10n.of(context);
     final recorder = AudioRecorder();
     _recorder = recorder;
@@ -2136,6 +2171,11 @@ class _MessageComposerState extends State<MessageComposer> {
   /// если ≥ 1s — отправляем как m.audio attachment через onSendAttachment;
   /// иначе drop + snackbar «too short».
   Future<void> _stopRecording({bool cancel = false}) async {
+    if (_recordStartInFlight) {
+      // Старт ещё не закончился — остановит он сам, когда закончится.
+      _recordReleasedDuringStart = true;
+      return;
+    }
     final recorder = _recorder;
     if (recorder == null) return;
     final l = NsgL10n.of(context);
@@ -2505,24 +2545,43 @@ class _MessageComposerState extends State<MessageComposer> {
                           widget.onSendAttachment != null &&
                           widget.enabled &&
                           !_uploading;
-                      if (showMic && !_recording) {
+                      if (showMic || _recording) {
+                        // #4182: ОДИН и тот же GestureDetector на всё
+                        // удержание — и до старта записи, и во время неё.
+                        // Раньше по `_recording = true` его подменяли
+                        // отдельной кнопкой «стоп»: детектор размонтировался
+                        // посреди жеста, и отпускание пальца
+                        // (`onLongPressEnd`) уже некому было принять.
+                        // Колбэки тоже постоянные: смена их на null
+                        // пересобирает распознаватели и рвёт жест так же.
+                        //
+                        // Подсказка — только `triggerMode: manual` (наведение
+                        // мышью на десктопе). Встроенный `tooltip` у
+                        // IconButton на касании ловит long-press сам и
+                        // выигрывает арену жестов у записи: на iPhone
+                        // удержание показывало «Удерживайте для записи»,
+                        // а запись не начиналась вовсе.
                         return GestureDetector(
+                          key: const ValueKey('nsg-voice-record-button'),
                           onLongPressStart: (_) => _startRecording(),
                           onLongPressEnd: (_) => _stopRecording(),
-                          child: IconButton(
-                            icon: const Icon(Icons.mic_none),
-                            tooltip: l.voiceRecordTooltip,
-                            onPressed: () {},
+                          child: Tooltip(
+                            message: _recording
+                                ? l.voiceRecordingHint
+                                : l.voiceRecordTooltip,
+                            triggerMode: TooltipTriggerMode.manual,
+                            child: IconButton(
+                              icon: _recording
+                                  ? Icon(
+                                      Icons.stop_circle,
+                                      color: theme.colorScheme.error,
+                                    )
+                                  : const Icon(Icons.mic_none),
+                              onPressed: _recording
+                                  ? () => _stopRecording()
+                                  : () => _showVoiceHoldHint(l),
+                            ),
                           ),
-                        );
-                      } else if (_recording) {
-                        return IconButton(
-                          icon: Icon(
-                            Icons.stop_circle,
-                            color: theme.colorScheme.error,
-                          ),
-                          tooltip: l.voiceRecordingHint,
-                          onPressed: () => _stopRecording(),
                         );
                       } else {
                         final isEditMode =

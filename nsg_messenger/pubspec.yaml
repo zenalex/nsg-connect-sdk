@@ -123,6 +123,10 @@ dev_dependencies:
   # TASK91: объявление вида `link` открывает внешний браузер — тест
   # подменяет UrlLauncherPlatform, чтобы проверить сам факт запуска.
   url_launcher_platform_interface: ^2.3.2
+  # #4182: запись голосового — тест подменяет плагин записи и tmp-каталог,
+  # чтобы прогнать удержание микрофона без устройства.
+  record_platform_interface: ^1.2.0
+  path_provider_platform_interface: ^2.1.2
 
 flutter:
   # TASK22 Chunk 1: enable l10n code-gen из ARB-файлов через config
