@@ -55,9 +55,9 @@ class JustAudioRingbackPlayer implements CallRingbackPlayer {
 
   static const Map<CallRingbackTone, String> _assets = {
     CallRingbackTone.connecting:
-        'packages/nsg_messenger/assets/audio/ringback_connecting.wav',
+        'packages/nsg_messenger_calls/assets/audio/ringback_connecting.wav',
     CallRingbackTone.ringing:
-        'packages/nsg_messenger/assets/audio/ringback_ringing.wav',
+        'packages/nsg_messenger_calls/assets/audio/ringback_ringing.wav',
   };
 
   /// Громкость ringback — чуть тише полной (комфортно, не «в ухо»).

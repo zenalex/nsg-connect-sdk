@@ -133,6 +133,43 @@ Notes:
   a second (issue token + create session), which is exactly long enough for a
   user to tap twice — show a progress indicator so they don't.
 
+## Optional voice/video calls
+
+Core messaging, attachments and voice-message recording do not depend on
+WebRTC. To enable 1:1 calls, conferences and screen sharing, add the separate
+package alongside the core dependency:
+
+```yaml
+dependencies:
+  nsg_messenger_calls:
+    git:
+      url: https://github.com/zenalex/nsg-connect-sdk.git
+      path: nsg_messenger_calls
+```
+
+Pin core and calls to the same SDK commit/tag with `ref:`. Then explicitly
+install a fresh calling feature when initializing each account session:
+
+```dart
+import 'package:nsg_messenger/nsg_messenger.dart';
+import 'package:nsg_messenger_calls/nsg_messenger_calls.dart';
+
+await NsgMessenger.init(
+  apiBaseUrl: apiBaseUrl,
+  authTokenProvider: authTokenProvider,
+  callsFeature: NsgMessengerCalls.feature(),
+);
+```
+
+Install `CallOverlayHost` / `ConferenceOverlayHost` in the host root builder
+when using calls. Controllers, states, adapters and overlays are exported by
+`nsg_messenger_calls`; commands are exposed by
+`NsgMessengerCalls.callController`, `.conferenceCalls`, `.startCall()` and
+`.fetchAndInjectCallInvite()`. `NsgMessenger.dispose()` owns the feature's
+session lifetime. Chat screens expose calling actions only when the feature
+is installed. Omitting the dependency and `callsFeature` keeps a chat-only
+host free of WebRTC while retaining voice messages through `record`.
+
 ## Implement `AuthTokenProvider`
 
 The SDK never stores the customer access token. On every refresh it asks your provider for a fresh `MessengerAuthContext`. You're responsible for keeping the access token valid (refresh against your own auth backend) and producing the context.
@@ -279,8 +316,8 @@ Most-used public surface (see `nsg_messenger.dart` for the full export list — 
 > is unfinished — the screen just looks broken. Use the
 > [Support chat](#support-chat) recipe instead.
 
-Beyond chat, the facade also exposes calls and conferences (`callController`,
-`conferenceCalls`, `startCall`, `listCallHistory`, `registerVoipToken`),
+Beyond chat, the core facade also exposes lightweight call history and VoIP
+registration (`listCallHistory`, `registerVoipToken`),
 contacts and cards (`contacts`, `contactCards`), presence
 (`subscribePresence`, `getLastSeen`), profile (`uploadUserAvatar`,
 `setDisplayName`, profile translations), share-in
@@ -295,8 +332,9 @@ host apps go through the static factory methods so theme injection works
 uniformly. Standalone/admin screens **are** exported and can be pushed directly
 (`IntegrationsScreen`, `BotsAdminScreen`, `MyBotsScreen`, `BotCatalogScreen`,
 `BotCardScreen`, `PlatformAdminScreen`, `PulseScreen`,
-`ContactCardEditorScreen`), as are overlay hosts `CallOverlayHost` /
-`ConferenceOverlayHost` and widgets like `MessengerConnectionBanner`.
+`ContactCardEditorScreen`), as are widgets like `MessengerConnectionBanner`.
+Calling overlay hosts `CallOverlayHost` / `ConferenceOverlayHost` are exported
+by the optional calling package described above.
 
 Note that several SDK surfaces are pushed into the **host** navigator without a
 `MessengerThemeScope` wrapper, so they inherit the host `Theme` and, more
@@ -447,6 +485,8 @@ Notes:
 - Server-side push body localization is keyed off `DeviceRegistration.locale` — no extra host work needed.
 
 ### Incoming calls on iOS: a separate key and a separate token
+
+Hosts that enable `nsg_messenger_calls` can configure PushKit as follows.
 
 An iPhone with the app closed cannot be woken for a call by an FCM
 notification — Apple requires PushKit, and a PushKit token is a different

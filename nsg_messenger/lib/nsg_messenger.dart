@@ -120,7 +120,7 @@ export 'src/contacts/nsg_messenger_contacts.dart' show NsgMessengerContacts;
 export 'src/contact_card/nsg_messenger_contact_cards.dart'
     show NsgMessengerContactCards;
 export 'src/contact_card/contact_card_view.dart'
-    show ContactCardView, ContactCardSize;
+    show ContactCardView, ContactCardSize, ContactCardBackdrop;
 export 'src/screens/contact_card_editor_screen.dart'
     show ContactCardEditorScreen;
 // TASK64: список языков профиля — общий для редактора визитки (SDK) и
@@ -264,48 +264,6 @@ export 'src/messages/link_preview_urls.dart' show extractPreviewUrls;
 export 'src/messages/link_preview_card.dart'
     show LinkPreviewCard, LinkPreviewSection;
 
-// **TASK46 (SDK)**: голосовые звонки 1:1. CallController (ChangeNotifier)
-// + sealed CallState — готовы к UI-биндингу (overlay — отдельная задача).
-// WebRtcAdapter/CallRpc экспортируются visible-for-testing (host-app /
-// SDK-тесты подменяют flutter_webrtc и RPC-слой fake-ами).
-export 'src/calls/call_controller.dart' show CallController, IdGenerator;
-// **TASK46 (UI)**: глобальный хост оверлеев звонка. Host-app (Chatista/
-// titan) оборачивает `MaterialApp.builder` в [CallOverlayHost] — он
-// слушает `NsgMessenger.callController` и рисует входящий/исходящий/
-// in-call overlay поверх всего (входящий ловится на любом экране).
-export 'src/calls/call_overlay_host.dart' show CallOverlayHost, CallPeerRef;
-// **Ringback (обратный сигнал каллеру)**: интерфейс плеера «гудков»
-// исходящего звонка + стадии тона. Экспортируется как test-seam
-// ([CallOverlayHost.ringbackPlayer] инжектится в тестах) и на случай,
-// если host-app захочет свою реализацию.
-export 'src/calls/call_ringback_player.dart'
-    show CallRingbackPlayer, CallRingbackTone, JustAudioRingbackPlayer;
-export 'src/calls/call_state.dart'
-    show
-        CallState,
-        CallIdle,
-        CallOutgoingRinging,
-        CallIncomingRinging,
-        CallConnecting,
-        CallConnected,
-        CallEnded,
-        CallEndReason;
-export 'src/calls/call_rpc.dart' show CallRpc, ClientCallRpc;
-// **TASK51 итерация 1**: групповые (mesh) аудиозвонки. Контроллер +
-// sealed ConferenceCallState — готовы к UI-биндингу (групповой overlay —
-// следующий чанк). ConferenceRpc — test-seam, как CallRpc.
-export 'src/calls/conference_call_controller.dart'
-    show
-        ConferenceCallController,
-        ConferenceRoomInfo,
-        ConferencePairCallId,
-        kConferenceCallIdPrefix,
-        kConferenceHeartbeatInterval;
-// **TASK51 (UI)**: глобальный хост оверлеев ГРУППОВОГО звонка — host-app
-// ставит его рядом с [CallOverlayHost] (Chatista: внутрь него, чтобы
-// 1:1-оверлей при коллизии рисовался поверх).
-export 'src/calls/conference_overlay_host.dart' show ConferenceOverlayHost;
-
 // **Issue #79**: плашка о новом сообщении поверх приложения — ставится
 // туда же, где хосты оверлеев звонка. Показывается только когда
 // приложение активно: в остальных состояниях человека оповещает пуш
@@ -326,41 +284,9 @@ export 'src/runtime/active_room.dart' show ActiveRoom;
 export 'src/announcements/announcements.dart'
     show showPendingAnnouncements, AnnouncementsRpc, ClientAnnouncementsRpc;
 export 'src/runtime/app_visibility.dart' show AppVisibility;
-export 'src/calls/conference_call_state.dart'
-    show
-        ConferenceCallState,
-        ConferenceCallIdle,
-        ConferenceIncomingRinging,
-        ConferenceJoining,
-        ConferenceActive,
-        ConferenceCallEnded,
-        ConferenceEndReason,
-        ConferenceParticipantView,
-        ConferencePairPhase;
+
 export 'src/errors/fatal_error_screen.dart'
     show NsgFatalErrorScreen, NsgFatalErrorStrings, installNsgErrorWidget;
-export 'src/calls/conference_rpc.dart' show ConferenceRpc, ClientConferenceRpc;
-export 'src/calls/webrtc_adapter.dart'
-    show
-        WebRtcAdapter,
-        RtcPeerConnection,
-        RtcMediaStream,
-        MediaAudioTrack,
-        RtcSdp,
-        RtcIce,
-        SdpType,
-        RtcConnState,
-        MicPermissionDeniedException,
-        // **TASK80**: типы демонстрации экрана. Без них host-app физически не
-        // может реализовать WebRtcAdapter — интерфейс требует то, чего не
-        // видно снаружи пакета (поймано тестом Chatista, где свой фейк
-        // адаптера перестал компилироваться).
-        MediaVideoTrack,
-        RtcVideoSender,
-        RtcVideoRenderer,
-        ScreenShareCaps,
-        ScreenShareSource,
-        ScreenSharePermissionDeniedException;
 
 // Re-export Serverpod-моделей, которые встречаются в публичных API
 // (MessengerAuthContext, MessengerSession, IdentityProvider). Так
@@ -463,3 +389,6 @@ export 'package:nsg_connect_client/nsg_connect_client.dart'
         TrustTokenIssued,
         TrustRedeemResult,
         NearbyConfirmResult;
+
+export 'src/runtime/messenger_calls_feature.dart'
+    show MessengerCallsFeature, MessengerCallsContext;

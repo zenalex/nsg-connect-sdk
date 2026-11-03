@@ -1,3 +1,4 @@
+import '../runtime/messenger_calls_feature.dart';
 import '../crm/crm_components.dart';
 import '../crm/crm_room_controller.dart';
 import 'dart:async';
@@ -55,8 +56,6 @@ import '../messages/messages_controller.dart';
 import '../messages/messages_rpc.dart';
 import '../messages/messages_state.dart';
 import '../messages/typing_label.dart';
-import '../calls/conference_call_controller.dart';
-import '../calls/conference_call_state.dart';
 import '../messenger_runtime.dart';
 import 'chat_route.dart';
 import 'bot_card_screen.dart';
@@ -137,7 +136,7 @@ typedef EscalateSupportOverride =
 
 /// **TASK46 (UI)**: сигнатура `startCall`-команды для [ChatScreen]
 /// `@visibleForTesting startCallOverride`. Зеркало
-/// `NsgMessenger.startCall`. Позволяет widget-тесту кнопки «Позвонить»
+/// `MessengerCallsFeature.startCall`. Позволяет widget-тесту кнопки «Позвонить»
 /// проверить вызов без поднятия runtime/flutter_webrtc.
 typedef StartCallOverride =
     Future<void> Function({
@@ -165,7 +164,7 @@ class ChatScreen extends StatefulWidget {
     @visibleForTesting this.escalateSupportOverride,
     @visibleForTesting this.roomDetailsOverride,
     @visibleForTesting this.startCallOverride,
-    @visibleForTesting this.conferenceCallsOverride,
+    @visibleForTesting this.callsFeatureOverride,
     @visibleForTesting this.forwardRoomsLoaderOverride,
     @visibleForTesting this.forwardSourceProbeOverride,
     @visibleForTesting this.openThreadOverride,
@@ -238,7 +237,7 @@ class ChatScreen extends StatefulWidget {
   final EscalateSupportOverride? escalateSupportOverride;
 
   /// **TASK46 (UI)**: visible-for-testing `startCall` callback. Если
-  /// передан — используется вместо `NsgMessenger.startCall`, чтобы
+  /// передан — используется вместо `MessengerCallsFeature.startCall`, чтобы
   /// widget-тест кнопки «Позвонить» не поднимал runtime/flutter_webrtc.
   final StartCallOverride? startCallOverride;
 
@@ -246,8 +245,8 @@ class ChatScreen extends StatefulWidget {
   /// конференций. Если передана — кнопка «Групповой звонок» и плашка
   /// «идёт конференция» работают через неё (fake), runtime не трогается.
   /// В production не передаётся — берём
-  /// `MessengerRuntime.instance.conferenceCallsOrNull`.
-  final ConferenceCallController? conferenceCallsOverride;
+  /// `MessengerRuntime.instance.callsFeature`.
+  final MessengerCallsFeature? callsFeatureOverride;
 
   /// **TASK45 фаза 2**: visible-for-testing подмена RoomDetails, чтобы
   /// widget-тест кнопки эскалации мог задать object-room без runtime
@@ -753,7 +752,7 @@ class _ChatScreenState extends State<ChatScreen>
       // (плашка «идёт групповой звонок»): события шины шлются только на
       // ИЗМЕНЕНИЯ состава — о конференции, начавшейся до нашего
       // подключения, события не будет. Best-effort внутри контроллера.
-      ?_conferenceCalls?.refreshRoomConference(widget.roomId),
+      ?_callsFeature?.refreshRoomConference(widget.roomId),
     ]);
   }
 
@@ -2890,67 +2889,35 @@ class _ChatScreenState extends State<ChatScreen>
   /// остаётся 1:1; team/support/прочее — вне итерации 1).
   bool get _isGroupRoom => _roomDetails?.roomType == RoomType.group;
 
-  /// **TASK51 (UI)**: контроллер конференций — override (тесты) или
-  /// runtime. null в test-mode без override и в окне teardown/reinit
-  /// (тогда кнопка/плашка просто не работают — как 1:1-паттерн).
-  ConferenceCallController? get _conferenceCalls =>
-      widget.conferenceCallsOverride ??
+  MessengerCallsFeature? get _callsFeature =>
+      widget.callsFeatureOverride ??
       (widget.controllerOverride == null
-          ? MessengerRuntime.instance.conferenceCallsOrNull
+          ? MessengerRuntime.instance.callsFeature
           : null);
 
-  /// **TASK51 (UI)**: «позвонить всем в группе» / «присоединиться к
-  /// идущей» — обе команды сводятся к `conferenceCalls.join(roomId)`
-  /// (сервер создаст конференцию при отсутствии; MVP без выбора
-  /// подмножества участников). Гейт второго звонка — как в 1:1.
   Future<void> _startConferenceCall() async {
-    final ctrl = _conferenceCalls;
-    if (ctrl == null) return;
-    // Запрет параллельного звонка: идёт конференция ИЛИ 1:1 (общий
-    // микрофон/аудио-сессия — одновременно нельзя). 1:1 проверяем только
-    // в production (в test-mode runtime недоступен).
-    final oneOnOneBusy =
-        widget.conferenceCallsOverride == null &&
-        widget.controllerOverride == null &&
-        (MessengerRuntime.instance.callsOrNull?.isBusy ?? false);
-    if (ctrl.isBusy || oneOnOneBusy) {
-      final l = NsgL10n.of(context);
-      ScaffoldMessenger.maybeOf(
-        context,
-      )?.showSnackBar(SnackBar(content: Text(l.callAlreadyActive)));
+    final feature = _callsFeature;
+    if (feature == null) return;
+    if (feature.isBusy) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(content: Text(NsgL10n.of(context).callAlreadyActive)),
+      );
       return;
     }
-    await ctrl.join(roomId: widget.roomId);
+    await feature.joinConference(roomId: widget.roomId);
   }
 
   Future<void> _startCall() async {
-    // Запрет второго звонка: если уже идёт (любая фаза, кроме idle/ended) —
-    // не начинаем новый, показываем подсказку. Hold/конференция — на
-    // будущее. В test-mode (любой override) runtime недоступен — скип.
-    if (widget.controllerOverride == null &&
-        widget.startCallOverride == null &&
-        MessengerRuntime.instance.calls.isBusy) {
-      final l = NsgL10n.of(context);
-      ScaffoldMessenger.maybeOf(
-        context,
-      )?.showSnackBar(SnackBar(content: Text(l.callAlreadyActive)));
+    final feature = _callsFeature;
+    if (feature?.isBusy ?? false) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(content: Text(NsgL10n.of(context).callAlreadyActive)),
+      );
       return;
     }
-    final fn =
-        widget.startCallOverride ??
-        (widget.controllerOverride == null
-            ? ({
-                required int roomId,
-                int? peerMessengerUserId,
-                String? peerDisplayName,
-              }) => MessengerRuntime.instance.calls.startCall(
-                roomId: roomId,
-                peerMessengerUserId: peerMessengerUserId,
-                peerDisplayName: peerDisplayName,
-              )
-            : null);
-    if (fn == null) return;
-    await fn(
+    final start = widget.startCallOverride ?? feature?.startCall;
+    if (start == null) return;
+    await start(
       roomId: widget.roomId,
       peerMessengerUserId: _peerMessengerUserId,
       peerDisplayName: _peerDisplayName,
@@ -3058,8 +3025,7 @@ class _ChatScreenState extends State<ChatScreen>
                 // (`startCallOverride`) тоже показываем, чтобы widget-тест мог
                 // проверить visibility + вызов команды.
                 if (_isDirectRoom &&
-                    (widget.controllerOverride == null ||
-                        widget.startCallOverride != null))
+                    (_callsFeature != null || widget.startCallOverride != null))
                   IconButton(
                     key: const Key('chatCallButton'),
                     icon: const Icon(Icons.call),
@@ -3071,9 +3037,7 @@ class _ChatScreenState extends State<ChatScreen>
                 // conferenceCalls.join(roomId); оверлей конференции
                 // поднимает ConferenceOverlayHost в корне навигации. В
                 // test-mode показываем при переданном fake-контроллере.
-                if (_isGroupRoom &&
-                    (widget.controllerOverride == null ||
-                        widget.conferenceCallsOverride != null))
+                if (_isGroupRoom && (_callsFeature != null))
                   IconButton(
                     key: const Key('chatConferenceCallButton'),
                     icon: const Icon(Icons.groups),
@@ -3340,26 +3304,19 @@ class _ChatScreenState extends State<ChatScreen>
             // контроллера конференций (ChangeNotifier): карта живых
             // конференций комнат наполняется событиями `conferenceUpdated` +
             // разовым refresh при открытии экрана (см. initState).
-            if (_conferenceCalls != null)
+            if (_callsFeature != null)
               ListenableBuilder(
-                listenable: _conferenceCalls!,
+                listenable: _callsFeature!,
                 builder: (context, _) {
-                  final ctrl = _conferenceCalls;
-                  final info = ctrl?.liveConferenceInRoom(widget.roomId);
-                  if (ctrl == null || info == null) {
+                  final feature = _callsFeature;
+                  final count = feature?.conferenceMemberCount(widget.roomId);
+                  if (feature == null ||
+                      count == null ||
+                      feature.isInConference(widget.roomId)) {
                     return const SizedBox.shrink();
                   }
-                  // Уже в этой конференции (входим/активна) — плашка не
-                  // нужна, оверлей и так поверх всего.
-                  final s = ctrl.state;
-                  final inThisRoom = switch (s) {
-                    ConferenceJoining(:final roomId) => roomId == widget.roomId,
-                    ConferenceActive(:final roomId) => roomId == widget.roomId,
-                    _ => false,
-                  };
-                  if (inThisRoom) return const SizedBox.shrink();
                   return _ConferenceOngoingBanner(
-                    memberCount: info.memberCount,
+                    memberCount: count,
                     onJoin: _startConferenceCall,
                   );
                 },

@@ -1,8 +1,5 @@
 import 'package:nsg_connect_client/nsg_connect_client.dart';
-
-import '../messenger_runtime.dart';
-import '../session/auth_retry.dart';
-import '../session/messenger_session_manager.dart';
+import 'package:nsg_messenger/nsg_messenger.dart' show MessengerCallsContext;
 
 /// **TASK46 (SDK)**: абстракция серверных RPC, нужных [CallController]
 /// (`sendCallEvent` + `getTurnCredentials`). Тот же pattern, что
@@ -40,11 +37,9 @@ abstract class CallRpc {
 /// Production-wrapper над `Client.messenger.*`. Каждый RPC обёрнут в
 /// [withAuthRetry] (self-heal на token-rotation), как в [ClientMessagesRpc].
 class ClientCallRpc implements CallRpc {
-  ClientCallRpc(this._client);
-  final Client _client;
-
-  MessengerSessionManager get _session =>
-      MessengerRuntime.instance.sessionManager;
+  ClientCallRpc(this._context);
+  final MessengerCallsContext _context;
+  Client get _client => _context.client;
 
   @override
   Future<void> sendCallEvent({
@@ -57,7 +52,7 @@ class ClientCallRpc implements CallRpc {
     String? hangupReason,
     String? selectedPartyId,
     String? sdpType,
-  }) => withAuthRetry(
+  }) => _context.authenticated(
     () => _client.messenger.sendCallEvent(
       roomId: roomId,
       eventType: eventType,
@@ -69,10 +64,9 @@ class ClientCallRpc implements CallRpc {
       selectedPartyId: selectedPartyId,
       sdpType: sdpType,
     ),
-    _session,
   );
 
   @override
   Future<TurnCredentials> getTurnCredentials() =>
-      withAuthRetry(() => _client.messenger.getTurnCredentials(), _session);
+      _context.authenticated(() => _client.messenger.getTurnCredentials());
 }

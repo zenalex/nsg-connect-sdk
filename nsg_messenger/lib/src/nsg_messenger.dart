@@ -7,8 +7,6 @@ import 'crm/crm_detail_screen.dart';
 import 'crm/crm_rpc.dart';
 
 import 'auth_token_provider.dart';
-import 'calls/call_controller.dart';
-import 'calls/conference_call_controller.dart';
 import 'demo/demo_fixtures.dart';
 import 'demo/demo_runtime.dart';
 import 'i18n/generated/nsg_l10n.dart';
@@ -30,6 +28,7 @@ import 'push/push_token_provider.dart';
 import 'rooms/nsg_messenger_rooms.dart';
 import 'runtime/messenger_connection_state.dart';
 import 'runtime/nsg_messenger_config.dart';
+import 'runtime/messenger_calls_feature.dart';
 import 'screens/chat_screen.dart';
 import 'screens/chats_list_screen.dart';
 import 'screens/nsg_route_observer.dart';
@@ -43,6 +42,7 @@ import 'screens/support_team_screen.dart';
 import 'screens/tasks_screen.dart';
 import 'session/auth_retry.dart';
 import 'session/auth_token_store.dart';
+import 'settings/nsg_messenger_settings.dart';
 import 'share/share_intake.dart';
 import 'share/shared_payload.dart';
 import 'theme/messenger_theme_scope.dart';
@@ -106,6 +106,7 @@ class NsgMessenger {
     bool enableOfflineCache = true,
     String? cacheDirectoryOverride,
     String? hooksBaseUrl,
+    MessengerCallsFeature? callsFeature,
   }) {
     return MessengerRuntime.instance.init(
       apiBaseUrl: apiBaseUrl,
@@ -121,6 +122,7 @@ class NsgMessenger {
       enableOfflineCache: enableOfflineCache,
       cacheDirectoryOverride: cacheDirectoryOverride,
       hooksBaseUrl: hooksBaseUrl,
+      callsFeature: callsFeature,
     );
   }
 
@@ -363,61 +365,14 @@ class NsgMessenger {
   /// через `init(hooksBaseUrl: 'https://hooks.chatista.me')`.
   static String get hooksBaseUrl => MessengerRuntime.instance.hooksBaseUrl;
 
-  /// **TASK46 (SDK)**: контроллер голосовых звонков 1:1 (WebRTC поверх
-  /// Matrix-сигналинга). `ChangeNotifier` — единый источник состояния
-  /// звонка (`CallState`: idle/outgoingRinging/incomingRinging/
-  /// connecting/connected/ended). Подписан на realtime с момента
-  /// [init] — входящий звонок ловится на любом экране.
-  ///
-  /// UI (overlay входящего/исходящего/in-call) биндится к нему как к
-  /// `ChangeNotifier`; команды: `startCall` / `accept` / `decline` /
-  /// `hangup` / `toggleMute`.
-  static CallController get callController => MessengerRuntime.instance.calls;
+  /// Whether a production or demo messaging runtime is installed.
+  static bool get isInitialized => MessengerRuntime.instance.isInitialized;
 
-  /// **TASK51 итерация 1 (SDK)**: контроллер групповых (mesh)
-  /// аудиозвонков. `ChangeNotifier` — единый источник состояния
-  /// конференции (`ConferenceCallState`: idle/incomingRinging/joining/
-  /// active/ended). Подписан на realtime с момента [init] — входящая
-  /// конференция ловится на любом экране.
-  ///
-  /// Команды: `join(roomId:)` (позвонить всем в группе / присоединиться)
-  /// / `accept` / `decline` / `leave` / `toggleMute` / `toggleSpeaker`.
-  static ConferenceCallController get conferenceCalls =>
-      MessengerRuntime.instance.conferenceCalls;
+  static NsgMessengerSettings get notificationSettings =>
+      MessengerRuntime.instance.notificationSettings;
 
-  /// **TASK46 (SDK)**: инициировать исходящий звонок в комнату
-  /// [roomId] собеседнику [peerMessengerUserId] (для показа имени в UI).
-  /// Тонкая обёртка над [callController].startCall. No-op если звонок
-  /// уже активен. Подписаться на состояние — через [callController].
-  static Future<void> startCall({
-    required int roomId,
-    int? peerMessengerUserId,
-    String? peerDisplayName,
-  }) => MessengerRuntime.instance.calls.startCall(
-    roomId: roomId,
-    peerMessengerUserId: peerMessengerUserId,
-    peerDisplayName: peerDisplayName,
-  );
-
-  /// **TASK46 (звонки в фоне)**: дотянуть pending `callInvite` по [callId]
-  /// с сервера и впрыснуть в [callController] (звонок зазвонит).
-  ///
-  /// Нужно, когда приложение разбудили push-ом на входящий из УБИТОГО
-  /// состояния: live `m.call.invite` сервер уже consumed (чтобы послать
-  /// push), realtime-стрим его не переиграет. Возвращает `true`, если
-  /// invite найден и впрыснут; `false`, если звонок уже завершён/истёк
-  /// (сервер отдал `null`). Идемпотентно с live-доставкой (см.
-  /// `CallController.ingestFetchedInvite`).
-  static Future<bool> fetchAndInjectCallInvite(String callId) async {
-    final rt = MessengerRuntime.instance;
-    final event = await withAuthRetry(
-      () => rt.client.messenger.fetchCallInvite(callId: callId),
-      rt.sessionManager,
-    );
-    if (event == null) return false;
-    rt.calls.ingestFetchedInvite(event);
-    return true;
-  }
+  static MessengerCallsFeature? get callsFeature =>
+      MessengerRuntime.instance.callsFeature;
 
   /// **TASK46 (звонки в фоне, iOS)**: зарегистрировать PushKit VoIP-токен
   /// устройства как отдельную push-регистрацию (`pushService=voip`) — по

@@ -2,11 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:nsg_connect_client/nsg_connect_client.dart';
+import 'package:nsg_messenger/nsg_messenger.dart' show MessengerSessionState;
+import 'package:nsg_messenger/nsg_messenger.dart' show NsgAvatarImage;
+import 'package:nsg_messenger/nsg_messenger.dart' show NsgL10n;
+import 'package:nsg_messenger/nsg_messenger.dart' show NsgMessenger;
 
-import '../i18n/generated/nsg_l10n.dart';
-import '../messenger_runtime.dart';
-import '../messenger_session_state.dart';
-import '../widgets/nsg_avatar_image.dart';
+import '../nsg_messenger_calls.dart';
 import 'conference_call_controller.dart';
 import 'conference_call_state.dart';
 import 'incoming_ringtone.dart';
@@ -97,7 +98,7 @@ class _ConferenceOverlayHostState extends State<ConferenceOverlayHost> {
   ConferenceCallController? _resolveController() {
     final explicit = widget.controller;
     if (explicit != null) return explicit;
-    return MessengerRuntime.instance.conferenceCallsOrNull;
+    return NsgMessengerCalls.conferenceCallsOrNull;
   }
 
   void _syncSubscription() {
@@ -152,9 +153,8 @@ class _ConferenceOverlayHostState extends State<ConferenceOverlayHost> {
       return;
     }
     try {
-      final rt = MessengerRuntime.instance;
-      if (!rt.isInitialized) return;
-      final details = await rt.rooms
+      if (!NsgMessenger.isInitialized) return;
+      final details = await NsgMessenger.rooms
           .get(roomId)
           .timeout(const Duration(seconds: 3));
       if (!mounted || _roomInfoRoomId != roomId) return;
@@ -182,7 +182,7 @@ class _ConferenceOverlayHostState extends State<ConferenceOverlayHost> {
   @override
   void initState() {
     super.initState();
-    _runtimeStateSub = MessengerRuntime.instance.stateStream.listen((_) {
+    _runtimeStateSub = NsgMessenger.sessionStateStream().listen((_) {
       if (!mounted) return;
       setState(() {}); // resync в build — единая точка.
     });
@@ -288,8 +288,8 @@ class _ConferenceOverlayHostState extends State<ConferenceOverlayHost> {
             roomName: _resolveRoomName(state.roomId),
             nameOf: _resolveParticipantName,
             avatarOf: _resolveParticipantAvatar,
-            onToggleMute: () => c.toggleMute(),
-            onToggleSpeaker: () => c.toggleSpeaker(),
+            onToggleMute: c.toggleMute,
+            onToggleSpeaker: c.toggleSpeaker,
             onLeave: () => unawaited(c.leave()),
             screenShareRenderer: c.screenShareRenderer,
             needsSourcePicker: c.screenShareNeedsSourcePicker,

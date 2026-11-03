@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nsg_messenger/src/calls/sdp_tuning.dart';
+import 'package:nsg_messenger_calls/src/calls/sdp_tuning.dart';
 
 /// **TASK46 (SDK)**: юнит-тесты чистой [tuneOpusSdp] — тюнинг Opus в
 /// локальном SDP (FEC/DTX/моно/битрейт) под плохую связь.

@@ -4,13 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nsg_connect_client/nsg_connect_client.dart';
-import 'package:nsg_messenger/src/calls/call_rpc.dart';
-import 'package:nsg_messenger/src/calls/conference_call_controller.dart';
-import 'package:nsg_messenger/src/calls/conference_call_state.dart';
-import 'package:nsg_messenger/src/calls/conference_overlay_host.dart';
-import 'package:nsg_messenger/src/calls/conference_rpc.dart';
-import 'package:nsg_messenger/src/calls/webrtc_adapter.dart';
 import 'package:nsg_messenger/src/i18n/generated/nsg_l10n.dart';
+import 'package:nsg_messenger_calls/src/calls/call_rpc.dart';
+import 'package:nsg_messenger_calls/src/calls/conference_call_controller.dart';
+import 'package:nsg_messenger_calls/src/calls/conference_call_state.dart';
+import 'package:nsg_messenger_calls/src/calls/conference_overlay_host.dart';
+import 'package:nsg_messenger_calls/src/calls/conference_rpc.dart';
+import 'package:nsg_messenger_calls/src/calls/webrtc_adapter.dart';
 
 /// **TASK51 (UI)**: widget-тесты [ConferenceOverlayHost] — по образцу
 /// тестов 1:1-`CallOverlayHost` (fake-контроллер с ручным emit).

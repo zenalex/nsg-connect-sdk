@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'dart:convert';
 import 'crm/crm_rpc.dart';
 
@@ -12,12 +13,6 @@ import 'package:path_provider/path_provider.dart';
 
 import 'auth_token_provider.dart';
 import 'cache/messenger_cache_store.dart';
-import 'calls/call_controller.dart';
-import 'calls/call_rpc.dart';
-import 'calls/conference_call_controller.dart';
-import 'calls/conference_rpc.dart';
-import 'calls/webrtc_adapter.dart';
-import 'calls/webrtc_adapter_real.dart';
 import 'contact_card/nsg_messenger_contact_cards.dart';
 import 'contacts/nsg_messenger_contacts.dart';
 import 'contacts/nsg_messenger_teams.dart';
@@ -40,6 +35,7 @@ import 'settings/nsg_messenger_settings.dart';
 import 'runtime/messenger_connection_state.dart';
 import 'runtime/messenger_event_bus.dart';
 import 'runtime/nsg_messenger_config.dart';
+import 'runtime/messenger_calls_feature.dart';
 import 'runtime/stream_outage.dart';
 import 'stickers/nsg_messenger_stickers.dart';
 import 'session/auth_retry.dart' show withAuthRetry, clientConnectionTimeout;
@@ -129,16 +125,8 @@ class MessengerRuntime with WidgetsBindingObserver {
   bool _lifecycleResumed = true;
   // **Realtime-синк (TASK63)**: сброс кэша меток на contactMetaChanged.
   StreamSubscription<MessengerEvent>? _contactSyncSub;
-  // **TASK46 (SDK)**: контроллер голосовых звонков 1:1. Подписан на
-  // event bus всегда (входящий invite ловится на любом экране).
-  CallController? _calls;
+  MessengerCallsFeature? _callsFeature;
 
-  /// **TASK51 итерация 1**: контроллер групповых (mesh) звонков. Живёт
-  /// параллельно [_calls]; трафик разведён префиксом callId `conf:`.
-  ConferenceCallController? _conferenceCalls;
-  // Позволяет тестам runtime подменить WebRtcAdapter на fake без
-  // нативного плагина. В production — RealWebRtcAdapter.
-  WebRtcAdapter? _webRtcAdapterOverride;
   // **TASK22-Phase2 Chunk 2 PART C**: stream controllers owned by
   // `installDemo` (demo mode only). In production these are null; in
   // demo mode they need to be closed in `dispose()`.
@@ -496,79 +484,14 @@ class MessengerRuntime with WidgetsBindingObserver {
     return r;
   }
 
-  /// **TASK46 (SDK)**: контроллер голосовых звонков 1:1. Доступен
-  /// глобально (`NsgMessenger.callController`), подписан на event bus
-  /// с момента [init] — входящий звонок ловится на любом экране. UI
-  /// (overlay) биндится к нему как к `ChangeNotifier`.
-  CallController get calls {
-    final c = _calls;
-    if (c == null) {
-      throw StateError(
-        'CallController отсутствует. NsgMessenger.init() не вызван '
-        'или dispose() уже отработал.',
-      );
-    }
-    return c;
-  }
+  MessengerCallsFeature? get callsFeature => _callsFeature;
 
-  /// **TASK51 итерация 1**: контроллер групповых (mesh) аудиозвонков.
-  /// Доступен глобально (`NsgMessenger.conferenceCalls`), подписан на
-  /// event bus с момента [init] — входящая конференция ловится на любом
-  /// экране. UI биндится как к `ChangeNotifier`
-  /// (`ConferenceCallState`: idle/incomingRinging/joining/active/ended).
-  ConferenceCallController get conferenceCalls {
-    final c = _conferenceCalls;
-    if (c == null) {
-      throw StateError(
-        'ConferenceCallController отсутствует. NsgMessenger.init() не '
-        'вызван или dispose() уже отработал.',
-      );
-    }
-    return c;
-  }
-
-  /// Nullable-вариант [conferenceCalls] — для UI, живущего дольше
-  /// рантайма (та же мотивация, что [callsOrNull], issue #47).
-  ConferenceCallController? get conferenceCallsOrNull => _conferenceCalls;
-
-  /// **issue #47**: nullable-вариант [calls] для UI, живущего ДОЛЬШЕ
-  /// рантайма (например `CallOverlayHost` в корне навигации host-app-а).
-  ///
-  /// Почему нельзя гейтиться по [isInitialized] + [calls]: в окне
-  /// teardown/reinit смены аккаунта они рассинхронизированы —
-  /// в [init] `_client` создаётся ЗАДОЛГО до [_calls], а в [dispose]
-  /// `_calls` зануляется ЗАДОЛГО до `_client` (между ними await-ы
-  /// снятия push-регистраций). Виджет, перестроившийся в этом окне,
-  /// видел `isInitialized == true`, дёргал [calls] и падал StateError-ом
-  /// (красный экран в debug). Здесь — просто null: «контроллера сейчас
-  /// нет, отрисуй пустой оверлей и пере-резолвь на следующем событии».
-  /// Бросающий [calls] намеренно не трогаем — другим вызывателям ошибка
-  /// «init() не вызван» нужна громкой.
-  CallController? get callsOrNull => _calls;
-
-  /// **issue #47, visible-for-testing**: подставить/сбросить
-  /// [CallController] напрямую. Widget-тестам `CallOverlayHost` нужен
-  /// рантайм в состояниях «окно teardown/reinit» (calls == null при
-  /// isInitialized == true) и «init завершился» (calls != null) — без
-  /// подъёма реального [init] (клиент/сессия/webrtc).
   @visibleForTesting
-  void debugSetCallController(CallController? controller) =>
-      _calls = controller;
+  void debugSetCallsFeature(MessengerCallsFeature? feature) =>
+      _callsFeature = feature;
 
-  /// **issue #47, visible-for-testing**: эмитнуть session-state в
-  /// [stateStream]. Тесты так воспроизводят «init нового аккаунта
-  /// завершился» (production эмитит `active` из
-  /// MessengerSessionManager) — событие, по которому `CallOverlayHost`
-  /// пере-резолвит контроллер.
   @visibleForTesting
   void debugEmitSessionState(MessengerSessionState state) => _emit(state);
-
-  /// **TASK46 (SDK)**: visible-for-testing — подменить [WebRtcAdapter]
-  /// (fake без нативного плагина) ДО [init]. Production не вызывает —
-  /// используется [RealWebRtcAdapter].
-  @visibleForTesting
-  set webRtcAdapterOverride(WebRtcAdapter adapter) =>
-      _webRtcAdapterOverride = adapter;
 
   /// **TASK20-Phase2 Chunk 4**: notification settings API
   /// (showMessagePreview toggle). См. [NotificationSettingsScreen]
@@ -801,6 +724,7 @@ class MessengerRuntime with WidgetsBindingObserver {
     bool enableOfflineCache = true,
     String? cacheDirectoryOverride,
     String? hooksBaseUrl,
+    MessengerCallsFeature? callsFeature,
   }) async {
     if (kDebugMode) {
       debugPrint('[MessengerRuntime.init] enter (apiBaseUrl=$apiBaseUrl)');
@@ -930,43 +854,22 @@ class MessengerRuntime with WidgetsBindingObserver {
         _contacts?.refreshIncomingRequests();
       }
     }, onError: (_) {});
-    // **TASK46 (SDK)**: CallController подписывается на event bus сразу
-    // (входящий invite ловится на любом экране). Подписка на
-    // `_eventBus.events` держит underlying sync-worker живым — что и так
-    // уже происходит из-за NsgMessengerRooms (см. MessengerEventBus doc).
-    // **TASK51**: адаптер WebRTC один на оба контроллера (1:1 и
-    // конференции) — это фабрика pc/media без own-state, второй инстанс
-    // лишь дублировал бы native-обвязку.
-    final webrtcAdapter =
-        _webRtcAdapterOverride ?? RealWebRtcAdapter(reporter: errorReporter);
-    _calls = CallController(
-      rpc: ClientCallRpc(_client!),
-      // errorReporter пробрасываем в адаптер: на состоявшийся звонок уходит
-      // один отчёт диагностики медиа («звука нет») в трекер host-app-а
-      // (chatista → GlitchTip). Отключить: --dart-define=CALL_DIAG=false.
-      webrtc: webrtcAdapter,
-      events: _eventBus!.events,
-      // ...и в сам контроллер: он репортит потерю TURN-кредов (звонок без
-      // relay). Раньше это молчало и стоило нам несоединяющихся звонков.
-      reporter: errorReporter,
-    );
-    // **TASK51 итерация 1**: контроллер mesh-конференций — рядом с 1:1,
-    // тот же lifecycle (attach на init, dispose на dispose). Трафик двух
-    // контроллеров разведён префиксом callId `conf:` (см.
-    // ConferenceCallController doc).
-    _conferenceCalls = ConferenceCallController(
-      conferenceRpc: ClientConferenceRpc(_client!),
-      callRpc: ClientCallRpc(_client!),
-      webrtc: webrtcAdapter,
-      events: _eventBus!.events,
-      // Лениво: на момент init сессии ещё нет; к моменту join/событий —
-      // есть (иначе бросит, контроллер трактует как «сессии нет»).
-      selfMessengerUserId: () => session.messengerUserId,
-      reporter: errorReporter,
+    // Calling is opt-in. Core-only hosts never create RTC/media resources.
+    final callsSessionManager = _sessionManager!;
+    _callsFeature = callsFeature;
+    callsFeature?.attach(
+      MessengerCallsContext(
+        client: _client!,
+        events: _eventBus!.events,
+        selfMessengerUserId: () => callsSessionManager.session!.messengerUserId,
+        authenticated: <T>(Future<T> Function() request) =>
+            withAuthRetry(request, callsSessionManager),
+        reporter: errorReporter,
+      ),
     );
     if (kDebugMode) {
       debugPrint(
-        '[MessengerRuntime.init] Rooms+Settings+Calls attached; '
+        '[MessengerRuntime.init] Rooms+Settings+optional features attached; '
         'calling _sessionManager.init()',
       );
     }
@@ -1494,6 +1397,10 @@ class MessengerRuntime with WidgetsBindingObserver {
   }
 
   Future<void> dispose() async {
+    // Dispose optional media while its RPC/event transport is still alive.
+    final callsFeature = _callsFeature;
+    _callsFeature = null;
+    callsFeature?.dispose();
     _emit(MessengerSessionState.uninitialised);
     // **TASK49 (share-in)**: отложенный share скоуплен на текущую сессию —
     // на logout/switch аккаунта он не должен «выстрелить» для другого юзера.
@@ -1549,18 +1456,6 @@ class MessengerRuntime with WidgetsBindingObserver {
     _pushTokenProvider = null;
     _pushProductExternalKey = null;
 
-    // Порядок: calls → rooms → eventBus → sessionManager → client.
-    // calls/rooms подписаны на eventBus.events, eventBus на
-    // sessionStateStream.
-    // **TASK51**: конференция первой — её dispose ещё шлёт best-effort
-    // leaveConference/hangup-ы через живой client (спека: dispose рантайма
-    // = наш выход из конференции).
-    _conferenceCalls?.dispose();
-    _conferenceCalls = null;
-    // **TASK46 (SDK)**: CallController — ChangeNotifier + подписка на
-    // event bus + возможный активный pc; dispose закрывает всё.
-    _calls?.dispose();
-    _calls = null;
     // **OUTBOX**: останавливаем фоновый отправитель (таймер) ДО закрытия
     // store — очередь на диске сохраняется, доставится после re-init.
     await _outbox?.dispose();

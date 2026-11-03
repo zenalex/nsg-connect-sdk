@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart' show BoxFit, Widget;
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 
-import '../auth_token_provider.dart' show ErrorReporter;
+import 'package:nsg_messenger/nsg_messenger.dart' show ErrorReporter;
 import 'call_media_diagnostics.dart';
 import 'sdp_tuning.dart';
 import 'webrtc_adapter.dart';

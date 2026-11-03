@@ -2,11 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:nsg_connect_client/nsg_connect_client.dart';
+import 'package:nsg_messenger/nsg_messenger.dart' show ContactCardBackdrop;
+import 'package:nsg_messenger/nsg_messenger.dart' show MessengerSessionState;
+import 'package:nsg_messenger/nsg_messenger.dart' show NsgL10n;
+import 'package:nsg_messenger/nsg_messenger.dart' show NsgMessenger;
 
-import '../contact_card/contact_card_view.dart';
-import '../i18n/generated/nsg_l10n.dart';
-import '../messenger_runtime.dart';
-import '../messenger_session_state.dart';
+import '../nsg_messenger_calls.dart';
 import 'call_controller.dart';
 import 'call_ringback_player.dart';
 import 'call_state.dart';
@@ -110,7 +111,7 @@ class _CallOverlayHostState extends State<CallOverlayHost> {
   StreamSubscription<MessengerSessionState>? _runtimeStateSub;
 
   /// Разрешить контроллер: явный [CallOverlayHost.controller] или
-  /// глобальный `MessengerRuntime.instance.callsOrNull`. Возвращает
+  /// глобальный `NsgMessengerCalls.callControllerOrNull`. Возвращает
   /// null, если контроллера сейчас нет — runtime не инициализирован ЛИБО
   /// **issue #47**: мы в окне teardown/reinit смены аккаунта (там
   /// isInitialized ещё/уже true, а `calls` уже бросает StateError —
@@ -120,7 +121,7 @@ class _CallOverlayHostState extends State<CallOverlayHost> {
   CallController? _resolveController() {
     final explicit = widget.controller;
     if (explicit != null) return explicit;
-    return MessengerRuntime.instance.callsOrNull;
+    return NsgMessengerCalls.callControllerOrNull;
   }
 
   /// Таймер, гасящий оверлей после [CallEnded] (через
@@ -162,13 +163,12 @@ class _CallOverlayHostState extends State<CallOverlayHost> {
     _incomingCardCallId = s.callId;
     _incomingCard = null;
     try {
-      final rt = MessengerRuntime.instance;
-      if (!rt.isInitialized) return;
-      final settings = await rt.notificationSettings.get().timeout(
+      if (!NsgMessenger.isInitialized) return;
+      final settings = await NsgMessenger.notificationSettings.get().timeout(
         const Duration(milliseconds: 800),
       );
       if (settings.showCardsOnCall == false) return;
-      final rooms = await rt.rooms.list().timeout(
+      final rooms = await NsgMessenger.rooms.list().timeout(
         const Duration(milliseconds: 900),
       );
       RoomSummary? room;
@@ -180,7 +180,7 @@ class _CallOverlayHostState extends State<CallOverlayHost> {
       }
       final peerId = room?.directPeerMessengerUserId;
       if (peerId == null) return;
-      final card = await rt.contactCards.prefetch(peerId);
+      final card = await NsgMessenger.contactCards.prefetch(peerId);
       if (!mounted || card == null) return;
       final current = _attached?.state;
       if (current is CallIncomingRinging && current.callId == s.callId) {
@@ -308,7 +308,7 @@ class _CallOverlayHostState extends State<CallOverlayHost> {
     // заново цепляется к новому рантайму, даже если сверху его никто
     // не перестроил. При явном [CallOverlayHost.controller] (тесты)
     // _syncSubscription идемпотентно оставит его же — подписка безвредна.
-    _runtimeStateSub = MessengerRuntime.instance.stateStream.listen((_) {
+    _runtimeStateSub = NsgMessenger.sessionStateStream().listen((_) {
       if (!mounted) return;
       // Сам resync — в build (единая точка): setState достаточно.
       setState(() {});
@@ -386,7 +386,7 @@ class _CallOverlayHostState extends State<CallOverlayHost> {
           ),
         );
       case CallConnecting():
-        return _CallOverlayScaffold(child: const _ConnectingCallView());
+        return const _CallOverlayScaffold(child: _ConnectingCallView());
       case CallConnected(:final startedAt, :final muted, :final speakerOn):
         return _CallOverlayScaffold(
           child: _InCallView(

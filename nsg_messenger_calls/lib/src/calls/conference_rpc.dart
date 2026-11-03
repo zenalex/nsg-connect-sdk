@@ -1,8 +1,5 @@
 import 'package:nsg_connect_client/nsg_connect_client.dart';
-
-import '../messenger_runtime.dart';
-import '../session/auth_retry.dart';
-import '../session/messenger_session_manager.dart';
+import 'package:nsg_messenger/nsg_messenger.dart' show MessengerCallsContext;
 
 /// **TASK51 итерация 1 (SDK)**: абстракция серверных RPC членства
 /// mesh-конференции для `ConferenceCallController` (`joinConference` /
@@ -46,46 +43,37 @@ abstract class ConferenceRpc {
 /// Production-wrapper над `Client.messenger.*`. Каждый RPC обёрнут в
 /// [withAuthRetry] (self-heal на token-rotation), как [ClientCallRpc].
 class ClientConferenceRpc implements ConferenceRpc {
-  ClientConferenceRpc(this._client);
-  final Client _client;
-
-  MessengerSessionManager get _session =>
-      MessengerRuntime.instance.sessionManager;
+  ClientConferenceRpc(this._context);
+  final MessengerCallsContext _context;
+  Client get _client => _context.client;
 
   @override
   Future<ConferenceState> joinConference({
     required int roomId,
     required String partyId,
-  }) => withAuthRetry(
+  }) => _context.authenticated(
     () => _client.messenger.joinConference(roomId: roomId, partyId: partyId),
-    _session,
   );
 
   @override
-  Future<void> leaveConference({required int roomId}) => withAuthRetry(
+  Future<void> leaveConference({required int roomId}) => _context.authenticated(
     () => _client.messenger.leaveConference(roomId: roomId),
-    _session,
   );
 
   @override
-  Future<ConferenceState?> getConference({required int roomId}) =>
-      withAuthRetry(
-        () => _client.messenger.getConference(roomId: roomId),
-        _session,
-      );
+  Future<ConferenceState?> getConference({required int roomId}) => _context
+      .authenticated(() => _client.messenger.getConference(roomId: roomId));
 
   @override
   Future<ConferenceState> startScreenShare({
     required int roomId,
     required String partyId,
-  }) => withAuthRetry(
+  }) => _context.authenticated(
     () => _client.messenger.startScreenShare(roomId: roomId, partyId: partyId),
-    _session,
   );
 
   @override
-  Future<void> stopScreenShare({required int roomId}) => withAuthRetry(
+  Future<void> stopScreenShare({required int roomId}) => _context.authenticated(
     () => _client.messenger.stopScreenShare(roomId: roomId),
-    _session,
   );
 }

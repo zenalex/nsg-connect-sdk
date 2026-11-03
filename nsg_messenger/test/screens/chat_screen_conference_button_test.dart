@@ -1,14 +1,11 @@
+import 'package:nsg_messenger/nsg_messenger.dart'
+    show MessengerCallsFeature, MessengerCallsContext;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nsg_connect_client/nsg_connect_client.dart';
-import 'package:nsg_messenger/src/calls/call_rpc.dart';
-import 'package:nsg_messenger/src/calls/conference_call_controller.dart';
-import 'package:nsg_messenger/src/calls/conference_call_state.dart';
-import 'package:nsg_messenger/src/calls/conference_rpc.dart';
-import 'package:nsg_messenger/src/calls/webrtc_adapter.dart';
 import 'package:nsg_messenger/src/i18n/generated/nsg_l10n.dart';
 import 'package:nsg_messenger/src/messages/messages_controller.dart';
 import 'package:nsg_messenger/src/messages/messages_rpc.dart';
@@ -98,7 +95,7 @@ void main() {
           roomId: 7,
           controllerOverride: controller,
           roomDetailsOverride: roomDetails,
-          conferenceCallsOverride: conf,
+          callsFeatureOverride: conf,
         ),
       ),
     );
@@ -157,14 +154,7 @@ void main() {
     );
     expect(find.byKey(const Key('conferenceOngoingBanner')), findsNothing);
 
-    conf.setLiveConference(
-      7,
-      const ConferenceRoomInfo(
-        confId: 'conf_a',
-        memberCount: 2,
-        initiatorMessengerUserId: 99,
-      ),
-    );
+    conf.setLiveConference(7, 2);
     await tester.pump();
     expect(find.byKey(const Key('conferenceOngoingBanner')), findsOneWidget);
     expect(find.text('Идёт групповой звонок'), findsOneWidget);
@@ -185,10 +175,7 @@ void main() {
       tester,
       roomDetails: details(roomType: RoomType.group),
     );
-    conf.setLiveConference(
-      7,
-      const ConferenceRoomInfo(confId: 'conf_a', memberCount: 3),
-    );
+    conf.setLiveConference(7, 3);
     await tester.pump();
     await tester.tap(find.byKey(const Key('conferenceJoinButton')));
     await tester.pump();
@@ -203,19 +190,8 @@ void main() {
       tester,
       roomDetails: details(roomType: RoomType.group),
     );
-    conf.setLiveConference(
-      7,
-      const ConferenceRoomInfo(confId: 'conf_a', memberCount: 3),
-    );
-    conf.emit(
-      ConferenceActive(
-        roomId: 7,
-        confId: 'conf_a',
-        startedAt: DateTime.now(),
-        muted: false,
-        participants: const [],
-      ),
-    );
+    conf.setLiveConference(7, 3);
+    conf.setJoinedRoom(7);
     await tester.pump();
     expect(find.byKey(const Key('conferenceOngoingBanner')), findsNothing);
     await tester.pumpWidget(const SizedBox.shrink());
@@ -224,43 +200,35 @@ void main() {
 
 /// Fake-контроллер конференций для widget-тестов ChatScreen: state и
 /// карта живых конференций управляются вручную, команды записываются.
-class _FakeConferenceController extends ConferenceCallController {
-  _FakeConferenceController()
-    : super(
-        conferenceRpc: _NoopConferenceRpc(),
-        callRpc: _NoopCallRpc(),
-        webrtc: _NoopWebRtc(),
-        events: const Stream<MessengerEvent>.empty(),
-        selfMessengerUserId: () => 42,
-      );
-
-  ConferenceCallState _fakeState = const ConferenceCallIdle();
-  final Map<int, ConferenceRoomInfo> _live = {};
+class _FakeConferenceController extends MessengerCallsFeature {
+  final Map<int, int> _live = {};
   final List<int> joinCalls = [];
   final List<int> refreshCalls = [];
-
-  void emit(ConferenceCallState s) {
-    _fakeState = s;
-    notifyListeners();
-  }
-
-  void setLiveConference(int roomId, ConferenceRoomInfo? info) {
-    if (info == null) {
+  int? _joinedRoom;
+  void setLiveConference(int roomId, int? count) {
+    if (count == null) {
       _live.remove(roomId);
     } else {
-      _live[roomId] = info;
+      _live[roomId] = count;
     }
     notifyListeners();
   }
 
-  @override
-  ConferenceCallState get state => _fakeState;
+  void setJoinedRoom(int roomId) {
+    _joinedRoom = roomId;
+    notifyListeners();
+  }
 
   @override
-  ConferenceRoomInfo? liveConferenceInRoom(int roomId) => _live[roomId];
-
+  void attach(MessengerCallsContext context) {}
   @override
-  Future<void> join({required int roomId}) async {
+  bool get isBusy => _joinedRoom != null;
+  @override
+  int? conferenceMemberCount(int roomId) => _live[roomId];
+  @override
+  bool isInConference(int roomId) => _joinedRoom == roomId;
+  @override
+  Future<void> joinConference({required int roomId}) async {
     joinCalls.add(roomId);
   }
 
@@ -268,92 +236,13 @@ class _FakeConferenceController extends ConferenceCallController {
   Future<void> refreshRoomConference(int roomId) async {
     refreshCalls.add(roomId);
   }
-}
 
-class _NoopConferenceRpc implements ConferenceRpc {
   @override
-  Future<ConferenceState> joinConference({
+  Future<void> startCall({
     required int roomId,
-    required String partyId,
-  }) async => ConferenceState(
-    confId: 'conf_noop',
-    roomId: roomId,
-    members: const [],
-    createdAt: DateTime.now(),
-    updatedAt: DateTime.now(),
-  );
-
-  @override
-  Future<void> leaveConference({required int roomId}) async {}
-
-  @override
-  Future<ConferenceState?> getConference({required int roomId}) async => null;
-
-  // **TASK80**: показ экрана в этих тестах не используется.
-  @override
-  Future<ConferenceState> startScreenShare({
-    required int roomId,
-    required String partyId,
-  }) => throw UnimplementedError();
-
-  @override
-  Future<void> stopScreenShare({required int roomId}) async {}
-}
-
-class _NoopCallRpc implements CallRpc {
-  @override
-  Future<void> sendCallEvent({
-    required int roomId,
-    required CallEventType eventType,
-    required String callId,
-    required String partyId,
-    String? sdp,
-    List<CallIceCandidate>? candidates,
-    String? hangupReason,
-    String? selectedPartyId,
-    String? sdpType,
+    int? peerMessengerUserId,
+    String? peerDisplayName,
   }) async {}
-
-  @override
-  Future<TurnCredentials> getTurnCredentials() async => TurnCredentials(
-    urls: const [],
-    username: '',
-    credential: '',
-    ttlSeconds: 0,
-  );
-}
-
-class _NoopWebRtc implements WebRtcAdapter {
-  @override
-  Future<RtcPeerConnection> createPeerConnection(
-    List<Map<String, dynamic>> iceServers,
-  ) => throw UnimplementedError();
-
-  @override
-  Future<RtcMediaStream> getUserMediaAudio() => throw UnimplementedError();
-
-  @override
-  Future<void> setSpeakerphone(bool enabled) async {}
-
-  // **TASK80**: демонстрация экрана в этих тестах не участвует —
-  // платформа «не умеет захват», кнопки нет.
-  @override
-  bool get supportsScreenShare => false;
-
-  @override
-  bool get screenShareNeedsSourcePicker => false;
-
-  @override
-  Future<List<ScreenShareSource>> listScreenShareSources() async => const [];
-
-  @override
-  Future<RtcMediaStream> getDisplayMedia({
-    required ScreenShareCaps caps,
-    String? sourceId,
-  }) => throw UnimplementedError();
-
-  @override
-  Future<RtcVideoRenderer> createVideoRenderer() => throw UnimplementedError();
 }
 
 class _FakeRpc implements MessagesRpc {

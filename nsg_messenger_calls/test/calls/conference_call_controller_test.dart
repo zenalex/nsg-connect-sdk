@@ -4,11 +4,11 @@ import 'package:fake_async/fake_async.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nsg_connect_client/nsg_connect_client.dart';
-import 'package:nsg_messenger/src/calls/call_rpc.dart';
-import 'package:nsg_messenger/src/calls/conference_call_controller.dart';
-import 'package:nsg_messenger/src/calls/conference_call_state.dart';
-import 'package:nsg_messenger/src/calls/conference_rpc.dart';
-import 'package:nsg_messenger/src/calls/webrtc_adapter.dart';
+import 'package:nsg_messenger_calls/src/calls/call_rpc.dart';
+import 'package:nsg_messenger_calls/src/calls/conference_call_controller.dart';
+import 'package:nsg_messenger_calls/src/calls/conference_call_state.dart';
+import 'package:nsg_messenger_calls/src/calls/conference_rpc.dart';
+import 'package:nsg_messenger_calls/src/calls/webrtc_adapter.dart';
 
 /// **TASK51 итерация 1 (SDK)**: unit-тесты state-machine
 /// [ConferenceCallController] — по образцу тестов `CallController` (fake

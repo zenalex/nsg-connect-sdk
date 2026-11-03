@@ -4,10 +4,10 @@ import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nsg_connect_client/nsg_connect_client.dart';
 import 'package:nsg_messenger/src/auth_token_provider.dart' show ErrorReporter;
-import 'package:nsg_messenger/src/calls/call_controller.dart';
-import 'package:nsg_messenger/src/calls/call_rpc.dart';
-import 'package:nsg_messenger/src/calls/call_state.dart';
-import 'package:nsg_messenger/src/calls/webrtc_adapter.dart';
+import 'package:nsg_messenger_calls/src/calls/call_controller.dart';
+import 'package:nsg_messenger_calls/src/calls/call_rpc.dart';
+import 'package:nsg_messenger_calls/src/calls/call_state.dart';
+import 'package:nsg_messenger_calls/src/calls/webrtc_adapter.dart';
 
 /// **TASK46 (SDK)**: unit-тесты state-machine [CallController].
 ///

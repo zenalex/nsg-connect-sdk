@@ -98,6 +98,18 @@ void main() {
     await tester.pump();
   }
 
+  for (final type in [RoomType.direct, RoomType.group]) {
+    testWidgets('core without calls module hides call actions: $type', (
+      tester,
+    ) async {
+      await pumpChat(tester, roomDetails: details(roomType: type));
+      expect(find.byKey(const Key('chatCallButton')), findsNothing);
+      expect(find.byKey(const Key('chatConferenceCallButton')), findsNothing);
+      expect(find.byKey(const Key('conferenceOngoingBanner')), findsNothing);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
+
   testWidgets('direct 1:1 → кнопка «Позвонить» видна', (tester) async {
     await pumpChat(
       tester,

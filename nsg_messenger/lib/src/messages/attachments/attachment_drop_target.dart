@@ -1,8 +1,7 @@
-import 'dart:io' show Platform;
-
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../../i18n/generated/nsg_l10n.dart';
 import 'attachment_picker.dart';
@@ -16,11 +15,18 @@ import 'attachment_picker.dart';
 /// `ChatScreen` вокруг всего тела, а композер лишь подписывается на неё
 /// через [AttachmentDropSink].
 ///
-/// Только desktop. На мобильных перетаскивать неоткуда, а на web у браузера
-/// своя обработка броска — как и со вставкой из буфера (там отдельный
-/// `ClipboardImageListener`), делать её вслепую не станем.
+/// Desktop и web (#222). На вебе `desktop_drop` сам гасит браузерную
+/// обработку броска (иначе браузер открыл бы файл во вкладке) и отдаёт
+/// файлы blob-ссылками — сборщик читает их тем же `XFile(path)`. На
+/// мобильных перетаскивать неоткуда.
 bool get attachmentDropSupported =>
-    !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+    kIsWeb ||
+    switch (defaultTargetPlatform) {
+      TargetPlatform.windows ||
+      TargetPlatform.macOS ||
+      TargetPlatform.linux => true,
+      _ => false,
+    };
 
 /// Связь «цель броска → композер». Цель живёт в [ChatScreen], а решение, что
 /// делать с файлами, принадлежит композеру: только он знает, сколько ещё
@@ -60,14 +66,38 @@ class AttachmentDropTarget extends StatefulWidget {
 class _AttachmentDropTargetState extends State<AttachmentDropTarget> {
   bool _dragging = false;
 
+  /// Метка на всём теле чата: по ней проверяем, что точка броска приходится
+  /// именно на ЭТОТ экран (см. [_isHitAt]).
+  final _hitKey = GlobalKey();
+
+  /// #225: открытые чаты живут друг под другом (keep-alive в `IndexedStack`
+  /// на телефоне-раскладке, `Offstage`-панели в десктопном воркспейсе). У
+  /// невидимых та же геометрия, а `desktop_drop` проверяет лишь, что точка
+  /// внутри границ цели, — поэтому брошенный файл попадал в черновики ВСЕХ
+  /// открытых чатов. Hit-test честно учитывает видимость: скрытые экраны в
+  /// него не попадают, а в раскладке «бок о бок» попадает только панель под
+  /// курсором.
+  bool _isHitAt(Offset globalPosition) {
+    final target = _hitKey.currentContext?.findRenderObject();
+    if (target == null || !mounted) return false;
+    final result = HitTestResult();
+    WidgetsBinding.instance.hitTestInView(
+      result,
+      globalPosition,
+      View.of(context).viewId,
+    );
+    return result.path.any((e) => identical(e.target, target));
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!attachmentDropSupported) return widget.child;
     return DropTarget(
-      onDragEntered: (_) {
+      onDragEntered: (detail) {
         // Подсветку показываем, даже когда композер не готов принять файлы:
         // человеку важно понять, что окно вообще реагирует на перетаскивание.
         // Отказ (если он случится) он увидит уже по факту броска.
+        if (!_isHitAt(detail.globalPosition)) return;
         if (mounted) setState(() => _dragging = true);
       },
       onDragExited: (_) {
@@ -75,6 +105,7 @@ class _AttachmentDropTargetState extends State<AttachmentDropTarget> {
       },
       onDragDone: (detail) async {
         if (mounted) setState(() => _dragging = false);
+        if (!_isHitAt(detail.globalPosition)) return;
         final handler = widget.sink.onFiles;
         if (handler == null) return;
         // Размер спрашиваем ЗДЕСЬ, до передачи в общий сборщик: тот отвергает
@@ -99,7 +130,13 @@ class _AttachmentDropTargetState extends State<AttachmentDropTarget> {
       },
       child: Stack(
         children: [
-          widget.child,
+          // Прозрачная для касаний метка: попадает в hit-test, только когда
+          // экран действительно на виду, и ничего не перехватывает.
+          Listener(
+            key: _hitKey,
+            behavior: HitTestBehavior.translucent,
+            child: widget.child,
+          ),
           if (_dragging)
             Positioned.fill(
               child: IgnorePointer(

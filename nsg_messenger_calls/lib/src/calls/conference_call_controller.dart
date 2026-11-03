@@ -3,12 +3,12 @@ import 'dart:collection';
 
 import 'package:flutter/foundation.dart';
 import 'package:nsg_connect_client/nsg_connect_client.dart';
+import 'package:nsg_messenger/nsg_messenger.dart' show ErrorReporter;
 // См. пояснение в call_controller.dart: uuid — прямая зависимость, не
 // полагаемся на transitive re-export serverpod_client.
 // ignore: unnecessary_import
 import 'package:uuid/uuid.dart';
 
-import '../auth_token_provider.dart' show ErrorReporter;
 import 'call_controller.dart' show IdGenerator;
 import 'call_rpc.dart';
 import 'conference_call_state.dart';

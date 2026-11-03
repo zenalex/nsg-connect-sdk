@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-import '../auth_token_provider.dart' show ErrorReporter;
+import 'package:nsg_messenger/nsg_messenger.dart' show ErrorReporter;
 import 'call_rpc.dart';
 
 /// **Отчёт в трекер: звонок остался без TURN.** Отдельный тип (а не голый

@@ -5,12 +5,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nsg_connect_client/nsg_connect_client.dart';
 import 'package:nsg_messenger/nsg_messenger.dart'
     show MessengerSessionState, NsgMessenger;
-import 'package:nsg_messenger/src/calls/call_controller.dart';
-import 'package:nsg_messenger/src/calls/call_overlay_host.dart';
-import 'package:nsg_messenger/src/calls/call_rpc.dart';
-import 'package:nsg_messenger/src/calls/call_state.dart';
-import 'package:nsg_messenger/src/calls/webrtc_adapter.dart';
 import 'package:nsg_messenger/src/messenger_runtime.dart';
+import 'package:nsg_messenger_calls/nsg_messenger_calls.dart'
+    show NsgMessengerCalls;
+import 'package:nsg_messenger_calls/src/calls/call_controller.dart';
+import 'package:nsg_messenger_calls/src/calls/call_overlay_host.dart';
+import 'package:nsg_messenger_calls/src/calls/call_rpc.dart';
+import 'package:nsg_messenger_calls/src/calls/call_state.dart';
+import 'package:nsg_messenger_calls/src/calls/webrtc_adapter.dart';
 
 import '../test_helpers.dart';
 
@@ -39,7 +41,7 @@ void main() {
   tearDown(() async {
     // Сброс singleton-а между тестами: и подставленный контроллер, и
     // возможный demo-init.
-    MessengerRuntime.instance.debugSetCallController(null);
+    MessengerRuntime.instance.debugSetCallsFeature(null);
     try {
       await NsgMessenger.dispose();
     } catch (_) {}
@@ -74,7 +76,7 @@ void main() {
     // бросающий геттер calls → красный экран.
     await NsgMessenger.initDemo(rooms: const []);
     expect(MessengerRuntime.instance.isInitialized, isTrue);
-    expect(MessengerRuntime.instance.callsOrNull, isNull);
+    expect(NsgMessengerCalls.callControllerOrNull, isNull);
 
     await tester.pumpWidget(host());
     await tester.pump();
@@ -97,7 +99,9 @@ void main() {
       //    УЖЕ после создания CallController — см. порядок в init()).
       final controller = _FakeCallController();
       addTearDown(controller.dispose);
-      MessengerRuntime.instance.debugSetCallController(controller);
+      MessengerRuntime.instance.debugSetCallsFeature(
+        NsgMessengerCalls.debugFeature(callController: controller),
+      );
       MessengerRuntime.instance.debugEmitSessionState(
         MessengerSessionState.active,
       );
@@ -128,7 +132,9 @@ void main() {
     (tester) async {
       final controller = _FakeCallController();
       addTearDown(controller.dispose);
-      MessengerRuntime.instance.debugSetCallController(controller);
+      MessengerRuntime.instance.debugSetCallsFeature(
+        NsgMessengerCalls.debugFeature(callController: controller),
+      );
 
       await tester.pumpWidget(host());
       await tester.pump();
@@ -146,7 +152,7 @@ void main() {
 
       // «dispose() рантайма»: контроллер исчез, эмитится uninitialised
       // (production эмитит его первым делом в MessengerRuntime.dispose()).
-      MessengerRuntime.instance.debugSetCallController(null);
+      MessengerRuntime.instance.debugSetCallsFeature(null);
       MessengerRuntime.instance.debugEmitSessionState(
         MessengerSessionState.uninitialised,
       );

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:nsg_connect_client/nsg_connect_client.dart';
+import 'package:nsg_messenger/nsg_messenger.dart' show ErrorReporter;
 // `Uuid` также реэкспортируется транзитивно через serverpod_client, но
 // мы объявляем uuid прямой зависимостью (pubspec) и импортируем явно —
 // не полагаться на transitive re-export (может пропасть при обновлении
@@ -10,7 +11,6 @@ import 'package:nsg_connect_client/nsg_connect_client.dart';
 // ignore: unnecessary_import
 import 'package:uuid/uuid.dart';
 
-import '../auth_token_provider.dart' show ErrorReporter;
 import 'call_rpc.dart';
 import 'call_state.dart';
 import 'ice_servers.dart';

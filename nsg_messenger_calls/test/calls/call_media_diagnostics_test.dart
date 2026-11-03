@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:nsg_messenger/src/calls/call_media_diagnostics.dart';
+import 'package:nsg_messenger_calls/src/calls/call_media_diagnostics.dart';
 
 /// Юнит-тесты чистых хелперов диагностики медиа-пути звонка
 /// («соединились, звука нет»): сводка SDP + форматирование RTP-статов.
