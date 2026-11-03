@@ -4086,9 +4086,17 @@ class _Loaded extends StatelessWidget {
                                 );
                           albumTiles = [
                             for (final x in imgs)
-                              x.attachment != null
-                                  ? UploadedTile(x.attachment!)
-                                  : UploadingTile(x.localImageBytes!),
+                              if (x.attachment != null)
+                                UploadedTile(x.attachment!)
+                              else if (x.isFailed)
+                                // futbolista-tasks#4179: упавшая загрузка —
+                                // «Повторить», а не вечный прогресс.
+                                FailedUploadTile(
+                                  x.localImageBytes!,
+                                  onRetry: () => onRetry(x),
+                                )
+                              else
+                                UploadingTile(x.localImageBytes!),
                           ];
                           // Подпись — член без вложения И без грузящихся байт
                           // (чтобы грузящаяся картинка не попала в подпись).

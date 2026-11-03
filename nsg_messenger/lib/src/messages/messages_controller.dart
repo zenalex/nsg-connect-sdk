@@ -587,6 +587,13 @@ class MessagesController {
   /// после `await` чтобы не emit-ить state.
   bool _disposed = false;
 
+  /// **futbolista-tasks#4179**: подписи альбомов, ждущие своих картинок.
+  /// Ключ — `albumId`. Пузырь подписи виден сразу (pending), но на сервер
+  /// подпись уходит только когда ВСЕ картинки альбома загружены и
+  /// отправлены — иначе получатель (и бот поддержки) видит текст без фото.
+  final Map<String, _DeferredCaption> _deferredCaptions =
+      <String, _DeferredCaption>{};
+
   /// Гард против concurrent `loadMore()`-вызовов: второй concurrent
   /// вызов silent return-ится. То же самое поведение что в
   /// `MessengerSessionManager` для refresh.
@@ -1283,15 +1290,29 @@ class MessagesController {
     }
 
     // Подпись — отдельным членом альбома (текущая модель: caption = m.text
-    // с тем же albumId). Идёт своим optimistic-путём через sendMessage.
+    // с тем же albumId). Пузырь вставляем сразу, а сам send — ПОСЛЕ
+    // картинок (futbolista-tasks#4179): раньше подпись стреляла
+    // параллельно с аплоадом, и получатель видел текст без фото, а бот
+    // поддержки отвечал на текст раньше, чем фото вообще появлялись.
     if (hasCaption && albumId != null) {
-      unawaited(
-        sendMessage(
+      final captionTxn = _txnIdGenerator();
+      _insertLocalPending(
+        ChatMessage.optimistic(
+          clientTxnId: captionTxn,
+          senderMatrixUserId: _selfMatrixUserId,
+          senderMessengerUserId: _selfMessengerUserId,
           body: caption.trim(),
           mentionedMessengerUserIds: mentions,
           albumId: albumId,
+          threadId: _threadRootEventId,
         ),
       );
+      _deferredCaptions[albumId] = _DeferredCaption(
+        txnId: captionTxn,
+        body: caption.trim(),
+        mentions: mentions,
+      );
+      _logAlbumUpload('caption deferred album=$albumId txn=$captionTxn');
     }
 
     unawaited(_uploadAlbumInBackground(entries, albumId));
@@ -1306,16 +1327,32 @@ class MessagesController {
     List<_AlbumUploadEntry> entries,
     String? albumId,
   ) async {
+    final sends = <Future<void>>[];
     for (final e in entries) {
       if (_disposed) return;
       final AttachmentRef ref;
+      final sw = Stopwatch()..start();
+      _logAlbumUpload(
+        'start txn=${e.txnId} mime=${e.image.mimeType} '
+        'file=${e.image.originalFilename} bytes=${e.image.bytes.length}',
+      );
       try {
-        ref = await _rpc.uploadAttachment(
-          bytes: ByteData.sublistView(e.image.bytes),
-          mimeType: e.image.mimeType,
-          originalFilename: e.image.originalFilename,
+        ref = await _rpc
+            .uploadAttachment(
+              bytes: ByteData.sublistView(e.image.bytes),
+              mimeType: e.image.mimeType,
+              originalFilename: e.image.originalFilename,
+            )
+            .timeout(albumUploadTimeoutFor(e.image.bytes.length));
+        _logAlbumUpload(
+          'ok txn=${e.txnId} ${sw.elapsedMilliseconds}ms mxc=${ref.mxcUrl} '
+          'thumb=${ref.thumbnailMxcUrl != null}',
         );
       } catch (err, st) {
+        _logAlbumUpload(
+          'FAIL txn=${e.txnId} ${sw.elapsedMilliseconds}ms '
+          '${err.runtimeType}: $err',
+        );
         if (_disposed) return;
         // Issue #54: раньше эта ветка молчала — .txt падал с красным «!»
         // и НУЛЁМ строк в логе. Логируем до пометки failed, чтобы причина
@@ -1337,7 +1374,7 @@ class MessagesController {
       // Send RPC в фоне — реконсиляция по clientTxnId (у каждого члена свой),
       // как обычный optimistic-send. НЕ await, чтобы следующий аплоад
       // стартовал сразу.
-      unawaited(
+      sends.add(
         _shootSendRpc(
           clientTxnId: e.txnId,
           body: ref.originalFilename,
@@ -1347,6 +1384,49 @@ class MessagesController {
         ),
       );
     }
+    // Картинки отправлены (или помечены failed) — теперь, и только теперь,
+    // можно отпускать подпись. Если хоть одна картинка упала, подпись ждёт
+    // её успешного повтора: [retry] идёт через этот же метод.
+    await Future.wait(sends);
+    await _releaseDeferredCaption(albumId);
+  }
+
+  /// **futbolista-tasks#4179**: отправить отложенную подпись альбома, если
+  /// все его картинки уже на сервере (sent). Пока хоть одна грузится или
+  /// упала — подпись остаётся pending: текст без фото уходить не должен.
+  Future<void> _releaseDeferredCaption(String? albumId) async {
+    if (albumId == null || _disposed) return;
+    final caption = _deferredCaptions[albumId];
+    if (caption == null) return;
+    final current = _state.value;
+    if (current is! MessagesReady) return;
+    final waiting = current.messages.any(
+      (m) =>
+          m.albumId == albumId &&
+          m.clientTxnId != caption.txnId &&
+          (m.isPending || m.isFailed),
+    );
+    if (waiting) {
+      _logAlbumUpload('caption held album=$albumId (images not sent yet)');
+      return;
+    }
+    // Снимаем ДО await: два параллельных повтора не отправят подпись дважды.
+    _deferredCaptions.remove(albumId);
+    _logAlbumUpload('caption send album=$albumId txn=${caption.txnId}');
+    await _shootSendRpc(
+      clientTxnId: caption.txnId,
+      body: caption.body,
+      msgType: 'm.text',
+      mentionedMessengerUserIds: caption.mentions,
+      albumId: albumId,
+    );
+  }
+
+  /// Диагностика загрузки альбома (futbolista-tasks#4179): формат, размер,
+  /// длительность и ответ сервера по каждой плитке. Не в release —
+  /// в релизе `debugPrint` не виден, а имена файлов в логах не нужны.
+  void _logAlbumUpload(String line) {
+    if (!kReleaseMode) debugPrint('[album-upload room=$_roomId] $line');
   }
 
   /// **Оптимистичный альбом**: найти pending-пузырь по `clientTxnId` и
@@ -1751,6 +1831,9 @@ class MessagesController {
       // пузырь после повтора сменил бы вид прямо на глазах.
       stickerId: failedMsg.sticker?.id,
     );
+    // Член альбома упал уже ПОСЛЕ аплоада и сейчас доотправлен — подпись,
+    // ждавшая его (futbolista-tasks#4179), может уходить.
+    await _releaseDeferredCaption(failedMsg.albumId);
   }
 
   /// **B10 (BACKLOG)**: повторить ВСЕ сообщения в `failed`-статусе. Зовётся
@@ -2561,6 +2644,31 @@ class MessagesController {
 /// `clientTxnId` (id pending-пузыря) + исходные байты/MIME/имя для
 /// `uploadAttachment`. Хранится только на время последовательного
 /// аплоада, потом отбрасывается.
+/// **futbolista-tasks#4179**: сколько ждём загрузку одной плитки альбома.
+///
+/// Serverpod-клиент ограничивает только ожидание ОТВЕТА; запись тела
+/// запроса (`write`/`flush`) у него без тайм-аута, и на заглохшей мобильной
+/// сети аплоад висел бесконечно — плитка крутилась вечно. Здесь честный
+/// предел: 30 с на соединение и обработку плюс 10 с на каждый мегабайт
+/// (≈0,8 Мбит/с — медленный, но живой 3G). Тайм-аут не отменяет сам
+/// запрос, он лишь переводит плитку в «Повторить»; повтор загружает
+/// байты заново, а сообщение уходит тем же `clientTxnId` — дубль в чате
+/// сервер отсекает.
+@visibleForTesting
+Duration albumUploadTimeoutFor(int bytes) =>
+    Duration(seconds: 30 + (bytes / (1024 * 1024) * 10).ceil());
+
+class _DeferredCaption {
+  const _DeferredCaption({
+    required this.txnId,
+    required this.body,
+    required this.mentions,
+  });
+  final String txnId;
+  final String body;
+  final List<int>? mentions;
+}
+
 class _AlbumUploadEntry {
   const _AlbumUploadEntry({required this.txnId, required this.image});
   final String txnId;

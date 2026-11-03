@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nsg_connect_client/nsg_connect_client.dart';
 import 'package:nsg_messenger/src/messages/attachments/attachment_picker.dart';
@@ -2301,6 +2302,129 @@ void main() {
       );
       await controller.dispose();
       await eventCtrl.close();
+    });
+
+    test('futbolista-tasks#4179: подпись уходит ПОСЛЕ отправки картинок, '
+        'а не параллельно с их загрузкой', () async {
+      final rpc = _FakeRpc();
+      rpc.listMessagesHandler = (_, _, _) async => _page(messages: []);
+      final uploadGate = Completer<AttachmentRef>();
+      rpc.uploadAttachmentHandler = (_, _, _) => uploadGate.future;
+      rpc.sendMessageHandler = echoSend;
+      final eventCtrl = StreamController<MessengerEvent>.broadcast();
+      final controller = _make(rpc: rpc, events: eventCtrl.stream);
+      await controller.init();
+
+      final albumId = controller.sendAlbumOptimistic(
+        images: [picked('camera')],
+        caption: 'тест 4179',
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      // Пузырь подписи виден сразу, но на сервер ничего не ушло: фото ещё
+      // грузится. Раньше здесь уже был send подписи — бот отвечал на текст
+      // без фото.
+      final pending = (controller.state as MessagesReady).messages;
+      expect(pending.where((m) => m.body == 'тест 4179'), hasLength(1));
+      expect(rpc.sentMessages, isEmpty);
+
+      uploadGate.complete(uploadedRef('camera'));
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(
+        rpc.sentMessages.map((s) => s.body).toList(),
+        ['camera.jpg', 'тест 4179'],
+        reason: 'сначала фото, затем подпись',
+      );
+      expect(rpc.sentMessages.last.albumId, albumId);
+
+      await controller.dispose();
+      await eventCtrl.close();
+    });
+
+    test('futbolista-tasks#4179: загрузка одного фото упала — подпись ждёт, '
+        'после успешного повтора уходит последней', () async {
+      final rpc = _FakeRpc();
+      rpc.listMessagesHandler = (_, _, _) async => _page(messages: []);
+      var cameraAttempts = 0;
+      rpc.uploadAttachmentHandler = (_, _, name) async {
+        if (name == 'camera.jpg' && ++cameraAttempts == 1) {
+          throw Exception('upload stalled');
+        }
+        return uploadedRef(name.replaceAll('.jpg', ''));
+      };
+      rpc.sendMessageHandler = echoSend;
+      final eventCtrl = StreamController<MessengerEvent>.broadcast();
+      final controller = _make(rpc: rpc, events: eventCtrl.stream);
+      await controller.init();
+
+      controller.sendAlbumOptimistic(
+        images: [picked('camera'), picked('gallery')],
+        caption: 'тест 4179',
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      var messages = (controller.state as MessagesReady).messages;
+      final camera = messages.singleWhere((m) => m.body == 'camera.jpg');
+      expect(camera.isFailed, isTrue);
+      expect(rpc.sentMessages.map((s) => s.body), ['gallery.jpg']);
+      expect(
+        messages.singleWhere((m) => m.body == 'тест 4179').isPending,
+        isTrue,
+        reason: 'текст без всех фото уходить не должен',
+      );
+
+      await controller.retry(camera.clientTxnId!);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(rpc.sentMessages.map((s) => s.body).toList(), [
+        'gallery.jpg',
+        'camera.jpg',
+        'тест 4179',
+      ]);
+      messages = (controller.state as MessagesReady).messages;
+      expect(messages.every((m) => m.isSent), isTrue);
+
+      await controller.dispose();
+      await eventCtrl.close();
+    });
+
+    test('futbolista-tasks#4179: зависшая загрузка не крутится вечно — '
+        'по тайм-ауту плитка failed', () {
+      fakeAsync((async) {
+        final rpc = _FakeRpc();
+        rpc.listMessagesHandler = (_, _, _) async => _page(messages: []);
+        rpc.uploadAttachmentHandler = (_, _, _) =>
+            Completer<AttachmentRef>().future; // сеть заглохла
+        rpc.sendMessageHandler = echoSend;
+        final eventCtrl = StreamController<MessengerEvent>.broadcast();
+        final controller = _make(rpc: rpc, events: eventCtrl.stream);
+        controller.init();
+        async.flushMicrotasks();
+
+        controller.sendAlbumOptimistic(images: [picked('camera')]);
+        async.elapse(albumUploadTimeoutFor(4) - const Duration(seconds: 1));
+        expect(
+          (controller.state as MessagesReady).messages.single.isPending,
+          isTrue,
+        );
+        async.elapse(const Duration(seconds: 2));
+        expect(
+          (controller.state as MessagesReady).messages.single.isFailed,
+          isTrue,
+        );
+        controller.dispose();
+        eventCtrl.close();
+        async.flushMicrotasks();
+      });
+    });
+
+    test('тайм-аут загрузки растёт с размером файла', () {
+      expect(albumUploadTimeoutFor(0), const Duration(seconds: 30));
+      expect(
+        albumUploadTimeoutFor(5 * 1024 * 1024),
+        const Duration(seconds: 80),
+      );
     });
 
     test('только подпись без картинок → обычное текстовое сообщение', () async {

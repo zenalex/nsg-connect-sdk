@@ -133,4 +133,33 @@ void main() {
     await tester.pump();
     expect(tapped, isNotNull);
   });
+
+  testWidgets('futbolista-tasks#4179: упавшая плитка — «Повторить» без '
+      'вечного прогресса, тап зовёт onRetry', (tester) async {
+    var retried = 0;
+    await tester.pumpWidget(
+      wrap(
+        AlbumMosaic(
+          tiles: [
+            UploadedTile(ref()),
+            FailedUploadTile(pngBytes, onRetry: () => retried++),
+          ],
+          thumbnailRpc: thumbRpc,
+          fullSizeRpc: fullRpc,
+          textColor: Colors.black,
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byKey(const Key('album-tile-retry')), findsOneWidget);
+    expect(
+      find.byType(CircularProgressIndicator),
+      findsNothing,
+      reason: 'упавшая загрузка не должна выглядеть идущей',
+    );
+
+    await tester.tap(find.byKey(const Key('album-tile-retry')));
+    expect(retried, 1);
+  });
 }

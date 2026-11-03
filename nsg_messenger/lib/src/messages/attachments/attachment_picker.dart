@@ -318,6 +318,19 @@ Future<AttachmentPickOutcome> pickFilesAttachment({int? limit}) async {
   );
 }
 
+/// **futbolista-tasks#4179**: потолок стороны снимка с камеры.
+///
+/// Без ограничений `image_picker` на iOS отдаёт кадр камеры полноразмерным
+/// JPEG с качеством 1.0 (у 24–48-Мп камер это мегабайты), а загрузка идёт
+/// одним JSON-запросом через base64 (+33%). На мобильной сети такой запрос
+/// тянулся минутами и выглядел вечным прогрессом. 2560 px — больше любого
+/// экрана, на котором фото откроют, и в разы меньше по весу. Галерею не
+/// трогаем: там человек сам выбрал, что отправить.
+const double kCameraMaxDimension = 2560;
+
+/// Качество JPEG снимка с камеры (0–100). 85 — визуально без потерь.
+const int kCameraImageQuality = 85;
+
 /// Pick → read bytes → derive MIME. `image_picker` возвращает `XFile`
 /// с опциональным `.mimeType`; fallback по extension. Возвращает null на
 /// cancel / permission-denied / camera-unavailable (UI покажет snackbar).
@@ -328,7 +341,13 @@ Future<PickedAttachment?> pickImageAttachment(
   final XFile? file;
   try {
     _pickInFlight = true;
-    file = await picker.pickImage(source: source);
+    final camera = source == ImageSource.camera;
+    file = await picker.pickImage(
+      source: source,
+      maxWidth: camera ? kCameraMaxDimension : null,
+      maxHeight: camera ? kCameraMaxDimension : null,
+      imageQuality: camera ? kCameraImageQuality : null,
+    );
   } catch (e, st) {
     if (isConcurrentPickError(e)) throw const ConcurrentPickException();
     _reportPickFailure('pickImage($source)', e, st);
@@ -339,6 +358,12 @@ Future<PickedAttachment?> pickImageAttachment(
   if (file == null) return null; // user cancelled
   final bytes = await file.readAsBytes();
   final mime = file.mimeType ?? guessMimeFromExtension(file.name);
+  if (!kReleaseMode) {
+    debugPrint(
+      '[album-upload] picked source=$source mime=$mime name=${file.name} '
+      'bytes=${bytes.length} path=${file.path}',
+    );
+  }
   return PickedAttachment(
     bytes: bytes,
     mimeType: mime,
@@ -371,6 +396,12 @@ Future<List<PickedAttachment>> pickImagesAttachment(
   for (final file in files) {
     final bytes = await file.readAsBytes();
     final mime = file.mimeType ?? guessMimeFromExtension(file.name);
+    if (!kReleaseMode) {
+      debugPrint(
+        '[album-upload] picked source=gallery mime=$mime name=${file.name} '
+        'bytes=${bytes.length} path=${file.path}',
+      );
+    }
     result.add(
       PickedAttachment(
         bytes: bytes,

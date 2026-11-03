@@ -13,8 +13,8 @@ import '../../theme/messenger_theme_scope.dart';
 
 /// **Оптимистичный альбом**: одна плитка мозаики — либо уже загруженная
 /// (`mxc` доступен, рендер через [MxcImageProvider]), либо ещё грузящаяся
-/// (локальные байты, рендер блюром + прогресс). Sealed — [AlbumMosaic]
-/// исчерпывающе switch-ает оба случая.
+/// (локальные байты, рендер блюром + прогресс), либо упавшая на загрузке
+/// (локальные байты + «Повторить»).
 sealed class AlbumTile {
   const AlbumTile();
 }
@@ -30,6 +30,16 @@ class UploadedTile extends AlbumTile {
 class UploadingTile extends AlbumTile {
   const UploadingTile(this.bytes);
   final Uint8List bytes;
+}
+
+/// Плитка, чья загрузка упала (futbolista-tasks#4179). Раньше такой член
+/// альбома рисовался [UploadingTile] — вечный прогресс без шанса понять,
+/// что фото не ушло, а повтор был недоступен: не-anchor члены альбома
+/// своих пузырей (и кнопки повтора) не имеют. Тап → [onRetry].
+class FailedUploadTile extends AlbumTile {
+  const FailedUploadTile(this.bytes, {this.onRetry});
+  final Uint8List bytes;
+  final VoidCallback? onRetry;
 }
 
 /// Render `MessengerMessage.attachment` внутри `MessageBubble` (TASK19
@@ -158,6 +168,7 @@ class AlbumMosaic extends StatelessWidget {
   /// повторяет фильтр `collectChatImages` — что галерея не покажет, то
   /// открываем как файл.
   VoidCallback? _tapHandler(BuildContext context, AlbumTile t) {
+    if (t is FailedUploadTile) return t.onRetry;
     // Грузящаяся плитка: mxc ещё нет, открывать нечего.
     if (t is! UploadedTile) return null;
     final ref = t.ref;
@@ -224,6 +235,58 @@ class _MosaicTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = tile;
+    if (t is FailedUploadTile) {
+      final dpr = MediaQuery.of(context).devicePixelRatio;
+      final label = NsgL10n.of(context).commonRetry;
+      return Semantics(
+        button: true,
+        label: label,
+        child: GestureDetector(
+          onTap: onTap,
+          child: SizedBox(
+            width: size,
+            height: size,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                ImageFiltered(
+                  imageFilter: glassBlur(8),
+                  child: Image.memory(
+                    t.bytes,
+                    fit: BoxFit.cover,
+                    cacheWidth: (size * dpr).round(),
+                    errorBuilder: (ctx, _, _) =>
+                        Container(color: textColor.withValues(alpha: 0.06)),
+                  ),
+                ),
+                Container(color: Colors.black.withValues(alpha: 0.45)),
+                Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.refresh,
+                        key: Key('album-tile-retry'),
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        label,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
     if (t is UploadingTile) {
       // Грузящаяся плитка: локальные байты под блюром + прогресс. Тап
       // отключён (mxc ещё нет, галерею открывать нечем).
